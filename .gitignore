@@ -1,0 +1,13 @@
+/.serena
+*~
+\#*
+.*~
+.#*
+/site/
+/build/
+/release/
+node_modules
+/.gemini/
+/.playwright-mcp/
+/.claude/scratch/
+/notes.md
