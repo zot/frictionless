@@ -25,6 +25,7 @@ const (
 type Server struct {
 	mcpServer         *server.MCPServer
 	cfg               *cli.Config
+	uiServer          *cli.Server                    // UI engine server for ExecuteInSession
 	runtime           *cli.LuaRuntime
 	viewdefs          *cli.ViewdefManager
 	startFunc         func(port int) (string, error) // Callback to start HTTP server
@@ -38,11 +39,12 @@ type Server struct {
 }
 
 // NewServer creates a new MCP server.
-func NewServer(cfg *cli.Config, runtime *cli.LuaRuntime, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), onViewdefUploaded func(typeName string), getSessionCount func() int) *Server {
+func NewServer(cfg *cli.Config, uiServer *cli.Server, runtime *cli.LuaRuntime, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), onViewdefUploaded func(typeName string), getSessionCount func() int) *Server {
 	s := server.NewMCPServer("ui-server", "0.1.0")
 	srv := &Server{
 		mcpServer:         s,
 		cfg:               cfg,
+		uiServer:          uiServer,
 		runtime:           runtime,
 		viewdefs:          viewdefs,
 		startFunc:         startFunc,

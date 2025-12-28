@@ -81,6 +81,7 @@ func runMCP(args []string) int {
 	// Create the MCP server with callbacks into the ui-engine server
 	mcpServer := mcp.NewServer(
 		cfg,
+		srv,
 		srv.GetLuaRuntime(),
 		srv.GetViewdefManager(),
 		func(port int) (string, error) {
@@ -158,6 +159,7 @@ func runServe(args []string) int {
 	// Create MCP server
 	mcpServer := mcp.NewServer(
 		cfg,
+		srv,
 		srv.GetLuaRuntime(),
 		srv.GetViewdefManager(),
 		func(p int) (string, error) {

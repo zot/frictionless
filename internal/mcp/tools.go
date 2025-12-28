@@ -210,8 +210,11 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		sessionID = "1"
 	}
 
-	result, err := s.runtime.ExecuteInSession(sessionID, func() (interface{}, error) {
-		return s.runtime.LoadCode("mcp-run", code)
+	// Use Server.ExecuteInSession (triggers afterBatch) wrapping Runtime.ExecuteInSession (sets Lua context)
+	result, err := s.uiServer.ExecuteInSession(sessionID, func() (interface{}, error) {
+		return s.runtime.ExecuteInSession(sessionID, func() (interface{}, error) {
+			return s.runtime.LoadCodeDirect("mcp-run", code)
+		})
 	})
 
 	if err != nil {
