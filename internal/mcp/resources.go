@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/zot/ui-engine/internal/bundle"
+	"github.com/zot/ui-engine/cli"
 )
 
 func (s *Server) registerResources() {
@@ -99,12 +99,12 @@ func (s *Server) handleGetStaticResource(ctx context.Context, request mcp.ReadRe
 	// 2. Try bundle if not found in FS (or server not configured)
 	if !found {
 		// Try with .md extension
-		content, err = bundle.ReadFile("resources/" + cleanPath + ".md")
+		content, err = cli.BundleReadFile("resources/" + cleanPath + ".md")
 		if err != nil {
 			// Try exact match
-			content, err = bundle.ReadFile("resources/" + cleanPath)
+			content, err = cli.BundleReadFile("resources/" + cleanPath)
 		}
-		
+
 		if err != nil {
 			return nil, fmt.Errorf("Resource not found: %s", path)
 		}

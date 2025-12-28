@@ -29,6 +29,7 @@ The MCP server provides tools and resources for AI assistants to interact with U
 - `run` - Execute Lua code
 - `upload_viewdef` - Upload view definitions
 - `open_browser` - Launch browser to UI
+- `status` - Get server state and session count
 
 ### Design Elements
 
@@ -44,6 +45,7 @@ The MCP server provides tools and resources for AI assistants to interact with U
 - seq-mcp-receive-event.md
 - seq-mcp-run.md
 - seq-mcp-get-state.md
+- seq-mcp-notify.md
 
 **Test Design:**
 - test-MCP.md

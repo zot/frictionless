@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI MCP</title>
+
+    <!-- Shoelace CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.12.0/cdn/themes/light.css" />
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.12.0/cdn/shoelace-autoloader.js"></script>
+
+    <style>
+     :root {
+       --app-max-width: 800px;
+       --spacing-sm: 0.5rem;
+       --spacing-md: 1rem;
+       --spacing-lg: 1.5rem;
+     }
+
+     * {
+       box-sizing: border-box;
+     }
+
+     body {
+       font-family: var(--sl-font-sans);
+       margin: 0;
+       padding: var(--spacing-md);
+       background: var(--sl-color-neutral-50);
+       min-height: 100vh;
+     }
+
+     .app-container {
+       max-width: var(--app-max-width);
+       margin: 0 auto;
+     }
+
+     .error-alert {
+       margin-bottom: var(--spacing-md);
+     }
+
+     .empty-state {
+       text-align: center;
+       padding: calc(var(--spacing-lg) * 2);
+       color: var(--sl-color-neutral-500);
+     }
+
+     .hidden {
+       display: none !important;
+     }
+
+     /* Loading state shown before app renders */
+     [ui-app]:empty {
+       display: flex;
+       justify-content: center;
+       align-items: center;
+       min-height: 200px;
+     }
+
+     [ui-app]:empty::after {
+       content: "";
+       width: 2rem;
+       height: 2rem;
+       border: 3px solid var(--sl-color-neutral-200);
+       border-top-color: var(--sl-color-primary-600);
+       border-radius: 50%;
+       animation: spin 1s linear infinite;
+     }
+
+     @keyframes spin {
+       to { transform: rotate(360deg); }
+     }
+    </style>
+  </head>
+  <body>
+    <!-- App container - renders variable 1 -->
+    <div class="app-container" ui-app="value"></div>
+
+    <!-- Main App Script -->
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>

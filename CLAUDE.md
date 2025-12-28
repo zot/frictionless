@@ -1,7 +1,7 @@
 # Project Instructions
 
 ### Running the demo
-From the project directory, this command runs the demo `./build/ui-mcp --port 8000 --dir .ui-mcp -vvvv`
+From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .ui-mcp -vvvv`
 You can use the playwright browser to connect to it.
 
 ## 🎯 Core Principles

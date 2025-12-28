@@ -20,6 +20,7 @@
 - ui_run: Execute Lua code in session context
 - ui_upload_viewdef: Add dynamic view definition and push to frontend
 - ui_open_browser: Open system browser to session URL (defaults to ?conserve=true)
+- ui_status: Get server state, URL, and session count
 
 ## Collaborators
 

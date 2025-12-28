@@ -14,17 +14,46 @@ GOFLAGS := -trimpath
 # Output directories
 BUILD_DIR := build
 RELEASE_DIR := release
+CACHE_DIR := cache
 
-.PHONY: all build clean test lint fmt vet deps release install check help
+# ui-engine project location (adjust if needed)
+UI_ENGINE_DIR ?= ../ui-engine
+
+.PHONY: all build clean test lint fmt vet deps release install check help cache cache-clean cache-refresh
 
 # Default target
-all: deps build
+all: deps cache build
 
 # Build binary for current platform
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ui-mcp
+
+# Cache ui-engine web assets (only if cache doesn't exist)
+cache: $(CACHE_DIR)/.cached
+
+$(CACHE_DIR)/.cached:
+	@echo "Extracting web assets from ui-engine-bundled..."
+	@if [ ! -f "$(UI_ENGINE_DIR)/build/ui-engine-bundled" ]; then \
+		echo "Error: ui-engine-bundled not found at $(UI_ENGINE_DIR)/build/"; \
+		echo "Run 'make bundle' in ui-engine first, or set UI_ENGINE_DIR"; \
+		exit 1; \
+	fi
+	@mkdir -p $(CACHE_DIR)/html $(CACHE_DIR)/viewdefs $(CACHE_DIR)/lua
+	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'html/*' $(CACHE_DIR)/html/
+	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'viewdefs/*' $(CACHE_DIR)/viewdefs/ 2>/dev/null || true
+	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'lua/*' $(CACHE_DIR)/lua/ 2>/dev/null || true
+	@touch $(CACHE_DIR)/.cached
+	@echo "Cached web assets in $(CACHE_DIR)/"
+
+# Force rebuild of cache
+cache-refresh: cache-clean cache
+
+# Remove cached assets
+cache-clean:
+	@echo "Cleaning cache..."
+	@rm -rf $(CACHE_DIR)
 
 # Clean build artifacts
 clean:
@@ -68,8 +97,10 @@ vet:
 # Install dependencies
 deps:
 	@echo "Installing dependencies..."
-	$(GO) mod download
-	$(GO) mod tidy
+	$(GO) work sync
+
+#	$(GO) mod download
+#	$(GO) mod tidy
 
 # Build release binaries for all platforms
 release:
@@ -132,8 +163,10 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Build Targets:"
-	@echo "  all             Build everything (deps, binary)"
+	@echo "  all             Build everything (deps, cache, binary)"
 	@echo "  build           Build binary for current platform"
+	@echo "  cache           Extract web assets from ui-engine-bundled"
+	@echo "  cache-refresh   Force rebuild of cached assets"
 	@echo ""
 	@echo "Release Targets:"
 	@echo "  release         Build binaries for all platforms"
@@ -146,7 +179,8 @@ help:
 	@echo "  test-coverage   Run tests with coverage report"
 	@echo ""
 	@echo "Maintenance Targets:"
-	@echo "  clean           Remove build artifacts"
+	@echo "  clean           Remove build artifacts (keeps cache)"
+	@echo "  cache-clean     Remove cached ui-engine assets"
 	@echo "  deps            Install Go dependencies"
 	@echo "  lint            Run linter"
 	@echo "  fmt             Format Go code"
@@ -156,3 +190,4 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  VERSION         Version string (default: git describe)"
+	@echo "  UI_ENGINE_DIR   Path to ui-engine project (default: ../ui-engine)"

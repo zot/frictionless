@@ -178,3 +178,68 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
         - **Action 2:** Displays a minimal page with a "Session is already open" message and a "Close this page" link.
         - **Action 3:** Triggers a **Desktop Notification** (via the Web Notifications API) to alert the user: "Session [ID] is already active in another tab."
     - If no other clients are active, the tab proceeds to load normally.
+
+### 5.6 `ui_status`
+**Purpose:** Returns the current status of the MCP server including lifecycle state and browser connection status.
+
+**Parameters:** None.
+
+**Behavior:**
+- Reports the current server state (UNCONFIGURED, CONFIGURED, or RUNNING).
+- If RUNNING, reports the server URL and number of connected browser sessions.
+
+**Returns:**
+- JSON object with status information:
+  - `state`: Current lifecycle state ("unconfigured", "configured", or "running")
+  - `url`: Server URL (only if running)
+  - `sessions`: Number of active browser sessions (only if running)
+
+**Example Response:**
+```json
+{
+  "state": "running",
+  "url": "http://127.0.0.1:39482",
+  "sessions": 1
+}
+```
+
+## 7. Notifications
+
+The MCP server supports server-to-client notifications, enabling Lua code to communicate events back to the AI agent.
+
+### 7.1 `mcp.notify(method, params)`
+**Purpose:** Sends a JSON-RPC 2.0 notification from Lua code to the connected MCP client (AI agent).
+
+**Lua API:**
+```lua
+mcp.notify(method, params)
+```
+
+**Parameters:**
+- `method` (string): The notification method name (e.g., "feedback", "user_action").
+- `params` (table, optional): Structured data for the notification.
+
+**Behavior:**
+- Converts Lua table to JSON object.
+- Sends JSON-RPC 2.0 notification to the MCP client via stdout.
+
+**Example:**
+```lua
+-- User submits feedback form
+function Feedback:submit()
+    mcp.notify("feedback", {
+        rating = self.rating,
+        comment = self.comment
+    })
+end
+```
+
+**Wire Format:**
+```json
+{"jsonrpc":"2.0","method":"feedback","params":{"rating":4,"comment":"Great!"}}
+```
+
+### 7.2 Use Cases
+- **Form submission:** User fills form → Lua handler calls `mcp.notify` → Agent receives data
+- **User actions:** Button clicks, selections, navigation events
+- **State changes:** When application state changes that the agent should know about

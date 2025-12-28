@@ -11,6 +11,7 @@
 - activeSession: Current session for AI interaction
 - state: Lifecycle state (UNCONFIGURED, CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
+- getSessionCount: Callback to query active browser session count
 
 ### Does
 - initialize: Set up MCP server connection in UNCONFIGURED state
@@ -18,10 +19,11 @@
 - start: Transition to RUNNING state, launch HTTP server (ui_start)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (session state)
-- listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser)
+- listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status)
 - handleResourceRequest: Process resource queries (ui://state/{sessionId})
 - handleToolCall: Execute tool operations by delegating to specific handlers
-- sendNotification: Push events to AI client
+- sendNotification: Push events to AI client (wired to Lua mcp.notify())
+- getStatus: Return current lifecycle state, URL, and session count
 - shutdown: Clean up MCP connection
 
 ## Collaborators
@@ -39,3 +41,4 @@
 - seq-mcp-create-session.md: AI creating session
 - seq-mcp-run.md: AI executing Lua code
 - seq-mcp-get-state.md: AI inspecting state
+- seq-mcp-notify.md: Lua code sending notifications to AI agent

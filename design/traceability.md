@@ -16,6 +16,7 @@
 - seq-mcp-receive-event.md
 - seq-mcp-run.md
 - seq-mcp-get-state.md
+- seq-mcp-notify.md
 
 **Test Design:**
 - test-MCP.md
@@ -29,7 +30,9 @@
 ### crc-MCPServer.md
 **Source Spec:** mcp.md
 **Implementation:**
-- [ ] `internal/mcp/server.go` - MCP server (Lifecycle FSM, configuration, startup, notifications)
+- [x] `internal/mcp/server.go` - MCP server (Lifecycle FSM, configuration, startup, notifications)
+  - [x] SendNotification() wired to Lua mcp.notify() -> seq-mcp-notify.md
+  - [x] getSessionCount callback for ui_status
 
 ### crc-MCPResource.md
 **Source Spec:** mcp.md
@@ -39,7 +42,8 @@
 ### crc-MCPTool.md
 **Source Spec:** mcp.md
 **Implementation:**
-- [ ] `internal/mcp/tools.go` - MCP tools (configure, start, run, upload_viewdef, open_browser)
+- [x] `internal/mcp/tools.go` - MCP tools (configure, start, run, upload_viewdef, open_browser, status)
+  - [x] handleStatus() for ui_status tool
 
 ---
 

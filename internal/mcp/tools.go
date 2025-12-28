@@ -1,7 +1,7 @@
 // Package mcp implements the Model Context Protocol server.
 // CRC: crc-MCPTool.md
-// Spec: specs/mcp.md
-// Sequence: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-get-state.md
+// Spec: mcp.md
+// Sequence: seq-mcp-lifecycle.md, seq-mcp-run.md
 package mcp
 
 import (
@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/zot/ui-engine/internal/bundle"
+	"github.com/zot/ui-engine/cli"
 )
 
 func (s *Server) registerTools() {
@@ -52,6 +52,11 @@ func (s *Server) registerTools() {
 		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace (e.g. 'DEFAULT')")),
 		mcp.WithString("content", mcp.Required(), mcp.Description("HTML content")),
 	), s.handleUploadViewdef)
+
+	// ui_status
+	s.mcpServer.AddTool(mcp.NewTool("ui_status",
+		mcp.WithDescription("Get current server status including lifecycle state and browser connection count"),
+	), s.handleStatus)
 }
 
 func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -89,13 +94,13 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	resourcesDir := filepath.Join(baseDir, "resources")
 	if _, err := os.Stat(resourcesDir); os.IsNotExist(err) {
 		// Try to extract only the resources directory from bundle
-		if isBundled, _ := bundle.IsBundled(); isBundled {
+		if isBundled, _ := cli.IsBundled(); isBundled {
 			// List files in resources/ from bundle
-			files, _ := bundle.ListFilesInDir("resources")
+			files, _ := cli.BundleListFiles("resources")
 			if len(files) > 0 {
 				os.MkdirAll(resourcesDir, 0755)
 				for _, f := range files {
-					content, _ := bundle.ReadFile(f)
+					content, _ := cli.BundleReadFile(f)
 					os.WriteFile(filepath.Join(baseDir, f), content, 0644)
 				}
 			}
@@ -256,4 +261,44 @@ func (s *Server) handleUploadViewdef(ctx context.Context, request mcp.CallToolRe
 	}
 	
 	return mcp.NewToolResultText(fmt.Sprintf("Viewdef %s uploaded", key)), nil
+}
+
+// CRC: crc-MCPTool.md
+// Spec: mcp.md (section 5.6)
+func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.mu.RLock()
+	state := s.state
+	url := s.url
+	s.mu.RUnlock()
+
+	result := map[string]interface{}{
+		"state": stateToString(state),
+	}
+
+	if state == Running {
+		result["url"] = url
+		if s.getSessionCount != nil {
+			result["sessions"] = s.getSessionCount()
+		}
+	}
+
+	jsonResult, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to marshal status: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(string(jsonResult)), nil
+}
+
+func stateToString(state State) string {
+	switch state {
+	case Unconfigured:
+		return "unconfigured"
+	case Configured:
+		return "configured"
+	case Running:
+		return "running"
+	default:
+		return "unknown"
+	}
 }
