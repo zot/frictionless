@@ -243,3 +243,40 @@ end
 - **Form submission:** User fills form → Lua handler calls `mcp.notify` → Agent receives data
 - **User actions:** Button clicks, selections, navigation events
 - **State changes:** When application state changes that the agent should know about
+
+## 8. Resources
+
+MCP Resources provide read access to state and documentation.
+
+### 8.1 State Resources
+
+| URI | Description |
+|-----|-------------|
+| `ui://state` | Current JSON state of session 1 (Variable 1) |
+| `ui://state/{sessionId}` | Current JSON state of the specified session |
+
+**Example Response (ui://state):**
+```json
+{
+  "type": "MyApp",
+  "title": "My Application",
+  "items": [...]
+}
+```
+
+### 8.2 Documentation Resources
+
+| URI | Description |
+|-----|-------------|
+| `ui://reference` | Main entry point for UI platform documentation |
+| `ui://viewdefs` | Guide to ui-* attributes and path syntax |
+| `ui://lua` | Lua API, class patterns, and global objects |
+| `ui://mcp` | Guide for AI agents to build apps |
+
+### 8.3 Static Resources
+
+| URI | Description |
+|-----|-------------|
+| `ui://{path}` | Generic resource for static content in the resources directory |
+
+Files in `{base_dir}/resources/` are accessible via `ui://{filename}` (e.g., `ui://patterns/form.md`).
