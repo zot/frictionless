@@ -1,1 +1,1 @@
-session:createAppVariable(mcp)
+-- main.lua is empty - mcp global is created by handleStart in Go

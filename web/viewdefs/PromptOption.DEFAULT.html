@@ -1,0 +1,30 @@
+<!-- PromptOption viewdef - single option button in permission dialog -->
+<!-- CRC: crc-PromptOption.md -->
+<!-- Spec: prompt-ui.md -->
+<template>
+  <style>
+    .prompt-option {
+      width: 100%;
+      padding: 12px 24px;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--sl-color-neutral-300);
+      border-radius: 4px;
+      background: var(--sl-color-neutral-0);
+      cursor: pointer;
+      font-size: 1rem;
+      text-align: left;
+      transition: all 0.2s;
+    }
+
+    .prompt-option:hover {
+      background: var(--sl-color-primary-50);
+      border-color: var(--sl-color-primary-500);
+    }
+
+    .prompt-option:last-child {
+      margin-bottom: 0;
+    }
+  </style>
+
+  <button class="prompt-option" ui-text="label" ui-click="respond()"></button>
+</template>

@@ -1,0 +1,23 @@
+<!-- MCP default viewdef -->
+<!-- Spec: prompt-ui.md -->
+<template>
+  <style>
+    .mcp-container {
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+      color: var(--sl-color-neutral-600);
+    }
+    .mcp-status {
+      font-size: 1.2rem;
+      margin-top: 2rem;
+    }
+  </style>
+  <div class="mcp-container">
+    <h2>UI MCP</h2>
+    <!-- Display value if set, otherwise show ready message -->
+    <ui-var path="value"></ui-var>
+    <p class="mcp-status" ui-show="!value">Ready for prompts...</p>
+  </div>
+</template>

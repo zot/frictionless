@@ -264,6 +264,30 @@ MCP Resources provide read access to state and documentation.
 }
 ```
 
+### 8.2 Debug Resources
+
+| URI | Description |
+|-----|-------------|
+| `ui://variables` | Topologically sorted array of all tracked variables for session 1 |
+
+Each variable includes: id, parentId, type, path, value, properties, and childIds.
+
+**Example Response (ui://variables):**
+```json
+[
+  {
+    "id": 1,
+    "parentId": 0,
+    "type": "MCP",
+    "value": {"obj": 2},
+    "properties": {"type": "MCP"},
+    "childIds": []
+  }
+]
+```
+
+The `/debug/variables` HTTP endpoint renders the same data as an interactive HTML tree using Shoelace components.
+
 ### 8.2 Documentation Resources
 
 | URI | Description |

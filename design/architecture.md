@@ -2,7 +2,7 @@
 
 **Entry point to the design - shows how design elements are organized into logical systems**
 
-**Sources**: mcp.md
+**Sources**: mcp.md, prompt-ui.md
 
 ---
 
@@ -10,35 +10,10 @@
 
 **Purpose**: AI assistant integration via Model Context Protocol
 
-The MCP server provides tools and resources for AI assistants to interact with UI applications. It manages the lifecycle of UI sessions, provides state access, and enables programmatic UI control.
-
-### Components
-
-**MCPServer**: Core server implementing MCP protocol
-- Lifecycle state machine (Unconfigured → Configured → Running)
-- Configuration management
-- Tool and resource registration
-
-**MCPResource**: Static and dynamic resource providers
-- State root redirection via `mcp.state`
-- Static resources from `baseDir/resources`
-
-**MCPTool**: AI assistant tools
-- `configure` - Set UI configuration
-- `start` - Start the UI server
-- `run` - Execute Lua code
-- `upload_viewdef` - Upload view definitions
-- `open_browser` - Launch browser to UI
-- `status` - Get server state and session count
-
-### Design Elements
-
-**CRC Cards:**
+**Design Elements:**
 - crc-MCPServer.md
 - crc-MCPResource.md
 - crc-MCPTool.md
-
-**Sequence Diagrams:**
 - seq-mcp-lifecycle.md
 - seq-mcp-create-session.md
 - seq-mcp-create-presenter.md
@@ -46,9 +21,47 @@ The MCP server provides tools and resources for AI assistants to interact with U
 - seq-mcp-run.md
 - seq-mcp-get-state.md
 - seq-mcp-notify.md
-
-**Test Design:**
 - test-MCP.md
+
+---
+
+## Permission Prompt System
+
+**Purpose**: Browser-based UI for Claude Code permission prompts via viewdefs
+
+**Design Elements:**
+- crc-PromptManager.md
+- crc-PromptHTTPServer.md
+- crc-Server.md
+- crc-PromptResponseCallback.md
+- crc-Prompt.md (Lua model)
+- crc-PromptOption.md (Lua model)
+- crc-PromptViewdef.md
+- crc-PermissionHook.md
+- seq-prompt-flow.md
+- seq-prompt-server-startup.md
+- ui-prompt-modal.md
+- test-Prompt.md
+
+---
+
+## Hook Management System
+
+**Purpose**: CLI for installing/managing Claude Code permission hooks
+
+**Design Elements:**
+- crc-HookCLI.md
+- seq-hook-install.md
+
+---
+
+## MCP Resources
+
+**Purpose**: Expose UI metadata and history to AI agents
+
+**Design Elements:**
+- crc-ViewdefsResource.md
+- crc-PermissionHistoryResource.md
 
 ---
 
@@ -59,7 +72,8 @@ This MCP server integrates with the ui-engine project:
 - Creates sessions via ui-engine's session management
 - Accesses variable state through ui-engine's variable store
 - Delivers viewdefs through ui-engine's viewdef system
+- Extends Server with Prompt() method for permission prompts
 
 ---
 
-*This file serves as the architectural "main program" for MCP - start here to understand the design structure*
+*This file serves as the architectural "main program" - start here to understand the design structure*

@@ -16,6 +16,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/zot/ui-engine/cli"
+	lua "github.com/yuin/gopher-lua"
 )
 
 func (s *Server) registerTools() {
@@ -114,12 +115,136 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 	// Spec: mcp.md
 	// CRC: crc-MCPTool.md
 	// Sequence: seq-mcp-lifecycle.md
-	url, err := s.Start()
+	baseURL, err := s.Start()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	return mcp.NewToolResultText(url), nil
+	// Create session - this triggers CreateLuaBackendForSession
+	// Returns (session, vendedID, error) - session.ID has the UUID for URLs
+	session, vendedID, err := s.uiServer.GetSessions().CreateSession()
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to create session: %v", err)), nil
+	}
+
+	// Set up mcp global in Lua with Go functions
+	if err := s.setupMCPGlobal(vendedID); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to setup mcp global: %v", err)), nil
+	}
+
+	// Return URL with session UUID so browser connects to the right session
+	sessionURL := fmt.Sprintf("%s/%s", baseURL, session.ID)
+	return mcp.NewToolResultText(sessionURL), nil
+}
+
+// setupMCPGlobal creates the mcp global object in Lua with Go functions attached.
+func (s *Server) setupMCPGlobal(vendedID string) error {
+	// Use ExecuteInSession to ensure proper executor context and session global
+	_, err := s.uiServer.ExecuteInSession(vendedID, func() (interface{}, error) {
+		L := s.runtime.State
+
+		// Create mcp table
+		mcpTable := L.NewTable()
+		L.SetGlobal("mcp", mcpTable)
+
+		// Set type for viewdef resolution
+		L.SetField(mcpTable, "type", lua.LString("MCP"))
+
+		// Set value to nil initially
+		L.SetField(mcpTable, "value", lua.LNil)
+
+		// mcp.notify(method, params) - send MCP notification
+		L.SetField(mcpTable, "notify", L.NewFunction(func(L *lua.LState) int {
+			method := L.CheckString(1)
+			params := L.OptTable(2, nil)
+
+			var goParams interface{}
+			if params != nil {
+				goParams = luaTableToGo(params)
+			}
+
+			s.SendNotification(method, goParams)
+			return 0
+		}))
+
+		// mcp.promptResponse(id, value, label) - respond to a pending prompt
+		L.SetField(mcpTable, "promptResponse", L.NewFunction(func(L *lua.LState) int {
+			id := L.CheckString(1)
+			value := L.CheckString(2)
+			label := L.CheckString(3)
+
+			// Respond via prompt manager
+			if s.promptManager != nil {
+				if err := s.promptManager.Respond(id, value, label); err != nil {
+					s.cfg.Log(0, "Warning: prompt response error: %v", err)
+				}
+			}
+			return 0
+		}))
+
+		// Register as app variable - this creates variable 1 in the tracker
+		code := "session:createAppVariable(mcp)"
+		if err := L.DoString(code); err != nil {
+			return nil, fmt.Errorf("failed to create app variable: %w", err)
+		}
+
+		return nil, nil
+	})
+	return err
+}
+
+// luaTableToGo converts a Lua table to a Go map/slice.
+func luaTableToGo(tbl *lua.LTable) interface{} {
+	// Check if it's an array (sequential integer keys starting at 1)
+	isArray := true
+	maxIdx := 0
+	tbl.ForEach(func(k, v lua.LValue) {
+		if kn, ok := k.(lua.LNumber); ok {
+			idx := int(kn)
+			if idx > maxIdx {
+				maxIdx = idx
+			}
+		} else {
+			isArray = false
+		}
+	})
+
+	if isArray && maxIdx > 0 {
+		arr := make([]interface{}, maxIdx)
+		tbl.ForEach(func(k, v lua.LValue) {
+			if kn, ok := k.(lua.LNumber); ok {
+				arr[int(kn)-1] = luaValueToGo(v)
+			}
+		})
+		return arr
+	}
+
+	// It's a map
+	m := make(map[string]interface{})
+	tbl.ForEach(func(k, v lua.LValue) {
+		if ks, ok := k.(lua.LString); ok {
+			m[string(ks)] = luaValueToGo(v)
+		}
+	})
+	return m
+}
+
+// luaValueToGo converts a Lua value to Go.
+func luaValueToGo(v lua.LValue) interface{} {
+	switch val := v.(type) {
+	case lua.LString:
+		return string(val)
+	case lua.LNumber:
+		return float64(val)
+	case lua.LBool:
+		return bool(val)
+	case *lua.LTable:
+		return luaTableToGo(val)
+	case *lua.LNilType:
+		return nil
+	default:
+		return nil
+	}
 }
 
 func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -210,11 +335,9 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		sessionID = "1"
 	}
 
-	// Use Server.ExecuteInSession (triggers afterBatch) wrapping Runtime.ExecuteInSession (sets Lua context)
+	// Use Server.ExecuteInSession (sets Lua context, triggers afterBatch)
 	result, err := s.uiServer.ExecuteInSession(sessionID, func() (interface{}, error) {
-		return s.runtime.ExecuteInSession(sessionID, func() (interface{}, error) {
-			return s.runtime.LoadCodeDirect("mcp-run", code)
-		})
+		return s.runtime.LoadCodeDirect("mcp-run", code)
 	})
 
 	if err != nil {

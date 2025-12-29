@@ -44,6 +44,16 @@ $(CACHE_DIR)/.cached:
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'html/*' $(CACHE_DIR)/html/
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'viewdefs/*' $(CACHE_DIR)/viewdefs/ 2>/dev/null || true
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'lua/*' $(CACHE_DIR)/lua/ 2>/dev/null || true
+	@# Copy ui-mcp specific viewdefs (e.g., Prompt.DEFAULT.html)
+	@if [ -d "web/viewdefs" ]; then \
+		cp -r web/viewdefs/* $(CACHE_DIR)/viewdefs/ 2>/dev/null || true; \
+		echo "Copied ui-mcp viewdefs"; \
+	fi
+	@# Copy ui-mcp specific lua files
+	@if [ -d "web/lua" ]; then \
+		cp -r web/lua/* $(CACHE_DIR)/lua/ 2>/dev/null || true; \
+		echo "Copied ui-mcp lua files"; \
+	fi
 	@touch $(CACHE_DIR)/.cached
 	@echo "Cached web assets in $(CACHE_DIR)/"
 

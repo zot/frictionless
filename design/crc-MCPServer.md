@@ -12,6 +12,8 @@
 - state: Lifecycle state (UNCONFIGURED, CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
 - getSessionCount: Callback to query active browser session count
+- promptHTTPServer: Background HTTP server for prompt API
+- promptManager: Manager for pending prompts
 
 ### Does
 - initialize: Set up MCP server connection in UNCONFIGURED state
@@ -25,6 +27,8 @@
 - sendNotification: Push events to AI client (wired to Lua mcp.notify())
 - getStatus: Return current lifecycle state, URL, and session count
 - shutdown: Clean up MCP connection
+- startPromptServer: Start background HTTP server for prompt API
+- handlePromptResponse: Receive promptResponse from browser, resolve pending prompt
 
 ## Collaborators
 
@@ -34,6 +38,8 @@
 - LuaRuntime: Lua code execution and I/O redirection
 - HTTPServer: Underlying HTTP service
 - OS: Operating system interactions (filesystem, browser)
+- PromptManager: Pending prompt tracking
+- PromptHTTPServer: Background HTTP server for prompt API
 
 ## Sequences
 
@@ -42,3 +48,4 @@
 - seq-mcp-run.md: AI executing Lua code
 - seq-mcp-get-state.md: AI inspecting state
 - seq-mcp-notify.md: Lua code sending notifications to AI agent
+- seq-prompt-flow.md: Permission prompt from hook to browser response
