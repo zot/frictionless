@@ -74,6 +74,11 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultError("base_dir must be a string"), nil
 	}
 
+	// 0. Stop current session if running (allows reconfiguration)
+	if err := s.Stop(); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to stop current session: %v", err)), nil
+	}
+
 	// 1. Directory Creation
 	if err := os.MkdirAll(filepath.Join(baseDir, "log"), 0755); err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to create directories: %v", err)), nil
@@ -126,6 +131,9 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to create session: %v", err)), nil
 	}
+
+	// Store the vended ID for later cleanup
+	s.currentVendedID = vendedID
 
 	// Set up mcp global in Lua with Go functions
 	if err := s.setupMCPGlobal(vendedID); err != nil {

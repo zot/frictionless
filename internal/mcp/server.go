@@ -43,12 +43,13 @@ type Server struct {
 	onViewdefUploaded func(typeName string)          // Callback when a viewdef is uploaded
 	getSessionCount   func() int                     // Callback to get active session count
 
-	mu         sync.RWMutex
-	state      State
-	baseDir    string
-	url        string
-	httpServer *http.Server // HTTP server for /api/prompt (in stdio mode)
-	mcpPort    int          // Port for MCP HTTP server (written to .ui-mcp/mcp-port)
+	mu              sync.RWMutex
+	state           State
+	baseDir         string
+	url             string
+	httpServer      *http.Server // HTTP server for /api/prompt (in stdio mode)
+	mcpPort         int          // Port for MCP HTTP server (written to .ui-mcp/mcp-port)
+	currentVendedID string       // Current session's vended ID (e.g., "1")
 }
 
 // NewServer creates a new MCP server.
@@ -282,6 +283,33 @@ func (s *Server) Start() (string, error) {
 	s.state = Running
 	s.url = url
 	return url, nil
+}
+
+// Stop destroys the current session and resets state to Configured.
+// This allows reconfiguration without restarting the process.
+func (s *Server) Stop() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.state != Running {
+		return nil // Nothing to stop
+	}
+
+	// Destroy the current session if we have one
+	if s.currentVendedID != "" {
+		sessions := s.uiServer.GetSessions()
+		internalID := sessions.GetInternalID(s.currentVendedID)
+		if internalID != "" {
+			sessions.DestroySession(internalID)
+		}
+		s.currentVendedID = ""
+	}
+
+	// Reset state (keep baseDir for reconfiguration)
+	s.state = Configured
+	s.url = ""
+
+	return nil
 }
 
 // SendNotification sends an MCP notification to the client.

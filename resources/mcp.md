@@ -26,13 +26,16 @@ The MCP server has three states:
 
 ```
 UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNNING
+                                    ▲                       │
+                                    └───ui_configure────────┘
+                                      (restarts session)
 ```
 
 | State | What Works |
 |-------|------------|
 | UNCONFIGURED | Only `ui_configure` |
 | CONFIGURED | `ui_configure` again (reconfigure) |
-| RUNNING | `ui_run`, `ui_upload_viewdef`, `ui_open_browser` |
+| RUNNING | `ui_run`, `ui_upload_viewdef`, `ui_open_browser`, `ui_configure` (restarts session) |
 
 **Always call `ui_configure` first**, then `ui_start`.
 

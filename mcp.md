@@ -41,10 +41,9 @@ The MCP server operates as a Finite State Machine:
 
 ```
 UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNNING
-     │                              │                       │
-     │ Only ui_configure allowed    │ Can run ui_configure  │ All tools work
-     │                              │ again, but not        │ except ui_configure
-     │                              │ ui_run, etc.          │ and ui_start
+     │                              │      ◄──────────────────┘
+     │ Only ui_configure allowed    │       ui_configure
+     │                              │       (restarts session)
 ```
 
 ## MCP Tools

@@ -52,7 +52,7 @@ The MCP server operates as a strict Finite State Machine (FSM).
     *   Calling runtime tools (`ui_run`, etc.) MUST fail with error: "Server not started".
 *   **RUNNING:**
     *   Calling `ui_start` again MUST fail with error: "Server already running".
-    *   Calling `ui_configure` MUST fail with error: "Cannot reconfigure while running".
+    *   Calling `ui_configure` IS permitted: it destroys the current session, resets state to CONFIGURED, then proceeds with configuration. This allows session restart without process restart.
 
 ## 4. Lua Environment Integration
 

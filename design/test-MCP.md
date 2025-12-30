@@ -23,8 +23,13 @@
 3.  **Running State**:
     - Verify state is RUNNING.
     - Call `ui_start` -> Expect Error ("Server already running").
-    - Call `ui_configure` -> Expect Error ("Cannot reconfigure while running").
     - Call `ui_run` -> Expect execution success.
+
+4.  **Session Restart (ui_configure while Running)**:
+    - Start in RUNNING state with active session.
+    - Call `ui_configure` -> Expect Success (old session destroyed).
+    - Verify state is CONFIGURED.
+    - Call `ui_start` -> Expect Success (new session created).
 
 ### Test: Tool - ui_open_browser
 **Purpose**: Verify browser launch logic.
