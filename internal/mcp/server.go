@@ -71,6 +71,17 @@ func NewServer(cfg *cli.Config, uiServer *cli.Server, runtime *cli.LuaRuntime, v
 	return srv
 }
 
+// SafeExecuteInSession wraps ExecuteInSession with panic recovery to prevent crashes.
+func (s *Server) SafeExecuteInSession(sessionID string, fn func() (interface{}, error)) (result interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.cfg.Log(0, "PANIC in ExecuteInSession: %v", r)
+			err = fmt.Errorf("panic during execution: %v", r)
+		}
+	}()
+	return s.uiServer.ExecuteInSession(sessionID, fn)
+}
+
 // ServeStdio starts the MCP server on Stdin/Stdout.
 func (s *Server) ServeStdio() error {
 	return server.ServeStdio(s.mcpServer)
@@ -402,8 +413,8 @@ func (s *Server) handleDebugState(w http.ResponseWriter, r *http.Request) {
 
 // getDebugState returns the state for a session (mcp.state or mcp.value).
 func (s *Server) getDebugState(sessionID string) (interface{}, error) {
-	// Use ExecuteInSession to safely access the Lua state
-	return s.uiServer.ExecuteInSession(sessionID, func() (interface{}, error) {
+	// Use SafeExecuteInSession to safely access the Lua state
+	return s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
 		L := s.runtime.State
 		mcpTable := L.GetGlobal("mcp")
 		if mcpTable.Type() != lua.LTTable {

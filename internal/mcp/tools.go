@@ -34,7 +34,7 @@ func (s *Server) registerTools() {
 	// ui_open_browser
 	s.mcpServer.AddTool(mcp.NewTool("ui_open_browser",
 		mcp.WithDescription("Open the system's default web browser to the UI session."),
-		mcp.WithString("sessionId", mcp.Description("The session to open (defaults to '1')")),
+		mcp.WithString("sessionId", mcp.Description("The vended session ID to open (defaults to '1')")),
 		mcp.WithString("path", mcp.Description("The URL path to open (defaults to '/')")),
 		mcp.WithBoolean("conserve", mcp.Description("Use conserve mode to prevent duplicate tabs (defaults to true)")),
 	), s.handleOpenBrowser)
@@ -43,7 +43,7 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(mcp.NewTool("ui_run",
 		mcp.WithDescription("Execute Lua code in a session context"),
 		mcp.WithString("code", mcp.Required(), mcp.Description("Lua code to execute")),
-		mcp.WithString("sessionId", mcp.Description("The session ID to run in (defaults to '1')")),
+		mcp.WithString("sessionId", mcp.Description("The vended session ID to run in (defaults to '1')")),
 	), s.handleRun)
 
 	// ui_upload_viewdef
@@ -139,8 +139,8 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 
 // setupMCPGlobal creates the mcp global object in Lua with Go functions attached.
 func (s *Server) setupMCPGlobal(vendedID string) error {
-	// Use ExecuteInSession to ensure proper executor context and session global
-	_, err := s.uiServer.ExecuteInSession(vendedID, func() (interface{}, error) {
+	// Use SafeExecuteInSession to ensure proper executor context and session global
+	_, err := s.SafeExecuteInSession(vendedID, func() (interface{}, error) {
 		L := s.runtime.State
 
 		// Create mcp table
@@ -283,8 +283,15 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError("Server not running"), nil
 	}
 
-	// Construct URL: baseURL + "/" + sessionID + path
-	fullURL := fmt.Sprintf("%s/%s%s", baseURL, sessionID, path)
+	// Convert vended ID to internal session ID for URL
+	// URLs should use internal session IDs, not vended IDs
+	internalID := s.uiServer.GetSessions().GetInternalID(sessionID)
+	if internalID == "" {
+		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
+	}
+
+	// Construct URL: baseURL + "/" + internalSessionID + path
+	fullURL := fmt.Sprintf("%s/%s%s", baseURL, internalID, path)
 	if conserve {
 		if strings.Contains(fullURL, "?") {
 			fullURL += "&conserve=true"
@@ -335,8 +342,8 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		sessionID = "1"
 	}
 
-	// Use Server.ExecuteInSession (sets Lua context, triggers afterBatch)
-	result, err := s.uiServer.ExecuteInSession(sessionID, func() (interface{}, error) {
+	// Use SafeExecuteInSession (sets Lua context, triggers afterBatch, recovers panics)
+	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
 		return s.runtime.LoadCodeDirect("mcp-run", code)
 	})
 

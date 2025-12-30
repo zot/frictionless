@@ -110,7 +110,13 @@ func (pm *PromptManager) Respond(id, value, label string) error {
 }
 
 // setPromptInLua sets app.pendingPrompt and switches presenter to "Prompt".
-func (pm *PromptManager) setPromptInLua(sessionID, promptID, message string, options []PromptOption) error {
+func (pm *PromptManager) setPromptInLua(sessionID, promptID, message string, options []PromptOption) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in setPromptInLua: %v", r)
+		}
+	}()
+
 	if pm.runtime == nil {
 		return fmt.Errorf("Lua runtime not available")
 	}
@@ -127,52 +133,53 @@ func (pm *PromptManager) setPromptInLua(sessionID, promptID, message string, opt
 	optionsLua += "}"
 
 	code := fmt.Sprintf(`
-		local app = session:getApp()
-		app.pendingPrompt = {
-			id = %q,
-			message = %q,
-			options = %s
-		}
-		app._previousPresenter = app._presenter
-		app._presenter = "Prompt"
-
-		-- Define respondToPrompt function for the viewdef
-		function respondToPrompt(option)
-			if app.pendingPrompt and option then
-				mcp.promptResponse(app.pendingPrompt.id, option.value, option.label)
-				app.pendingPrompt = nil
-				if app._previousPresenter then
-					app._presenter = app._previousPresenter
-					app._previousPresenter = nil
+		-- Set mcp.value to prompt data (value is bound in viewdef, triggers update)
+		local promptId = %q
+		local opts = %s
+		local options = {}
+		for _, opt in ipairs(opts) do
+			local option = {
+				type = "PromptOption",
+				label = opt.label,
+				value = opt.value,
+				respond = function(self)
+					mcp.promptResponse(promptId, self.value, self.label)
+					mcp.value = nil
 				end
-			end
+			}
+			table.insert(options, option)
 		end
-	`, promptID, message, optionsLua)
+		mcp.value = {
+			isPrompt = true,
+			id = promptId,
+			message = %q,
+			options = options
+		}
+	`, promptID, optionsLua, message)
 
 	// Execute in session context
-	_, err := pm.server.ExecuteInSession(sessionID, func() (interface{}, error) {
+	_, err = pm.server.ExecuteInSession(sessionID, func() (interface{}, error) {
 		return pm.runtime.LoadCodeDirect("prompt-setup", code)
 	})
 
 	return err
 }
 
-// clearPromptInLua clears app.pendingPrompt and restores previous presenter.
-func (pm *PromptManager) clearPromptInLua(sessionID string) error {
+// clearPromptInLua clears mcp.value (the prompt).
+func (pm *PromptManager) clearPromptInLua(sessionID string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in clearPromptInLua: %v", r)
+		}
+	}()
+
 	if pm.runtime == nil {
 		return nil
 	}
 
-	code := `
-		local app = session:getApp()
-		app.pendingPrompt = nil
-		if app._previousPresenter then
-			app._presenter = app._previousPresenter
-			app._previousPresenter = nil
-		end
-	`
+	code := `mcp.value = nil`
 
-	_, err := pm.server.ExecuteInSession(sessionID, func() (interface{}, error) {
+	_, err = pm.server.ExecuteInSession(sessionID, func() (interface{}, error) {
 		return pm.runtime.LoadCodeDirect("prompt-clear", code)
 	})
 

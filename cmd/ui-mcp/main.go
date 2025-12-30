@@ -69,6 +69,23 @@ func runMCP(args []string) int {
 		return 1
 	}
 
+	// If --dir is specified, redirect stderr to a log file for debugging
+	if cfg.Server.Dir != "" {
+		logDir := filepath.Join(cfg.Server.Dir, "log")
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			log.Printf("Warning: failed to create log directory: %v", err)
+		} else {
+			logPath := filepath.Join(logDir, "mcp.log")
+			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+			if err != nil {
+				log.Printf("Warning: failed to open mcp.log: %v", err)
+			} else {
+				os.Stderr = logFile
+				log.SetOutput(logFile)
+			}
+		}
+	}
+
 	// Ensure logs go to Stderr to keep Stdout clean for MCP protocol
 	log.SetOutput(os.Stderr)
 
