@@ -1,31 +1,35 @@
-# Server (ui-engine extension)
+# Server (Prompt Integration)
 
 **Source Spec:** prompt-ui.md
+
+**Implementation:** internal/mcp/server.go (MCPServer contains PromptManager)
 
 ## Responsibilities
 
 ### Knows
-- promptManager: Reference to PromptManager
-- luaRuntime: Reference to Lua runtime for state manipulation
+- promptManager: Reference to PromptManager for prompt lifecycle
+- uiServer: Reference to ui-engine Server for ExecuteInSession
+- runtime: Reference to Lua runtime for callback registration
 
 ### Does
-- Prompt: Set app.pendingPrompt in Lua, switch presenter to "Prompt", block on channel until response
-- RegisterPromptCallback: Register _G.promptResponse callback in Lua runtime
+- handlePrompt: HTTP handler that triggers prompt flow
+- setupMCPGlobal: Register mcp.promptResponse callback in Lua
 
 ## Collaborators
 
-- PromptManager: Creates prompts and waits for responses
-- LuaRuntime: Sets app state and registers global callback
-- PromptViewdef: Renders prompt UI based on app.pendingPrompt
+- PromptManager: Prompt() creates prompts and waits for responses
+- LuaRuntime: mcp.promptResponse callback bridges Lua to Go
+- PromptViewdef: Renders prompt UI based on mcp.value
 
 ## Sequences
 
-- seq-prompt-flow.md: Server.Prompt() orchestrates the prompt flow
+- seq-prompt-flow.md: handlePrompt() orchestrates the prompt flow
 
 ## Notes
 
-This extends the existing ui-engine Server with prompt capabilities. The Prompt() method:
-1. Generates prompt ID via PromptManager.CreatePrompt()
-2. Executes Lua to set `app.pendingPrompt = {...}` and `app._presenter = "Prompt"`
-3. Blocks on PromptManager.WaitForResponse(id, timeout)
-4. Returns response when Lua callback signals channel
+Prompt functionality is integrated into MCPServer rather than extending ui-engine Server:
+1. handlePrompt() receives POST /api/prompt request
+2. Calls promptManager.Prompt() which sets mcp.value in Lua
+3. mcp.value triggers viewdef update showing prompt dialog
+4. User clicks option, Lua calls mcp.promptResponse()
+5. Go callback signals channel, handlePrompt() returns response

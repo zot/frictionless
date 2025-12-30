@@ -1,6 +1,7 @@
 // Package mcp implements the Model Context Protocol server.
-// CRC: crc-PromptManager.md
+// CRC: crc-PromptManager.md, crc-Prompt.md, crc-PromptOption.md
 // Spec: prompt-ui.md
+// Sequence: seq-prompt-flow.md
 package mcp
 
 import (

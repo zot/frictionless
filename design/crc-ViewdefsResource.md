@@ -2,18 +2,20 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** internal/mcp/resources.go (handleGetPromptViewdefsResource)
+
 ## Responsibilities
 
 ### Knows
-- uri: "ui://viewdefs"
-- viewdefDir: Path to viewdef directory (.ui-mcp/viewdefs/)
+- uri: "ui://prompt/viewdefs"
+- baseDir: Server base directory for path construction
 
 ### Does
 - GetContent: Return markdown describing viewdef locations and editing tips
 
 ## Collaborators
 
-- MCPServer: Registers this resource
+- MCPServer: Registers this resource via registerResources()
 - AIAgent: Reads resource to discover customizable viewdefs
 
 ## Sequences
@@ -24,21 +26,6 @@
 
 This MCP resource informs Claude about editable viewdefs, enabling conversational UI customization.
 
-Content:
-```markdown
-# UI MCP Viewdefs
-
-Viewdefs are HTML templates that control how UI elements are rendered.
-You can edit these files to customize the appearance and behavior.
-
-## Locations
-
-- `.ui-mcp/viewdefs/Prompt.DEFAULT.html` - Permission prompt dialog
-
-## Editing Tips
-
-- Use Shoelace components (sl-button, sl-dialog, sl-input, etc.)
-- Use `ui-value="path"` for data binding
-- Use `ui-action="method()"` for button actions
-- Changes take effect on next render
-```
+The resource dynamically constructs viewdef paths using baseDir:
+- `{baseDir}/viewdefs/Prompt.DEFAULT.html` - Permission prompt dialog
+- `{baseDir}/viewdefs/Feedback.DEFAULT.html` - Default app UI

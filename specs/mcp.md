@@ -3,16 +3,49 @@
 ## 1. Overview
 The UI platform provides a Model Context Protocol (MCP) server integration to allow AI assistants (like Claude) to control the application lifecycle, inspect state, and manipulate the runtime environment.
 
-## 2. Transport & Hygiene
+## 2. Transport & Modes
 
-### 2.1 Transport
-- **Protocol:** JSON-RPC 2.0 over Standard Input (stdin) and Standard Output (stdout).
+### 2.1 Transport Options
+
+The MCP server supports two transport modes:
+
+| Mode | Command | MCP Transport | Use Case |
+|------|---------|---------------|----------|
+| **Stdio** | `ui-mcp mcp` | JSON-RPC 2.0 over stdin/stdout | AI agent integration (Claude Code) |
+| **SSE** | `ui-mcp serve` | Server-Sent Events over HTTP | Standalone development/debugging |
+
+Both modes start an HTTP server with debug and API endpoints.
+
+### 2.2 Stdio Mode (`mcp` command)
+
+- **MCP Protocol:** JSON-RPC 2.0 over Standard Input (stdin) and Standard Output (stdout).
 - **Encoding:** UTF-8.
+- **Activation:** `ui-mcp mcp --dir <base_dir>`
 
-### 2.2 Output Hygiene
-- **STDOUT (Standard Output):** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
-- **STDERR (Standard Error):** Used for all application logs, debug information, and runtime warnings.
-- **Conditional Activation:** These restrictions and the stdio transport are only active when the application is started with the `--mcp` flag. Without this flag, the application behaves normally (logging to configured outputs, potentially using stdout).
+**Output Hygiene:**
+- **STDOUT:** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
+- **STDERR:** Used for all application logs, debug information, and runtime warnings.
+
+**HTTP Server (random port):**
+Both modes start an HTTP server. In stdio mode, it binds to a random port and writes the port to `{base_dir}/mcp-port`. Endpoints:
+- `POST /api/prompt`: Permission prompt API (for hook scripts)
+- `GET /debug/variables`: Interactive variable tree view
+- `GET /debug/state`: Current session state (JSON)
+
+### 2.3 SSE Mode (`serve` command)
+
+- **MCP Protocol:** JSON-RPC 2.0 over Server-Sent Events (HTTP).
+- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>`
+- **Two-Port Design:**
+  - UI Server port (default 8000): Serves HTML/JS and WebSocket connections
+  - MCP Server port (default 8001): SSE transport plus API/debug endpoints
+
+**MCP Server Endpoints:**
+- `GET /sse`: SSE stream for MCP messages
+- `POST /message`: Send MCP requests
+- `POST /api/prompt`: Permission prompt API
+- `GET /debug/variables`: Interactive variable tree view
+- `GET /debug/state`: Current session state (JSON)
 
 ## 3. Server Lifecycle
 
@@ -116,6 +149,7 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
 **Behavior:**
 - Wraps execution in a `session` context, allowing direct access to session variables via the `session` global object.
 - Attempts to marshal the execution result to JSON.
+- **Browser Update:** After Lua execution, any state changes are automatically pushed to connected browsers.
 
 **Example Usage:**
 To get the first name of the first contact in an application:

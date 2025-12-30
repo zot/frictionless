@@ -2,22 +2,27 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** internal/mcp/prompt.go
+
 ## Responsibilities
 
 ### Knows
-- pendingPrompts: Map of prompt ID to response channel
+- pending: Map of prompt ID to pendingPrompt (response channel)
+- server: Reference to ui-engine Server for ExecuteInSession
+- runtime: Reference to LuaRuntime for code execution
 - mu: Mutex for thread-safe access
 
 ### Does
-- CreatePrompt: Generate unique ID, create response channel, store in map
-- WaitForResponse: Block on channel until response or timeout
-- Respond: Receive response (called from Lua callback), send to channel, remove from map
-- Cancel: Close channel with timeout error, remove from map
+- Prompt: Generate unique ID, create response channel, set prompt in Lua, block until response or timeout
+- Respond: Receive response (called from Lua callback), send to channel
+- setPromptInLua: Execute Lua to set mcp.value with prompt data
+- clearPromptInLua: Execute Lua to clear mcp.value on timeout
 
 ## Collaborators
 
-- Server: Server.Prompt() creates prompts and waits for responses
-- LuaRuntime: _G.promptResponse callback calls Respond()
+- MCPServer: handlePrompt() calls Prompt()
+- LuaRuntime: mcp.promptResponse callback calls Respond()
+- Server: ExecuteInSession for Lua execution
 
 ## Sequences
 

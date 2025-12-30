@@ -1,6 +1,6 @@
 // Package mcp implements the Model Context Protocol server.
 // CRC: crc-MCPResource.md
-// Spec: interfaces.md
+// Spec: mcp.md
 // Sequence: seq-mcp-get-state.md
 package mcp
 

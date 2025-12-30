@@ -60,8 +60,38 @@
 **Purpose**: Expose UI metadata and history to AI agents
 
 **Design Elements:**
+- crc-MCPResource.md
 - crc-ViewdefsResource.md
 - crc-PermissionHistoryResource.md
+
+---
+
+## Transport System
+
+**Purpose**: Support multiple MCP transport modes for different use cases
+
+**Transport Modes:**
+- **Stdio** (`mcp` command): JSON-RPC 2.0 over stdin/stdout for AI agent integration
+- **SSE** (`serve` command): Server-Sent Events over HTTP for standalone debugging
+
+**Design Elements:**
+- crc-MCPServer.md (ServeStdio, ServeSSE methods)
+- seq-mcp-lifecycle.md
+
+---
+
+## Debug System
+
+**Purpose**: Debug and inspect runtime state
+
+**Endpoints:**
+- `GET /debug/variables`: Interactive variable tree view
+- `GET /debug/state`: Current session state JSON
+- `ui://variables`: MCP resource for variable tree
+
+**Design Elements:**
+- crc-MCPServer.md (handleDebugVariables, handleDebugState)
+- crc-MCPResource.md (getVariables)
 
 ---
 

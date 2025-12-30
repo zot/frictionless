@@ -1,5 +1,8 @@
 // Package main provides the MCP-enabled UI server.
 // This extends remote-ui with MCP support via the Hooks interface.
+// CRC: crc-HookCLI.md, crc-PermissionHook.md
+// Spec: mcp.md, prompt-ui.md
+// Sequence: seq-mcp-lifecycle.md, seq-hook-install.md
 package main
 
 import (

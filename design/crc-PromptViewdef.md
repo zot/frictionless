@@ -2,22 +2,26 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:**
+- web/viewdefs/MCP.DEFAULT.html - Main MCP viewdef with prompt dialog
+- web/viewdefs/PromptOption.DEFAULT.html - Option button viewdef
+
 ## Responsibilities
 
 ### Knows
-- Template HTML with Shoelace dialog
-- Data bindings: ui-value="pendingPrompt.message", ui-viewlist="pendingPrompt.options"
-- Action binding: ui-action="respondToPrompt(_)"
+- Template HTML with conditional prompt dialog
+- Data bindings: ui-value="value.message", ui-viewlist="value.options"
+- Visibility: ui-class-visible="value.isPrompt"
 
 ### Does
-- RenderPromptDialog: Display modal with message and option buttons
-- BindOptions: Render button for each option using ui-viewlist
-- HandleButtonClick: Trigger app:respondToPrompt(option) via ui-action
+- RenderPromptDialog: Display dialog when value.isPrompt is set
+- BindOptions: Render PromptOption viewdef for each option via ui-viewlist
+- HandleButtonClick: Trigger option:respond() via ui-action
 
 ## Collaborators
 
-- VariableStore: Reads app.pendingPrompt for rendering
-- LuaRuntime: Action calls app:respondToPrompt() method
+- VariableStore: Reads mcp.value for rendering
+- PromptOption viewdef: Renders individual option buttons
 
 ## Sequences
 
@@ -25,23 +29,20 @@
 
 ## Notes
 
-Location: `.ui-mcp/viewdefs/Prompt.DEFAULT.html`
+The prompt UI uses the MCP.DEFAULT viewdef which shows a prompt dialog when `mcp.value.isPrompt` is set. Each option is rendered using PromptOption.DEFAULT viewdef.
 
-This is a standard viewdef that uses ui-engine's variable binding system. No custom WebSocket messages needed.
-
+MCP.DEFAULT.html structure:
 ```html
-<template>
-  <div class="prompt-overlay">
-    <sl-dialog open label="Permission Request">
-      <p ui-value="pendingPrompt.message"></p>
-      <div ui-viewlist="pendingPrompt.options">
-        <sl-button ui-action="respondToPrompt(_)">
-          <span ui-value="label"></span>
-        </sl-button>
-      </div>
-    </sl-dialog>
-  </div>
-</template>
+<div class="prompt-dialog" ui-class-visible="value.isPrompt">
+  <h3>Permission Request</h3>
+  <p class="prompt-message" ui-value="value.message"></p>
+  <div class="prompt-options" ui-viewlist="value.options"></div>
+</div>
 ```
 
-The viewdef is user-editable, allowing Claude to customize the prompt UI via conversation.
+PromptOption.DEFAULT.html:
+```html
+<button class="prompt-option" ui-value="label" ui-action="respond()"></button>
+```
+
+The viewdefs are user-editable, allowing Claude to customize the prompt UI via conversation.

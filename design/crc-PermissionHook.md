@@ -2,6 +2,8 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** cmd/ui-mcp/main.go (hookScript constant, installed by installHook)
+
 ## Responsibilities
 
 ### Knows
@@ -18,9 +20,9 @@
 
 ## Collaborators
 
-- PromptHTTPServer: HTTP endpoint target
+- PromptHTTPServer: HTTP endpoint target (MCPServer.handlePrompt)
 - ClaudeCode: Invokes hook, receives decision
-- PermissionHistory: Log file read by MCP resource
+- PermissionHistoryResource: Log file read by MCP resource
 
 ## Sequences
 

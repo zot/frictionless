@@ -60,10 +60,10 @@ func (s *Server) registerTools() {
 	), s.handleStatus)
 }
 
+// Spec: mcp.md
+// CRC: crc-MCPTool.md
+// Sequence: seq-mcp-lifecycle.md
 func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Spec: mcp.md
-	// CRC: crc-MCPTool.md
-	// Sequence: seq-mcp-lifecycle.md
 	args, ok := request.Params.Arguments.(map[string]interface{})
 	if !ok {
 		return mcp.NewToolResultError("arguments must be a map"), nil
@@ -116,10 +116,10 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(fmt.Sprintf("Server configured. Log files created at %s", filepath.Join(baseDir, "log"))), nil
 }
 
+// Spec: mcp.md
+// CRC: crc-MCPTool.md
+// Sequence: seq-mcp-lifecycle.md
 func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Spec: mcp.md
-	// CRC: crc-MCPTool.md
-	// Sequence: seq-mcp-lifecycle.md
 	baseURL, err := s.Start()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -255,10 +255,10 @@ func luaValueToGo(v lua.LValue) interface{} {
 	}
 }
 
+// Spec: mcp.md
+// CRC: crc-MCPTool.md
+// Sequence: seq-mcp-lifecycle.md
 func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Spec: mcp.md
-	// CRC: crc-MCPTool.md
-	// Sequence: seq-mcp-lifecycle.md
 	args, ok := request.Params.Arguments.(map[string]interface{})
 	if !ok {
 		return mcp.NewToolResultError("arguments must be a map"), nil
@@ -332,10 +332,10 @@ func (s *Server) handleGetState(ctx context.Context, request mcp.CallToolRequest
 	return mcp.NewToolResultError("Tool removed. Use ui_run to inspect state."), nil
 }
 
+// Spec: mcp.md
+// CRC: crc-MCPTool.md
+// Sequence: seq-mcp-run.md
 func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Spec: mcp.md
-	// CRC: crc-MCPTool.md
-	// Sequence: seq-mcp-run.md
 	args, ok := request.Params.Arguments.(map[string]interface{})
 	if !ok {
 		return mcp.NewToolResultError("arguments must be a map"), nil
@@ -372,9 +372,9 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(string(jsonResult)), nil
 }
 
+// Spec: mcp.md
+// CRC: crc-MCPTool.md
 func (s *Server) handleUploadViewdef(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Spec: mcp.md
-	// CRC: crc-MCPTool.md
 	args, ok := request.Params.Arguments.(map[string]interface{})
 	if !ok {
 		return mcp.NewToolResultError("arguments must be a map"), nil

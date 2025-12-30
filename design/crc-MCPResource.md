@@ -1,29 +1,29 @@
 # MCPResource
 
-**Source Spec:** interfaces.md
+**Source Spec:** mcp.md
 
 ## Responsibilities
 
 ### Knows
-- name: Resource identifier
+- name: Resource identifier (URI pattern)
 - description: Human-readable description
 - mimeType: Content type of resource data
+- baseDir: Server base directory for file access
 
 ### Does
-- listPresenterTypes: Return available presenter types and properties
-- listViewdefs: Return available TYPE.VIEW viewdefs and their bindings
-- getSessionState: Return current session variable tree
-- getPendingMessages: Return queued user messages/requests
-- getPresenterState: Return specific presenter data
+- getSessionState: Return current session state as JSON (ui://state, ui://state/{sessionId})
+- getVariables: Return all tracked variables in topological order (ui://variables)
+- getStaticResource: Serve static documentation from resources/ dir (ui://{path})
+- getPromptViewdefs: Return markdown about editable prompt viewdefs (ui://prompt/viewdefs)
+- getPermissionsHistory: Return JSON of recent permission decisions (ui://permissions/history)
 
 ## Collaborators
 
 - MCPServer: Registers and invokes resources
-- ViewdefStore: Viewdef listing
-- VariableStore: Session state
-- Session: Current session context
+- LuaRuntime: Accesses mcp.state/mcp.value for state resources
+- VariableTracker: Provides variable tree for debug resource
+- OS: Reads static files and permissions.log
 
 ## Sequences
 
-- seq-mcp-create-session.md: Resource queries during setup
-- seq-mcp-receive-event.md: Pending message retrieval
+- seq-mcp-get-state.md: State resource queries

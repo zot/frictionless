@@ -2,19 +2,21 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** internal/mcp/tools.go (registered in setupMCPGlobal)
+
 ## Responsibilities
 
 ### Knows
-- promptManager: Reference to PromptManager (closure capture)
+- promptManager: Reference to PromptManager (closure capture via MCPServer)
 
 ### Does
-- HandleResponse: Called from Lua as _G.promptResponse(id, value, label), signals waiting channel
+- HandleResponse: Called from Lua as mcp.promptResponse(id, value, label), signals waiting channel
 
 ## Collaborators
 
-- LuaRuntime: Registered as global function
+- LuaRuntime: Registered on mcp table
 - PromptManager: Calls Respond() to signal waiting goroutine
-- PromptViewdef: Lua app:respondToPrompt() calls this callback
+- PromptOption: Lua option:respond() calls this callback
 
 ## Sequences
 
@@ -22,16 +24,23 @@
 
 ## Notes
 
-This is a Go function registered in Lua as `_G.promptResponse`. When the user clicks a button in the Prompt viewdef, the Lua action handler calls this function to signal the waiting HTTP request.
+This is a Go function registered in Lua on the `mcp` table. When the user clicks a button in the MCP viewdef, the Lua respond() method calls this function to signal the waiting HTTP request.
 
 ```go
-// Registration
-runtime.SetGlobal("promptResponse", func(id, value, label string) {
-    promptManager.Respond(id, value, label)
-})
+// Registration in setupMCPGlobal()
+L.SetField(mcpTable, "promptResponse", L.NewFunction(func(L *lua.LState) int {
+    id := L.CheckString(1)
+    value := L.CheckString(2)
+    label := L.CheckString(3)
+    s.promptManager.Respond(id, value, label)
+    return 0
+}))
 ```
 
 ```lua
--- Called from app:respondToPrompt(option)
-_G.promptResponse(self.pendingPrompt.id, option.value, option.label)
+-- Called from option:respond() in setPromptInLua
+respond = function(self)
+    mcp.promptResponse(promptId, self.value, self.label)
+    mcp.value = nil
+end
 ```

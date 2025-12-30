@@ -1,34 +1,43 @@
-# Prompt (Lua)
+# Prompt (Lua Data)
 
 **Source Spec:** specs/prompt-ui.md
 
-**Implementation:** web/lua/prompt.lua
+**Implementation:** internal/mcp/prompt.go (setPromptInLua creates the Lua table)
 
 ## Responsibilities
 
 ### Knows
 - id: Unique prompt identifier for response correlation
 - message: Description of what permission is being requested
-- options: Array of PromptOption instances
+- options: Array of option objects with label, value, and respond()
+- isPrompt: Boolean flag to trigger viewdef visibility
 
 ### Does
-- new(tbl): Create Prompt instance, wrapping raw options in PromptOption instances
-- respondWith(value, label): Call mcp.promptResponse(), clear pendingPrompt, restore previous presenter
+- (Created by Go): PromptManager.setPromptInLua() creates mcp.value table
 
 ## Collaborators
 
-- PromptOption: Child objects representing selectable options
-- mcp: Go-provided global for sending response back to prompt API
-- session: Access to app state for clearing pendingPrompt
+- PromptManager: Creates prompt table in Lua via setPromptInLua()
+- mcp.value: Bound to viewdef for rendering
 - PromptViewdef: Renders prompt UI with message and option buttons
 
 ## Sequences
 
-- seq-prompt-flow.md: Go sets app.pendingPrompt = Prompt:new(...), user clicks option, respondWith() called
+- seq-prompt-flow.md: Go sets mcp.value = {...}, user clicks option, option:respond() called
 
 ## Notes
 
-Uses prototype pattern following ui-engine conventions:
-- `Prompt.__index = Prompt`
-- `Prompt:new(tbl)` creates instances via `setmetatable(tbl, self)`
-- Instance methods use `self` receiver
+Prompt data is created inline in Lua by setPromptInLua():
+```lua
+mcp.value = {
+  isPrompt = true,
+  id = promptId,
+  message = "Claude wants to use: Bash",
+  options = {
+    {type = "PromptOption", label = "Allow once", value = "allow", respond = function(self) ... end},
+    ...
+  }
+}
+```
+
+No separate Lua class file - structure is created dynamically by Go.

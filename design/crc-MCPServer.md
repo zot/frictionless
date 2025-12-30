@@ -14,11 +14,13 @@
 - getSessionCount: Callback to query active browser session count
 - promptHTTPServer: Background HTTP server for prompt API
 - promptManager: Manager for pending prompts
+- currentVendedID: Current session's vended ID for cleanup on reconfigure
 
 ### Does
 - initialize: Set up MCP server connection in UNCONFIGURED state
 - configure: Transition to CONFIGURED state, setup directories and I/O (ui_configure)
 - start: Transition to RUNNING state, launch HTTP server (ui_start)
+- stop: Destroy current session, reset to CONFIGURED (enables session restart)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (session state)
 - listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status)
@@ -29,6 +31,9 @@
 - shutdown: Clean up MCP connection
 - startPromptServer: Start background HTTP server for prompt API
 - handlePromptResponse: Receive promptResponse from browser, resolve pending prompt
+- serveSSE: Start MCP server on HTTP with SSE transport (serve command)
+- handleDebugVariables: Render debug page with variable tree
+- handleDebugState: Render debug page with session state JSON
 
 ## Collaborators
 

@@ -2,17 +2,20 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** cmd/ui-mcp/main.go (runHooks, installHook, uninstallHook, hookStatus)
+
 ## Responsibilities
 
 ### Knows
 - hookScriptPath: Target path for hook script (.claude/hooks/permission-ui.sh)
 - settingsPath: Claude settings file (.claude/settings.json)
-- embeddedScript: Hook script content (embedded in binary or generated)
+- hookScript: Hook script content (embedded as constant in main.go)
 
 ### Does
-- Install: Create hook script, make executable, update settings.json with PermissionRequest hook
-- Uninstall: Remove hook from settings.json, optionally delete script
-- Status: Check if hook installed, script exists, server running
+- runHooks: Dispatch to install/uninstall/status subcommands
+- installHook: Create hook script, make executable, update settings.json with PermissionRequest hook
+- uninstallHook: Remove hook from settings.json
+- hookStatus: Check if hook installed, script exists, server running
 
 ## Collaborators
 
@@ -27,18 +30,23 @@
 
 CLI subcommands:
 - `ui-mcp hooks install` - Full installation
-- `ui-mcp hooks uninstall [--delete-script]` - Remove from settings
+- `ui-mcp hooks uninstall` - Remove from settings
 - `ui-mcp hooks status` - Show current state
 
-Settings.json modification:
+Settings.json format (with matcher for new Claude Code hook format):
 ```json
 {
   "hooks": {
     "PermissionRequest": [
       {
-        "type": "command",
-        "command": ".claude/hooks/permission-ui.sh",
-        "timeout": 120
+        "matcher": {},
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/permission-ui.sh",
+            "timeout": 120
+          }
+        ]
       }
     ]
   }

@@ -2,22 +2,28 @@
 
 **Source Spec:** prompt-ui.md
 
+**Implementation:** internal/mcp/server.go (integrated into MCPServer)
+
 ## Responsibilities
 
 ### Knows
-- port: HTTP server port (randomly assigned)
-- portFilePath: Path to write port file (.ui-mcp/mcp-port)
-- server: Reference to ui-engine Server
+- mcpPort: HTTP server port (randomly assigned)
+- httpServer: The HTTP server instance
+- baseDir: Path for port file (.ui-mcp/mcp-port)
 
 ### Does
-- Start: Bind to random port, write port file, begin serving
-- Stop: Remove port file, shutdown HTTP server
-- HandlePromptAPI: POST /api/prompt - parse request, call Server.Prompt(), return response
+- StartPromptServer: Bind to random port, return port number
+- WritePortFile: Write port to mcp-port file
+- RemovePortFile: Clean up port file on shutdown
+- ShutdownPromptServer: Gracefully stop HTTP server
+- handlePrompt: POST /api/prompt - parse request, call PromptManager.Prompt(), return response
+- handleDebugVariables: GET /debug/variables - render variable tree
+- handleDebugState: GET /debug/state - render state JSON
 
 ## Collaborators
 
-- Server: Calls Server.Prompt() to trigger prompt flow
-- MCPServer: Coordinates startup during ui_start
+- PromptManager: handlePrompt() calls Prompt()
+- MCPServer: Coordinates startup during runMCP
 - OS: Port binding, file writing
 
 ## Sequences
