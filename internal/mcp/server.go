@@ -335,7 +335,7 @@ func (s *Server) SendNotification(method string, params interface{}) {
 func (s *Server) handleDebugVariables(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session")
 	if sessionID == "" {
-		sessionID = "1"
+		sessionID = s.currentVendedID
 	}
 
 	variables, err := s.getDebugVariables(sessionID)
@@ -393,7 +393,7 @@ func (s *Server) handleDebugVariables(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDebugState(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("session")
 	if sessionID == "" {
-		sessionID = "1"
+		sessionID = s.currentVendedID
 	}
 
 	stateData, err := s.getDebugState(sessionID)

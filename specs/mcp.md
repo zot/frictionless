@@ -124,6 +124,29 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
 **Returns:**
 - Success message indicating the configured directory and log paths.
 
+### 5.1.1 Agent File Installation
+
+During configuration, the MCP server checks for required agent definition files and installs them if missing.
+
+**Bundled Agent Files:**
+- `agents/ui-builder.md` — Expert agent for building ui-engine UIs
+
+**Installation Behavior:**
+1. **Path Resolution:** Agent files are installed to `.claude/agents/` relative to the parent of `base_dir` (the project root).
+2. **Check:** If `.claude/agents/ui-builder.md` does not exist, extract from bundle.
+3. **Directory Creation:** Create `.claude/agents/` if it doesn't exist.
+4. **Notification:** Send `agent_installed` notification to inform the AI agent:
+   ```json
+   {"jsonrpc":"2.0","method":"agent_installed","params":{"file":"ui-builder.md","path":".claude/agents/ui-builder.md"}}
+   ```
+
+**Design Rationale:**
+- Agent files define specialized sub-agents that the AI can invoke via the Task tool.
+- Installing them during `ui_configure` ensures they're available when the MCP is first used.
+- The notification allows the AI agent to acknowledge the new capability.
+
+**No-Op if Exists:** If the file already exists, no action is taken and no notification is sent.
+
 ### 5.2 `ui_start`
 **Purpose:** Starts the embedded HTTP UI server.
 

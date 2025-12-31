@@ -54,6 +54,12 @@ $(CACHE_DIR)/.cached:
 		cp -r web/lua/* $(CACHE_DIR)/lua/ 2>/dev/null || true; \
 		echo "Copied ui-mcp lua files"; \
 	fi
+	@# Copy agents for bundling
+	@if [ -d "agents" ]; then \
+		mkdir -p $(CACHE_DIR)/agents; \
+		cp -r agents/* $(CACHE_DIR)/agents/ 2>/dev/null || true; \
+		echo "Copied agents"; \
+	fi
 	@touch $(CACHE_DIR)/.cached
 	@echo "Cached web assets in $(CACHE_DIR)/"
 

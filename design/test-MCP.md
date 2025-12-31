@@ -102,6 +102,41 @@
     - AI Agent, seeing the user's input, calls `ui_upload_viewdef` with *modified* HTML to provide feedback or the next step in the workflow.
     - Verify frontend receives immediate push update and re-renders.
 
+### Test: Agent File Installation
+**Purpose**: Verify bundled agent files are installed during configuration.
+**Sequence**: seq-mcp-lifecycle.md (Scenario 1a)
+
+**Scenarios**:
+1.  **Fresh Install (File Missing)**:
+    - Start with empty project root (no `.claude/agents/` directory).
+    - Call `ui_configure` with `base_dir=".ui-mcp"`.
+    - Verify `.claude/agents/ui-builder.md` is created.
+    - Verify `agent_installed` notification sent with params:
+      `{"file": "ui-builder.md", "path": ".claude/agents/ui-builder.md"}`
+
+2.  **No-Op (File Exists)**:
+    - Pre-create `.claude/agents/ui-builder.md` with custom content.
+    - Call `ui_configure`.
+    - Verify file content unchanged (not overwritten).
+    - Verify NO `agent_installed` notification sent.
+
+3.  **Directory Creation**:
+    - Start with project root that has no `.claude/` directory.
+    - Call `ui_configure`.
+    - Verify `.claude/agents/` directory created.
+    - Verify `ui-builder.md` file created inside.
+
+4.  **Path Resolution**:
+    - Set `base_dir="/project/.ui-mcp"`.
+    - Call `ui_configure`.
+    - Verify agent file installed to `/project/.claude/agents/ui-builder.md`.
+    - (Ensures parent directory resolution is correct)
+
+5.  **Reconfiguration (File Already Installed)**:
+    - Call `ui_configure` (installs agent file, notification sent).
+    - Call `ui_configure` again (session restart).
+    - Verify NO second `agent_installed` notification.
+
 ### Test: MCP initialization
 **Purpose**: Verify MCP server setup
 - initialize() called by MCP client

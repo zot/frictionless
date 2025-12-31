@@ -113,7 +113,74 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 		}
 	}
 
+	// 5. Agent File Installation (Spec: mcp.md section 5.1.1)
+	// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
+	s.installAgentFiles(baseDir)
+
 	return mcp.NewToolResultText(fmt.Sprintf("Server configured. Log files created at %s", filepath.Join(baseDir, "log"))), nil
+}
+
+// installAgentFiles checks for and installs bundled agent files.
+// Spec: mcp.md section 5.1.1
+// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
+func (s *Server) installAgentFiles(baseDir string) {
+	// Bundled agent files to install
+	agentFiles := []string{"ui-builder.md"}
+
+	// Project root is parent of base_dir (e.g., .ui-mcp -> project root)
+	projectRoot := filepath.Dir(baseDir)
+	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
+
+	isBundled, _ := cli.IsBundled()
+
+	for _, agentFile := range agentFiles {
+		destPath := filepath.Join(agentsDir, agentFile)
+
+		// Skip if file already exists
+		if _, err := os.Stat(destPath); err == nil {
+			continue
+		}
+
+		// Try to read from bundle
+		bundlePath := filepath.Join("agents", agentFile)
+		var content []byte
+		var err error
+
+		if isBundled {
+			content, err = cli.BundleReadFile(bundlePath)
+		} else {
+			// Fallback: read from local agents/ directory (development mode)
+			localPath := filepath.Join(filepath.Dir(baseDir), "agents", agentFile)
+			content, err = os.ReadFile(localPath)
+		}
+
+		if err != nil || len(content) == 0 {
+			s.cfg.Log(1, "Agent file not found in bundle: %s", bundlePath)
+			continue
+		}
+
+		// Create directory if needed
+		if err := os.MkdirAll(agentsDir, 0755); err != nil {
+			s.cfg.Log(0, "Failed to create agents directory: %v", err)
+			continue
+		}
+
+		// Write agent file
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
+			s.cfg.Log(0, "Failed to write agent file: %v", err)
+			continue
+		}
+
+		s.cfg.Log(1, "Installed agent file: %s", destPath)
+
+		// Send notification to AI agent (if MCP server is available)
+		if s.mcpServer != nil {
+			s.SendNotification("agent_installed", map[string]interface{}{
+				"file": agentFile,
+				"path": filepath.Join(".claude", "agents", agentFile),
+			})
+		}
+	}
 }
 
 // Spec: mcp.md
@@ -266,7 +333,10 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 
 	sessionID, ok := args["sessionId"].(string)
 	if !ok || sessionID == "" {
-		sessionID = "1"
+		sessionID = s.currentVendedID
+	}
+	if sessionID == "" {
+		return mcp.NewToolResultError("no active session - call ui_start first"), nil
 	}
 
 	path, ok := args["path"].(string)
@@ -347,7 +417,10 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 	sessionID, ok := args["sessionId"].(string)
 	if !ok || sessionID == "" {
-		sessionID = "1"
+		sessionID = s.currentVendedID
+	}
+	if sessionID == "" {
+		return mcp.NewToolResultError("no active session - call ui_start first"), nil
 	}
 
 	// Use SafeExecuteInSession (sets Lua context, triggers afterBatch, recovers panics)

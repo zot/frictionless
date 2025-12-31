@@ -83,6 +83,10 @@
 **Implementation:**
 - [x] `internal/mcp/tools.go` - MCP tools
   - [x] handleConfigure() -> seq-mcp-lifecycle.md
+    - [x] Directory creation
+    - [x] Lua I/O redirection
+    - [x] Resource extraction
+    - [x] Agent file installation -> seq-mcp-lifecycle.md (Scenario 1a)
   - [x] handleStart() -> seq-mcp-lifecycle.md
   - [x] handleRun() -> seq-mcp-run.md (browser update trigger - ccbbf4f)
   - [x] handleUploadViewdef()

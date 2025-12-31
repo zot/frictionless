@@ -157,7 +157,7 @@ func (s *Server) handleGetStateResource(ctx context.Context, request mcp.ReadRes
 	// Simple parsing of URI to get sessionId
 	var sessionID string
 	if uri == "ui://state" {
-		sessionID = "1"
+		sessionID = s.currentVendedID
 	} else {
 		n, err := fmt.Sscanf(uri, "ui://state/%s", &sessionID)
 		if err != nil || n != 1 {
