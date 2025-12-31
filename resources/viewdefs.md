@@ -16,14 +16,16 @@ View definitions (viewdefs) are HTML templates that define how Lua objects are r
 
 | Attribute | Description | Example |
 |:----------|:------------|:--------|
-| `ui-value` | Bind element value to Lua path | `<sl-input ui-value="name">` |
-| `ui-text` | Bind text content to Lua path | `<span ui-text="fullName()">` |
-| `ui-action` | Bind click/event to Lua method | `<sl-button ui-action="save()">` |
+| `ui-value` | Bind element value/text to Lua path | `<sl-input ui-value="name">` or `<span ui-value="fullName()">` |
+| `ui-action` | Bind click to Lua method | `<sl-button ui-action="save()">` |
+| `ui-event-*` | Bind any event to Lua method | `<sl-select ui-event-sl-change="onSelect()">` |
 | `ui-view` | Render child object with its viewdef | `<div ui-view="selectedItem">` |
 | `ui-viewlist` | Render array as list | `<div ui-viewlist="items">` |
 | `ui-attr-*` | Bind HTML attribute to Lua path | `<sl-alert ui-attr-open="hasError">` |
 | `ui-class-*` | Toggle CSS class on boolean | `<div ui-class-active="isSelected">` |
-| `ui-style-*-*` | Bind CSS style to Lua path | `<div ui-style-color="themeColor">` |
+| `ui-style-*` | Bind CSS style to Lua path | `<div ui-style-color="themeColor">` |
+
+**Note:** `ui-value` works for both input elements (sets `.value`) and display elements like `<span>` (sets text content).
 
 ## Path Syntax
 
@@ -78,8 +80,8 @@ Create a viewdef for `lua.ViewListItem` with your desired namespace:
 <!-- lua.ViewListItem.contact-row viewdef -->
 <template>
   <div class="contact-row" ui-action="select()">
-    <span ui-text="item.fullName()"></span>
-    <span ui-text="item.email"></span>
+    <span ui-value="item.fullName()"></span>
+    <span ui-value="item.email"></span>
     <sl-icon-button name="trash" ui-action="delete()"></sl-icon-button>
   </div>
 </template>
@@ -145,7 +147,7 @@ The platform includes **Shoelace** web components:
 <template>
   <form class="my-form">
     <sl-input label="Name" ui-value="name" ui-attr-invalid="errors.name"></sl-input>
-    <div class="error" ui-class-visible="errors.name" ui-text="errors.name"></div>
+    <div class="error" ui-class-visible="errors.name" ui-value="errors.name"></div>
 
     <sl-button ui-action="submit()" ui-attr-disabled="!isValid">Submit</sl-button>
   </form>

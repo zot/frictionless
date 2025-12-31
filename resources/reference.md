@@ -56,7 +56,7 @@ HTML templates that define how objects render:
 ```html
 <template>
   <div class="contact-card">
-    <h3 ui-text="fullName()"></h3>
+    <h3 ui-value="fullName()"></h3>
     <sl-input ui-value="email" label="Email"></sl-input>
     <sl-button ui-action="save()">Save</sl-button>
   </div>

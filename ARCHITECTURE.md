@@ -41,7 +41,7 @@ This is the key quote: *"The backend creating variables when instructed by the f
 
 **⚠️ CRITICAL: See [viewdefs.md - Path Resolution: Server-Side Only](specs/viewdefs.md#path-resolution-server-side-only)**
 
-Variable values are **object references** (`{"obj": 1}`), not actual data. All path-based bindings (`ui-value`, `ui-attr-*`, `ui-class-*`, `ui-style-*-*`) MUST create child variables - the backend resolves paths, not the frontend.
+Variable values are **object references** (`{"obj": 1}`), not actual data. All path-based bindings (`ui-value`, `ui-attr-*`, `ui-class-*`, `ui-style-*`) MUST create child variables - the backend resolves paths, not the frontend.
 
 **Why object references?**
 - Enables object identity tracking across the UI
@@ -59,10 +59,10 @@ Any variable can have a `wrapper` property set via path syntax:
 
 ```html
 <!-- Direct wrapper usage in viewdef -->
-<div data-ui-view="selectedContact?wrapper=ContactPresenter">
+<div ui-view="selectedContact?wrapper=ContactPresenter">
 
 <!-- Wrapper with additional properties -->
-<div data-ui-path="currentUser?wrapper=UserPresenter&editable=true">
+<div ui-value="currentUser?wrapper=UserPresenter&editable=true">
 ```
 
 The wrapper:
@@ -87,13 +87,13 @@ Variables need two distinct values:
 
 ```html
 <!-- Wrap a single object in a presenter -->
-<div data-ui-view="contact?wrapper=ContactPresenter">
+<div ui-view="contact?wrapper=ContactPresenter">
 
 <!-- Wrap with editable form presenter -->
-<sl-input data-ui-path="user.email?wrapper=EditableField&validate=email">
+<sl-input ui-value="user.email?wrapper=EditableField&validate=email">
 
 <!-- Custom computed value -->
-<span data-ui-text="items?wrapper=CountDisplay">  <!-- shows "3 items" -->
+<span ui-value="items?wrapper=CountDisplay">  <!-- shows "3 items" -->
 ```
 
 ## ViewList: A High-Level Widget Using Wrappers
@@ -102,7 +102,7 @@ Variables need two distinct values:
 
 ### How ViewList Uses Wrappers
 
-When a viewdef uses `data-ui-viewlist="contacts"`, the frontend:
+When a viewdef uses `ui-viewlist="contacts"`, the frontend:
 1. Creates a variable for `contacts`
 2. Automatically adds `wrapper=ViewList` property
 3. Backend uses ViewList to process the array value
@@ -112,10 +112,10 @@ When a viewdef uses `data-ui-viewlist="contacts"`, the frontend:
 
 ```html
 <!-- Basic: uses generic ViewList -->
-<div data-ui-viewlist="contacts">
+<div ui-viewlist="contacts">
 
 <!-- With custom item presenter -->
-<div data-ui-viewlist="contacts?item=ContactPresenter">
+<div ui-viewlist="contacts?item=ContactPresenter">
 ```
 
 The `?item=ContactPresenter` is passed to ViewList, telling it which presenter class to wrap each item with.
@@ -179,10 +179,10 @@ ViewList isn't special—other widgets can also set wrapper properties:
 
 ```html
 <!-- Hypothetical DataGrid widget that wraps rows -->
-<ui-datagrid data-ui-source="transactions?wrapper=DataGrid&row=TransactionRow">
+<ui-datagrid ui-source="transactions?wrapper=DataGrid&row=TransactionRow">
 
 <!-- Tree widget that wraps nodes -->
-<ui-tree data-ui-root="fileSystem?wrapper=TreeView&node=FileNode">
+<ui-tree ui-root="fileSystem?wrapper=TreeView&node=FileNode">
 ```
 
 The `wrapper` property is the fundamental mechanism; ViewList and other widgets are conveniences built on top of it.
@@ -243,7 +243,7 @@ Contact (domain objects, stored by ref)
 ### Frontend (ViewList manages presenters)
 
 ```
-ViewList (created from data-ui-viewlist="contacts?item=ContactPresenter")
+ViewList (created from ui-viewlist="contacts?item=ContactPresenter")
 ├── sourceVariable: contacts variable
 ├── presenters: [ContactPresenter1, ContactPresenter2, ContactPresenter3]
 └── syncs presenters with source array changes
@@ -260,7 +260,7 @@ ContactPresenter (created by ViewList for each item)
 ### Data Flow
 
 1. Backend has `contacts: [{obj: 101}, {obj: 102}]`
-2. Viewdef: `data-ui-viewlist="contacts?item=ContactPresenter"`
+2. Viewdef: `ui-viewlist="contacts?item=ContactPresenter"`
 3. Frontend creates variable with `wrapper=ViewList, item=ContactPresenter`
 4. Backend sees wrapper, uses ViewList to process value
 5. ViewList creates ContactPresenter for each Contact ref
@@ -272,36 +272,36 @@ ContactPresenter (created by ViewList for each item)
 ```html
 <!-- ContactApp viewdef -->
 <div class="contact-manager">
-  <sl-input data-ui-path="searchQuery" placeholder="Search..."/>
-  <sl-button data-ui-action="addContact()">Add Contact</sl-button>
+  <sl-input ui-value="searchQuery" placeholder="Search..."/>
+  <sl-button ui-action="addContact()">Add Contact</sl-button>
 
   <!-- List with automatic presenter wrapping -->
-  <div data-ui-viewlist="contacts?item=ContactPresenter" data-ui-namespace="list-item">
+  <div ui-viewlist="contacts?item=ContactPresenter" ui-namespace="list-item">
     <!-- Each item renders ContactPresenter.list-item viewdef -->
   </div>
 
   <!-- Selected contact detail (uses selectedIndex to pick from presenter list) -->
-  <div data-ui-view="contacts[selectedIndex]">
+  <div ui-view="contacts[selectedIndex]">
     <!-- Renders ContactPresenter.DEFAULT viewdef when selected -->
   </div>
 </div>
 
 <!-- ContactPresenter.list-item viewdef (compact row) -->
-<div class="contact-row" data-ui-action="select()">
-  <span data-ui-path="item.fullName()"/>
-  <span data-ui-path="item.email"/>
-  <sl-icon-button name="trash" data-ui-action="delete()"/>
+<div class="contact-row" ui-action="select()">
+  <span ui-value="item.fullName()"/>
+  <span ui-value="item.email"/>
+  <sl-icon-button name="trash" ui-action="delete()"/>
 </div>
 
 <!-- ContactPresenter.DEFAULT viewdef (full detail) -->
 <div class="contact-detail">
-  <h2 data-ui-text="item.fullName()"/>
-  <sl-input data-ui-path="item.firstName" label="First Name"/>
-  <sl-input data-ui-path="item.lastName" label="Last Name"/>
-  <sl-input data-ui-path="item.email" label="Email"/>
-  <sl-input data-ui-path="item.phone" label="Phone"/>
-  <sl-textarea data-ui-path="item.notes" label="Notes"/>
-  <sl-button data-ui-action="delete()" variant="danger">Delete</sl-button>
+  <h2 ui-value="item.fullName()"/>
+  <sl-input ui-value="item.firstName" label="First Name"/>
+  <sl-input ui-value="item.lastName" label="Last Name"/>
+  <sl-input ui-value="item.email" label="Email"/>
+  <sl-input ui-value="item.phone" label="Phone"/>
+  <sl-textarea ui-value="item.notes" label="Notes"/>
+  <sl-button ui-action="delete()" variant="danger">Delete</sl-button>
 </div>
 ```
 
