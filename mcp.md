@@ -119,7 +119,7 @@ function Feedback:submit()
     mcp.notify("feedback", { rating = self.rating, comment = self.comment })
 end
 
-mcp.state = Feedback:new()
+mcp.value = Feedback:new()
 ```
 
 ```html

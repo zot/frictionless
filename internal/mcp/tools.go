@@ -15,8 +15,8 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/zot/ui-engine/cli"
 	lua "github.com/yuin/gopher-lua"
+	"github.com/zot/ui-engine/cli"
 )
 
 func (s *Server) registerTools() {
@@ -84,12 +84,9 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultError(fmt.Sprintf("failed to create directories: %v", err)), nil
 	}
 
-	// 2. Runtime Setup (Lua I/O Redirection)
-	logPath := filepath.Join(baseDir, "log", "lua.log")
-	errPath := filepath.Join(baseDir, "log", "lua-err.log")
-	if err := s.runtime.RedirectOutput(logPath, errPath); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to redirect Lua output: %v", err)), nil
-	}
+	// 2. Store log paths for session setup (applied when session is created)
+	s.logPath = filepath.Join(baseDir, "log", "lua.log")
+	s.errPath = filepath.Join(baseDir, "log", "lua-err.log")
 
 	// 3. State Transition
 	if err := s.Configure(baseDir); err != nil {
@@ -194,13 +191,23 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 
 	// Create session - this triggers CreateLuaBackendForSession
 	// Returns (session, vendedID, error) - session.ID has the UUID for URLs
-	session, vendedID, err := s.uiServer.GetSessions().CreateSession()
+	session, vendedID, err := s.UiServer.GetSessions().CreateSession()
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to create session: %v", err)), nil
 	}
 
 	// Store the vended ID for later cleanup
 	s.currentVendedID = vendedID
+
+	// Apply Lua I/O redirection to the new session (if paths were set at configure time)
+	if s.logPath != "" && s.errPath != "" {
+		luaSession := s.UiServer.GetLuaSession(vendedID)
+		if luaSession != nil {
+			if err := luaSession.RedirectOutput(s.logPath, s.errPath); err != nil {
+				s.cfg.Log(0, "Warning: failed to redirect Lua output: %v", err)
+			}
+		}
+	}
 
 	// Set up mcp global in Lua with Go functions
 	if err := s.setupMCPGlobal(vendedID); err != nil {
@@ -214,9 +221,14 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 
 // setupMCPGlobal creates the mcp global object in Lua with Go functions attached.
 func (s *Server) setupMCPGlobal(vendedID string) error {
+	session := s.UiServer.GetLuaSession(vendedID)
+	if session == nil {
+		return fmt.Errorf("session %s not found", vendedID)
+	}
+
 	// Use SafeExecuteInSession to ensure proper executor context and session global
 	_, err := s.SafeExecuteInSession(vendedID, func() (interface{}, error) {
-		L := s.runtime.State
+		L := session.State
 
 		// Create mcp table
 		mcpTable := L.NewTable()
@@ -228,32 +240,16 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		// Set value to nil initially
 		L.SetField(mcpTable, "value", lua.LNil)
 
-		// mcp.notify(method, params) - send MCP notification
-		L.SetField(mcpTable, "notify", L.NewFunction(func(L *lua.LState) int {
-			method := L.CheckString(1)
-			params := L.OptTable(2, nil)
+		// mcp.pushState(event) - push event to queue and signal waiters
+		// Spec: mcp.md Section 8.1
+		L.SetField(mcpTable, "pushState", L.NewFunction(func(L *lua.LState) int {
+			event := L.CheckTable(1)
 
-			var goParams interface{}
-			if params != nil {
-				goParams = luaTableToGo(params)
-			}
+			// Convert Lua table to Go value
+			goEvent := luaTableToGo(event)
 
-			s.SendNotification(method, goParams)
-			return 0
-		}))
-
-		// mcp.promptResponse(id, value, label) - respond to a pending prompt
-		L.SetField(mcpTable, "promptResponse", L.NewFunction(func(L *lua.LState) int {
-			id := L.CheckString(1)
-			value := L.CheckString(2)
-			label := L.CheckString(3)
-
-			// Respond via prompt manager
-			if s.promptManager != nil {
-				if err := s.promptManager.Respond(id, value, label); err != nil {
-					s.cfg.Log(0, "Warning: prompt response error: %v", err)
-				}
-			}
+			// Add to queue and signal waiters
+			s.pushStateEvent(vendedID, goEvent)
 			return 0
 		}))
 
@@ -363,7 +359,7 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 
 	// Convert vended ID to internal session ID for URL
 	// URLs should use internal session IDs, not vended IDs
-	internalID := s.uiServer.GetSessions().GetInternalID(sessionID)
+	internalID := s.UiServer.GetSessions().GetInternalID(sessionID)
 	if internalID == "" {
 		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
 	}
@@ -423,9 +419,15 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		return mcp.NewToolResultError("no active session - call ui_start first"), nil
 	}
 
+	// Get the session for LoadCodeDirect
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
+		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
+	}
+
 	// Use SafeExecuteInSession (sets Lua context, triggers afterBatch, recovers panics)
 	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
-		return s.runtime.LoadCodeDirect("mcp-run", code)
+		return session.LoadCodeDirect("mcp-run", code)
 	})
 
 	if err != nil {
@@ -473,7 +475,7 @@ func (s *Server) handleUploadViewdef(ctx context.Context, request mcp.CallToolRe
 	if s.onViewdefUploaded != nil {
 		s.onViewdefUploaded(typeName)
 	}
-	
+
 	return mcp.NewToolResultText(fmt.Sprintf("Viewdef %s uploaded", key)), nil
 }
 

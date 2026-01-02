@@ -33,7 +33,10 @@ build:
 # Cache ui-engine web assets (only if cache doesn't exist)
 cache: $(CACHE_DIR)/.cached
 
-$(CACHE_DIR)/.cached:
+$(UI_ENGINE_DIR)/build/ui-engine-bundled:
+	@cd $(UI_ENGINE_DIR); $(MAKE) bundle
+
+$(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 	@echo "Extracting web assets from ui-engine-bundled..."
 	@if [ ! -f "$(UI_ENGINE_DIR)/build/ui-engine-bundled" ]; then \
 		echo "Error: ui-engine-bundled not found at $(UI_ENGINE_DIR)/build/"; \

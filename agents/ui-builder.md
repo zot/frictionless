@@ -125,15 +125,38 @@ mcp.value = myApp             -- Display
 | `ui-attr-*`   | HTML attribute      | `<sl-alert ui-attr-open="hasError">`                     |
 | `ui-class-*`  | CSS class toggle    | `<div ui-class-active="isActive">`                       |
 | `ui-style-*`  | CSS style           | `<div ui-style-color="textColor">`                       |
+| `ui-code`     | Run JS on update    | `<div ui-code="jsCode">` (executes JS when value changes)|
 
 **Binding access modes:**
 - `ui-value` on inputs: `rw` (read initial, write on change)
 - `ui-value` on display elements: `r` (read only)
 - `ui-action`: `action` (write only, triggers method)
 - `ui-event-*`: `action` (write only, triggers method)
-- `ui-attr-*`, `ui-class-*`, `ui-style-*`: `r` (read only for display)
+- `ui-attr-*`, `ui-class-*`, `ui-style-*`, `ui-code`: `r` (read only for display)
 
 **Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy. Use boolean fields (e.g., `isActive`) or methods returning booleans for class/attr toggles.
+
+**ui-code binding:**
+
+Execute JavaScript when a variable's value changes. The code has access to:
+- `element` - The bound DOM element
+- `value` - The new value from the variable
+- `variable` - The variable object (for accessing widget/properties)
+- `store` - The VariableStore
+
+```html
+<!-- Close browser when closeWindow becomes truthy -->
+<div ui-code="closeWindow" style="display:none;"></div>
+```
+
+```lua
+-- In Lua: set the JS code, then trigger it
+app.closeWindow = "if (value) window.close()"
+-- Later, to close:
+app.closeWindow = "window.close()"  -- or set a trigger value
+```
+
+Use cases: auto-close window, trigger downloads, custom DOM manipulation, browser APIs.
 
 ## Variable Properties
 

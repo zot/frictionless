@@ -31,14 +31,14 @@ See [AI Interaction Guide](ui://mcp) for details.
 
 ### Displaying Objects
 
-Set `mcp.state` to display an object on screen:
+Set `mcp.value` to display an object on screen:
 
 ```lua
-mcp.state = MyForm:new()
+mcp.value = MyForm:new()
 ```
 
 **Key points**:
-- `mcp.state` starts as `nil` (blank screen)
+- `mcp.value` starts as `nil` (blank screen)
 - The object MUST have a `type` field matching a viewdef
 - Inspect current state via `ui://state`
 

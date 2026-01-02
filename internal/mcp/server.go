@@ -1,7 +1,7 @@
 // Package mcp implements the Model Context Protocol server.
 // CRC: crc-MCPServer.md
 // Spec: mcp.md
-// Sequence: seq-mcp-lifecycle.md, seq-mcp-notify.md
+// Sequence: seq-mcp-lifecycle.md, seq-mcp-state-wait.md
 package mcp
 
 import (
@@ -35,10 +35,8 @@ const (
 type Server struct {
 	mcpServer         *server.MCPServer
 	cfg               *cli.Config
-	uiServer          *cli.Server                    // UI engine server for ExecuteInSession
-	runtime           *cli.LuaRuntime
+	UiServer          *cli.Server // UI engine server for ExecuteInSession
 	viewdefs          *cli.ViewdefManager
-	promptManager     *PromptManager                 // Manages browser-based prompts
 	startFunc         func(port int) (string, error) // Callback to start HTTP server
 	onViewdefUploaded func(typeName string)          // Callback when a viewdef is uploaded
 	getSessionCount   func() int                     // Callback to get active session count
@@ -47,25 +45,32 @@ type Server struct {
 	state           State
 	baseDir         string
 	url             string
-	httpServer      *http.Server // HTTP server for /api/prompt (in stdio mode)
+	httpServer      *http.Server // HTTP server for debug endpoints (in stdio mode)
 	mcpPort         int          // Port for MCP HTTP server (written to .ui-mcp/mcp-port)
 	currentVendedID string       // Current session's vended ID (e.g., "1")
+	logPath         string       // Path for Lua log file (set at configure time)
+	errPath         string       // Path for Lua error log file (set at configure time)
+
+	// State change waiting (mcp.state queue)
+	stateWaiters   map[string][]chan struct{} // sessionID -> list of waiting channels
+	stateQueue     map[string][]interface{}   // sessionID -> queued events
+	stateWaitersMu sync.Mutex                 // Protects stateWaiters and stateQueue
 }
 
 // NewServer creates a new MCP server.
-func NewServer(cfg *cli.Config, uiServer *cli.Server, runtime *cli.LuaRuntime, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), onViewdefUploaded func(typeName string), getSessionCount func() int) *Server {
+func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), onViewdefUploaded func(typeName string), getSessionCount func() int) *Server {
 	s := server.NewMCPServer("ui-server", "0.1.0")
 	srv := &Server{
 		mcpServer:         s,
 		cfg:               cfg,
-		uiServer:          uiServer,
-		runtime:           runtime,
+		UiServer:          uiServer,
 		viewdefs:          viewdefs,
-		promptManager:     NewPromptManager(uiServer, runtime),
 		startFunc:         startFunc,
 		onViewdefUploaded: onViewdefUploaded,
 		getSessionCount:   getSessionCount,
 		state:             Unconfigured,
+		stateWaiters:      make(map[string][]chan struct{}),
+		stateQueue:        make(map[string][]interface{}),
 	}
 	srv.registerTools()
 	srv.registerResources()
@@ -80,7 +85,7 @@ func (s *Server) SafeExecuteInSession(sessionID string, fn func() (interface{}, 
 			err = fmt.Errorf("panic during execution: %v", r)
 		}
 	}()
-	return s.uiServer.ExecuteInSession(sessionID, fn)
+	return s.UiServer.ExecuteInSession(sessionID, fn)
 }
 
 // ServeStdio starts the MCP server on Stdin/Stdout.
@@ -89,19 +94,20 @@ func (s *Server) ServeStdio() error {
 }
 
 // ServeSSE starts the MCP server as an SSE HTTP server on the given address.
-// It also adds the /api/prompt endpoint for browser-based permission prompts.
-// Spec: prompt-ui.md
+// Spec: mcp.md Section 2.3
 func (s *Server) ServeSSE(addr string) error {
 	sseServer := server.NewSSEServer(s.mcpServer)
 
 	// Wrap SSE server with our custom handlers
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/prompt", s.handlePrompt)
-	mux.HandleFunc("/debug/variables", s.handleDebugVariables)
-	mux.HandleFunc("/debug/state", s.handleDebugState)
-	mux.Handle("/", sseServer) // SSE server handles MCP traffic
+	mux.HandleFunc("/variables", s.handleVariables)
+	mux.HandleFunc("/state", s.handleState)
+	mux.HandleFunc("/wait", s.handleWait)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		sseServer.ServeHTTP(w, r)
+	})
 
-	s.cfg.Log(0, "Starting MCP SSE server on %s (with /api/prompt, /debug/*)", addr)
+	s.cfg.Log(0, "Starting MCP SSE server on %s (/variables, /state, /wait)", addr)
 
 	// Start HTTP server
 	httpServer := &http.Server{
@@ -111,16 +117,15 @@ func (s *Server) ServeSSE(addr string) error {
 	return httpServer.ListenAndServe()
 }
 
-// StartPromptServer starts a standalone HTTP server for /api/prompt in stdio mode.
-// This allows hook scripts to call the prompt API while MCP runs over stdio.
-// Also serves debug pages at /debug/variables and /debug/state.
+// StartHTTPServer starts a standalone HTTP server in stdio mode.
+// Serves debug pages and state wait endpoint.
 // Returns the port number.
-// Spec: prompt-ui.md
-func (s *Server) StartPromptServer() (int, error) {
+// Spec: mcp.md Section 2.2
+func (s *Server) StartHTTPServer() (int, error) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/prompt", s.handlePrompt)
-	mux.HandleFunc("/debug/variables", s.handleDebugVariables)
-	mux.HandleFunc("/debug/state", s.handleDebugState)
+	mux.HandleFunc("/variables", s.handleVariables)
+	mux.HandleFunc("/state", s.handleState)
+	mux.HandleFunc("/wait", s.handleWait)
 
 	// Listen on random port
 	listener, err := net.Listen("tcp", ":0")
@@ -137,16 +142,16 @@ func (s *Server) StartPromptServer() (int, error) {
 
 	go func() {
 		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			s.cfg.Log(0, "Prompt server error: %v", err)
+			s.cfg.Log(0, "HTTP server error: %v", err)
 		}
 	}()
 
-	s.cfg.Log(0, "Prompt server listening on port %d", port)
+	s.cfg.Log(0, "HTTP server listening on port %d (/variables, /state, /wait)", port)
 	return port, nil
 }
 
 // WritePortFile writes the MCP port to the mcp-port file in baseDir.
-// Spec: prompt-ui.md
+// Spec: mcp.md
 func (s *Server) WritePortFile(port int) error {
 	s.mu.RLock()
 	baseDir := s.baseDir
@@ -171,71 +176,8 @@ func (s *Server) RemovePortFile() {
 	}
 }
 
-// PromptRequest is the JSON request body for POST /api/prompt.
-// Spec: prompt-ui.md
-type PromptRequest struct {
-	Message   string         `json:"message"`
-	Options   []PromptOption `json:"options"`
-	SessionID string         `json:"sessionId,omitempty"`
-	Timeout   int            `json:"timeout,omitempty"` // seconds
-}
-
-// PromptResponseBody is the JSON response for POST /api/prompt.
-type PromptResponseBody struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
-}
-
-// handlePrompt handles POST /api/prompt requests from hook scripts.
-// Spec: prompt-ui.md
-// CRC: crc-PromptManager.md
-func (s *Server) handlePrompt(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req PromptRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	// Defaults
-	if req.SessionID == "" {
-		req.SessionID = "1"
-	}
-	if req.Timeout <= 0 {
-		req.Timeout = 60
-	}
-
-	s.cfg.Log(1, "Prompt request: session=%s message=%q options=%d timeout=%ds",
-		req.SessionID, req.Message, len(req.Options), req.Timeout)
-
-	if s.promptManager == nil {
-		http.Error(w, "Prompt manager not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	// Call prompt manager (blocks until user responds or timeout)
-	timeout := time.Duration(req.Timeout) * time.Second
-	resp, err := s.promptManager.Prompt(req.SessionID, req.Message, req.Options, timeout)
-	if err != nil {
-		s.cfg.Log(1, "Prompt error: %v", err)
-		http.Error(w, err.Error(), http.StatusRequestTimeout)
-		return
-	}
-
-	// Return response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(PromptResponseBody{
-		Value: resp.Value,
-		Label: resp.Label,
-	})
-}
-
-// ShutdownPromptServer shuts down the standalone prompt HTTP server.
-func (s *Server) ShutdownPromptServer(ctx context.Context) error {
+// ShutdownHTTPServer shuts down the standalone HTTP server.
+func (s *Server) ShutdownHTTPServer(ctx context.Context) error {
 	if s.httpServer != nil {
 		s.RemovePortFile()
 		return s.httpServer.Shutdown(ctx)
@@ -297,7 +239,7 @@ func (s *Server) Stop() error {
 
 	// Destroy the current session if we have one
 	if s.currentVendedID != "" {
-		sessions := s.uiServer.GetSessions()
+		sessions := s.UiServer.GetSessions()
 		internalID := sessions.GetInternalID(s.currentVendedID)
 		if internalID != "" {
 			sessions.DestroySession(internalID)
@@ -331,12 +273,10 @@ func (s *Server) SendNotification(method string, params interface{}) {
 	s.mcpServer.SendNotificationToAllClients(method, paramsMap)
 }
 
-// handleDebugVariables renders a debug page with a variable tree.
-func (s *Server) handleDebugVariables(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("session")
-	if sessionID == "" {
-		sessionID = s.currentVendedID
-	}
+// handleVariables renders a page with a variable tree for the current session.
+// Spec: mcp.md Section 2.2
+func (s *Server) handleVariables(w http.ResponseWriter, r *http.Request) {
+	sessionID := s.currentVendedID
 
 	variables, err := s.getDebugVariables(sessionID)
 
@@ -389,12 +329,10 @@ func (s *Server) handleDebugVariables(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html))
 }
 
-// handleDebugState renders a debug page with the session state JSON.
-func (s *Server) handleDebugState(w http.ResponseWriter, r *http.Request) {
-	sessionID := r.URL.Query().Get("session")
-	if sessionID == "" {
-		sessionID = s.currentVendedID
-	}
+// handleState renders a page with the session state JSON for the current session.
+// Spec: mcp.md Section 2.2
+func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
+	sessionID := s.currentVendedID
 
 	stateData, err := s.getDebugState(sessionID)
 
@@ -441,9 +379,14 @@ func (s *Server) handleDebugState(w http.ResponseWriter, r *http.Request) {
 
 // getDebugState returns the state for a session (mcp.state or mcp.value).
 func (s *Server) getDebugState(sessionID string) (interface{}, error) {
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
+		return nil, fmt.Errorf("session %s not found", sessionID)
+	}
+
 	// Use SafeExecuteInSession to safely access the Lua state
 	return s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
-		L := s.runtime.State
+		L := session.State
 		mcpTable := L.GetGlobal("mcp")
 		if mcpTable.Type() != lua.LTTable {
 			return nil, fmt.Errorf("mcp global not found")
@@ -545,4 +488,127 @@ func escapeHTML(s string) string {
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	s = strings.ReplaceAll(s, "\"", "&quot;")
 	return s
+}
+
+// pushStateEvent adds an event to the queue and signals waiting clients.
+// Called from Lua via mcp.pushState().
+// Spec: mcp.md Section 8.1
+func (s *Server) pushStateEvent(sessionID string, event interface{}) {
+	s.stateWaitersMu.Lock()
+	defer s.stateWaitersMu.Unlock()
+
+	// Add to queue
+	s.stateQueue[sessionID] = append(s.stateQueue[sessionID], event)
+
+	// Signal all waiters for this session
+	if waiters, ok := s.stateWaiters[sessionID]; ok {
+		for _, ch := range waiters {
+			select {
+			case ch <- struct{}{}:
+			default:
+				// Channel already signaled or closed
+			}
+		}
+		// Clear waiters - they'll re-register if they want to wait again
+		delete(s.stateWaiters, sessionID)
+	}
+}
+
+// drainStateQueue atomically returns and clears the event queue for a session.
+// Spec: mcp.md Section 8.2
+func (s *Server) drainStateQueue(sessionID string) []interface{} {
+	s.stateWaitersMu.Lock()
+	defer s.stateWaitersMu.Unlock()
+
+	events := s.stateQueue[sessionID]
+	s.stateQueue[sessionID] = nil
+	return events
+}
+
+// handleWait handles GET /wait - long-poll for state changes on the current session.
+// Spec: mcp.md Section 8.2
+func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
+	// Use the distinguished session (currentVendedID)
+	sessionID := s.currentVendedID
+	if sessionID == "" {
+		http.Error(w, "No active session", http.StatusNotFound)
+		return
+	}
+
+	// Check session exists
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Parse timeout (default 30s, max 120s)
+	timeout := 30
+	if t := r.URL.Query().Get("timeout"); t != "" {
+		if parsed, err := strconv.Atoi(t); err == nil {
+			timeout = parsed
+		}
+	}
+	if timeout < 1 {
+		timeout = 1
+	}
+	if timeout > 120 {
+		timeout = 120
+	}
+
+	// Check if there are already events queued
+	events := s.drainStateQueue(sessionID)
+	if len(events) > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(events)
+		return
+	}
+
+	// Create a channel for this waiter
+	waiterCh := make(chan struct{}, 1)
+
+	// Register the waiter
+	s.stateWaitersMu.Lock()
+	s.stateWaiters[sessionID] = append(s.stateWaiters[sessionID], waiterCh)
+	s.stateWaitersMu.Unlock()
+
+	// Wait for signal or timeout
+	select {
+	case <-waiterCh:
+		// Signaled - drain and return events
+		events := s.drainStateQueue(sessionID)
+		if len(events) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(events)
+			return
+		}
+		// No events (shouldn't happen, but handle gracefully)
+		w.WriteHeader(http.StatusNoContent)
+
+	case <-time.After(time.Duration(timeout) * time.Second):
+		// Timeout - check one more time for events
+		events := s.drainStateQueue(sessionID)
+		if len(events) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(events)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+
+	case <-r.Context().Done():
+		// Client disconnected
+		return
+	}
+
+	// Unregister this waiter (cleanup)
+	s.stateWaitersMu.Lock()
+	if waiters, ok := s.stateWaiters[sessionID]; ok {
+		for i, ch := range waiters {
+			if ch == waiterCh {
+				s.stateWaiters[sessionID] = append(waiters[:i], waiters[i+1:]...)
+				break
+			}
+		}
+	}
+	s.stateWaitersMu.Unlock()
 }

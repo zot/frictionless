@@ -34,7 +34,7 @@ Provides access to session-level services.
 
 ### 2. `mcp` (AI Agents Only)
 Provides display and communication for AI Agents.
-- `mcp.state`: Set this to display an object on screen. Starts as `nil` (blank). The object must have a `type` field matching a viewdef.
+- `mcp.value`: Set this to display an object on screen. Starts as `nil` (blank). The object must have a `type` field matching a viewdef.
 - `mcp.notify(method, params)`: Sends a notification to the Agent.
 
 ## Change Detection

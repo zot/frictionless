@@ -1,7 +1,7 @@
 # Test Design: MCP Integration
 
 **CRC Cards**: crc-MCPServer.md, crc-MCPTool.md
-**Sequences**: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-create-session.md, seq-mcp-create-presenter.md
+**Sequences**: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-create-session.md, seq-mcp-create-presenter.md, seq-mcp-state-wait.md
 
 ### Test: MCP Server Lifecycle
 **Purpose**: Verify the FSM behavior of the MCP server.
@@ -142,3 +142,105 @@
 - initialize() called by MCP client
 - CRC: crc-MCPServer.md - "Does: initialize"
 - Sequence: seq-mcp-lifecycle.md
+
+### Test: State Change Waiting
+**Purpose**: Verify HTTP long-poll mechanism for UI-to-agent communication with queue semantics.
+**Sequence**: seq-mcp-state-wait.md
+
+**Scenarios**:
+1.  **Wait Success (Single Event)**:
+    - Start server in RUNNING state.
+    - Make GET request to `/wait?timeout=5`.
+    - In another goroutine, push event via `mcp.pushState({app="test", event="click"})`.
+    - Verify request returns 200 with JSON array `[{"app":"test","event":"click"}]`.
+
+2.  **Wait Timeout (Empty Queue)**:
+    - Start server in RUNNING state.
+    - Make GET request to `/wait?timeout=1`.
+    - Do not push any events to mcp.state.
+    - Verify request returns 204 No Content after ~1 second.
+
+3.  **No Active Session**:
+    - Server in CONFIGURED state (not RUNNING).
+    - Make GET request to `/wait?timeout=5`.
+    - Verify request returns 404 Not Found.
+
+4.  **Multiple Waiters**:
+    - Start server in RUNNING state.
+    - Make two concurrent GET requests to `/wait?timeout=10`.
+    - Push event via `mcp.pushState({app="test", event="broadcast"})`.
+    - Verify BOTH requests return 200 with the same JSON array.
+
+5.  **Client Disconnect**:
+    - Start server in RUNNING state.
+    - Make GET request to `/wait?timeout=30`.
+    - Cancel request (client disconnect) before timeout.
+    - Verify server cleans up waiter without error.
+    - Verify subsequent wait requests work normally.
+
+6.  **Multiple Events Accumulated**:
+    - Start server in RUNNING state.
+    - Make GET request to `/wait?timeout=10`.
+    - Push two events in sequence:
+      - `mcp.pushState({app="c", event="btn", id="save"})`
+      - `mcp.pushState({app="c", event="btn", id="cancel"})`
+    - Verify request returns 200 with array containing both events in order.
+
+7.  **Atomic Queue Swap**:
+    - Push event before waiting: `mcp.pushState({app="pre", event="queued"})`.
+    - Make GET request to `/wait?timeout=5`.
+    - Verify request returns immediately with the pre-queued event.
+    - Verify mcp.state is now empty after response.
+    - Push new event: `mcp.pushState({app="post", event="new"})`.
+    - Make another GET request.
+    - Verify only the new event is returned (not the old one).
+
+8.  **Events Queued Before Wait**:
+    - Push event: `mcp.pushState({app="x", event="early"})`.
+    - Make GET request to `/wait?timeout=10`.
+    - Verify request returns immediately (does not wait for timeout).
+    - Verify response contains the queued event.
+
+9.  **Timeout Parameter Bounds**:
+    - Request with `timeout=0` -> Use default (30s).
+    - Request with `timeout=200` -> Clamp to max (120s).
+    - Request with `timeout=-5` -> Use default (30s).
+
+10. **App Field in Events**:
+    - Push events from different "apps":
+      - `mcp.pushState({app="contacts", event="select", id=1})`
+      - `mcp.pushState({app="chat", event="message", text="hi"})`
+    - Verify both events returned with correct app fields.
+
+### Test: mcp.pushState() Lua API
+**Purpose**: Verify mcp.pushState() function and queue behavior.
+**Sequence**: seq-mcp-state-wait.md
+
+**Scenarios**:
+1.  **Initial State (Empty Queue)**:
+    - Verify `mcp.state` is `{}` (empty table) on session start.
+    - Verify `#mcp.state == 0`.
+
+2.  **Push Single Event**:
+    - Execute `mcp.pushState({app="test", event="click"})`.
+    - Verify `#mcp.state == 1`.
+    - Verify `mcp.state[1].app == "test"`.
+    - Verify any waiting HTTP clients are notified.
+
+3.  **Push Multiple Events**:
+    - Execute `mcp.pushState({app="a", event="e1"})`.
+    - Execute `mcp.pushState({app="b", event="e2"})`.
+    - Verify `#mcp.state == 2`.
+    - Verify events are in insertion order.
+    - Verify notification sent on each insert.
+
+4.  **Read via Resource**:
+    - Execute `mcp.pushState({app="test", event="value"})`.
+    - Read `ui://state` MCP resource.
+    - Verify resource returns current queue contents as JSON array.
+
+5.  **Queue Cleared After Wait Response**:
+    - Push events to queue via mcp.pushState().
+    - Trigger wait response (via GET /wait).
+    - Verify mcp.state is now empty `{}`.
+    - Verify new events can be pushed to fresh queue.

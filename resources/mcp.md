@@ -156,7 +156,7 @@ function Feedback:submit()
     })
 end
 
-mcp.state = Feedback:new()
+mcp.value = Feedback:new()
 ```
 
 ### Viewdef
@@ -175,7 +175,7 @@ mcp.state = Feedback:new()
 ## Best Practices
 
 - **Atomic viewdefs** — One type per viewdef, keep them focused
-- **Use `mcp.state`** — Expose only what's relevant to current task
+- **Use `mcp.state`** — Set data the agent can read via `ui://state` resource
 - **Informative notifications** — Include enough context in `mcp.notify` params
 - **Check logs** — Read `.ui-mcp/log/lua.log` when debugging
 - **Follow conventions** — Read `.ui-mcp/conventions/` before creating UI

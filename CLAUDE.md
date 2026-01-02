@@ -19,6 +19,9 @@ You can use the playwright browser to connect to it.
 ## Using the ui mcp
 use the directory `.ui-mcp` for the mcp's directory; create it if it is not there already.
 
+## Testing the ui mcp
+See [the testing doc](TESTING.md)
+
 ## CRC Modeling Workflow
 
 **DO NOT generate code directly from `specs/*.md` files!**

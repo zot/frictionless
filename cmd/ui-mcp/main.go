@@ -8,12 +8,12 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -72,6 +72,7 @@ func runMCP(args []string) int {
 		return 1
 	}
 
+	logToFile := false
 	// If --dir is specified, redirect stderr to a log file for debugging
 	if cfg.Server.Dir != "" {
 		logDir := filepath.Join(cfg.Server.Dir, "log")
@@ -83,31 +84,62 @@ func runMCP(args []string) int {
 			if err != nil {
 				log.Printf("Warning: failed to open mcp.log: %v", err)
 			} else {
+				logToFile = true
 				os.Stderr = logFile
 				log.SetOutput(logFile)
 			}
 		}
 	}
 
-	// Ensure logs go to Stderr to keep Stdout clean for MCP protocol
-	log.SetOutput(os.Stderr)
+	if !logToFile {
+		// Ensure logs go to Stderr to keep Stdout clean for MCP protocol
+		log.SetOutput(os.Stderr)
+	}
 
+	var mcpServer *mcp.Server
+	mcpServer = newMCPServer(cfg, func(port int) (string, error) {
+		// Start HTTP server async and return URL
+		return mcpServer.UiServer.StartAsync(port)
+	})
+	if mcpServer == nil {
+		return 1
+	}
+	// Start HTTP server for debug endpoints and state wait
+	// Spec: mcp.md Section 2.2
+	httpPort, err := mcpServer.StartHTTPServer()
+	if err != nil {
+		log.Printf("Failed to start HTTP server: %v", err)
+		return 1
+	}
+
+	// Write port file so scripts can find the HTTP API
+	if cfg.Server.Dir != "" {
+		if err := mcpServer.WritePortFile(httpPort); err != nil {
+			log.Printf("Warning: failed to write port file: %v", err)
+		}
+	}
+
+	// Serve MCP on Stdio (blocks until done)
+	if err := mcpServer.ServeStdio(); err != nil {
+		log.Printf("MCP server error: %v", err)
+		return 1
+	}
+	return 0
+}
+
+// Create the MCP server with callbacks into the ui-engine server
+func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 	// Create the ui-engine server
 	srv := cli.NewServer(cfg)
 
 	// Start cleanup worker
 	srv.StartCleanupWorker(time.Hour)
 
-	// Create the MCP server with callbacks into the ui-engine server
 	mcpServer := mcp.NewServer(
 		cfg,
 		srv,
-		srv.GetLuaRuntime(),
 		srv.GetViewdefManager(),
-		func(port int) (string, error) {
-			// Start HTTP server async and return URL
-			return srv.StartAsync(port)
-		},
+		fn,
 		func(typeName string) {
 			// Called when a viewdef is uploaded - could trigger refresh
 			cfg.Log(2, "Viewdef uploaded for type: %s", typeName)
@@ -117,30 +149,12 @@ func runMCP(args []string) int {
 			return srv.GetSessions().Count()
 		},
 	)
-
-	// Configure MCP server with baseDir (needed for port file)
 	if cfg.Server.Dir != "" {
 		if err := mcpServer.Configure(cfg.Server.Dir); err != nil {
 			log.Printf("Failed to configure MCP server: %v", err)
-			return 1
+			return nil
 		}
 	}
-
-	// Start prompt server for /api/prompt endpoint (used by permission hooks)
-	// Spec: prompt-ui.md
-	promptPort, err := mcpServer.StartPromptServer()
-	if err != nil {
-		log.Printf("Failed to start prompt server: %v", err)
-		return 1
-	}
-
-	// Write port file so hooks can find the prompt API
-	if cfg.Server.Dir != "" {
-		if err := mcpServer.WritePortFile(promptPort); err != nil {
-			log.Printf("Warning: failed to write port file: %v", err)
-		}
-	}
-
 	// Handle shutdown signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -150,92 +164,55 @@ func runMCP(args []string) int {
 		log.Println("Shutting down...")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		mcpServer.ShutdownPromptServer(ctx)
+		//mcpServer.ShutdownPromptServer(ctx)
 		srv.Shutdown(ctx)
 		os.Exit(0)
 	}()
-
-	// Serve MCP on Stdio (blocks until done)
-	if err := mcpServer.ServeStdio(); err != nil {
-		log.Printf("MCP server error: %v", err)
-		return 1
-	}
-
-	return 0
+	return mcpServer
 }
 
 // runServe runs the standalone server with HTTP UI and SSE MCP endpoints.
 func runServe(args []string) int {
-	// Parse serve-specific flags
-	fs := flag.NewFlagSet("serve", flag.ExitOnError)
-	port := fs.Int("port", 8000, "Port for HTTP UI server")
-	mcpPort := fs.Int("mcp-port", 8001, "Port for MCP SSE server")
-	dir := fs.String("dir", ".", "Working directory for ui-mcp")
-	verbose := fs.Int("v", 0, "Verbosity level (0-4)")
-
-	if err := fs.Parse(args); err != nil {
-		log.Printf("Failed to parse flags: %v", err)
-		return 1
+	// Extract --mcp-port from args (not part of standard cli.Load flags)
+	mcpPort := 8001
+	var filteredArgs []string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--mcp-port" && i+1 < len(args) {
+			fmt.Sscanf(args[i+1], "%d", &mcpPort)
+			i++ // skip the value
+		} else if strings.HasPrefix(args[i], "--mcp-port=") {
+			fmt.Sscanf(args[i], "--mcp-port=%d", &mcpPort)
+		} else {
+			filteredArgs = append(filteredArgs, args[i])
+		}
 	}
 
-	// Build config args for cli.Load
-	configArgs := []string{
-		"--dir", *dir,
-		"--port", fmt.Sprintf("%d", *port),
-	}
-	for i := 0; i < *verbose; i++ {
-		configArgs = append(configArgs, "-v")
-	}
-
-	cfg, err := cli.Load(configArgs)
+	// Use cli.Load for standard flags (handles -vvvv expansion)
+	cfg, err := cli.Load(filteredArgs)
 	if err != nil {
 		log.Printf("Failed to load config: %v", err)
 		return 1
 	}
 
-	// Create the ui-engine server
-	srv := cli.NewServer(cfg)
-	srv.StartCleanupWorker(time.Hour)
+	// Default dir to "." if not specified
+	if cfg.Server.Dir == "" {
+		cfg.Server.Dir = "."
+	}
+	// Default port to 8000 if not specified
+	if cfg.Server.Port == 0 {
+		cfg.Server.Port = 8000
+	}
 
-	// Handle shutdown signals
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		log.Println("Shutting down...")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		srv.Shutdown(ctx)
-		os.Exit(0)
-	}()
-
-	// Create MCP server
-	mcpServer := mcp.NewServer(
-		cfg,
-		srv,
-		srv.GetLuaRuntime(),
-		srv.GetViewdefManager(),
-		func(p int) (string, error) {
-			// In serve mode, UI server is already started on fixed port
-			return fmt.Sprintf("http://127.0.0.1:%d", *port), nil
-		},
-		func(typeName string) {
-			cfg.Log(2, "Viewdef uploaded for type: %s", typeName)
-		},
-		func() int {
-			return srv.GetSessions().Count()
-		},
-	)
-
-	// Auto-configure MCP server with base dir
-	if err := mcpServer.Configure(*dir); err != nil {
-		log.Printf("Failed to configure MCP server: %v", err)
+	mcpServer := newMCPServer(cfg, func(p int) (string, error) {
+		// In serve mode, UI server is already started on fixed port
+		return fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port), nil
+	})
+	if mcpServer == nil {
 		return 1
 	}
 
 	// Start UI HTTP server
-	url, err := srv.StartAsync(*port)
+	url, err := mcpServer.UiServer.StartAsync(cfg.Server.Port)
 	if err != nil {
 		log.Printf("Failed to start UI server: %v", err)
 		return 1
@@ -243,12 +220,11 @@ func runServe(args []string) int {
 	log.Printf("UI server running at %s", url)
 
 	// Start MCP SSE server (blocks)
-	mcpAddr := fmt.Sprintf(":%d", *mcpPort)
+	mcpAddr := fmt.Sprintf(":%d", mcpPort)
 	if err := mcpServer.ServeSSE(mcpAddr); err != nil {
 		log.Printf("MCP SSE server error: %v", err)
 		return 1
 	}
-
 	return 0
 }
 

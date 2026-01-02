@@ -12,9 +12,9 @@
 - state: Lifecycle state (UNCONFIGURED, CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
 - getSessionCount: Callback to query active browser session count
-- promptHTTPServer: Background HTTP server for prompt API
-- promptManager: Manager for pending prompts
 - currentVendedID: Current session's vended ID for cleanup on reconfigure
+- stateWaiters: Waiting HTTP requests for current session (channels)
+- mcpStateQueue: Event queue for current session (mcp.state)
 
 ### Does
 - initialize: Set up MCP server connection in UNCONFIGURED state
@@ -22,18 +22,19 @@
 - start: Transition to RUNNING state, launch HTTP server (ui_start)
 - stop: Destroy current session, reset to CONFIGURED (enables session restart)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
-- listResources: Return available resources (session state)
+- listResources: Return available resources (ui://state, ui://variables)
 - listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status)
-- handleResourceRequest: Process resource queries (ui://state/{sessionId})
+- handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
-- sendNotification: Push events to AI client (wired to Lua mcp.notify())
+- handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID)
+- notifyStateChange: Signal waiting HTTP clients when mcp.pushState() called
+- atomicSwapQueue: Atomically swap mcp.state with empty table, return accumulated events
 - getStatus: Return current lifecycle state, URL, and session count
 - shutdown: Clean up MCP connection
-- startPromptServer: Start background HTTP server for prompt API
-- handlePromptResponse: Receive promptResponse from browser, resolve pending prompt
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
-- handleDebugVariables: Render debug page with variable tree
-- handleDebugState: Render debug page with session state JSON
+- handleVariables: Render interactive variable tree (GET /variables)
+- handleState: Return session state JSON (GET /state)
+- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState)
 
 ## Collaborators
 
@@ -43,8 +44,6 @@
 - LuaRuntime: Lua code execution and I/O redirection
 - HTTPServer: Underlying HTTP service
 - OS: Operating system interactions (filesystem, browser)
-- PromptManager: Pending prompt tracking
-- PromptHTTPServer: Background HTTP server for prompt API
 
 ## Sequences
 
@@ -52,5 +51,4 @@
 - seq-mcp-create-session.md: AI creating session
 - seq-mcp-run.md: AI executing Lua code
 - seq-mcp-get-state.md: AI inspecting state
-- seq-mcp-notify.md: Lua code sending notifications to AI agent
-- seq-prompt-flow.md: Permission prompt from hook to browser response
+- seq-mcp-state-wait.md: Agent waiting for state changes via HTTP long-poll (GET /wait)

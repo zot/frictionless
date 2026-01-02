@@ -105,7 +105,7 @@ func (s *Server) handleGetStaticResource(ctx context.Context, request mcp.ReadRe
 			content, err = os.ReadFile(fullPath)
 			found = (err == nil)
 		}
-		
+
 		if !found {
 			// Try exact match
 			fullPath = filepath.Join(baseDir, "resources", cleanPath)
@@ -132,7 +132,7 @@ func (s *Server) handleGetStaticResource(ctx context.Context, request mcp.ReadRe
 
 	mimeType := "text/markdown"
 	// Heuristic: if we requested a .md file or resolved to one, it's markdown.
-	// But bundle.ReadFile doesn't return the resolved name. 
+	// But bundle.ReadFile doesn't return the resolved name.
 	// We can assume markdown if we're not sure, or check the extension of cleanPath.
 	// If cleanPath doesn't have .md, and we found it, it might be .md or plain.
 	// Since all our core docs are .md, defaulting to markdown is reasonable.
@@ -165,8 +165,8 @@ func (s *Server) handleGetStateResource(ctx context.Context, request mcp.ReadRes
 		}
 	}
 
-	session, ok := s.runtime.GetLuaSession(sessionID)
-	if !ok {
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
 		return nil, fmt.Errorf("session %s not found", sessionID)
 	}
 
@@ -346,8 +346,8 @@ func (s *Server) handleGetVariablesResource(ctx context.Context, request mcp.Rea
 // getDebugVariables returns all variables in topological order for a session.
 // This is used by both the MCP resource and the debug page.
 func (s *Server) getDebugVariables(sessionID string) ([]cli.DebugVariable, error) {
-	session, ok := s.runtime.GetLuaSession(sessionID)
-	if !ok {
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
 		return nil, fmt.Errorf("session %s not found", sessionID)
 	}
 

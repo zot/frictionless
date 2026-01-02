@@ -28,9 +28,9 @@ Both modes start an HTTP server with debug and API endpoints.
 
 **HTTP Server (random port):**
 Both modes start an HTTP server. In stdio mode, it binds to a random port and writes the port to `{base_dir}/mcp-port`. Endpoints:
-- `POST /api/prompt`: Permission prompt API (for hook scripts)
-- `GET /debug/variables`: Interactive variable tree view
-- `GET /debug/state`: Current session state (JSON)
+- `GET /variables`: Interactive variable tree view
+- `GET /state`: Current session state (JSON)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.2)
 
 ### 2.3 SSE Mode (`serve` command)
 
@@ -38,14 +38,14 @@ Both modes start an HTTP server. In stdio mode, it binds to a random port and wr
 - **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>`
 - **Two-Port Design:**
   - UI Server port (default 8000): Serves HTML/JS and WebSocket connections
-  - MCP Server port (default 8001): SSE transport plus API/debug endpoints
+  - MCP Server port (default 8001): SSE transport plus debug endpoints
 
 **MCP Server Endpoints:**
 - `GET /sse`: SSE stream for MCP messages
 - `POST /message`: Send MCP requests
-- `POST /api/prompt`: Permission prompt API
-- `GET /debug/variables`: Interactive variable tree view
-- `GET /debug/state`: Current session state (JSON)
+- `GET /variables`: Interactive variable tree view
+- `GET /state`: Current session state (JSON)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.2)
 
 ## 3. Server Lifecycle
 
@@ -260,57 +260,15 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 }
 ```
 
-## 7. Notifications
-
-The MCP server supports server-to-client notifications, enabling Lua code to communicate events back to the AI agent.
-
-### 7.1 `mcp.notify(method, params)`
-**Purpose:** Sends a JSON-RPC 2.0 notification from Lua code to the connected MCP client (AI agent).
-
-**Lua API:**
-```lua
-mcp.notify(method, params)
-```
-
-**Parameters:**
-- `method` (string): The notification method name (e.g., "feedback", "user_action").
-- `params` (table, optional): Structured data for the notification.
-
-**Behavior:**
-- Converts Lua table to JSON object.
-- Sends JSON-RPC 2.0 notification to the MCP client via stdout.
-
-**Example:**
-```lua
--- User submits feedback form
-function Feedback:submit()
-    mcp.notify("feedback", {
-        rating = self.rating,
-        comment = self.comment
-    })
-end
-```
-
-**Wire Format:**
-```json
-{"jsonrpc":"2.0","method":"feedback","params":{"rating":4,"comment":"Great!"}}
-```
-
-### 7.2 Use Cases
-- **Form submission:** User fills form → Lua handler calls `mcp.notify` → Agent receives data
-- **User actions:** Button clicks, selections, navigation events
-- **State changes:** When application state changes that the agent should know about
-
-## 8. Resources
+## 7. Resources
 
 MCP Resources provide read access to state and documentation.
 
-### 8.1 State Resources
+### 7.1 State Resources
 
 | URI | Description |
 |-----|-------------|
-| `ui://state` | Current JSON state of session 1 (Variable 1) |
-| `ui://state/{sessionId}` | Current JSON state of the specified session |
+| `ui://state` | Current JSON state of the MCP session |
 
 **Example Response (ui://state):**
 ```json
@@ -321,11 +279,11 @@ MCP Resources provide read access to state and documentation.
 }
 ```
 
-### 8.2 Debug Resources
+### 7.2 Variable Resources
 
 | URI | Description |
 |-----|-------------|
-| `ui://variables` | Topologically sorted array of all tracked variables for session 1 |
+| `ui://variables` | Topologically sorted array of all tracked variables for the MCP session |
 
 Each variable includes: id, parentId, type, path, value, properties, and childIds.
 
@@ -343,9 +301,9 @@ Each variable includes: id, parentId, type, path, value, properties, and childId
 ]
 ```
 
-The `/debug/variables` HTTP endpoint renders the same data as an interactive HTML tree using Shoelace components.
+The `/variables` HTTP endpoint renders the same data as an interactive HTML tree using Shoelace components.
 
-### 8.2 Documentation Resources
+### 7.3 Documentation Resources
 
 | URI | Description |
 |-----|-------------|
@@ -354,10 +312,103 @@ The `/debug/variables` HTTP endpoint renders the same data as an interactive HTM
 | `ui://lua` | Lua API, class patterns, and global objects |
 | `ui://mcp` | Guide for AI agents to build apps |
 
-### 8.3 Static Resources
+### 7.4 Static Resources
 
 | URI | Description |
 |-----|-------------|
 | `ui://{path}` | Generic resource for static content in the resources directory |
 
 Files in `{base_dir}/resources/` are accessible via `ui://{filename}` (e.g., `ui://patterns/form.md`).
+
+## 8. State Change Waiting
+
+Since some MCP clients (including Claude Code) do not support receiving server-to-client notifications, an alternative mechanism is provided for UI-to-agent communication via HTTP long-polling.
+
+### 8.1 `mcp.pushState(event)`
+
+**Purpose:** Push events to a queue that the agent can read via HTTP long-poll.
+
+**Lua API:**
+```lua
+-- Push an event to the queue (signals waiting agent)
+mcp.pushState({ app = "contacts", event = "chat", text = "hello" })
+
+-- Push multiple events
+mcp.pushState({ app = "contacts", event = "button", id = "save" })
+mcp.pushState({ app = "contacts", event = "button", id = "cancel" })
+```
+
+**Behavior:**
+- Events are queued internally and waiting HTTP clients are signaled immediately.
+- When the wait endpoint responds, it atomically returns all queued events and clears the queue.
+- This ensures no events are lost between the read and subsequent writes.
+- Queue contents readable via `ui://state` MCP resource.
+
+### 8.2 HTTP Wait Endpoint
+
+**Endpoint:** `GET /wait`
+
+**Implementation:** Added to HTTP mux in `internal/mcp/server.go` (both `ServeSSE` and `StartHTTPServer`). Uses the server's current session.
+
+**Query Parameters:**
+- `timeout` (integer, optional): Maximum wait time in seconds. Default: 30. Max: 120.
+
+**Behavior:**
+1. Blocks until events are pushed via `mcp.pushState()` or timeout expires.
+2. Atomically drains the queue and returns accumulated events.
+3. Returns the events as a JSON array.
+4. Returns HTTP 204 (No Content) on timeout (no events).
+5. Returns HTTP 404 if session does not exist.
+
+**Example Request:**
+```
+GET /wait?timeout=30 HTTP/1.1
+Host: localhost:39482
+```
+
+**Example Response (events queued):**
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+[{"app":"contacts","event":"chat","text":"hello"},{"app":"contacts","event":"button","id":"save"}]
+```
+
+**Example Response (timeout):**
+```
+HTTP/1.1 204 No Content
+```
+
+### 8.3 Agent Integration Pattern
+
+Agents can monitor for state changes using a background shell script:
+
+**Script:** `scripts/wait-for-state.sh`
+
+```bash
+#!/bin/bash
+# Outputs one JSON object per line when mcp.state events arrive.
+# Exits when server shuts down.
+BASE_URL="${1:?Usage: wait-for-state.sh <base_url> [timeout]}"
+TIMEOUT="${2:-30}"
+
+while true; do
+    RESPONSE=$(curl -s -w "\n%{http_code}" "${BASE_URL}/wait?timeout=${TIMEOUT}" 2>/dev/null)
+    [ $? -ne 0 ] && exit 0  # Server disconnected
+
+    HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+    BODY=$(echo "$RESPONSE" | sed '$d')
+
+    case "$HTTP_CODE" in
+        200) echo "$BODY" | jq -c '.[]' ;;  # Output each event on its own line
+        204) continue ;;                     # Timeout, retry
+        *)   exit 1 ;;                       # Other error
+    esac
+done
+```
+
+**Agent Workflow:**
+1. Start script in background: `Bash(run_in_background=true)`
+2. Continue with other work
+3. Check `TaskOutput` periodically or when expecting user input
+4. Parse JSON events from script output
