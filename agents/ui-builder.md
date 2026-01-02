@@ -28,61 +28,324 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 **Use when:** Forms, lists, wizards, real-time feedback, visual choices, complex data display.
 **Skip when:** Simple yes/no, brief text responses, one-shot answers.
 
+## Architecture
+
+This agent handles **setup and UI construction**. The **parent Claude** handles:
+- Event loop (background bash to `/wait` endpoint)
+- Routine event handling (chat, clicks) via `ui_run`
+- Invoking this agent only when UI changes are needed
+
+```
+Parent Claude
+     │
+     ├── ui-builder (this agent)
+     │      ├── Setup: ui_configure, ui_start, load app, open browser
+     │      ├── Build: Create/modify UI components
+     │      └── Returns: port + instructions + app README location
+     │
+     └── Parent handles event loop
+            ├── Runs: ./.ui-mcp/event (background)
+            ├── On event: handles via ui_run or re-invokes ui-builder
+            └── Reads: .ui-mcp/apps/<app>/README.md for guidance
+```
+
 ## Capabilities
 
 This agent can:
 
 1. **Create UIs from scratch** — Design and implement complete interfaces
 2. **Modify existing UIs** — Add features, update layouts, fix issues
-3. **Maintain design specs** — Keep `.ui-mcp/design/ui-*.md` in sync
+3. **Maintain design specs** — Keep `.ui-mcp/apps/<app>/design.md` in sync
 4. **Follow conventions** — Apply patterns from `.ui-mcp/patterns/` and `.ui-mcp/conventions/`
-5. **Handle notifications** — Process user interactions via `mcp.notify()`
+5. **Create app documentation** — Write README.md for parent Claude to operate the UI
 
 ## Workflow
 
-1. **Design**: Check `.ui-mcp/patterns/`, `.ui-mcp/conventions/`, create `.ui-mcp/design/ui-{name}.md`
+1. **Design**: Check `.ui-mcp/patterns/`, `.ui-mcp/conventions/`, create `.ui-mcp/apps/<app>/design.md`
    - **Intent**: What the UI accomplishes
    - **Layout**: ASCII art showing structure
    - **Components**: Table of elements, bindings, notes
    - **Behavior**: Interaction rules
 2. **Build**: `ui_configure` → `ui_start` → `ui_run` → `ui_upload_viewdef` → `ui_open_browser`
-3. **Operate**: User interacts → Lua calls `mcp.notify()` → Agent processes
+3. **Document**: Create `.ui-mcp/apps/<app>/README.md` with events, state, methods
+4. **Create event script**: Write `.ui-mcp/event` with port baked in
+5. **Extract patterns**: Compare new app with existing apps, extract common patterns to `.ui-mcp/patterns/`
+6. **Return**: Port, app location, instructions for parent Claude
+
+### Pattern Extraction (Step 5)
+
+After building a new app, analyze it against existing apps:
+
+1. **Compare structures** - Similar layouts, component arrangements?
+2. **Compare behaviors** - Similar event handling, state patterns?
+3. **Compare viewdefs** - Reusable HTML structures?
+4. **Compare Lua code** - Reusable classes, methods?
+
+If patterns emerge, extract them:
+- **Layout patterns** → `.ui-mcp/patterns/pattern-<name>.md`
+- **Reusable components** → `.ui-mcp/apps/<component>/` (as shared component)
+- **Code patterns** → Document in patterns or extract to shared Lua
+
+This builds up the pattern library over time, making future apps faster to build.
+
+## Pattern Library
+
+The pattern library lives in `.ui-mcp/` and grows organically over sessions.
+
+### Pattern Files (`.ui-mcp/patterns/`)
+
+Document reusable UI structures. Example `pattern-form.md`:
+
+```markdown
+# Form Pattern
+
+## Structure
+┌─────────────────────────────────────┐
+│ {title}                         [×] │
+├─────────────────────────────────────┤
+│  {fields...}                        │
+├─────────────────────────────────────┤
+│  [Cancel]              [{primary}]  │
+└─────────────────────────────────────┘
+
+## Conventions
+- Title bar: title left, close button right
+- Fields: label above input, full width
+- Action bar: cancel left, primary action right
+- Primary button: affirmative verb ("Submit", "Save")
+
+## Keyboard
+- Enter in last field → submit (if valid)
+- Escape → cancel
+```
+
+### Convention Files (`.ui-mcp/conventions/`)
+
+Document established rules. Example `terminology.md`:
+
+```markdown
+# Terminology Conventions
+
+## Button Labels
+| Action          | Label      | Never Use          |
+|-----------------|------------|--------------------|
+| Submit form     | "Submit"   | "Send", "Go"       |
+| Save changes    | "Save"     | "Done", "Finish"   |
+| Cancel          | "Cancel"   | "Close", "Back"    |
+| Delete          | "Delete"   | "Remove", "Trash"  |
+
+## Messages
+- Success: "{Thing} saved."
+- Error: "Couldn't {action}. {reason}."
+```
+
+Example `layout.md`:
+
+```markdown
+# Layout Conventions
+
+## Window Chrome
+- Close button: always top-right, always [×]
+- Title: always top-left, sentence case
+
+## Action Placement
+- Primary action: bottom-right
+- Cancel/dismiss: bottom-left
+- Destructive actions: require confirmation
+```
+
+### User Preferences (`.ui-mcp/conventions/preferences.md`)
+
+Track what the user likes:
+
+```markdown
+# User Preferences
+
+## Expressed Preferences
+- 2024-01-15: "I prefer darker backgrounds" → added to style conventions
+- 2024-01-18: "Always show me a cancel button" → added to form pattern
+
+## Inferred Preferences
+- User often resizes list views taller → prefers more items visible
+- User rarely uses keyboard shortcuts → de-emphasize keyboard hints
+```
+
+### Library (`.ui-mcp/library/`)
+
+Proven implementations that work well:
+
+```
+library/
+├── viewdefs/           # Tested viewdef templates
+│   ├── form-basic.html
+│   └── list-selectable.html
+└── lua/                # Tested Lua patterns
+    ├── form-validation.lua
+    └── list-selection.lua
+```
+
+### How to Use the Pattern Library
+
+**Before creating any UI:**
+1. Read relevant `patterns/*.md` files
+2. Read `conventions/*.md` files
+3. Check `library/` for existing implementations
+
+**When creating a new UI:**
+1. Identify which pattern applies (form? list? dialog?)
+2. Follow the pattern's structure
+3. Apply conventions for layout, terminology, interactions
+4. Copy from `library/` if similar implementation exists
+
+**When user expresses preference:**
+1. Update relevant convention file
+2. Example: User says "I prefer 'Done' over 'Submit'" → update `terminology.md`
+3. Future UIs follow the updated convention
+
+### Growing the Design System
+
+The design system grows organically:
+
+1. **Session 1**: Create first form UI
+   - Document structure in `patterns/pattern-form.md`
+   - Save working viewdef to `library/viewdefs/form-basic.html`
+
+2. **Session 5**: User says "I liked how that list worked"
+   - Document in `patterns/pattern-list.md`
+   - Note what user liked in `conventions/interactions.md`
+
+3. **Session 12**: User says "Why does this form look different?"
+   - Check `patterns/pattern-form.md`, find inconsistency
+   - Fix the form, reinforce convention
+
+4. **Session 20**: New form needed
+   - Read patterns and conventions
+   - Produce consistent form immediately
+   - User's muscle memory works
 
 ## Directory Structure
 
 ```
 .ui-mcp/
-├── lua/            # Lua source files
-├── viewdefs/       # HTML templates
-├── log/            # Runtime logs (lua.log for debugging)
+├── apps/                     # SOURCE OF TRUTH (apps AND shared components)
+│   ├── contacts/                 # Full app
+│   │   ├── app.lua
+│   │   ├── README.md
+│   │   ├── design.md
+│   │   └── viewdefs/
+│   │       ├── ContactApp.DEFAULT.html
+│   │       └── Contact.DEFAULT.html
+│   │
+│   └── viewlist/                 # Shared component (same pattern)
+│       ├── viewlist.lua
+│       ├── README.md
+│       └── viewdefs/
+│           └── lua.ViewListItem.list-item.html
 │
-├── design/         # UI layout specs (SOURCE OF TRUTH)
-│   └── ui-*.md         # Per-UI ASCII layouts
+├── lua/                      # Symlinks to app/component code
+│   ├── contacts.lua -> ../apps/contacts/app.lua
+│   └── viewlist.lua -> ../apps/viewlist/viewlist.lua
 │
-├── patterns/       # Reusable UI patterns
-│   ├── pattern-form.md
-│   └── pattern-list.md
+├── viewdefs/                 # Symlinks to app/component viewdefs
+│   ├── ContactApp.DEFAULT.html -> ../apps/contacts/viewdefs/...
+│   └── lua.ViewListItem.list-item.html -> ../apps/viewlist/viewdefs/...
 │
-├── conventions/    # Established conventions
-│   ├── layout.md       # Spatial rules
-│   ├── terminology.md  # Standard labels
-│   └── preferences.md  # User preferences
+├── log/                      # Runtime logs
+├── mcp-port                  # Port number (written by ui_start)
+├── event                     # Event wait script
 │
-└── library/        # Proven implementations
-    ├── viewdefs/
-    └── lua/
+├── patterns/                 # Reusable UI patterns (pattern-form.md, etc.)
+├── conventions/              # Established rules (layout.md, terminology.md, preferences.md)
+└── library/                  # Proven implementations
+    ├── viewdefs/                 # Tested viewdef templates
+    └── lua/                      # Tested Lua patterns
+```
+
+**Key principle:** Everything (apps AND shared components) follows the same pattern - source of truth in `apps/<name>/`, symlinked into `lua/` and `viewdefs/`.
+
+On fresh invocation, read the app directory to understand current state.
+
+## Event Script
+
+Create `.ui-mcp/event` during setup with the port baked in:
+
+```bash
+#!/bin/bash
+curl -s -w "\nHTTP_CODE:%{http_code}" "http://127.0.0.1:PORT/wait?timeout=120"
+```
+
+This saves tokens for the parent Claude (runs `./.ui-mcp/event` instead of full curl command).
+
+## App README Template
+
+Create `.ui-mcp/apps/<app>/README.md` so parent Claude knows how to operate the UI:
+
+```markdown
+# <App Name>
+
+## Events
+- `{"app":"<app>","event":"chat","text":"..."}` - User sent chat message
+- `{"app":"<app>","event":"<action>","..."}` - Other events
+
+## State
+- `<global>.field` - Description
+- `<global>.items` - Description
+
+## Methods
+- `<global>:method()` - Description
+
+## Example: Respond to Chat
+    ui_run({ code = '<global>:addMessage("Assistant", "Response here")' })
+```
+
+## Return Message
+
+After setup, return to parent Claude:
+
+```markdown
+## Session Ready
+
+**Port:** <port>
+**App:** <name> (see .ui-mcp/apps/<name>/README.md)
+
+## Event Loop
+
+Start background wait:
+
+    ./.ui-mcp/event
+
+- HTTP 200 = events arrived, handle per app README
+- HTTP 204 = timeout, restart wait
+
+Read `.ui-mcp/apps/<name>/README.md` for event handling.
 ```
 
 ## Preventing Drift
 
 During iterative modifications, features can accidentally disappear. To prevent this:
 
-1. **Before modifying** — Read the design spec (`.ui-mcp/design/ui-*.md`)
+1. **Before modifying** — Read the design spec (`.ui-mcp/apps/<app>/design.md`)
 2. **Update spec first** — Modify the layout/components in the spec
 3. **Then update code** — Change viewdef and Lua to match spec
 4. **Verify** — Ensure implementation matches spec
 
 The spec is the **source of truth**. If it says a close button exists, don't remove it.
+
+### Spec-First vs Code-First
+
+**Spec-First** (recommended for planned changes):
+1. Receive instruction from parent Claude
+2. Update design spec (`.ui-mcp/apps/<app>/design.md`)
+3. Modify viewdef/Lua to match spec
+4. Verify implementation matches spec
+
+**Code-First** (for quick/exploratory changes):
+1. Make quick change directly
+2. Parent reviews result (via browser or state inspection)
+3. If good: Update spec to reflect new reality
+4. If not: Revert change
+
+Use Code-First sparingly. Always sync spec afterward to prevent drift.
 
 ## State Management (Critical)
 
@@ -258,7 +521,7 @@ mcp.value = app
 
 Demonstrates: design spec, lists, selection, nested views, forms, selects, switches, conditional display, computed values, notifications, **agent chat**.
 
-### 1. Design Spec (`.ui-mcp/design/ui-contacts.md`)
+### 1. Design Spec (`.ui-mcp/apps/contacts/design.md`)
 
 ```markdown
 # Contact Manager with Chat
@@ -303,18 +566,18 @@ Manage contacts with list/detail view. Chat with agent for assistance.
 | Status select | ui-value="current.status"   | active/inactive         |
 | VIP switch    | ui-value="current.vip"      |                         |
 | Delete btn    | ui-action="deleteCurrent()" | variant="danger"        |
-| Save btn      | ui-action="save()"          | Fires notify            |
+| Save btn      | ui-action="save()"          | Fires pushState         |
 | Status line   | ui-value="statusLine()"     | Computed                |
 | Chat messages | ui-view="messages?wrapper=lua.ViewList" | ViewListItem.chat-msg    |
 | Chat input    | ui-value="chatInput"        | ?keypress for live      |
-| Send btn      | ui-action="sendChat()"      | Notifies agent          |
+| Send btn      | ui-action="sendChat()"      | Fires pushState         |
 
 ## Behavior
 - Click row → selects contact, shows in detail panel
-- Save → mcp.notify("contact_saved", {contact})
+- Save → mcp.pushState({app="contacts", event="contact_saved", ...})
 - Delete → removes from list, clears detail
 - No selection → hide detail panel (ui-class-hidden)
-- Send chat → mcp.notify("chat", {text}) → agent responds via ui_run
+- Send chat → mcp.pushState({app="contacts", event="chat", text=...}) → parent responds via ui_run
 ```
 
 ### 2. Lua Code
@@ -370,7 +633,14 @@ function ContactApp:deleteCurrent()
 end
 
 function ContactApp:save()
-    if self.current then mcp.notify("contact_saved", { name = self.current.name, email = self.current.email }) end
+    if self.current then
+        mcp.pushState({
+            app = "contacts",
+            event = "contact_saved",
+            name = self.current.name,
+            email = self.current.email
+        })
+    end
 end
 
 function ContactApp:statusLine()
@@ -384,12 +654,12 @@ function ContactApp:sendChat()
     if self.chatInput == "" then return end
     -- Add user message to history
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
-    -- Notify agent with the message
-    mcp.notify("chat", { text = self.chatInput })
+    -- Push event to queue for parent Claude
+    mcp.pushState({ app = "contacts", event = "chat", text = self.chatInput })
     self.chatInput = ""
 end
 
--- Called by agent via ui_run to add response
+-- Called by parent Claude via ui_run to add response
 function ContactApp:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
 end
@@ -470,13 +740,15 @@ The ViewListItem wraps each array element. This viewdef delegates to the item's 
 </template>
 ```
 
-### 7. Agent Response Pattern
+### 7. Parent Response Pattern
 
-When the agent receives a `chat` notification, respond via `ui_run`:
+When parent Claude receives a `chat` event from the `/wait` endpoint, it responds via `ui_run`:
 
 ```lua
-app:addAgentMessage("I can help you with that!")
+contacts:addAgentMessage("I can help you with that!")
 ```
+
+The parent reads `.ui-mcp/apps/contacts/README.md` to know how to handle events.
 
 ## Resources
 
