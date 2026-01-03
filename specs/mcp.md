@@ -9,10 +9,10 @@ The UI platform provides a Model Context Protocol (MCP) server integration to al
 
 The MCP server supports two transport modes:
 
-| Mode | Command | MCP Transport | Use Case |
-|------|---------|---------------|----------|
-| **Stdio** | `ui-mcp mcp` | JSON-RPC 2.0 over stdin/stdout | AI agent integration (Claude Code) |
-| **SSE** | `ui-mcp serve` | Server-Sent Events over HTTP | Standalone development/debugging |
+| Mode      | Command        | MCP Transport                  | Use Case                           |
+|-----------|----------------|--------------------------------|------------------------------------|
+| **Stdio** | `ui-mcp mcp`   | JSON-RPC 2.0 over stdin/stdout | AI agent integration (Claude Code) |
+| **SSE**   | `ui-mcp serve` | Server-Sent Events over HTTP   | Standalone development/debugging   |
 
 Both modes start an HTTP server with debug and API endpoints.
 
@@ -124,28 +124,19 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
 **Returns:**
 - Success message indicating the configured directory and log paths.
 
-### 5.1.1 Agent File Installation
+### 5.1.1 Installation Check
 
-During configuration, the MCP server checks for required agent definition files and installs them if missing.
+During configuration, the MCP server checks if bundled files have been installed and prompts the agent to run `ui_install` if needed.
 
-**Bundled Agent Files:**
-- `agents/ui-builder.md` — Expert agent for building ui-engine UIs
-
-**Installation Behavior:**
-1. **Path Resolution:** Agent files are installed to `.claude/agents/` relative to the parent of `base_dir` (the project root).
-2. **Check:** If `.claude/agents/ui-builder.md` does not exist, extract from bundle.
-3. **Directory Creation:** Create `.claude/agents/` if it doesn't exist.
-4. **Notification:** Send `agent_installed` notification to inform the AI agent:
-   ```json
-   {"jsonrpc":"2.0","method":"agent_installed","params":{"file":"ui-builder.md","path":".claude/agents/ui-builder.md"}}
-   ```
+**Behavior:**
+1. **Check:** Look for `.claude/agents/ui-builder.md` relative to the parent of `base_dir`.
+2. **If missing:** Include in `ui_configure` response: `"install_needed": true, "hint": "Run ui_install to install agent files and CLAUDE.md instructions"`
+3. **If present:** No action needed.
 
 **Design Rationale:**
-- Agent files define specialized sub-agents that the AI can invoke via the Task tool.
-- Installing them during `ui_configure` ensures they're available when the MCP is first used.
-- The notification allows the AI agent to acknowledge the new capability.
-
-**No-Op if Exists:** If the file already exists, no action is taken and no notification is sent.
+- Separates configuration from installation (cleaner lifecycle)
+- Agent explicitly calls `ui_install` when needed
+- See section 5.7 for full installation behavior
 
 ### 5.2 `ui_start`
 **Purpose:** Starts the embedded HTTP UI server.
@@ -260,14 +251,60 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 }
 ```
 
+### 5.7 `ui_install`
+**Purpose:** Installs bundled configuration files to enable full ui-mcp integration.
+
+**Parameters:**
+- `force` (boolean, optional): If true, overwrites existing files. Defaults to `false`.
+
+**Bundled Files:**
+
+| Source (bundled)                | Destination                               | Purpose                                 |
+|---------------------------------|-------------------------------------------|-----------------------------------------|
+| `install/add-to-claude.md`      | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |
+| `install/agents/ui-builder.md`  | `{project}/.claude/agents/ui-builder.md`  | UI building agent                       |
+| `install/agents/ui-learning.md` | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent                |
+
+**Path Resolution:**
+- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui-mcp`, project is `.`)
+- Creates `.claude/` and `.claude/agents/` directories if they don't exist
+
+**Behavior:**
+1. **Check State:** Must be in CONFIGURED or RUNNING state.
+2. **CLAUDE.md Handling:**
+   - If `CLAUDE.md` doesn't exist in project root: create with bundled content
+   - If exists and ui-builder instructions are not in CLAUDE.md: append bundled content with separator
+   - If exists and ui-builder instructions are in CLAUDE.md and `force=false`: ignore
+   - If exists and ui-builder instructions are in CLAUDE.md and `force=true`: replace ui-builder instructions with bundled content
+3. **Agent Files:**
+   - If file doesn't exist: install from bundle
+   - If exists and `force=false`: skip (no-op)
+   - If exists and `force=true`: overwrite
+
+**Returns:**
+- JSON object listing installed files:
+```json
+{
+  "installed": [".claude/agents/ui-builder.md", ".claude/agents/ui-learning.md"],
+  "skipped": [],
+  "appended": ["CLAUDE.md"]
+}
+```
+
+**Design Rationale:**
+- Separates installation from configuration (user controls when files are added)
+- CLAUDE.md append behavior preserves existing project instructions
+- Agent files are only overwritten with explicit `force=true`
+- Enables easy updates: `ui_install(force=true)` reinstalls latest bundled versions
+
 ## 7. Resources
 
 MCP Resources provide read access to state and documentation.
 
 ### 7.1 State Resources
 
-| URI | Description |
-|-----|-------------|
+| URI          | Description                           |
+|--------------|---------------------------------------|
 | `ui://state` | Current JSON state of the MCP session |
 
 **Example Response (ui://state):**
@@ -281,8 +318,8 @@ MCP Resources provide read access to state and documentation.
 
 ### 7.2 Variable Resources
 
-| URI | Description |
-|-----|-------------|
+| URI              | Description                                                             |
+|------------------|-------------------------------------------------------------------------|
 | `ui://variables` | Topologically sorted array of all tracked variables for the MCP session |
 
 Each variable includes: id, parentId, type, path, value, properties, and childIds.
@@ -305,17 +342,17 @@ The `/variables` HTTP endpoint renders the same data as an interactive HTML tree
 
 ### 7.3 Documentation Resources
 
-| URI | Description |
-|-----|-------------|
+| URI              | Description                                    |
+|------------------|------------------------------------------------|
 | `ui://reference` | Main entry point for UI platform documentation |
-| `ui://viewdefs` | Guide to ui-* attributes and path syntax |
-| `ui://lua` | Lua API, class patterns, and global objects |
-| `ui://mcp` | Guide for AI agents to build apps |
+| `ui://viewdefs`  | Guide to ui-* attributes and path syntax       |
+| `ui://lua`       | Lua API, class patterns, and global objects    |
+| `ui://mcp`       | Guide for AI agents to build apps              |
 
 ### 7.4 Static Resources
 
-| URI | Description |
-|-----|-------------|
+| URI           | Description                                                    |
+|---------------|----------------------------------------------------------------|
 | `ui://{path}` | Generic resource for static content in the resources directory |
 
 Files in `{base_dir}/resources/` are accessible via `ui://{filename}` (e.g., `ui://patterns/form.md`).
