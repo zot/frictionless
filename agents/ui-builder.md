@@ -69,28 +69,17 @@ This agent can:
 2. **Build**: `ui_configure` → `ui_start` → `ui_run` → `ui_upload_viewdef` → `ui_open_browser`
 3. **Document**: Create `.ui-mcp/apps/<app>/README.md` with events, state, methods
 4. **Create event script**: Write `.ui-mcp/event` with port baked in
-5. **Extract patterns**: Compare new app with existing apps, extract common patterns to `.ui-mcp/patterns/`
-6. **Return**: Port, app location, instructions for parent Claude
+5. **Return**: Port, app location, instructions for parent Claude
 
-### Pattern Extraction (Step 5)
+**After this agent returns**, parent Claude should:
+1. Start the event loop (background bash)
+2. Invoke `ui-learning` agent in background to extract patterns
 
-After building a new app, analyze it against existing apps:
-
-1. **Compare structures** - Similar layouts, component arrangements?
-2. **Compare behaviors** - Similar event handling, state patterns?
-3. **Compare viewdefs** - Reusable HTML structures?
-4. **Compare Lua code** - Reusable classes, methods?
-
-If patterns emerge, extract them:
-- **Layout patterns** → `.ui-mcp/patterns/pattern-<name>.md`
-- **Reusable components** → `.ui-mcp/apps/<component>/` (as shared component)
-- **Code patterns** → Document in patterns or extract to shared Lua
-
-This builds up the pattern library over time, making future apps faster to build.
+This allows the user to start using the UI immediately while pattern learning runs asynchronously.
 
 ## Pattern Library
 
-The pattern library lives in `.ui-mcp/` and grows organically over sessions.
+The pattern library lives in `.ui-mcp/` and grows organically over sessions. The `ui-learning` agent extracts patterns; this agent **uses** them when building new UIs.
 
 ### Pattern Files (`.ui-mcp/patterns/`)
 
@@ -204,24 +193,14 @@ library/
 
 ### Growing the Design System
 
-The design system grows organically:
+The `ui-learning` agent grows the design system automatically. Over time:
 
-1. **Session 1**: Create first form UI
-   - Document structure in `patterns/pattern-form.md`
-   - Save working viewdef to `library/viewdefs/form-basic.html`
+1. **Session 1**: ui-learning analyzes first form, creates `pattern-form.md`
+2. **Session 5**: ui-learning notices list pattern, creates `pattern-list.md`
+3. **Session 12**: ui-builder reads patterns, produces consistent form
+4. **Session 20**: New form matches existing patterns - user's muscle memory works
 
-2. **Session 5**: User says "I liked how that list worked"
-   - Document in `patterns/pattern-list.md`
-   - Note what user liked in `conventions/interactions.md`
-
-3. **Session 12**: User says "Why does this form look different?"
-   - Check `patterns/pattern-form.md`, find inconsistency
-   - Fix the form, reinforce convention
-
-4. **Session 20**: New form needed
-   - Read patterns and conventions
-   - Produce consistent form immediately
-   - User's muscle memory works
+See `agents/ui-learning.md` for pattern extraction details.
 
 ## Directory Structure
 
