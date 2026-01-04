@@ -58,6 +58,13 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(mcp.NewTool("ui_status",
 		mcp.WithDescription("Get current server status including lifecycle state and browser connection count"),
 	), s.handleStatus)
+
+	// ui_install
+	// Spec: mcp.md section 5.7
+	s.mcpServer.AddTool(mcp.NewTool("ui_install",
+		mcp.WithDescription("Install bundled configuration files (agent files, CLAUDE.md instructions). Call after ui_configure when install_needed is true."),
+		mcp.WithBoolean("force", mcp.Description("If true, overwrites existing files. Defaults to false.")),
+	), s.handleInstall)
 }
 
 // Spec: mcp.md
@@ -110,35 +117,72 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 		}
 	}
 
-	// 5. Agent File Installation (Spec: mcp.md section 5.1.1)
+	// 5. Check if installation is needed (Spec: mcp.md section 5.1.1)
 	// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
-	s.installAgentFiles(baseDir)
+	projectRoot := filepath.Dir(baseDir)
+	agentFile := filepath.Join(projectRoot, ".claude", "agents", "ui-builder.md")
+	installNeeded := false
+	if _, err := os.Stat(agentFile); os.IsNotExist(err) {
+		installNeeded = true
+	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Server configured. Log files created at %s", filepath.Join(baseDir, "log"))), nil
+	// Return structured response with install_needed hint
+	response := map[string]interface{}{
+		"status":   "configured",
+		"log_path": filepath.Join(baseDir, "log"),
+	}
+	if installNeeded {
+		response["install_needed"] = true
+		response["hint"] = "Run ui_install to install agent files and CLAUDE.md instructions"
+	}
+
+	responseJSON, _ := json.Marshal(response)
+	return mcp.NewToolResultText(string(responseJSON)), nil
 }
 
-// installAgentFiles checks for and installs bundled agent files.
-// Spec: mcp.md section 5.1.1
-// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
-func (s *Server) installAgentFiles(baseDir string) {
-	// Bundled agent files to install
-	agentFiles := []string{"ui-builder.md"}
+// handleInstall installs bundled configuration files.
+// Spec: mcp.md section 5.7
+func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Check state
+	if s.state != Configured && s.state != Running {
+		return mcp.NewToolResultError("ui_install requires CONFIGURED or RUNNING state. Call ui_configure first."), nil
+	}
 
-	// Project root is parent of base_dir (e.g., .ui-mcp -> project root)
-	projectRoot := filepath.Dir(baseDir)
+	// Parse force parameter
+	force := false
+	if args, ok := request.Params.Arguments.(map[string]interface{}); ok {
+		if f, ok := args["force"].(bool); ok {
+			force = f
+		}
+	}
+
+	projectRoot := filepath.Dir(s.baseDir)
+	installed := []string{}
+	skipped := []string{}
+	appended := []string{}
+
+	// 1. Install agent files
+	agentFiles := []string{"ui-builder.md", "ui-learning.md"}
 	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
-
 	isBundled, _ := cli.IsBundled()
 
 	for _, agentFile := range agentFiles {
 		destPath := filepath.Join(agentsDir, agentFile)
+		relPath := filepath.Join(".claude", "agents", agentFile)
 
-		// Skip if file already exists
+		// Check if file exists
+		exists := false
 		if _, err := os.Stat(destPath); err == nil {
+			exists = true
+		}
+
+		// Skip if exists and not forcing
+		if exists && !force {
+			skipped = append(skipped, relPath)
 			continue
 		}
 
-		// Try to read from bundle
+		// Read from bundle or local
 		bundlePath := filepath.Join("agents", agentFile)
 		var content []byte
 		var err error
@@ -146,38 +190,99 @@ func (s *Server) installAgentFiles(baseDir string) {
 		if isBundled {
 			content, err = cli.BundleReadFile(bundlePath)
 		} else {
-			// Fallback: read from local agents/ directory (development mode)
-			localPath := filepath.Join(filepath.Dir(baseDir), "agents", agentFile)
+			// Development mode: read from install/agents/
+			localPath := filepath.Join(projectRoot, "install", "agents", agentFile)
 			content, err = os.ReadFile(localPath)
 		}
 
 		if err != nil || len(content) == 0 {
-			s.cfg.Log(1, "Agent file not found in bundle: %s", bundlePath)
+			s.cfg.Log(1, "Agent file not found: %s", bundlePath)
 			continue
 		}
 
-		// Create directory if needed
+		// Create directory and write file
 		if err := os.MkdirAll(agentsDir, 0755); err != nil {
-			s.cfg.Log(0, "Failed to create agents directory: %v", err)
-			continue
+			return mcp.NewToolResultError(fmt.Sprintf("failed to create agents directory: %v", err)), nil
 		}
-
-		// Write agent file
 		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			s.cfg.Log(0, "Failed to write agent file: %v", err)
-			continue
+			return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", agentFile, err)), nil
 		}
 
+		installed = append(installed, relPath)
 		s.cfg.Log(1, "Installed agent file: %s", destPath)
+	}
 
-		// Send notification to AI agent (if MCP server is available)
-		if s.mcpServer != nil {
-			s.SendNotification("agent_installed", map[string]interface{}{
-				"file": agentFile,
-				"path": filepath.Join(".claude", "agents", agentFile),
-			})
+	// 2. Handle CLAUDE.md
+	claudePath := filepath.Join(projectRoot, "CLAUDE.md")
+	claudeMarker := "### Building UIs with ui-builder Agent"
+
+	// Read bundled content
+	var addToClaudeContent []byte
+	if isBundled {
+		addToClaudeContent, _ = cli.BundleReadFile("add-to-claude.md")
+	} else {
+		localPath := filepath.Join(projectRoot, "install", "add-to-claude.md")
+		addToClaudeContent, _ = os.ReadFile(localPath)
+	}
+
+	if len(addToClaudeContent) > 0 {
+		claudeExists := false
+		var existingContent []byte
+		if _, err := os.Stat(claudePath); err == nil {
+			claudeExists = true
+			existingContent, _ = os.ReadFile(claudePath)
+		}
+
+		hasMarker := strings.Contains(string(existingContent), claudeMarker)
+
+		if !claudeExists {
+			// Create new CLAUDE.md
+			if err := os.WriteFile(claudePath, addToClaudeContent, 0644); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to create CLAUDE.md: %v", err)), nil
+			}
+			installed = append(installed, "CLAUDE.md")
+		} else if !hasMarker {
+			// Append to existing CLAUDE.md
+			separator := "\n\n---\n\n"
+			newContent := append(existingContent, []byte(separator)...)
+			newContent = append(newContent, addToClaudeContent...)
+			if err := os.WriteFile(claudePath, newContent, 0644); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to append to CLAUDE.md: %v", err)), nil
+			}
+			appended = append(appended, "CLAUDE.md")
+		} else if force {
+			// Replace ui-builder section in CLAUDE.md
+			content := string(existingContent)
+			markerIdx := strings.Index(content, claudeMarker)
+			if markerIdx >= 0 {
+				// Find end of section (next ## header or end of file)
+				afterMarker := content[markerIdx:]
+				endIdx := len(content)
+				if nextSection := strings.Index(afterMarker[1:], "\n## "); nextSection >= 0 {
+					endIdx = markerIdx + 1 + nextSection
+				}
+				newContent := content[:markerIdx] + string(addToClaudeContent)
+				if endIdx < len(content) {
+					newContent += content[endIdx:]
+				}
+				if err := os.WriteFile(claudePath, []byte(newContent), 0644); err != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("failed to update CLAUDE.md: %v", err)), nil
+				}
+				installed = append(installed, "CLAUDE.md")
+			}
+		} else {
+			skipped = append(skipped, "CLAUDE.md")
 		}
 	}
+
+	// Return result
+	result := map[string]interface{}{
+		"installed": installed,
+		"skipped":   skipped,
+		"appended":  appended,
+	}
+	resultJSON, _ := json.Marshal(result)
+	return mcp.NewToolResultText(string(resultJSON)), nil
 }
 
 // Spec: mcp.md
@@ -187,6 +292,17 @@ func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (
 	baseURL, err := s.Start()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	// Extract UI port from URL and write ui-port file
+	// Spec: mcp.md Section 5.2
+	uiPort, err := parsePortFromURL(baseURL)
+	if err != nil {
+		s.cfg.Log(0, "Warning: failed to parse UI port from URL %s: %v", baseURL, err)
+	} else {
+		if err := s.WriteUIPortFile(uiPort); err != nil {
+			s.cfg.Log(0, "Warning: failed to write ui-port file: %v", err)
+		}
 	}
 
 	// Create session - this triggers CreateLuaBackendForSession
@@ -253,6 +369,43 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 0
 		}))
 
+		// mcp:display(appName) - load and display an app
+		// Checks for global (sanitized to camelCase), if not found loads from apps/appName/app.lua
+		L.SetField(mcpTable, "display", L.NewFunction(func(L *lua.LState) int {
+			appName := L.CheckString(1)
+			if appName == "" {
+				L.Push(lua.LNil)
+				L.Push(lua.LString("app name required"))
+				return 2
+			}
+
+			// Sanitize app name to valid Lua identifier (camelCase)
+			// "claude-panel" -> "claudePanel"
+			globalName := sanitizeAppName(appName)
+
+			// Check if global exists for this app
+			appVal := L.GetGlobal(globalName)
+			if appVal == lua.LNil {
+				// Load the app file
+				appPath := filepath.Join(s.baseDir, "apps", appName, "app.lua")
+				if err := L.DoFile(appPath); err != nil {
+					L.Push(lua.LNil)
+					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
+					return 2
+				}
+				// Get the global after loading
+				appVal = L.GetGlobal(globalName)
+			}
+
+			// Assign to mcp.value
+			if appVal != lua.LNil {
+				L.SetField(mcpTable, "value", appVal)
+			}
+
+			L.Push(lua.LTrue)
+			return 1
+		}))
+
 		// Register as app variable - this creates variable 1 in the tracker
 		code := "session:createAppVariable(mcp)"
 		if err := L.DoString(code); err != nil {
@@ -262,6 +415,49 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		return nil, nil
 	})
 	return err
+}
+
+// sanitizeAppName converts an app name to a valid Lua identifier in camelCase.
+// - Ensures the name starts with a lowercase letter
+// - Converts snake-case/kebab-case to camelCase: "claude-panel" -> "claudePanel"
+func sanitizeAppName(name string) string {
+	if name == "" {
+		return name
+	}
+
+	var result strings.Builder
+	capitalizeNext := false
+
+	for i, r := range name {
+		if r == '-' || r == '_' {
+			capitalizeNext = true
+			continue
+		}
+		if i == 0 {
+			// Ensure starts with lowercase
+			result.WriteRune(toLower(r))
+		} else if capitalizeNext {
+			result.WriteRune(toUpper(r))
+			capitalizeNext = false
+		} else {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
+}
+
+func toLower(r rune) rune {
+	if r >= 'A' && r <= 'Z' {
+		return r + 32
+	}
+	return r
+}
+
+func toUpper(r rune) rune {
+	if r >= 'a' && r <= 'z' {
+		return r - 32
+	}
+	return r
 }
 
 // luaTableToGo converts a Lua table to a Go map/slice.
@@ -489,6 +685,11 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 
 	result := map[string]interface{}{
 		"state": stateToString(state),
+	}
+
+	// Include base_dir when configured or running
+	if state == Configured || state == Running {
+		result["base_dir"] = s.baseDir
 	}
 
 	if state == Running {

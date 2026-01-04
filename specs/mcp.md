@@ -26,8 +26,8 @@ Both modes start an HTTP server with debug and API endpoints.
 - **STDOUT:** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
 - **STDERR:** Used for all application logs, debug information, and runtime warnings.
 
-**HTTP Server (random port):**
-Both modes start an HTTP server. In stdio mode, it binds to a random port and writes the port to `{base_dir}/mcp-port`. Endpoints:
+**HTTP Server (random ports):**
+Both modes start HTTP servers. In stdio mode, ports are selected randomly and written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`. Endpoints on the MCP port:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.2)
@@ -146,12 +146,15 @@ During configuration, the MCP server checks if bundled files have been installed
 - Server must not already be `Running`.
 
 **Behavior:**
-1.  **Port Selection:** Selects a random available ephemeral port (binding to port 0).
-2.  **Server Start:** Launches the HTTP server on `127.0.0.1`.
-3.  **State Transition:** Moves server state from `Configured` to `Running`.
+1.  **Port Selection:** Selects random available ephemeral ports for UI and MCP servers.
+2.  **Server Start:** Launches the HTTP servers on `127.0.0.1`.
+3.  **Port File Creation:** Writes port numbers to files in `base_dir`:
+    - `{base_dir}/ui-port` - The UI server port (serves HTML/JS/WebSocket)
+    - `{base_dir}/mcp-port` - The MCP server port (serves /state, /wait, /variables endpoints)
+4.  **State Transition:** Moves server state from `Configured` to `Running`.
 
 **Returns:**
-- The full base URL of the running server (e.g., `http://127.0.0.1:39482`).
+- The full base URL of the running UI server (e.g., `http://127.0.0.1:39482`).
 
 ### 5.3 `ui_run`
 **Purpose:** Execute arbitrary Lua code within a session's context.
@@ -239,6 +242,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 **Returns:**
 - JSON object with status information:
   - `state`: Current lifecycle state ("unconfigured", "configured", or "running")
+  - `base_dir`: Configured base directory (only if configured or running)
   - `url`: Server URL (only if running)
   - `sessions`: Number of active browser sessions (only if running)
 
@@ -246,6 +250,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 ```json
 {
   "state": "running",
+  "base_dir": ".claude/ui",
   "url": "http://127.0.0.1:39482",
   "sessions": 1
 }
@@ -259,14 +264,20 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 
 **Bundled Files:**
 
-| Source (bundled)                | Destination                               | Purpose                                 |
-|---------------------------------|-------------------------------------------|-----------------------------------------|
-| `install/add-to-claude.md`      | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |
-| `install/agents/ui-builder.md`  | `{project}/.claude/agents/ui-builder.md`  | UI building agent                       |
-| `install/agents/ui-learning.md` | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent                |
+| Source (bundled)              | Destination                               | Purpose                                 | Exclude |
+|-------------------------------|-------------------------------------------|-----------------------------------------|---------|
+| `init/add-to-claude.md`       | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |         |
+| `init/agents/ui-builder.md`   | `{project}/.claude/agents/ui-builder.md`  | UI building agent                       | yes     |
+| `init/agents/ui-learning.md`  | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent                | yes     |
+| `init/skills/*`               | `{project}/.claude/skills/*`              | UI builder skills                       |         |
+| `resources/*`                 | `{base_dir}/resources/*`                  | MCP server resources                    |         |
+| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                   | standard viewdefs, like ViewList's      |         |
+| `event`, `state`, `variables` | `{base_dir}`                              | scripts for easy MCP endpoint access    |         |
+
+**Note:** The agents are currently disabled due to a bug that prevents subagents from accessing files. Users should invoke the skills directly until this is resolved.
 
 **Path Resolution:**
-- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui-mcp`, project is `.`)
+- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
 - Creates `.claude/` and `.claude/agents/` directories if they don't exist
 
 **Behavior:**

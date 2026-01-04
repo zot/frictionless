@@ -1,3 +1,8 @@
+---
+name: trace
+description: Add traceability comments to code, verify comment coverage, and run gap analysis. Use when linking implementation to CRC cards or checking traceability completeness.
+---
+
 # Traceability Comment Insertion Skill
 
 Add traceability comments to implementation methods based on CRC cards.

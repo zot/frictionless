@@ -1,3 +1,8 @@
+---
+name: plantuml
+description: Generate ASCII sequence diagrams using PlantUML. Use when creating sequence diagrams for CRC modeling, documentation, or any UML sequence diagram needs.
+---
+
 # plantuml
 
 Generate ASCII art sequence diagrams using PlantUML for CRC modeling and documentation.

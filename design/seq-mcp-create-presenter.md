@@ -1,6 +1,6 @@
 # Sequence: MCP Create Presenter
 
-**Source Spec:** interfaces.md
+**Source Spec:** mcp.md
 **Use Case:** AI creating presenter and viewdef via MCP
 
 ## Participants

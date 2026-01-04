@@ -228,8 +228,8 @@ You can edit these files to customize the appearance and behavior of permission 
 		content += fmt.Sprintf("- `%s` - Permission prompt dialog\n", promptViewdef)
 		content += fmt.Sprintf("- `%s/viewdefs/Feedback.DEFAULT.html` - Default app UI (if customized)\n", baseDir)
 	} else {
-		content += "- `.ui-mcp/viewdefs/Prompt.DEFAULT.html` - Permission prompt dialog\n"
-		content += "- `.ui-mcp/viewdefs/Feedback.DEFAULT.html` - Default app UI (if customized)\n"
+		content += "- `.claude/ui/viewdefs/Prompt.DEFAULT.html` - Permission prompt dialog\n"
+		content += "- `.claude/ui/viewdefs/Feedback.DEFAULT.html` - Default app UI (if customized)\n"
 	}
 
 	content += `

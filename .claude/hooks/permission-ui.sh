@@ -13,7 +13,7 @@ tool_input=$(echo "$input" | jq -c '.tool_input // {}')
 message="Claude wants to use: $tool_name"
 
 # Read MCP port
-MCP_PORT=$(cat .ui-mcp/mcp-port 2>/dev/null || echo "")
+MCP_PORT=$(cat .claude/ui/mcp-port 2>/dev/null || echo "")
 if [ -z "$MCP_PORT" ]; then
   # UI MCP not running, fall back to terminal
   exit 0
@@ -54,7 +54,7 @@ log_entry=$(jq -n \
   --arg choice "$value" \
   --arg ts "$(date -Iseconds)" \
   '{tool: $tool, input: $input, choice: $choice, timestamp: $ts}')
-echo "$log_entry" >> .ui-mcp/permissions.log
+echo "$log_entry" >> .claude/ui/permissions.log
 
 # Return hook decision
 case "$value" in

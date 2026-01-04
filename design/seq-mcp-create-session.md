@@ -1,6 +1,6 @@
 # Sequence: MCP Create Session
 
-**Source Spec:** interfaces.md
+**Source Spec:** mcp.md
 **Use Case:** AI assistant creating a UI session via MCP
 
 ## Participants

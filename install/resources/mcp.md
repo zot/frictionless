@@ -45,10 +45,10 @@ UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNN
 
 Before writing code, understand and plan:
 
-1. **Read existing patterns** — Check `.ui-mcp/patterns/` for established UI patterns
-2. **Read conventions** — Check `.ui-mcp/conventions/` for layout and terminology rules
-3. **Check for similar UIs** — Look in `.ui-mcp/design/` for existing layout specs
-4. **Create/update design spec** — Write `.ui-mcp/design/ui-{name}.md` with:
+1. **Read existing patterns** — Check `.claude/ui/patterns/` for established UI patterns
+2. **Read conventions** — Check `.claude/ui/conventions/` for layout and terminology rules
+3. **Check for similar UIs** — Look in `.claude/ui/design/` for existing layout specs
+4. **Create/update design spec** — Write `.claude/ui/design/ui-{name}.md` with:
    - Intent (what this UI accomplishes)
    - ASCII layout (visual structure)
    - Components table (element, binding, notes)
@@ -58,7 +58,7 @@ Before writing code, understand and plan:
 
 Implement the design:
 
-1. `ui_configure(base_dir=".ui-mcp")` — Set up environment
+1. `ui_configure(base_dir=".claude/ui")` — Set up environment
 2. `ui_start()` — Start HTTP server (returns URL)
 3. `ui_run(code)` — Define Lua classes
 4. `ui_upload_viewdef(type, namespace, html)` — Upload templates
@@ -66,10 +66,10 @@ Implement the design:
 
 ## Directory Structure
 
-Use `.ui-mcp/` as your base directory:
+Use `.claude/ui/` as your base directory:
 
 ```
-.ui-mcp/
+.claude/ui/
 ├── lua/            # Lua source (main.lua loaded automatically)
 ├── viewdefs/       # Viewdef templates
 ├── log/            # Runtime logs (check lua.log for errors)
@@ -104,7 +104,7 @@ Use `.ui-mcp/` as your base directory:
 
 During iterative changes, features can accidentally disappear. To prevent this:
 
-1. **Before modifying** — Read the design spec (`.ui-mcp/design/ui-*.md`)
+1. **Before modifying** — Read the design spec (`.claude/ui/design/ui-*.md`)
 2. **Update spec first** — Add/change components in the spec
 3. **Then update code** — Modify viewdef and Lua to match
 4. **Verify** — Check that implementation matches spec
@@ -113,7 +113,7 @@ The spec is the source of truth. If it says a close button exists, don't remove 
 
 ## Example: Feedback Form
 
-### Design Spec (`.ui-mcp/design/ui-feedback.md`)
+### Design Spec (`.claude/ui/design/ui-feedback.md`)
 
 ```markdown
 # Feedback Form
@@ -177,6 +177,6 @@ mcp.value = Feedback:new()
 - **Atomic viewdefs** — One type per viewdef, keep them focused
 - **Use `mcp.state`** — Set data the agent can read via `ui://state` resource
 - **Informative notifications** — Include enough context in `mcp.notify` params
-- **Check logs** — Read `.ui-mcp/log/lua.log` when debugging
-- **Follow conventions** — Read `.ui-mcp/conventions/` before creating UI
-- **Update specs** — Keep `.ui-mcp/design/ui-*.md` in sync with implementation
+- **Check logs** — Read `.claude/ui/log/lua.log` when debugging
+- **Follow conventions** — Read `.claude/ui/conventions/` before creating UI
+- **Update specs** — Keep `.claude/ui/design/ui-*.md` in sync with implementation

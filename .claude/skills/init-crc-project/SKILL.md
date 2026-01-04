@@ -1,3 +1,8 @@
+---
+name: init-crc-project
+description: Initialize CRC modeling in a project. Use when setting up the three-tier CRC system (specs, design, implementation) in a new or existing project.
+---
+
 # init-crc-project
 
 Initialize CRC (Class-Responsibility-Collaboration) modeling in a project.

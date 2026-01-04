@@ -33,67 +33,70 @@ The AI agent initializes the environment before starting the server.
           │                      │  SetState(CONFIGURED)│                       │                  │
           │                      │<─────────────────────│                       │                  │
           │                      │                      │                       │                  │
-          │                      │                      │ InstallAgentFiles()   │                  │
+          │                      │                      │ CheckInstallNeeded()  │                  │
           │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │         [if missing]  │                  │
+          │                      │                      │     [check file]      │                  │
           │                      │                      │                       │                  │
-          │                      │ SendNotification("agent_installed")          │                  │
-          │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │ [per installed file]  │                  │
-          │                      │                      │                       │                  │
-          │       Success        │                      │                       │                  │
+          │  Success + install_needed hint              │                       │                  │
           │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                       │                  │
      ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─────┴────┘           ┌─┴──┐
      │AI Agent│             │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
      └────────┘             └─────────┘             └───┴───┘             └──────────┘           └────┘
 ```
 
-## Scenario 1a: Agent File Installation (Detail)
-Shows the conditional agent file extraction during configuration.
+**Notes:**
+- Configuration checks if bundled files are installed
+- Returns `install_needed: true` hint if `.claude/agents/ui-builder.md` is missing
+- Agent explicitly calls `ui_install` to install files (separated from configure)
+
+## Scenario 1a: Bundled File Installation (ui_install)
+Shows the installation of bundled files when agent calls `ui_install`.
 
 ```
-     ┌───────┐                    ┌────┐                    ┌──────┐
-     │MCPTool│                    │ OS │                    │Bundle│
-     └───┬───┘                    └─┬──┘                    └──┬───┘
-         │                          │                          │
-         │ projectRoot = parent(base_dir)                      │
-         │────┐                     │                          │
-         │    │                     │                          │
-         │<───┘                     │                          │
-         │                          │                          │
-         │ Stat(".claude/agents/ui-builder.md")                │
-         │─────────────────────────>│                          │
-         │   [file exists?]         │                          │
-         │                          │                          │
-         │ ────────────────────────────────────────────────────│
-         │ alt [file missing]       │                          │
-         │ ─────────────────────────│──────────────────────────│
-         │ │ MkdirAll(".claude/agents/")                       │
-         │ │───────────────────────>│                          │
-         │ │                        │                          │
-         │ │ ReadFile("agents/ui-builder.md")                  │
-         │ │───────────────────────────────────────────────────>
-         │ │                        │           content        │
-         │ │<──────────────────────────────────────────────────│
-         │ │                        │                          │
-         │ │ WriteFile(".claude/agents/ui-builder.md")         │
-         │ │───────────────────────>│                          │
-         │ │                        │                          │
-         │ │ SendNotification("agent_installed", {...})        │
-         │ │───────┐                │                          │
-         │ │       │ to AI Agent    │                          │
-         │ │<──────┘                │                          │
-         │ ─────────────────────────│──────────────────────────│
-         │                          │                          │
-     ┌───┴───┐                    ┌─┴──┐                    ┌──┴───┐
-     │MCPTool│                    │ OS │                    │Bundle│
-     └───────┘                    └────┘                    └──────┘
+     ┌────────┐             ┌─────────┐             ┌───────┐             ┌────┐             ┌──────┐
+     │AI Agent│             │MCPServer│             │MCPTool│             │ OS │             │Bundle│
+     └────┬───┘             └────┬────┘             └───┬───┘             └─┬──┘             └──┬───┘
+          │ Call("ui_install", {force})                 │                   │                   │
+          │─────────────────────>│                      │                   │                   │
+          │                      │ Handle("ui_install") │                   │                   │
+          │                      │─────────────────────>│                   │                   │
+          │                      │                      │                   │                   │
+          │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
+          │                      │                      │ loop [each bundle]│                   │
+          │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
+          │                      │                      │  │ ReadFile()     │                   │
+          │                      │                      │  │───────────────────────────────────>│
+          │                      │                      │  │                │       content     │
+          │                      │                      │  │<──────────────────────────────────│
+          │                      │                      │  │                │                   │
+          │                      │                      │  │ WriteFile()    │                   │
+          │                      │                      │  │───────────────>│                   │
+          │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
+          │                      │                      │                   │                   │
+          │  Success({installed, skipped, appended})    │                   │                   │
+          │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                   │                   │
+     ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─┴──┐             ┌──┴───┐
+     │AI Agent│             │MCPServer│             │MCPTool│             │ OS │             │Bundle│
+     └────────┘             └─────────┘             └───────┘             └────┘             └──────┘
 ```
+
+**Bundled Files:**
+| Source                        | Destination                               | Purpose                                 |
+|-------------------------------|-------------------------------------------|-----------------------------------------|
+| `init/add-to-claude.md`       | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |
+| `init/agents/ui-builder.md`   | `{project}/.claude/agents/ui-builder.md`  | UI building agent (excluded*)           |
+| `init/agents/ui-learning.md`  | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent (excluded*)    |
+| `init/skills/*`               | `{project}/.claude/skills/*`              | UI builder skills                       |
+| `resources/*`                 | `{base_dir}/resources/*`                  | MCP server resources                    |
+| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                   | Standard viewdefs (ViewList, etc.)      |
+| `event`, `state`, `variables` | `{base_dir}`                              | Scripts for easy MCP endpoint access    |
+
+*Agents excluded due to subagent bug that prevents file access
 
 **Notes:**
-- Agent files installed to `.claude/agents/` relative to **parent** of `base_dir`
-- `base_dir` is typically `.ui-mcp/`, so agents install to project root's `.claude/agents/`
-- Notification params: `{"file": "ui-builder.md", "path": ".claude/agents/ui-builder.md"}`
-- No-op if file already exists (no notification sent)
+- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
+- CLAUDE.md is appended (not replaced) to preserve existing instructions
+- `force=true` overwrites existing files
 
 ## Scenario 2: Server Startup
 The AI agent starts the HTTP server after configuration.
@@ -107,11 +110,21 @@ The AI agent starts the HTTP server after configuration.
           │                      │  Handle("ui_start")  │                       │                  │
           │                      │─────────────────────>│                       │                  │
           │                      │                      │                       │                  │
-          │                      │                      │ SelectPort(0)         │                  │
+          │                      │                      │ SelectPorts(0, 0)     │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │     (ui, mcp ports)   │                  │
+          │                      │                      │                       │                  │
+          │                      │                      │   StartUI(uiPort)     │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │                      │                      │   StartMCP(mcpPort)   │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │                      │                      │ WriteFile(ui-port)    │                  │
           │                      │                      │─────────────────────────────────────────>│
           │                      │                      │                       │                  │
-          │                      │                      │    Start(port)        │                  │
-          │                      │                      │──────────────────────>│                  │
+          │                      │                      │ WriteFile(mcp-port)   │                  │
+          │                      │                      │─────────────────────────────────────────>│
           │                      │                      │                       │                  │
           │                      │   SetState(RUNNING)  │                       │                  │
           │                      │<─────────────────────│                       │                  │
@@ -122,6 +135,11 @@ The AI agent starts the HTTP server after configuration.
      │AI Agent│             │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
      └────────┘             └─────────┘             └───┴───┘             └──────────┘           └────┘
 ```
+
+**Notes:**
+- Port files written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`
+- UI server serves HTML/JS and WebSocket connections
+- MCP server serves /state, /wait, /variables endpoints
 
 ## Scenario 3: Opening Browser
 The AI agent instructs the system to open a browser to the session.

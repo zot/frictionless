@@ -1,6 +1,6 @@
 # Sequence: MCP Run Code
 
-**Source Spec:** interfaces.md (MCP Tools)
+**Source Spec:** mcp.md (MCP Tools)
 
 ## Participants
 - AI Agent: External AI assistant

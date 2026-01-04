@@ -29,6 +29,8 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -o $(BUILD_DIR)/$(BINARY_NAME).bundled install
+	@mv $(BUILD_DIR)/$(BINARY_NAME).bundled $(BUILD_DIR)/$(BINARY_NAME)
 
 # Cache ui-engine web assets (only if cache doesn't exist)
 cache: $(CACHE_DIR)/.cached

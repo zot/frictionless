@@ -1,52 +1,35 @@
 ---
 name: ui-builder
 description: Build ui-engine UIs with Lua apps connected to widgets
-use_when:
-  - User needs a form, list, wizard, or interactive UI
-  - Real-time feedback or visual choices are required
-  - Complex data display benefits from structured layout
-  - User explicitly requests a UI or visual interface
-skip_when:
-  - Simple yes/no questions suffice
-  - Brief text responses are enough
-  - One-shot answers with no follow-up needed
-tools:
-  - mcp__ui-mcp__ui_configure
-  - mcp__ui-mcp__ui_start
-  - mcp__ui-mcp__ui_run
-  - mcp__ui-mcp__ui_upload_viewdef
-  - mcp__ui-mcp__ui_open_browser
-  - mcp__ui-mcp__ui_status
+tools: Read, Write, Edit, Bash, Glob, Grep
+model: opus
 ---
 
 # UI Builder Agent
 
 Expert at building ui-engine UIs with Lua apps connected to widgets.
 
-## When to Use
-
-**Use when:** Forms, lists, wizards, real-time feedback, visual choices, complex data display.
-**Skip when:** Simple yes/no, brief text responses, one-shot answers.
-
 ## Architecture
 
-This agent handles **setup and UI construction**. The **parent Claude** handles:
+This agent is a **UI designer** that creates app files. The **parent Claude** handles:
+- MCP operations (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser)
 - Event loop (background bash to `/wait` endpoint)
 - Routine event handling (chat, clicks) via `ui_run`
-- Invoking this agent only when UI changes are needed
 
 ```
 Parent Claude
      │
-     ├── ui-builder (this agent)
-     │      ├── Setup: ui_configure, ui_start, load app, open browser
-     │      ├── Build: Create/modify UI components
-     │      └── Returns: port + instructions + app README location
+     ├── Provides: config directory path (e.g., "/home/user/project/.claude/ui")
      │
-     └── Parent handles event loop
-            ├── Runs: ./.ui-mcp/event (background)
-            ├── On event: handles via ui_run or re-invokes ui-builder
-            └── Reads: .ui-mcp/apps/<app>/README.md for guidance
+     ├── ui-builder (this agent)
+     │      ├── Creates: app.lua, viewdefs/, design.md
+     │      ├── Creates: symlinks in lua/ and viewdefs/
+     │      └── Returns: app location + what parent should do next
+     │
+     └── Parent handles MCP + event loop
+            ├── Calls: ui_run to load app, ui_upload_viewdef for templates
+            ├── Runs: .claude/ui/event (background)
+            └── On event: handles via ui_run or re-invokes ui-builder
 ```
 
 ## Capabilities
@@ -55,161 +38,70 @@ This agent can:
 
 1. **Create UIs from scratch** — Design and implement complete interfaces
 2. **Modify existing UIs** — Add features, update layouts, fix issues
-3. **Maintain design specs** — Keep `.ui-mcp/apps/<app>/design.md` in sync
-4. **Follow conventions** — Apply patterns from `.ui-mcp/patterns/` and `.ui-mcp/conventions/`
-5. **Create app documentation** — Write README.md for parent Claude to operate the UI
+3. **Maintain design specs** — Keep `.claude/ui/apps/<app>/design.md` in sync
+4. **Follow conventions** — Apply patterns from `.claude/ui/patterns/` and `.claude/ui/conventions/`
+5. **Create app documentation** — Write design.md for parent Claude to operate the UI
+
+## Base Directory
+
+The ui-mcp configuration directory (default: `.claude/ui`) is where all app files live. This agent **must store all app files in this directory**.
+
+**Convention:** Use `.claude/ui` as the base directory unless the user specifies otherwise.
+
+**Directory structure:**
+
+```
+{base_dir}/
+├── apps/<app>/           # App source files (THIS AGENT CREATES THESE)
+│   ├── app.lua           # Lua code
+│   ├── viewdefs/         # HTML templates
+│   └── design.md         # Layout spec, objects, events
+├── lua/                  # Symlinks to app lua files
+├── viewdefs/             # Symlinks to app viewdefs
+├── patterns/             # Reusable UI patterns
+├── conventions/          # Layout rules, terminology
+└── library/              # Proven implementations
+```
 
 ## Workflow
 
-1. **Design**: Check `.ui-mcp/patterns/`, `.ui-mcp/conventions/`, create `.ui-mcp/apps/<app>/design.md`
-   - **Intent**: What the UI accomplishes
-   - **Layout**: ASCII art showing structure
-   - **Components**: Table of elements, bindings, notes
-   - **Behavior**: Interaction rules
-2. **Build**: `ui_configure` → `ui_start` → `ui_run` → `ui_upload_viewdef` → `ui_open_browser`
-3. **Document**: Create `.ui-mcp/apps/<app>/README.md` with events, state, methods
-4. **Create event script**: Write `.ui-mcp/event` with port baked in
-5. **Return**: Port, app location, instructions for parent Claude
+The parent provides the config directory path and app name in the prompt (e.g., `{base_dir}=/home/user/project/.claude/ui`, app name `hello`).
 
-**After this agent returns**, parent Claude should:
-1. Start the event loop (background bash)
-2. Invoke `ui-learning` agent in background to extract patterns
+1. **Read requirements**: The parent creates `{base_dir}/apps/<app>/requirements.md` before invoking you. **Read this file first** to understand what to build.
 
-This allows the user to start using the UI immediately while pattern learning runs asynchronously.
+2. **Design**: use the design-ui skill to create `design.md`
+   - Check `{base_dir}/patterns/`, `{base_dir}/conventions/`, then design the app based on the requirements.
+   - Write the design in `{base_dir}/apps/<app>/design.md`:
+      - **Intent**: What the UI accomplishes
+      - **Layout**: ASCII wireframe showing structure
+      - **Data Model**: Tables of types, fields, and descriptions
+      - **Methods**: Actions each type performs
+      - **ViewDefs**: Template files needed
+      - **Events**: JSON examples of user interactions
+      - **Styling**: Visual guidelines (optional)
 
-## Pattern Library
+3. **Write files** to `{base_dir}/apps/<app>/`:
+   - `design.md`
+   - `app.lua` — Lua classes and logic
+   - `viewdefs/<Type>.DEFAULT.html` — HTML templates
+   - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-The pattern library lives in `.ui-mcp/` and grows organically over sessions. The `ui-learning` agent extracts patterns; this agent **uses** them when building new UIs.
+4. **Create symlinks** using the linkapp script:
 
-### Pattern Files (`.ui-mcp/patterns/`)
+   ```bash
+   .claude/ui/linkapp add <app>
+   ```
 
-Document reusable UI structures. Example `pattern-form.md`:
-
-```markdown
-# Form Pattern
-
-## Structure
-┌─────────────────────────────────────┐
-│ {title}                         [×] │
-├─────────────────────────────────────┤
-│  {fields...}                        │
-├─────────────────────────────────────┤
-│  [Cancel]              [{primary}]  │
-└─────────────────────────────────────┘
-
-## Conventions
-- Title bar: title left, close button right
-- Fields: label above input, full width
-- Action bar: cancel left, primary action right
-- Primary button: affirmative verb ("Submit", "Save")
-
-## Keyboard
-- Enter in last field → submit (if valid)
-- Escape → cancel
-```
-
-### Convention Files (`.ui-mcp/conventions/`)
-
-Document established rules. Example `terminology.md`:
-
-```markdown
-# Terminology Conventions
-
-## Button Labels
-| Action          | Label      | Never Use          |
-|-----------------|------------|--------------------|
-| Submit form     | "Submit"   | "Send", "Go"       |
-| Save changes    | "Save"     | "Done", "Finish"   |
-| Cancel          | "Cancel"   | "Close", "Back"    |
-| Delete          | "Delete"   | "Remove", "Trash"  |
-
-## Messages
-- Success: "{Thing} saved."
-- Error: "Couldn't {action}. {reason}."
-```
-
-Example `layout.md`:
-
-```markdown
-# Layout Conventions
-
-## Window Chrome
-- Close button: always top-right, always [×]
-- Title: always top-left, sentence case
-
-## Action Placement
-- Primary action: bottom-right
-- Cancel/dismiss: bottom-left
-- Destructive actions: require confirmation
-```
-
-### User Preferences (`.ui-mcp/conventions/preferences.md`)
-
-Track what the user likes:
-
-```markdown
-# User Preferences
-
-## Expressed Preferences
-- 2024-01-15: "I prefer darker backgrounds" → added to style conventions
-- 2024-01-18: "Always show me a cancel button" → added to form pattern
-
-## Inferred Preferences
-- User often resizes list views taller → prefers more items visible
-- User rarely uses keyboard shortcuts → de-emphasize keyboard hints
-```
-
-### Library (`.ui-mcp/library/`)
-
-Proven implementations that work well:
-
-```
-library/
-├── viewdefs/           # Tested viewdef templates
-│   ├── form-basic.html
-│   └── list-selectable.html
-└── lua/                # Tested Lua patterns
-    ├── form-validation.lua
-    └── list-selection.lua
-```
-
-### How to Use the Pattern Library
-
-**Before creating any UI:**
-1. Read relevant `patterns/*.md` files
-2. Read `conventions/*.md` files
-3. Check `library/` for existing implementations
-
-**When creating a new UI:**
-1. Identify which pattern applies (form? list? dialog?)
-2. Follow the pattern's structure
-3. Apply conventions for layout, terminology, interactions
-4. Copy from `library/` if similar implementation exists
-
-**When user expresses preference:**
-1. Update relevant convention file
-2. Example: User says "I prefer 'Done' over 'Submit'" → update `terminology.md`
-3. Future UIs follow the updated convention
-
-### Growing the Design System
-
-The `ui-learning` agent grows the design system automatically. Over time:
-
-1. **Session 1**: ui-learning analyzes first form, creates `pattern-form.md`
-2. **Session 5**: ui-learning notices list pattern, creates `pattern-list.md`
-3. **Session 12**: ui-builder reads patterns, produces consistent form
-4. **Session 20**: New form matches existing patterns - user's muscle memory works
-
-See `agents/ui-learning.md` for pattern extraction details.
+5. **Return setup instructions** to parent:
+   - What app was created
 
 ## Directory Structure
 
 ```
-.ui-mcp/
+.claude/ui/
 ├── apps/                     # SOURCE OF TRUTH (apps AND shared components)
 │   ├── contacts/                 # Full app
 │   │   ├── app.lua
-│   │   ├── README.md
 │   │   ├── design.md
 │   │   └── viewdefs/
 │   │       ├── ContactApp.DEFAULT.html
@@ -217,7 +109,6 @@ See `agents/ui-learning.md` for pattern extraction details.
 │   │
 │   └── viewlist/                 # Shared component (same pattern)
 │       ├── viewlist.lua
-│       ├── README.md
 │       └── viewdefs/
 │           └── lua.ViewListItem.list-item.html
 │
@@ -232,99 +123,9 @@ See `agents/ui-learning.md` for pattern extraction details.
 ├── log/                      # Runtime logs
 ├── mcp-port                  # Port number (written by ui_start)
 ├── event                     # Event wait script
-│
-├── patterns/                 # Reusable UI patterns (pattern-form.md, etc.)
-├── conventions/              # Established rules (layout.md, terminology.md, preferences.md)
-└── library/                  # Proven implementations
-    ├── viewdefs/                 # Tested viewdef templates
-    └── lua/                      # Tested Lua patterns
 ```
 
 **Key principle:** Everything (apps AND shared components) follows the same pattern - source of truth in `apps/<name>/`, symlinked into `lua/` and `viewdefs/`.
-
-On fresh invocation, read the app directory to understand current state.
-
-## Event Script
-
-Create `.ui-mcp/event` during setup with the port baked in:
-
-```bash
-#!/bin/bash
-curl -s -w "\nHTTP_CODE:%{http_code}" "http://127.0.0.1:PORT/wait?timeout=120"
-```
-
-This saves tokens for the parent Claude (runs `./.ui-mcp/event` instead of full curl command).
-
-## App README Template
-
-Create `.ui-mcp/apps/<app>/README.md` so parent Claude knows how to operate the UI:
-
-```markdown
-# <App Name>
-
-## Events
-- `{"app":"<app>","event":"chat","text":"..."}` - User sent chat message
-- `{"app":"<app>","event":"<action>","..."}` - Other events
-
-## State
-- `<global>.field` - Description
-- `<global>.items` - Description
-
-## Methods
-- `<global>:method()` - Description
-
-## Example: Respond to Chat
-    ui_run({ code = '<global>:addMessage("Assistant", "Response here")' })
-```
-
-## Return Message
-
-After setup, return to parent Claude:
-
-```markdown
-## Session Ready
-
-**Port:** <port>
-**App:** <name> (see .ui-mcp/apps/<name>/README.md)
-
-## Event Loop
-
-Start background wait:
-
-    ./.ui-mcp/event
-
-- HTTP 200 = events arrived, handle per app README
-- HTTP 204 = timeout, restart wait
-
-Read `.ui-mcp/apps/<name>/README.md` for event handling.
-```
-
-## Preventing Drift
-
-During iterative modifications, features can accidentally disappear. To prevent this:
-
-1. **Before modifying** — Read the design spec (`.ui-mcp/apps/<app>/design.md`)
-2. **Update spec first** — Modify the layout/components in the spec
-3. **Then update code** — Change viewdef and Lua to match spec
-4. **Verify** — Ensure implementation matches spec
-
-The spec is the **source of truth**. If it says a close button exists, don't remove it.
-
-### Spec-First vs Code-First
-
-**Spec-First** (recommended for planned changes):
-1. Receive instruction from parent Claude
-2. Update design spec (`.ui-mcp/apps/<app>/design.md`)
-3. Modify viewdef/Lua to match spec
-4. Verify implementation matches spec
-
-**Code-First** (for quick/exploratory changes):
-1. Make quick change directly
-2. Parent reviews result (via browser or state inspection)
-3. If good: Update spec to reflect new reality
-4. If not: Revert change
-
-Use Code-First sparingly. Always sync spec afterward to prevent drift.
 
 ## State Management (Critical)
 
@@ -358,16 +159,19 @@ mcp.value = myApp             -- Display
 
 ## Bindings
 
-| Attribute     | Purpose             | Example                                                  |
-|:--------------|:--------------------|:---------------------------------------------------------|
-| `ui-value`    | Bind value/text     | `<sl-input ui-value="name">` `<span ui-value="total()">` |
-| `ui-action`   | Click handler       | `<sl-button ui-action="save()">`                         |
-| `ui-event-*`  | Any event           | `<sl-select ui-event-sl-change="onSelect()">`            |
-| `ui-view`     | Render child/list   | `<div ui-view="selected">` `<div ui-view="items?wrapper=lua.ViewList">` |
-| `ui-attr-*`   | HTML attribute      | `<sl-alert ui-attr-open="hasError">`                     |
-| `ui-class-*`  | CSS class toggle    | `<div ui-class-active="isActive">`                       |
-| `ui-style-*`  | CSS style           | `<div ui-style-color="textColor">`                       |
-| `ui-code`     | Run JS on update    | `<div ui-code="jsCode">` (executes JS when value changes)|
+| Attribute             | Purpose               | Example                                                    |
+|:----------------------|:----------------------|:-----------------------------------------------------------|
+| `ui-value`            | Bind value/text       | `<sl-input ui-value="name">` `<span ui-value="total()">`   |
+| `ui-action`           | Click handler         | `<sl-button ui-action="save()">`                           |
+| `ui-event-*`          | Any event             | `<sl-select ui-event-sl-change="onSelect()">`              |
+| `ui-event-keypress-*` | Specific key press    | `<sl-input ui-event-keypress-enter="submit()">`            |
+| `ui-view`             | Render child/list     | `<div ui-view="selected">` `<div ui-view="items?wrapper=lua.ViewList">` |
+| `ui-viewlist`         | Shorthand for ViewList| `<div ui-viewlist="items">` (same as `ui-view="items?wrapper=lua.ViewList"`) |
+| `ui-attr-*`           | HTML attribute        | `<sl-alert ui-attr-open="hasError">`                       |
+| `ui-class-*`          | CSS class toggle      | `<div ui-class-active="isActive">`                         |
+| `ui-style-*`          | CSS style             | `<div ui-style-color="textColor">`                         |
+| `ui-code`             | Run JS on update      | `<div ui-code="jsCode">` (executes JS when value changes)  |
+| `ui-namespace`        | Set viewdef namespace | `<div ui-namespace="COMPACT"><div ui-view="item"></div></div>` |
 
 **Binding access modes:**
 - `ui-value` on inputs: `rw` (read initial, write on change)
@@ -375,6 +179,16 @@ mcp.value = myApp             -- Display
 - `ui-action`: `action` (write only, triggers method)
 - `ui-event-*`: `action` (write only, triggers method)
 - `ui-attr-*`, `ui-class-*`, `ui-style-*`, `ui-code`: `r` (read only for display)
+
+**Keypress bindings:**
+
+`ui-event-keypress-*` fires only when the specified key is pressed:
+- `ui-event-keypress-enter` - Enter/Return key
+- `ui-event-keypress-escape` - Escape key
+- `ui-event-keypress-left/right/up/down` - Arrow keys
+- `ui-event-keypress-tab` - Tab key
+- `ui-event-keypress-space` - Space bar
+- `ui-event-keypress-{letter}` - Any single letter (e.g., `ui-event-keypress-a`)
 
 **Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy. Use boolean fields (e.g., `isActive`) or methods returning booleans for class/attr toggles.
 
@@ -400,7 +214,39 @@ app.closeWindow = "window.close()"  -- or set a trigger value
 
 Use cases: auto-close window, trigger downloads, custom DOM manipulation, browser APIs.
 
+## Variable Paths
+
+**Path syntax:**
+- Property access: `name`, `nested.path`
+- Array indexing: `0`, `1` (0-based in paths, 1-based in Lua)
+- Parent traversal: `..`
+- Method calls: `getName()`, `setValue(_)`
+- Path params: `contacts?wrapper=ViewList&item=ContactPresenter`
+  - Properties after `?` are set on the created variable
+  - Uses URL query string syntax: `key=value&key2=value2`
+
+**IMPORTANT:** No operators in paths! `!`, `==`, `&&`, `+`, etc. are NOT valid. For negation, create a method (e.g., `isCollapsed()` returning `not self.expanded` instead of `!expanded`).
+
+**Method path constraints:**  (see Variable Properties)
+- Paths ending in `()` (no argument) must have access `r` or `action`
+- Paths ending in `(_)` (with argument) must have access `w` or `action`
+
+**Nullish path handling:**
+
+Path traversal uses nullish coalescing (like JavaScript's `?.`). If any segment resolves to `nil`:
+- **Read direction:** The binding displays empty/default value instead of erroring
+- **Write direction:** Fails gracefully
+
+This allows bindings like `ui-value="selectedContact.firstName"` to work when `selectedContact` is nil (e.g., nothing selected).
+
 ## Variable Properties
+
+Variable properties go at the end of a path, using URL parameter syntax.
+
+**Common variable properties:**
+- `?keypress` — live update on every keystroke (for search boxes)
+- `?wrapper=ViewList` — wrap array with ViewList for list rendering
+- `?item=RowPresenter` — specify presenter type for list items
 
 | Property   | Values                                   | Description                                                           |
 |------------|------------------------------------------|-----------------------------------------------------------------------|
@@ -414,26 +260,6 @@ Use cases: auto-close window, trigger downloads, custom DOM manipulation, browse
 - `w` = writeable only
 - `rw` = readable and writeable (for inputs)
 - `action` = writeable, triggers a function call (like a button click)
-
-**Method path constraints:**
-- Paths ending in `()` (no argument) must have access `r` or `action`
-- Paths ending in `(_)` (with argument) must have access `w` or `action`
-
-**Path syntax:**
-- Property access: `name`, `nested.path`
-- Array indexing: `0`, `1` (0-based in paths, 1-based in Lua)
-- Parent traversal: `..`
-- Method calls: `getName()`, `setValue(_)`
-- Path params: `contacts?wrapper=ViewList&item=ContactPresenter`
-  - Properties after `?` are set on the created variable
-  - Uses URL query string syntax: `key=value&key2=value2`
-
-**IMPORTANT:** No operators in paths! `!`, `==`, `&&`, `+`, etc. are NOT valid. For negation, create a method (e.g., `isHidden()` instead of `!isVisible`).
-
-**Common path params:**
-- `?keypress` — live update on every keystroke (for search boxes)
-- `?wrapper=ViewList` — wrap array with ViewList for list rendering
-- `?item=RowPresenter` — specify presenter type for list items
 
 ## Widgets
 
@@ -454,14 +280,33 @@ Use cases: auto-close window, trigger downloads, custom DOM manipulation, browse
 ## Lists
 
 **Standard pattern (using ui-view with wrapper):**
+
 ```html
 <!-- In app viewdef -->
 <div ui-view="items?wrapper=lua.ViewList"></div>
+
+<!-- Shorthand equivalent -->
+<div ui-viewlist="items"></div>
 ```
 
 The ViewList looks for viewdefs named `lua.ViewListItem.{namespace}.html` (default namespace: `list-item`).
 
+**Namespace resolution for views:**
+1. If variable has `namespace` property and `TYPE.{namespace}` viewdef exists, use it
+2. Otherwise, if variable has `fallbackNamespace` property and `TYPE.{fallbackNamespace}` viewdef exists, use it
+3. Otherwise, use `TYPE.DEFAULT`
+
+**Custom namespace example:**
+
+```html
+<!-- Use custom namespace for items -->
+<div ui-view="customers?wrapper=lua.ViewList" ui-namespace="customer-item"></div>
+```
+
+This tries `Customer.customer-item` viewdef, falling back to `Customer.list-item` if not found.
+
 **Item viewdef (`lua.ViewListItem.list-item.html`):**
+
 ```html
 <template>
   <div><span ui-value="item.name"></span><sl-icon-button name="x" ui-action="remove()"></sl-icon-button></div>
@@ -469,13 +314,74 @@ The ViewList looks for viewdefs named `lua.ViewListItem.{namespace}.html` (defau
 ```
 
 **With custom item wrapper (optional):**
+
 ```html
 <div ui-view="items?wrapper=lua.ViewList&itemWrapper=ItemPresenter"></div>
 ```
 
 **ViewListItem properties:** `item` (element), `index` (0-based), `list` (ViewList), `baseItem` (unwrapped)
 
+## Select Views
+
+Use a ViewList to populate `<sl-select>` options:
+
+```html
+<sl-select ui-value="selectedContact">
+  <div ui-viewlist="contacts" ui-namespace="OPTION"></div>
+</sl-select>
+```
+
+With a Contact.OPTION.html viewdef:
+
+```html
+<template>
+  <sl-option ui-attr-value="id">
+    <span ui-value="name"></span>
+  </sl-option>
+</template>
+```
+
+## List Item Viewdef Context (Critical)
+
+**When creating viewdefs for list items, the item IS the direct context.**
+
+ViewListItem renders `<div ui-view="item"></div>`, which means when your item's viewdef is applied, the item itself becomes the context. Properties and methods are accessed directly, NOT through an `item.` prefix.
+
+**CORRECT** (item is the context):
+
+```html
+<!-- TreeItem.list-item.html -->
+<div class="tree-item" ui-action="invoke()">
+  <span ui-value="name"></span>
+</div>
+```
+
+**WRONG** (would look for `item.name` on the TreeItem, which doesn't exist):
+
+```html
+<!-- TreeItem.list-item.html - BROKEN -->
+<div class="tree-item" ui-action="item.invoke()">
+  <span ui-value="item.name"></span>
+</div>
+```
+
+**Why this happens:**
+1. ViewList wraps each array element in a ViewListItem
+2. ViewListItem's viewdef (`lua.ViewListItem.list-item.html`) renders `<div ui-view="item"></div>`
+3. This `ui-view="item"` makes the wrapped item the context for its own viewdef
+4. So inside `TreeItem.list-item.html`, `name` refers to `TreeItem.name` directly
+
+**Where you DO use `item.` prefix:**
+- Inside `lua.ViewListItem.list-item.html` itself (where `item` is a property of ViewListItem)
+- NOT in the item's own viewdef (e.g., `TreeItem.list-item.html`)
+
 ## Lua Pattern
+
+Define the app and assign it to a Lua global with the same name as the app
+- starts with a lowercase letter
+- convert snake case to camel case
+
+Do not assign mcp.value in app.lua
 
 ```lua
 MyApp = { type = "MyApp" }
@@ -492,242 +398,46 @@ end
 
 function MyApp:count() return #self.items .. " items" end
 
-app = app or MyApp:new()
-mcp.value = app
+myApp = myApp or MyApp:new
 ```
 
 ## Complete Example: Contact Manager with Chat
 
 Demonstrates: design spec, lists, selection, nested views, forms, selects, switches, conditional display, computed values, notifications, **agent chat**.
 
-### 1. Design Spec (`.ui-mcp/apps/contacts/design.md`)
+### 1. Design Spec (`.claude/ui/apps/contacts/design.md`)
 
-```markdown
-# Contact Manager with Chat
-
-## Intent
-Manage contacts with list/detail view. Chat with agent for assistance.
-
-## Layout
-┌────────────────────────────────────────────────┐
-│ Contacts                        [+ Add] [Dark] │
-├──────────────────┬─────────────────────────────┤
-│ ☐ Alice Smith    │ Name: [Alice Smith      ]   │
-│ ☑ Bob Jones    ← │ Email: [bob@example.com ]   │
-│ ☐ Carol White    │ Status: [Active ▼]          │
-│                  │ VIP: [✓]                    │
-│                  │ ─────────────────────────── │
-│                  │ [Delete]           [Save]   │
-├──────────────────┴─────────────────────────────┤
-│ 3 contacts • 1 selected                        │
-├─────────────────────────────────────────────────┤
-│ Chat with Agent                                │
-│ ┌─────────────────────────────────────────────┐│
-│ │ Agent: How can I help you?                  ││
-│ │ You: Add a contact for John                 ││
-│ │ Agent: Done! I added John to your contacts. ││
-│ └─────────────────────────────────────────────┘│
-│ [Type a message...                    ] [Send] │
-└────────────────────────────────────────────────┘
-
-## Components
-
-| Element       | Binding                     | Notes                   |
-|---------------|-----------------------------|-------------------------|
-| Add btn       | ui-action="add()"           | Creates new contact     |
-| Dark toggle   | ui-value="darkMode"         | sl-switch               |
-| Contact list  | ui-view="contacts?wrapper=lua.ViewList" | ViewListItem.contact-row |
-| Row checkbox  | ui-value="item.selected"    | Multi-select            |
-| Row name      | ui-value="item.name"        | Click selects           |
-| Detail panel  | ui-view="current"           | Shows selected contact  |
-| Name input    | ui-value="current.name"     |                         |
-| Email input   | ui-value="current.email"    |                         |
-| Status select | ui-value="current.status"   | active/inactive         |
-| VIP switch    | ui-value="current.vip"      |                         |
-| Delete btn    | ui-action="deleteCurrent()" | variant="danger"        |
-| Save btn      | ui-action="save()"          | Fires pushState         |
-| Status line   | ui-value="statusLine()"     | Computed                |
-| Chat messages | ui-view="messages?wrapper=lua.ViewList" | ViewListItem.chat-msg    |
-| Chat input    | ui-value="chatInput"        | ?keypress for live      |
-| Send btn      | ui-action="sendChat()"      | Fires pushState         |
-
-## Behavior
-- Click row → selects contact, shows in detail panel
-- Save → mcp.pushState({app="contacts", event="contact_saved", ...})
-- Delete → removes from list, clears detail
-- No selection → hide detail panel (ui-class-hidden)
-- Send chat → mcp.pushState({app="contacts", event="chat", text=...}) → parent responds via ui_run
-```
+See [design.md](builder-examples/return.md)
 
 ### 2. Lua Code
 
-```lua
--- Chat message model
-ChatMessage = { type = "ChatMessage" }
-ChatMessage.__index = ChatMessage
-function ChatMessage:new(sender, text)
-    return setmetatable({ sender = sender, text = text }, self)
-end
-
--- Contact model
-Contact = { type = "Contact" }
-Contact.__index = Contact
-function Contact:new(name)
-    return setmetatable({ name = name or "", email = "", status = "active", vip = false, selected = false }, self)
-end
-
--- Main app
-ContactApp = { type = "ContactApp" }
-ContactApp.__index = ContactApp
-function ContactApp:new()
-    return setmetatable({
-        contacts = {},
-        current = nil,
-        hideDetail = true,  -- Hide detail panel when no selection (nil is falsy)
-        darkMode = false,
-        messages = {},      -- Chat history
-        chatInput = ""      -- Current input
-    }, self)
-end
-
-function ContactApp:add()
-    local c = Contact:new("New Contact")
-    table.insert(self.contacts, c)
-    self.current = c
-    self.hideDetail = false
-end
-
-function ContactApp:select(contact)
-    self.current = contact
-    self.hideDetail = false
-end
-
-function ContactApp:deleteCurrent()
-    if not self.current then return end
-    for i, c in ipairs(self.contacts) do
-        if c == self.current then table.remove(self.contacts, i); break end
-    end
-    self.current = nil
-    self.hideDetail = true
-end
-
-function ContactApp:save()
-    if self.current then
-        mcp.pushState({
-            app = "contacts",
-            event = "contact_saved",
-            name = self.current.name,
-            email = self.current.email
-        })
-    end
-end
-
-function ContactApp:statusLine()
-    local sel = 0
-    for _, c in ipairs(self.contacts) do if c.selected then sel = sel + 1 end end
-    return #self.contacts .. " contacts • " .. sel .. " selected"
-end
-
--- Chat methods
-function ContactApp:sendChat()
-    if self.chatInput == "" then return end
-    -- Add user message to history
-    table.insert(self.messages, ChatMessage:new("You", self.chatInput))
-    -- Push event to queue for parent Claude
-    mcp.pushState({ app = "contacts", event = "chat", text = self.chatInput })
-    self.chatInput = ""
-end
-
--- Called by parent Claude via ui_run to add response
-function ContactApp:addAgentMessage(text)
-    table.insert(self.messages, ChatMessage:new("Agent", text))
-end
-
-app = app or ContactApp:new()
-mcp.value = app
-```
+See [code.lua](builder-examples/code.lua)
 
 ### 3. App Viewdef (`ContactApp.DEFAULT.html`)
 
-```html
-<template>
-  <div>
-    <div class="header">
-      <h2>Contacts</h2>
-      <sl-button ui-action="add()">+ Add</sl-button>
-      <sl-switch ui-value="darkMode">Dark</sl-switch>
-    </div>
-    <div class="body">
-      <div class="list" ui-view="contacts?wrapper=lua.ViewList"></div>
-      <div class="detail" ui-class-hidden="hideDetail">
-        <sl-input ui-value="current.name" label="Name"></sl-input>
-        <sl-input ui-value="current.email" label="Email" type="email"></sl-input>
-        <sl-select ui-value="current.status" label="Status">
-          <sl-option value="active">Active</sl-option>
-          <sl-option value="inactive">Inactive</sl-option>
-        </sl-select>
-        <sl-switch ui-value="current.vip">VIP</sl-switch>
-        <div class="actions">
-          <sl-button ui-action="deleteCurrent()" variant="danger">Delete</sl-button>
-          <sl-button ui-action="save()" variant="primary">Save</sl-button>
-        </div>
-      </div>
-    </div>
-    <div class="footer"><span ui-value="statusLine()"></span></div>
-    <div class="chat">
-      <h3>Chat with Agent</h3>
-      <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList"></div>
-      <div class="chat-input">
-        <sl-input ui-value="chatInput?keypress" placeholder="Type a message..."></sl-input>
-        <sl-button ui-action="sendChat()" variant="primary">Send</sl-button>
-      </div>
-    </div>
-  </div>
-</template>
-```
+See [ContactApp.DEFAULT.html](builder-examples/ContactApp.DEFAULT.html)
 
 The ViewList wraps each item with `lua.ViewListItem`. The item's `type` field determines which viewdef renders it.
 
-### 4. ViewListItem Viewdef (`lua.ViewListItem.list-item.html`)
+### 4. Contact Viewdef (`Contact.list-item.html`)
 
-The ViewListItem wraps each array element. This viewdef delegates to the item's type-specific viewdef:
+See [Contact.list-item.html](builder-examples/Contact.list-item.html)
 
-```html
-<template>
-  <div ui-view="item"></div>
-</template>
-```
+### 5. Chat Message Viewdef (`ChatMessage.list-item.html`)
 
-### 5. Contact Viewdef (`Contact.DEFAULT.html`)
+**Important**: ViewList uses `list-item` namespace by default. Items rendered in a ViewList need viewdefs with the `list-item` namespace (e.g., `Contact.list-item.html`, `ChatMessage.list-item.html`).
 
-```html
-<template>
-  <div class="row" style="display: flex; align-items: center; gap: 8px;">
-    <sl-checkbox ui-value="selected"></sl-checkbox>
-    <span ui-value="name"></span>
-  </div>
-</template>
-```
+See [ChatMessage.list-item.html](builder-examples/ChatMessage.list-item.html)
 
-### 6. Chat Message Viewdef (`ChatMessage.DEFAULT.html`)
-
-```html
-<template>
-  <div class="chat-message">
-    <strong ui-value="sender"></strong>: <span ui-value="text"></span>
-  </div>
-</template>
-```
-
-### 7. Parent Response Pattern
+### 6. Parent Response Pattern
 
 When parent Claude receives a `chat` event from the `/wait` endpoint, it responds via `ui_run`:
 
 ```lua
-contacts:addAgentMessage("I can help you with that!")
+app:addAgentMessage("I can help you with that!")
 ```
 
-The parent reads `.ui-mcp/apps/contacts/README.md` to know how to handle events.
+The parent reads `.claude/ui/apps/contacts/design.md` to know how to handle events.
 
 ## Resources
 
@@ -775,6 +485,6 @@ The `index.html` file is part of ui-engine and gets replaced during updates. Any
 
 ## Debugging
 
-- Check `.ui-mcp/log/lua.log`
+- Check `.claude/ui/log/lua.log`
 - `ui_run` returns errors
 - `ui://state` shows current state

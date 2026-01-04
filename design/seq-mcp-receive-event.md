@@ -1,6 +1,6 @@
 # Sequence: MCP Receive Event
 
-**Source Spec:** interfaces.md
+**Source Spec:** mcp.md
 **Use Case:** AI receiving user interaction events via MCP
 
 ## Participants

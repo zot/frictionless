@@ -1,7 +1,7 @@
 # Project Instructions
 
 ### Running the demo
-From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .ui-mcp -vvvv`
+From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .claude/ui -vvvv`
 You can use the playwright browser to connect to it.
 
 ## 🎯 Core Principles
@@ -17,11 +17,12 @@ You can use the playwright browser to connect to it.
 5. Create the commit and verify success
 
 ## Using the ui mcp
-use the directory `.ui-mcp` for the mcp's directory; create it if it is not there already.
+use the directory `.claude/ui` for the mcp's directory; create it if it is not there already.
 
 ### Building UIs with ui-builder Agent
 
-**ALWAYS use the `ui-builder` agent when building or modifying UIs.** Do NOT use `ui_*` MCP tools directly.
+**ALWAYS use the `ui-builder` agent when first building UIs.** Do NOT use `ui_*` MCP tools directly.
+**WHEN UPDATING EXISTING UIs**, use the `ui-updater`.
 
 | User Request                        | Action                                      |
 |-------------------------------------|---------------------------------------------|
@@ -31,23 +32,50 @@ use the directory `.ui-mcp` for the mcp's directory; create it if it is not ther
 | "Modify the contacts app"           | Invoke `ui-builder` agent                   |
 | Routine event handling              | Use `ui_run` directly (after agent returns) |
 
-**Why use the agent?**
+**Why use the agents?**
+- Reads requirements and builds complete app
 - Sets up session correctly (configure, start, symlinks)
 - Reads pattern library for consistency
-- Creates proper app structure in `.ui-mcp/apps/<app>/`
+- Creates proper app structure in `.claude/ui/apps/<app>/`
 - Returns event loop instructions
-- Documents the app (README.md, design.md)
+- Documents the app (design.md)
 
-**After ui-builder returns:**
-1. Start background event loop: `./.ui-mcp/event`
-2. Invoke `ui-learning` agent in background (pattern extraction)
-3. Handle routine events directly with `ui_run`
-4. Re-invoke `ui-builder` only when UI structure needs to change
+**Before invoking ui-builder (for new apps):**
+1. Create the app directory: `mkdir -p .claude/ui/apps/<app>`
+2. Write requirements to `.claude/ui/apps/<app>/requirements.md`
+3. Invoke ui-builder: "Read `.claude/ui/apps/<app>/requirements.md` and build the app"
 
-See `agents/ui-builder.md` for full workflow.
+**When updating**, the app directory `.claude/ui/apps/<app>` already exists.
+- Invoke ui-updater: "Read `.claude/ui/apps/<app>/requirements.md` and update the app"
 
-## Testing the ui mcp
-See [the testing doc](TESTING.md)
+After ui-builder or ui-updater returns, run the UI (see below)
+
+### Running UIs
+
+**Using an existing app:**
+1. Read `design.md` - this explains the app's structure and event handling
+  - If unclear, read `app.lua`
+  - As a last resort, read the viewdefs in `viewdefs/`
+2. Use `ui_run` to Present the UI to the user with `mcp.display("APP")`
+3. Display the browser page
+  - if using the system browser, use ui_open_browser
+  - if using playwright MCP, just visit the URL, do not use ui_open_browser
+4. Start **background** event loop: `.claude/ui/event`
+  - returns JSON events, one per line:
+    ```json
+    {"app":"contacts","event":"chat","text":"Hello agent"},
+    {"app":"contacts","event":"contact_saved","name":"Alice","email":"alice@example.com"}
+    ```
+  - When output received:
+    - Parse JSON events
+    - Handle each event via `ui_run`, based on the app's design.md
+    - Restart wait loop
+5. Respond to routine events as-needed with `ui_run`
+
+### Improving UIs
+When UI needs improvement, update `.claude/ui/apps/<app>/requirements.md` and invoke `ui-updater`
+
+If and only if the user proactively indicates that the UI is stable (do not bug them about it), invoke `ui-learning` agent in background (pattern extraction)
 
 ## CRC Modeling Workflow
 

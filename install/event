@@ -1,0 +1,3 @@
+#!/bin/bash
+dir=$(dirname "$(realpath "$0")")
+curl -s "http://127.0.0.1:$(cat "$dir/mcp-port")/wait?timeout=120"

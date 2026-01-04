@@ -6,11 +6,14 @@
 
 ### Knows
 - uiServer: Reference to UI server instance
+- mcpServer: Reference to MCP HTTP server instance
 - resources: List of available MCP resources
 - tools: List of available MCP tools
 - activeSession: Current session for AI interaction
 - state: Lifecycle state (UNCONFIGURED, CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
+- uiPort: UI server port (serves HTML/JS/WebSocket)
+- mcpPort: MCP server port (serves /state, /wait, /variables)
 - getSessionCount: Callback to query active browser session count
 - currentVendedID: Current session's vended ID for cleanup on reconfigure
 - stateWaiters: Waiting HTTP requests for current session (channels)
@@ -23,7 +26,7 @@
 - stop: Destroy current session, reset to CONFIGURED (enables session restart)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (ui://state, ui://variables)
-- listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status)
+- listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)
 - handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
 - handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID)

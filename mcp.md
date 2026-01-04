@@ -90,10 +90,10 @@ See [AGENTS.md](AGENTS.md) for detailed agent architecture. Summary:
 
 ## Working Directory Structure
 
-When the AI uses `.ui-mcp/` as the base directory:
+When the AI uses `.claude/ui/` as the base directory:
 
 ```
-.ui-mcp/
+.claude/ui/
 ├── html/           # Static HTML
 ├── viewdefs/       # Viewdef templates
 ├── lua/            # Lua source files

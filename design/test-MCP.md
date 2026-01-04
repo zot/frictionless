@@ -24,6 +24,8 @@
     - Verify state is RUNNING.
     - Call `ui_start` -> Expect Error ("Server already running").
     - Call `ui_run` -> Expect execution success.
+    - Verify port files: `{base_dir}/ui-port` and `{base_dir}/mcp-port` exist.
+    - Verify port files contain valid port numbers.
 
 4.  **Session Restart (ui_configure while Running)**:
     - Start in RUNNING state with active session.
@@ -78,6 +80,28 @@
     - Call `ui_upload_viewdef`.
     - Verify "update" message sent for that variable.
 
+### Test: Tool - ui_status
+**Purpose**: Verify status reporting across lifecycle states.
+
+**Scenarios**:
+1.  **Unconfigured State**:
+    - Call `ui_status` before any configuration.
+    - Expect `state: "unconfigured"`.
+    - Expect no `base_dir`, `url`, or `sessions` fields.
+2.  **Configured State**:
+    - Call `ui_configure` with `base_dir=".claude/ui"`.
+    - Call `ui_status`.
+    - Expect `state: "configured"`.
+    - Expect `base_dir: ".claude/ui"`.
+    - Expect no `url` or `sessions` fields.
+3.  **Running State**:
+    - Call `ui_start`.
+    - Call `ui_status`.
+    - Expect `state: "running"`.
+    - Expect `base_dir: ".claude/ui"`.
+    - Expect `url` field with valid URL pattern.
+    - Expect `sessions` field with numeric value.
+
 ### Test: MCP frictionless UI creation
 **Purpose**: Verify end-to-end workflow for on-the-fly UI creation. This represents the core value proposition of the MCP integration: allowing an AI agent to build tiny collaborative apps to facilitate two-way communication and collaboration with the user.
 
@@ -102,40 +126,66 @@
     - AI Agent, seeing the user's input, calls `ui_upload_viewdef` with *modified* HTML to provide feedback or the next step in the workflow.
     - Verify frontend receives immediate push update and re-renders.
 
-### Test: Agent File Installation
-**Purpose**: Verify bundled agent files are installed during configuration.
+### Test: Installation Check (ui_configure)
+**Purpose**: Verify configuration checks for installation and returns hint.
+**Sequence**: seq-mcp-lifecycle.md (Scenario 1)
+
+**Scenarios**:
+1.  **Install Needed (Files Missing)**:
+    - Start with empty project root (no `.claude/agents/` directory).
+    - Call `ui_configure` with `base_dir=".claude/ui"`.
+    - Verify response includes `install_needed: true`.
+    - Verify response includes hint about running `ui_install`.
+
+2.  **Install Not Needed (Files Present)**:
+    - Pre-create `.claude/agents/ui-builder.md`.
+    - Call `ui_configure` with `base_dir=".claude/ui"`.
+    - Verify response does NOT include `install_needed: true`.
+
+### Test: Bundled File Installation (ui_install)
+**Purpose**: Verify bundled files are installed via ui_install tool.
 **Sequence**: seq-mcp-lifecycle.md (Scenario 1a)
 
 **Scenarios**:
-1.  **Fresh Install (File Missing)**:
-    - Start with empty project root (no `.claude/agents/` directory).
-    - Call `ui_configure` with `base_dir=".ui-mcp"`.
-    - Verify `.claude/agents/ui-builder.md` is created.
-    - Verify `agent_installed` notification sent with params:
-      `{"file": "ui-builder.md", "path": ".claude/agents/ui-builder.md"}`
+1.  **Fresh Install (Files Missing)**:
+    - Start with empty project root.
+    - Call `ui_configure` then `ui_install`.
+    - Verify all bundled files created:
+      - `{project}/CLAUDE.md` (appended)
+      - `{project}/.claude/skills/*`
+      - `{base_dir}/resources/*`
+      - `{base_dir}/viewdefs/*`
+      - `{base_dir}/event`, `state`, `variables` scripts
+    - Verify response lists installed files.
 
-2.  **No-Op (File Exists)**:
-    - Pre-create `.claude/agents/ui-builder.md` with custom content.
-    - Call `ui_configure`.
-    - Verify file content unchanged (not overwritten).
-    - Verify NO `agent_installed` notification sent.
+2.  **No-Op (Files Exist, force=false)**:
+    - Pre-create bundled files with custom content.
+    - Call `ui_install` without force.
+    - Verify file content unchanged.
+    - Verify response lists files as skipped.
 
-3.  **Directory Creation**:
-    - Start with project root that has no `.claude/` directory.
-    - Call `ui_configure`.
-    - Verify `.claude/agents/` directory created.
-    - Verify `ui-builder.md` file created inside.
+3.  **Force Overwrite (force=true)**:
+    - Pre-create bundled files with custom content.
+    - Call `ui_install` with `force=true`.
+    - Verify files overwritten with bundled content.
+    - Verify response lists files as installed.
 
-4.  **Path Resolution**:
-    - Set `base_dir="/project/.ui-mcp"`.
-    - Call `ui_configure`.
-    - Verify agent file installed to `/project/.claude/agents/ui-builder.md`.
-    - (Ensures parent directory resolution is correct)
+4.  **CLAUDE.md Append**:
+    - Pre-create `CLAUDE.md` with existing content.
+    - Call `ui_install`.
+    - Verify ui-builder instructions appended (not replaced).
+    - Verify original content preserved.
 
-5.  **Reconfiguration (File Already Installed)**:
-    - Call `ui_configure` (installs agent file, notification sent).
-    - Call `ui_configure` again (session restart).
-    - Verify NO second `agent_installed` notification.
+5.  **Path Resolution**:
+    - Set `base_dir="/project/.claude/ui"`.
+    - Call `ui_install`.
+    - Verify project files installed to `/project/.claude/`.
+    - Verify base_dir files installed to `/project/.claude/ui/`.
+
+6.  **State Requirement**:
+    - Server in UNCONFIGURED state.
+    - Call `ui_install`.
+    - Verify error (must be CONFIGURED or RUNNING).
 
 ### Test: MCP initialization
 **Purpose**: Verify MCP server setup

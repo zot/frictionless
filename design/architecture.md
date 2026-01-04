@@ -52,7 +52,12 @@
 
 **Purpose**: Debug and inspect runtime state (uses server's distinguished session)
 
-**Endpoints:**
+**Two-Port Architecture:**
+- **UI Server**: Serves HTML/JS and WebSocket connections
+- **MCP Server**: Serves debug endpoints below
+- Port files written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`
+
+**Endpoints (MCP port):**
 - `GET /wait`: Long-poll for mcp.pushState() events
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state JSON

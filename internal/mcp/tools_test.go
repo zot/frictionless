@@ -14,7 +14,7 @@ import (
 func TestInstallAgentFilesFreshInstall(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
-	baseDir := filepath.Join(tempDir, ".ui-mcp")
+	baseDir := filepath.Join(tempDir, ".claude/ui")
 	projectRoot := tempDir
 	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
 	agentFile := filepath.Join(agentsDir, "ui-builder.md")
@@ -55,7 +55,7 @@ func TestInstallAgentFilesFreshInstall(t *testing.T) {
 func TestInstallAgentFilesNoOpIfExists(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
-	baseDir := filepath.Join(tempDir, ".ui-mcp")
+	baseDir := filepath.Join(tempDir, ".claude/ui")
 	projectRoot := tempDir
 	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
 	agentFile := filepath.Join(agentsDir, "ui-builder.md")
@@ -90,7 +90,7 @@ func TestInstallAgentFilesNoOpIfExists(t *testing.T) {
 func TestInstallAgentFilesCreatesDirectory(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
-	baseDir := filepath.Join(tempDir, ".ui-mcp")
+	baseDir := filepath.Join(tempDir, ".claude/ui")
 	projectRoot := tempDir
 	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
 
@@ -125,9 +125,9 @@ func TestInstallAgentFilesPathResolution(t *testing.T) {
 	// Create temp directories simulating real structure
 	tempDir := t.TempDir()
 
-	// Simulate: /project/.ui-mcp as base_dir
+	// Simulate: /project/.claude/ui as base_dir
 	// Agent should install to: /project/.claude/agents/
-	baseDir := filepath.Join(tempDir, "project", ".ui-mcp")
+	baseDir := filepath.Join(tempDir, "project", ".claude/ui")
 	expectedAgentsDir := filepath.Join(tempDir, "project", ".claude", "agents")
 
 	// Create source agents at the level above base_dir (parent = project)

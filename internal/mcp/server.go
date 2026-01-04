@@ -46,7 +46,8 @@ type Server struct {
 	baseDir         string
 	url             string
 	httpServer      *http.Server // HTTP server for debug endpoints (in stdio mode)
-	mcpPort         int          // Port for MCP HTTP server (written to .ui-mcp/mcp-port)
+	mcpPort         int          // Port for MCP HTTP server (written to baseDir/mcp-port)
+	uiPort          int          // Port for UI HTTP server (written to baseDir/ui-port)
 	currentVendedID string       // Current session's vended ID (e.g., "1")
 	logPath         string       // Path for Lua log file (set at configure time)
 	errPath         string       // Path for Lua error log file (set at configure time)
@@ -109,6 +110,15 @@ func (s *Server) ServeSSE(addr string) error {
 
 	s.cfg.Log(0, "Starting MCP SSE server on %s (/variables, /state, /wait)", addr)
 
+	// Parse port from addr and write mcp-port file
+	if _, portStr, err := net.SplitHostPort(addr); err == nil {
+		if port, err := strconv.Atoi(portStr); err == nil {
+			if err := s.WriteMCPPortFile(port); err != nil {
+				s.cfg.Log(0, "Warning: failed to write mcp-port file: %v", err)
+			}
+		}
+	}
+
 	// Start HTTP server
 	httpServer := &http.Server{
 		Addr:    addr,
@@ -147,39 +157,63 @@ func (s *Server) StartHTTPServer() (int, error) {
 	}()
 
 	s.cfg.Log(0, "HTTP server listening on port %d (/variables, /state, /wait)", port)
+
+	// Write mcp-port file
+	if err := s.WriteMCPPortFile(port); err != nil {
+		s.cfg.Log(0, "Warning: failed to write mcp-port file: %v", err)
+	}
+
 	return port, nil
 }
 
-// WritePortFile writes the MCP port to the mcp-port file in baseDir.
-// Spec: mcp.md
-func (s *Server) WritePortFile(port int) error {
-	s.mu.RLock()
+// WriteMCPPortFile writes the MCP port to the mcp-port file in baseDir.
+// Spec: mcp.md Section 5.2
+func (s *Server) WriteMCPPortFile(port int) error {
+	s.mu.Lock()
+	s.mcpPort = port
 	baseDir := s.baseDir
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	if baseDir == "" {
 		return fmt.Errorf("server not configured")
 	}
 
-	portFile := filepath.Join(baseDir, "mcp-port")
-	return os.WriteFile(portFile, []byte(strconv.Itoa(port)), 0644)
+	mcpPortFile := filepath.Join(baseDir, "mcp-port")
+	return os.WriteFile(mcpPortFile, []byte(strconv.Itoa(port)), 0644)
 }
 
-// RemovePortFile removes the mcp-port file.
-func (s *Server) RemovePortFile() {
+// WriteUIPortFile writes the UI port to the ui-port file in baseDir.
+// Spec: mcp.md Section 5.2
+func (s *Server) WriteUIPortFile(port int) error {
+	s.mu.Lock()
+	s.uiPort = port
+	baseDir := s.baseDir
+	s.mu.Unlock()
+
+	if baseDir == "" {
+		return fmt.Errorf("server not configured")
+	}
+
+	uiPortFile := filepath.Join(baseDir, "ui-port")
+	return os.WriteFile(uiPortFile, []byte(strconv.Itoa(port)), 0644)
+}
+
+// RemovePortFiles removes the mcp-port and ui-port files.
+func (s *Server) RemovePortFiles() {
 	s.mu.RLock()
 	baseDir := s.baseDir
 	s.mu.RUnlock()
 
 	if baseDir != "" {
 		os.Remove(filepath.Join(baseDir, "mcp-port"))
+		os.Remove(filepath.Join(baseDir, "ui-port"))
 	}
 }
 
 // ShutdownHTTPServer shuts down the standalone HTTP server.
 func (s *Server) ShutdownHTTPServer(ctx context.Context) error {
 	if s.httpServer != nil {
-		s.RemovePortFile()
+		s.RemovePortFiles()
 		return s.httpServer.Shutdown(ctx)
 	}
 	return nil
@@ -256,7 +290,6 @@ func (s *Server) Stop() error {
 
 // SendNotification sends an MCP notification to the client.
 // Called by Lua runtime when mcp.notify(method, params) is invoked.
-// Sequence: seq-mcp-notify.md
 func (s *Server) SendNotification(method string, params interface{}) {
 	// Convert params to map[string]any for the MCP library
 	var paramsMap map[string]any
@@ -479,6 +512,25 @@ func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.De
 	}
 
 	sb.WriteString(`</sl-tree-item>`)
+}
+
+// parsePortFromURL extracts the port number from a URL like "http://localhost:8080".
+func parsePortFromURL(url string) (int, error) {
+	// Find the last colon (port separator)
+	lastColon := strings.LastIndex(url, ":")
+	if lastColon == -1 {
+		return 0, fmt.Errorf("no port in URL: %s", url)
+	}
+	portStr := url[lastColon+1:]
+	// Remove any path after the port
+	if slashIdx := strings.Index(portStr, "/"); slashIdx >= 0 {
+		portStr = portStr[:slashIdx]
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port in URL %s: %w", url, err)
+	}
+	return port, nil
 }
 
 // escapeHTML escapes special HTML characters.

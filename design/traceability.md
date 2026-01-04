@@ -58,12 +58,16 @@
     - [x] Directory creation
     - [x] Lua I/O redirection
     - [x] Resource extraction
-    - [x] Agent file installation -> seq-mcp-lifecycle.md (Scenario 1a)
+    - [x] Installation check (returns install_needed hint)
   - [x] handleStart() -> seq-mcp-lifecycle.md
+    - [x] Port selection (UI and MCP servers)
+    - [x] Port file creation (ui-port, mcp-port)
   - [x] handleRun() -> seq-mcp-run.md (browser update trigger - ccbbf4f)
   - [x] handleUploadViewdef()
   - [x] handleOpenBrowser()
   - [x] handleStatus()
+  - [ ] handleInstall() -> seq-mcp-lifecycle.md (Scenario 1a)
+    - [ ] Bundled file installation (init/, resources/, viewdefs/, scripts)
 
 ---
 
