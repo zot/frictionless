@@ -12,3 +12,6 @@ node_modules
 /.playwright-mcp/
 /.claude/scratch/
 /notes.md
+/.claude/ui/log/
+/.claude/ui/mcp-port
+/.claude/ui/ui-port

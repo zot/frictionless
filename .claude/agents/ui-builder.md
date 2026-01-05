@@ -69,7 +69,7 @@ The parent provides the config directory path and app name in the prompt (e.g., 
 
 1. **Read requirements**: The parent creates `{base_dir}/apps/<app>/requirements.md` before invoking you. **Read this file first** to understand what to build.
 
-2. **Design**: use the design-ui skill to create `design.md`
+2. **Design**:
    - Check `{base_dir}/patterns/`, `{base_dir}/conventions/`, then design the app based on the requirements.
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
@@ -159,19 +159,19 @@ mcp.value = myApp             -- Display
 
 ## Bindings
 
-| Attribute             | Purpose               | Example                                                    |
-|:----------------------|:----------------------|:-----------------------------------------------------------|
-| `ui-value`            | Bind value/text       | `<sl-input ui-value="name">` `<span ui-value="total()">`   |
-| `ui-action`           | Click handler         | `<sl-button ui-action="save()">`                           |
-| `ui-event-*`          | Any event             | `<sl-select ui-event-sl-change="onSelect()">`              |
-| `ui-event-keypress-*` | Specific key press    | `<sl-input ui-event-keypress-enter="submit()">`            |
-| `ui-view`             | Render child/list     | `<div ui-view="selected">` `<div ui-view="items?wrapper=lua.ViewList">` |
-| `ui-viewlist`         | Shorthand for ViewList| `<div ui-viewlist="items">` (same as `ui-view="items?wrapper=lua.ViewList"`) |
-| `ui-attr-*`           | HTML attribute        | `<sl-alert ui-attr-open="hasError">`                       |
-| `ui-class-*`          | CSS class toggle      | `<div ui-class-active="isActive">`                         |
-| `ui-style-*`          | CSS style             | `<div ui-style-color="textColor">`                         |
-| `ui-code`             | Run JS on update      | `<div ui-code="jsCode">` (executes JS when value changes)  |
-| `ui-namespace`        | Set viewdef namespace | `<div ui-namespace="COMPACT"><div ui-view="item"></div></div>` |
+| Attribute             | Purpose                     | Example                                                                      |
+|:----------------------|:----------------------------|:-----------------------------------------------------------------------------|
+| `ui-value`            | Bind value/text             | `<sl-input ui-value="name">` `<span ui-value="total()">`                     |
+| `ui-action`           | Click handler (buttons)     | `<sl-button ui-action="save()">`                                             |
+| `ui-event-click`      | Click handler (any element) | `<div ui-event-click="toggle()">`                                            |
+| `ui-event-*`          | Any event                   | `<sl-select ui-event-sl-change="onSelect()">`                                |
+| `ui-event-keypress-*` | Specific key press          | `<sl-input ui-event-keypress-enter="submit()">`                              |
+| `ui-view`             | Render child/list           | `<div ui-view="selected">` `<div ui-view="items?wrapper=lua.ViewList">`      |
+| `ui-attr-*`           | HTML attribute              | `<sl-alert ui-attr-open="hasError">`                                         |
+| `ui-class-*`          | CSS class toggle            | `<div ui-class-active="isActive">`                                           |
+| `ui-style-*`          | CSS style                   | `<div ui-style-color="textColor">`                                           |
+| `ui-code`             | Run JS on update            | `<div ui-code="jsCode">` (executes JS when value changes)                    |
+| `ui-namespace`        | Set viewdef namespace       | `<div ui-namespace="COMPACT"><div ui-view="item"></div></div>`               |
 
 **Binding access modes:**
 - `ui-value` on inputs: `rw` (read initial, write on change)
@@ -189,6 +189,12 @@ mcp.value = myApp             -- Display
 - `ui-event-keypress-tab` - Tab key
 - `ui-event-keypress-space` - Space bar
 - `ui-event-keypress-{letter}` - Any single letter (e.g., `ui-event-keypress-a`)
+
+**Modifier key combinations:**
+- `ui-event-keypress-ctrl-enter` - Ctrl+Enter
+- `ui-event-keypress-shift-a` - Shift+A
+- `ui-event-keypress-ctrl-shift-s` - Ctrl+Shift+S
+- Modifiers: `ctrl`, `shift`, `alt`, `meta` (can be combined)
 
 **Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy. Use boolean fields (e.g., `isActive`) or methods returning booleans for class/attr toggles.
 
@@ -245,15 +251,16 @@ Variable properties go at the end of a path, using URL parameter syntax.
 
 **Common variable properties:**
 - `?keypress` — live update on every keystroke (for search boxes)
+- `?scrollOnOutput` — auto-scroll container to bottom when content changes
 - `?wrapper=ViewList` — wrap array with ViewList for list rendering
 - `?item=RowPresenter` — specify presenter type for list items
 
-| Property   | Values                                   | Description                                                           |
-|------------|------------------------------------------|-----------------------------------------------------------------------|
-| `path`     | Dot-separated path (e.g., `father.name`) | Path to bound data (see syntax below)                                 |
-| `access`   | `r`, `w`, `rw`, `action`                 | Read/write permissions. `action` = write-only trigger (like a button) |
-| `wrapper`  | Type name (e.g., `ViewList`)             | Instantiates a wrapper object that becomes the variable's value       |
-| `create`   | Type name (e.g., `MyModule.MyClass`)     | Instantiates an object of this type as the variable's value           |
+| Property  | Values                                   | Description                                                           |
+|-----------|------------------------------------------|-----------------------------------------------------------------------|
+| `path`    | Dot-separated path (e.g., `father.name`) | Path to bound data (see syntax below)                                 |
+| `access`  | `r`, `w`, `rw`, `action`                 | Read/write permissions. `action` = write-only trigger (like a button) |
+| `wrapper` | Type name (e.g., `ViewList`)             | Instantiates a wrapper object that becomes the variable's value       |
+| `create`  | Type name (e.g., `MyModule.MyClass`)     | Instantiates an object of this type as the variable's value           |
 
 **Access modes:**
 - `r` = readable only (for display, computed values)
@@ -284,10 +291,9 @@ Variable properties go at the end of a path, using URL parameter syntax.
 ```html
 <!-- In app viewdef -->
 <div ui-view="items?wrapper=lua.ViewList"></div>
-
-<!-- Shorthand equivalent -->
-<div ui-viewlist="items"></div>
 ```
+
+**IMPORTANT:** Do NOT use `ui-viewlist` directly - it's internal to ViewList. Always use `ui-view` with `wrapper=lua.ViewList`.
 
 The ViewList looks for viewdefs named `lua.ViewListItem.{namespace}.html` (default namespace: `list-item`).
 
@@ -327,7 +333,7 @@ Use a ViewList to populate `<sl-select>` options:
 
 ```html
 <sl-select ui-value="selectedContact">
-  <div ui-viewlist="contacts" ui-namespace="OPTION"></div>
+  <div ui-view="contacts?wrapper=lua.ViewList" ui-namespace="OPTION"></div>
 </sl-select>
 ```
 

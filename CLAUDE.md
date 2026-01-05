@@ -40,6 +40,15 @@ use the directory `.claude/ui` for the mcp's directory; create it if it is not t
 - Returns event loop instructions
 - Documents the app (design.md)
 
+**⚠️ NEVER manually edit any UI app files other than requirements.md!**
+
+- ✅ `requirements.md` — you write/update this
+- ❌ `design.md`, `app.lua`, `viewdefs/` — agents generate these
+
+**To change an existing UI:** update `requirements.md`, then invoke `ui-updater`.
+
+Binding syntax is precise (e.g., `ui-class-hidden` not `ui-class="hidden:..."`). Manual edits cause subtle bugs.
+
 **Before invoking ui-builder (for new apps):**
 1. Create the app directory: `mkdir -p .claude/ui/apps/<app>`
 2. Write requirements to `.claude/ui/apps/<app>/requirements.md`
@@ -76,6 +85,12 @@ After ui-builder or ui-updater returns, run the UI (see below)
 When UI needs improvement, update `.claude/ui/apps/<app>/requirements.md` and invoke `ui-updater`
 
 If and only if the user proactively indicates that the UI is stable (do not bug them about it), invoke `ui-learning` agent in background (pattern extraction)
+
+### Tips
+- **Don't use `ui_upload_viewdef`** if you can refresh the page instead. Edit the file on disk, then refresh - the server reloads viewdefs automatically. Uploading uses many tokens. Refresh options:
+  - Playwright: `browser_navigate` to the same URL
+  - If app has `ui-code` binding: set it to `location.reload()` via `ui_run`
+- **Debug with `window.uiApp`** in browser console (via Playwright `browser_evaluate`). Contains `store` (variables), `viewdefStore` (viewdefs), and other internals for inspecting UI state.
 
 ## CRC Modeling Workflow
 
