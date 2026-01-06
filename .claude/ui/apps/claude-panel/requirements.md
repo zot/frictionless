@@ -57,11 +57,14 @@ A universal panel for Claude Code showing project status and quick actions.
 
 ## Status Section
 
-| Field   | Source                            | Description            |
-|---------|-----------------------------------|------------------------|
-| Status  | Lua state                         | "Loading" or "Ready"   |
-| Branch  | `git branch --show-current`       | Current git branch     |
-| Changed | `git status --porcelain \| wc -l` | Count of changed files |
+| Field   | Source                            | Description                        |
+|---------|-----------------------------------|------------------------------------|
+| Status  | Lua state                         | "Loading" or "Ready"               |
+| Branch  | `git branch --show-current`       | Current git branch                 |
+| Changed | `git status --porcelain \| wc -l` | Count of changed files             |
+| Events  | `mcp.eventQueueSize()`            | Count of pending events for Claude |
+
+Display "Events: N pending" when N > 0, otherwise hidden.
 
 ## Tree Sections
 

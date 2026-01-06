@@ -567,6 +567,7 @@ func (s *Server) pushStateEvent(sessionID string, event interface{}) {
 }
 
 // drainStateQueue atomically returns and clears the event queue for a session.
+// Triggers UI update so UIs monitoring the event queue refresh.
 // Spec: mcp.md Section 8.2
 func (s *Server) drainStateQueue(sessionID string) []interface{} {
 	s.stateWaitersMu.Lock()
@@ -574,11 +575,18 @@ func (s *Server) drainStateQueue(sessionID string) []interface{} {
 
 	events := s.stateQueue[sessionID]
 	s.stateQueue[sessionID] = nil
+
+	// Trigger UI update after draining (see mcp.md Section 4.1)
+	if len(events) > 0 {
+		s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
+	}
+
 	return events
 }
 
 // handleWait handles GET /wait - long-poll for state changes on the current session.
 // Spec: mcp.md Section 8.2
+// CRC: crc-MCPServer.md
 func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	// Use the distinguished session (currentVendedID)
 	sessionID := s.currentVendedID

@@ -29,9 +29,11 @@
 - listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)
 - handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
-- handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID)
+- handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); after draining queue, calls SafeExecuteInSession with empty function to trigger browser update
 - notifyStateChange: Signal waiting HTTP clients when mcp.pushState() called
 - atomicSwapQueue: Atomically swap mcp.state with empty table, return accumulated events
+- SafeExecuteInSession: Wraps ui-server's ExecuteInSession with panic recovery; converts Lua errors/panics to errors
+- triggerBrowserUpdate: Call SafeExecuteInSession with empty function to push state changes to browsers
 - getStatus: Return current lifecycle state, URL, and session count
 - shutdown: Clean up MCP connection
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
@@ -46,6 +48,7 @@
 - SessionManager: Session operations
 - LuaRuntime: Lua code execution and I/O redirection
 - HTTPServer: Underlying HTTP service
+- UIServer: Provides ExecuteInSession for session-context execution with afterBatch browser updates
 - OS: Operating system interactions (filesystem, browser)
 
 ## Sequences

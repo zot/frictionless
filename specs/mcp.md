@@ -101,6 +101,19 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
     - `io.stdout` is redirected to `{base_dir}/log/lua.log`.
     - `io.stderr` is redirected to `{base_dir}/log/lua-err.log`.
 
+### 4.1 Browser Update Mechanism
+
+The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for executing code within a session context. This method:
+
+1. Queues the function through the session's executor (serializing with WebSocket messages)
+2. Executes the function
+3. Calls `afterBatch` to detect and push state changes to connected browsers
+4. Returns the result
+
+**Implication:** Any operation that needs to trigger a browser update can call `ExecuteInSession` with an empty function.
+
+**Panic Recovery Requirement:** The MCP server MUST wrap `ExecuteInSession` with panic recovery (e.g., `SafeExecuteInSession`) to prevent Lua errors or panics from crashing the MCP process. Panics should be caught and returned as errors.
+
 ## 5. Tools
 
 ### 5.1 `ui_configure`
@@ -407,6 +420,7 @@ mcp.pushState({ app = "contacts", event = "button", id = "cancel" })
 3. Returns the events as a JSON array.
 4. Returns HTTP 204 (No Content) on timeout (no events).
 5. Returns HTTP 404 if session does not exist.
+6. **Triggers UI update** after draining the queue by calling `SafeExecuteInSession` with an empty function (see Section 4.1). This ensures UIs monitoring the event queue refresh.
 
 **Example Request:**
 ```

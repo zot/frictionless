@@ -6,6 +6,7 @@
 - Agent: AI assistant (Claude Code) or background script
 - WaitScript: scripts/wait-for-state.sh polling loop
 - MCPServer: HTTP server handling wait endpoint (uses currentVendedID)
+- UIServer: UI platform server providing ExecuteInSession with afterBatch browser updates
 - Session: Lua session with mcp.state queue
 - LuaCode: User's Lua application code (in browser)
 
@@ -15,61 +16,67 @@ Agent starts background script that long-polls for state changes. User interacti
 in browser calls mcp.pushState() to queue an event, triggering response.
 
 ```
-     +-------+        +------------+        +-----------+        +---------+        +---------+
-     | Agent |        | WaitScript |        | MCPServer |        | Session |        | LuaCode |
-     +---+---+        +-----+------+        +-----+-----+        +----+----+        +----+----+
-         |                  |                     |                   |                  |
-         | Bash(run_in_background=true)           |                   |                  |
-         | wait-for-state.sh <url> 30             |                   |                  |
-         |----------------->|                     |                   |                  |
-         |                  |                     |                   |                  |
-         |                  | GET /wait?timeout=30|                   |                  |
-         |                  |-------------------->|                   |                  |
-         |                  |                     |                   |                  |
-         |                  |                     | GetCurrentSession |                  |
-         |                  |                     |------------------>|                  |
-         |                  |                     |                   |                  |
-         |                  |                     | Check #mcp.state  |                  |
-         |                  |                     |------------------>|                  |
-         |                  |                     | (queue empty)     |                  |
-         |                  |                     |<------------------|                  |
-         |                  |                     |                   |                  |
-         |                  |                     | AddWaiter(chan)   |                  |
-         |                  |                     |-----+             |                  |
-         |                  |                     |     | (blocks)    |                  |
-         |                  |                     |<----+             |                  |
-         |                  |                     |                   |                  |
-         |                  |                     |                   |   (user clicks)  |
-         |                  |                     |                   |<-----------------|
-         |                  |                     |                   |                  |
-         |                  |                     |                   | mcp.pushState({  |
-         |                  |                     |                   |   app="contacts",|
-         |                  |                     |                   |   event="chat",  |
-         |                  |                     |                   |   text="hello"}) |
-         |                  |                     |                   |<-----------------|
-         |                  |                     |                   |                  |
-         |                  |                     | NotifyStateChange |                  |
-         |                  |                     |<------------------|                  |
-         |                  |                     |                   |                  |
-         |                  |                     | AtomicSwapQueue() |                  |
-         |                  |                     |------------------>|                  |
-         |                  |                     | (swap with {})    |                  |
-         |                  |                     |<--[{app:..}]------|                  |
-         |                  |                     |                   |                  |
-         |                  | 200 OK [{...}]      |                   |                  |
-         |                  |<--------------------|                   |                  |
-         |                  |                     |                   |                  |
-         |                  | jq -c '.[]'         |                   |                  |
-         |                  | echo each event     |                   |                  |
-         |                  |-----+               |                   |                  |
-         |                  |<----+               |                   |                  |
-         |                  |                     |                   |                  |
-         | (TaskOutput: {"app":"contacts","event":"chat","text":"hello"})               |
-         |<-----------------|                     |                   |                  |
-         |                  |                     |                   |                  |
-     +---+---+        +-----+------+        +-----+-----+        +----+----+        +----+----+
-     | Agent |        | WaitScript |        | MCPServer |        | Session |        | LuaCode |
-     +-------+        +------------+        +-----------+        +---------+        +---------+
+     +-------+        +------------+        +-----------+        +----------+        +---------+        +---------+
+     | Agent |        | WaitScript |        | MCPServer |        | UIServer |        | Session |        | LuaCode |
+     +---+---+        +-----+------+        +-----+-----+        +-----+----+        +----+----+        +----+----+
+         |                  |                     |                    |                  |                  |
+         | Bash(run_in_background=true)           |                    |                  |                  |
+         | wait-for-state.sh <url> 30             |                    |                  |                  |
+         |----------------->|                     |                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  | GET /wait?timeout=30|                    |                  |                  |
+         |                  |-------------------->|                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | GetCurrentSession  |                  |                  |
+         |                  |                     |----------------------------------->|                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | Check #mcp.state   |                  |                  |
+         |                  |                     |----------------------------------->|                  |
+         |                  |                     | (queue empty)      |                  |                  |
+         |                  |                     |<-----------------------------------|                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | AddWaiter(chan)    |                  |                  |
+         |                  |                     |-----+              |                  |                  |
+         |                  |                     |     | (blocks)     |                  |                  |
+         |                  |                     |<----+              |                  |                  |
+         |                  |                     |                    |                  |   (user clicks)  |
+         |                  |                     |                    |                  |<-----------------|
+         |                  |                     |                    |                  |                  |
+         |                  |                     |                    |                  | mcp.pushState({  |
+         |                  |                     |                    |                  |   app="contacts",|
+         |                  |                     |                    |                  |   event="chat",  |
+         |                  |                     |                    |                  |   text="hello"}) |
+         |                  |                     |                    |                  |<-----------------|
+         |                  |                     |                    |                  |                  |
+         |                  |                     | NotifyStateChange  |                  |                  |
+         |                  |                     |<-----------------------------------|                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | AtomicSwapQueue()  |                  |                  |
+         |                  |                     |----------------------------------->|                  |
+         |                  |                     | (swap with {})     |                  |                  |
+         |                  |                     |<--[{app:..}]-------|                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | SafeExecuteInSession(empty fn)       |                  |
+         |                  |                     |------------------->|                  |                  |
+         |                  |                     |                    | afterBatch()     |                  |
+         |                  |                     |                    |-----+            |                  |
+         |                  |                     |                    |<----+ (push)     |                  |
+         |                  |                     |<-------------------|                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  | 200 OK [{...}]      |                    |                  |                  |
+         |                  |<--------------------|                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  | jq -c '.[]'         |                    |                  |                  |
+         |                  | echo each event     |                    |                  |                  |
+         |                  |-----+               |                    |                  |                  |
+         |                  |<----+               |                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         | (TaskOutput: {"app":"contacts","event":"chat","text":"hello"})                |                  |
+         |<-----------------|                     |                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+     +---+---+        +-----+------+        +-----+-----+        +-----+----+        +----+----+        +----+----+
+     | Agent |        | WaitScript |        | MCPServer |        | UIServer |        | Session |        | LuaCode |
+     +-------+        +------------+        +-----------+        +----------+        +---------+        +---------+
 ```
 
 ## Scenario 2: Multiple Events Accumulated
@@ -77,54 +84,61 @@ in browser calls mcp.pushState() to queue an event, triggering response.
 Multiple events pushed before wait response - all returned in single array.
 
 ```
-     +-------+        +------------+        +-----------+        +---------+        +---------+
-     | Agent |        | WaitScript |        | MCPServer |        | Session |        | LuaCode |
-     +---+---+        +-----+------+        +-----+-----+        +----+----+        +----+----+
-         |                  |                     |                   |                  |
-         |                  | GET /wait?timeout=30|                   |                  |
-         |                  |-------------------->|                   |                  |
-         |                  |                     | AddWaiter(chan)   |                  |
-         |                  |                     |-----+ (blocks)    |                  |
-         |                  |                     |<----+             |                  |
-         |                  |                     |                   |                  |
-         |                  |                     |                   | mcp.pushState({  |
-         |                  |                     |                   |   app="c",       |
-         |                  |                     |                   |   event="btn",   |
-         |                  |                     |                   |   id="save"})    |
-         |                  |                     |                   |<-----------------|
-         |                  |                     |                   |                  |
-         |                  |                     | NotifyStateChange |                  |
-         |                  |                     |<------------------|                  |
-         |                  |                     |                   |                  |
-         |                  |                     |                   | mcp.pushState({  |
-         |                  |                     |                   |   app="c",       |
-         |                  |                     |                   |   event="btn",   |
-         |                  |                     |                   |   id="cancel"})  |
-         |                  |                     |                   |<-----------------|
-         |                  |                     |                   |                  |
-         |                  |                     | NotifyStateChange |                  |
-         |                  |                     |<------------------|                  |
-         |                  |                     |                   |                  |
-         |                  |                     | AtomicSwapQueue() |                  |
-         |                  |                     |------------------>|                  |
-         |                  |                     | (swap with {})    |                  |
-         |                  |                     |<--[{..},{..}]-----|                  |
-         |                  |                     |                   |                  |
-         |                  | 200 OK [{...},{...}]|                   |                  |
-         |                  |<--------------------|                   |                  |
-         |                  |                     |                   |                  |
-         |                  | jq -c '.[]'         |                   |                  |
-         |                  | (outputs 2 lines)   |                   |                  |
-         |                  |-----+               |                   |                  |
-         |                  |<----+               |                   |                  |
-         |                  |                     |                   |                  |
-         | (TaskOutput line 1: {"app":"c","event":"btn","id":"save"})                   |
-         | (TaskOutput line 2: {"app":"c","event":"btn","id":"cancel"})                 |
-         |<-----------------|                     |                   |                  |
-         |                  |                     |                   |                  |
-     +---+---+        +-----+------+        +-----+-----+        +----+----+        +----+----+
-     | Agent |        | WaitScript |        | MCPServer |        | Session |        | LuaCode |
-     +-------+        +------------+        +-----------+        +---------+        +---------+
+     +-------+        +------------+        +-----------+        +----------+        +---------+        +---------+
+     | Agent |        | WaitScript |        | MCPServer |        | UIServer |        | Session |        | LuaCode |
+     +---+---+        +-----+------+        +-----+-----+        +-----+----+        +----+----+        +----+----+
+         |                  |                     |                    |                  |                  |
+         |                  | GET /wait?timeout=30|                    |                  |                  |
+         |                  |-------------------->|                    |                  |                  |
+         |                  |                     | AddWaiter(chan)    |                  |                  |
+         |                  |                     |-----+ (blocks)     |                  |                  |
+         |                  |                     |<----+              |                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     |                    |                  | mcp.pushState({  |
+         |                  |                     |                    |                  |   app="c",       |
+         |                  |                     |                    |                  |   event="btn",   |
+         |                  |                     |                    |                  |   id="save"})    |
+         |                  |                     |                    |                  |<-----------------|
+         |                  |                     |                    |                  |                  |
+         |                  |                     | NotifyStateChange  |                  |                  |
+         |                  |                     |<-----------------------------------|                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     |                    |                  | mcp.pushState({  |
+         |                  |                     |                    |                  |   app="c",       |
+         |                  |                     |                    |                  |   event="btn",   |
+         |                  |                     |                    |                  |   id="cancel"})  |
+         |                  |                     |                    |                  |<-----------------|
+         |                  |                     |                    |                  |                  |
+         |                  |                     | NotifyStateChange  |                  |                  |
+         |                  |                     |<-----------------------------------|                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | AtomicSwapQueue()  |                  |                  |
+         |                  |                     |----------------------------------->|                  |
+         |                  |                     | (swap with {})     |                  |                  |
+         |                  |                     |<--[{..},{..}]------|                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  |                     | SafeExecuteInSession(empty fn)       |                  |
+         |                  |                     |------------------->|                  |                  |
+         |                  |                     |                    | afterBatch()     |                  |
+         |                  |                     |                    |-----+ (push)     |                  |
+         |                  |                     |                    |<----+            |                  |
+         |                  |                     |<-------------------|                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  | 200 OK [{...},{...}]|                    |                  |                  |
+         |                  |<--------------------|                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         |                  | jq -c '.[]'         |                    |                  |                  |
+         |                  | (outputs 2 lines)   |                    |                  |                  |
+         |                  |-----+               |                    |                  |                  |
+         |                  |<----+               |                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+         | (TaskOutput line 1: {"app":"c","event":"btn","id":"save"})  |                  |                  |
+         | (TaskOutput line 2: {"app":"c","event":"btn","id":"cancel"})|                  |                  |
+         |<-----------------|                     |                    |                  |                  |
+         |                  |                     |                    |                  |                  |
+     +---+---+        +-----+------+        +-----+-----+        +-----+----+        +----+----+        +----+----+
+     | Agent |        | WaitScript |        | MCPServer |        | UIServer |        | Session |        | LuaCode |
+     +-------+        +------------+        +-----------+        +----------+        +---------+        +---------+
 ```
 
 ## Scenario 3: Wait Timeout (Empty Queue)
@@ -192,36 +206,43 @@ Wait request when server has no active session (not RUNNING).
 Events pushed before agent starts waiting - returned immediately.
 
 ```
-     +-----------+        +---------+        +---------+        +------------+
-     | MCPServer |        | Session |        | LuaCode |        | WaitScript |
-     +-----+-----+        +----+----+        +----+----+        +-----+------+
-           |                   |                  |                    |
-           |                   | mcp.pushState({  |                    |
-           |                   |   app="x",...})  |                    |
-           |                   |<-----------------|                    |
-           |                   |                  |                    |
-           | (no waiters)      |                  |                    |
-           |<------------------|                  |                    |
-           |                   |                  |                    |
-           |                   |                  |   GET /wait?t=30   |
-           |<-------------------------------------------+--------------|
-           |                   |                  |                    |
-           | Check #mcp.state  |                  |                    |
-           |------------------>|                  |                    |
-           | (queue has items) |                  |                    |
-           |<------------------|                  |                    |
-           |                   |                  |                    |
-           | AtomicSwapQueue() |                  |                    |
-           |------------------>|                  |                    |
-           | (swap with {})    |                  |                    |
-           |<--[{app:"x",...}]-|                  |                    |
-           |                   |                  |                    |
-           | 200 OK [{...}]    |                  |                    |
-           |-------------------------------------------+-------------->|
-           |                   |                  |                    |
-     +-----+-----+        +----+----+        +----+----+        +-----+------+
-     | MCPServer |        | Session |        | LuaCode |        | WaitScript |
-     +-----------+        +---------+        +---------+        +------------+
+     +-----------+        +----------+        +---------+        +---------+        +------------+
+     | MCPServer |        | UIServer |        | Session |        | LuaCode |        | WaitScript |
+     +-----+-----+        +-----+----+        +----+----+        +----+----+        +-----+------+
+           |                    |                  |                  |                    |
+           |                    |                  | mcp.pushState({  |                    |
+           |                    |                  |   app="x",...})  |                    |
+           |                    |                  |<-----------------|                    |
+           |                    |                  |                  |                    |
+           | (no waiters)       |                  |                  |                    |
+           |<-----------------------------------|                  |                    |
+           |                    |                  |                  |                    |
+           |                    |                  |                  |   GET /wait?t=30   |
+           |<-----------------------------------------------------------+--------------|
+           |                    |                  |                  |                    |
+           | Check #mcp.state   |                  |                  |                    |
+           |---------------------------------->|                  |                    |
+           | (queue has items)  |                  |                  |                    |
+           |<----------------------------------|                  |                    |
+           |                    |                  |                  |                    |
+           | AtomicSwapQueue()  |                  |                  |                    |
+           |---------------------------------->|                  |                    |
+           | (swap with {})     |                  |                  |                    |
+           |<--[{app:"x",...}]--|                  |                  |                    |
+           |                    |                  |                  |                    |
+           | SafeExecuteInSession(empty fn)        |                  |                    |
+           |------------------->|                  |                  |                    |
+           |                    | afterBatch()     |                  |                    |
+           |                    |-----+ (push)     |                  |                    |
+           |                    |<----+            |                  |                    |
+           |<-------------------|                  |                  |                    |
+           |                    |                  |                  |                    |
+           | 200 OK [{...}]     |                  |                  |                    |
+           |-----------------------------------------------------------+-------------->|
+           |                    |                  |                  |                    |
+     +-----+-----+        +-----+----+        +----+----+        +----+----+        +-----+------+
+     | MCPServer |        | UIServer |        | Session |        | LuaCode |        | WaitScript |
+     +-----------+        +----------+        +---------+        +---------+        +------------+
 ```
 
 ## Implementation Notes
@@ -236,3 +257,4 @@ Events pushed before agent starts waiting - returned immediately.
 - Waiter cleanup on timeout, client disconnect, or session destroy
 - Response is JSON array of all accumulated events
 - Script uses `jq -c '.[]'` to output each event as compact JSON on its own line
+- **Browser Update:** After draining the queue, calls `SafeExecuteInSession` with an empty function to trigger `afterBatch`, ensuring UIs monitoring the event queue refresh (see Section 4.1 of mcp.md)

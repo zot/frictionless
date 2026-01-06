@@ -41,6 +41,8 @@
   - [ ] handleWait() - GET /wait long-poll endpoint -> seq-mcp-state-wait.md
   - [ ] notifyStateChange() - signal waiting HTTP clients when mcp.pushState() called
   - [ ] atomicSwapQueue() - atomically swap mcp.state with empty table in Lua context
+  - [ ] SafeExecuteInSession() - wraps ui-server's ExecuteInSession with panic recovery (mcp.md 4.1)
+  - [ ] triggerBrowserUpdate() - call SafeExecuteInSession with empty fn to push state changes
 
 ### crc-MCPResource.md
 **Source Spec:** mcp.md
@@ -84,6 +86,7 @@ The MCP implementation integrates with ui-engine components:
 - Exposes `mcp.state` global as event queue (array of event objects)
 - `mcp.pushState({...})` queues event and triggers notifyStateChange() to wake waiting HTTP clients
 - Wait endpoint atomically swaps queue with empty table to prevent event loss
+- After draining queue, calls SafeExecuteInSession with empty function to trigger browser update (mcp.md 4.1, 8.2)
 
 **Variable Protocol:**
 - Accesses state through ui-engine's VariableStore

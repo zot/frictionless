@@ -78,4 +78,27 @@ This MCP server integrates with the ui-engine project:
 
 ---
 
+## Cross-Cutting Concerns
+
+### Browser Update Mechanism
+
+**Purpose**: Ensure browser UIs refresh when server-side state changes
+
+**Mechanism** (see mcp.md Section 4.1):
+- MCP server delegates to ui-server's `Server.ExecuteInSession` method
+- `ExecuteInSession` queues function through session executor (serializing with WebSocket messages)
+- Executes function, then calls `afterBatch` to push state changes to browsers
+- Any operation needing browser update can call `ExecuteInSession` with an empty function
+
+**Panic Recovery**:
+- MCP server MUST wrap `ExecuteInSession` with `SafeExecuteInSession`
+- Catches Lua errors/panics and returns them as errors
+- Prevents crashes from propagating to MCP process
+
+**Design Elements:**
+- crc-MCPServer.md (SafeExecuteInSession, triggerBrowserUpdate)
+- seq-mcp-state-wait.md (browser update after queue drain)
+
+---
+
 *This file serves as the architectural "main program" - start here to understand the design structure*

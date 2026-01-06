@@ -42,6 +42,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | status          | string        | "Loading" or "Ready"             |
 | branch          | string        | Current git branch               |
 | changedFiles    | number        | Count of changed files           |
+| pendingEvents   | number        | Count of pending events for Claude (from mcp.eventQueueSize()) |
 | sections        | TreeSection[] | Collapsible sections             |
 | messages        | ChatMessage[] | Chat message history             |
 | chatInput       | string        | Current chat input text          |

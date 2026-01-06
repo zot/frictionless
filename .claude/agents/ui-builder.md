@@ -157,6 +157,57 @@ mcp.value = myApp             -- Display
 - Use cases: app summary, current selection, status flags, anything the agent needs to know
 - Example: `mcp.state = { totalContacts = #app.contacts, hasUnsavedChanges = app.dirty }`
 
+## Behavior
+
+Behavior can exist in 3 places:
+
+| Location       | Use For                                           | Trade-offs                             |
+|----------------|---------------------------------------------------|----------------------------------------|
+| **Lua**        | All behavior whenever possible                    | Simpler, saves tokens, very responsive |
+| **Claude**     | "Magical" stuff, complex logic, external APIs     | Slow turnaround (event loop latency)   |
+| **JavaScript** | Extending presentation (browser APIs, DOM tricks) | Last resort, harder to maintain        |
+
+**Prefer Lua.** Lua methods execute instantly when users click buttons or type. No round-trip to Claude needed.
+
+**Use Claude for:**
+- Actions requiring external context (file system, git, web search)
+- Complex multi-step reasoning
+- Generating dynamic content (AI responses in chat)
+- Anything the UI can't know on its own
+
+**Use JavaScript only for:**
+- Browser capabilities not in ui-engine (e.g., if `scrollOnOutput` didn't exist)
+- Custom DOM manipulation
+- Browser APIs (clipboard, notifications, downloads)
+
+**JavaScript is available via:**
+- `<script>` elements in viewdefs — static "library" code loaded once
+- `ui-code` attribute — dynamic injection as-needed (see Bindings)
+  - Also allows Claude to access the web page (set location, explore DOM, trigger downloads, etc.)
+
+```lua
+-- GOOD: Lua handles form validation instantly
+function ContactApp:save()
+    if self.name == "" then
+        self.error = "Name required"
+        return
+    end
+    table.insert(self.contacts, Contact:new(self.name, self.email))
+    self:clearForm()
+end
+
+-- GOOD: Lua handles UI state changes instantly
+function ContactApp:toggleSection()
+    self.sectionExpanded = not self.sectionExpanded
+end
+```
+
+```lua
+-- Claude handles: responding to chat (needs AI)
+-- Event: {event:"chat", text:"Hello"}
+-- Parent Claude calls: app:addAgentMessage("Hi! How can I help?")
+```
+
 ## Bindings
 
 | Attribute             | Purpose                     | Example                                                                      |
