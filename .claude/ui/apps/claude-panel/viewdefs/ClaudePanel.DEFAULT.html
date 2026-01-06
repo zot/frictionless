@@ -197,6 +197,10 @@
             <span class="status-label">Changed</span>
             <span class="status-value" ui-value="changedDisplay()"></span>
           </div>
+          <div class="status-row" ui-class-hidden="hasNoPendingEvents()">
+            <span class="status-label">Events</span>
+            <span class="status-value" ui-value="pendingEventsDisplay()"></span>
+          </div>
         </div>
         <div class="tree-sections" ui-view="sections?wrapper=lua.ViewList"></div>
       </div>

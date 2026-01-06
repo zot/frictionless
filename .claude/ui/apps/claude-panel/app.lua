@@ -249,6 +249,23 @@ function ClaudePanel:changedDisplay()
     return self.changedFiles .. " files"
 end
 
+-- Pending events (live from mcp.eventQueueSize)
+function ClaudePanel:getPendingEvents()
+    return mcp.eventQueueSize()
+end
+
+function ClaudePanel:hasPendingEvents()
+    return self:getPendingEvents() > 0
+end
+
+function ClaudePanel:hasNoPendingEvents()
+    return not self:hasPendingEvents()
+end
+
+function ClaudePanel:pendingEventsDisplay()
+    return self:getPendingEvents() .. " pending"
+end
+
 -- Lua console
 function ClaudePanel:toggleConsole()
     self.consoleExpanded = not self.consoleExpanded
