@@ -66,6 +66,10 @@ func runMCP(args []string) int {
 		return 1
 	}
 
+	// Enable hot-loading by default in MCP mode
+	// Spec: mcp.md Section 4.0
+	cfg.Lua.Hotload = true
+
 	logToFile := false
 	// If --dir is specified, redirect stderr to a log file for debugging
 	if cfg.Server.Dir != "" {
@@ -188,6 +192,10 @@ func runServe(args []string) int {
 		log.Printf("Failed to load config: %v", err)
 		return 1
 	}
+
+	// Enable hot-loading by default in serve mode
+	// Spec: mcp.md Section 4.0
+	cfg.Lua.Hotload = true
 
 	// Default dir to "." if not specified
 	if cfg.Server.Dir == "" {

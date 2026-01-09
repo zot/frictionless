@@ -1,19 +1,18 @@
 -- Claude Panel: Universal panel for Claude Code
 -- Design: design.md
+-- Hot-loadable: uses session:prototype() for live code updates
 
 -- Chat message model
-ChatMessage = { type = "ChatMessage" }
-ChatMessage.__index = ChatMessage
-function ChatMessage:new(sender, text)
-    return setmetatable({ sender = sender, text = text }, self)
-end
+ChatMessage = session:prototype("ChatMessage", {
+    sender = "",
+    text = ""
+})
 
 -- Output line model (for Lua console)
-OutputLine = { type = "OutputLine" }
-OutputLine.__index = OutputLine
-function OutputLine:new(text, panel)
-    return setmetatable({ text = text, panel = panel }, self)
-end
+OutputLine = session:prototype("OutputLine", {
+    text = "",
+    panel = EMPTY
+})
 
 function OutputLine:copyToInput()
     -- Strip leading "> " from command lines when copying
@@ -25,11 +24,10 @@ function OutputLine:copyToInput()
 end
 
 -- Tree item model
-TreeItem = { type = "TreeItem" }
-TreeItem.__index = TreeItem
-function TreeItem:new(name, section)
-    return setmetatable({ name = name, section = section }, self)
-end
+TreeItem = session:prototype("TreeItem", {
+    name = "",
+    section = EMPTY
+})
 
 function TreeItem:invoke()
     mcp.pushState({
@@ -41,15 +39,17 @@ function TreeItem:invoke()
 end
 
 -- Tree section model
-TreeSection = { type = "TreeSection" }
-TreeSection.__index = TreeSection
-function TreeSection:new(name, itemType)
-    return setmetatable({
-        name = name,
-        itemType = itemType,
-        expanded = false,
-        items = {}
-    }, self)
+TreeSection = session:prototype("TreeSection", {
+    name = "",
+    itemType = "",
+    expanded = false,
+    items = EMPTY
+})
+
+function TreeSection:new(instance)
+    instance = session:create(TreeSection, instance)
+    instance.items = instance.items or {}
+    return instance
 end
 
 function TreeSection:toggle()
@@ -65,43 +65,53 @@ function TreeSection:itemCount()
 end
 
 function TreeSection:addItem(name)
-    table.insert(self.items, TreeItem:new(name, self))
+    local item = session:create(TreeItem, { name = name, section = self })
+    table.insert(self.items, item)
 end
 
 -- Main app
-ClaudePanel = { type = "ClaudePanel" }
-ClaudePanel.__index = ClaudePanel
+ClaudePanel = session:prototype("ClaudePanel", {
+    status = "Loading",
+    branch = "...",
+    changedFiles = 0,
+    sections = EMPTY,
+    messages = EMPTY,
+    chatInput = "",
+    jsCode = "",
+    consoleExpanded = false,
+    luaOutputLines = EMPTY,
+    luaInput = ""
+})
 
-function ClaudePanel:new()
-    local self = setmetatable({
-        status = "Loading",
-        branch = "...",
-        changedFiles = 0,
-        sections = {},
-        messages = {},
-        chatInput = "",
-        jsCode = "",
-        consoleExpanded = false,
-        luaOutputLines = {},
-        luaInput = ""
-    }, ClaudePanel)
+function ClaudePanel:new(instance)
+    instance = session:create(ClaudePanel, instance)
+    instance.sections = instance.sections or {}
+    instance.messages = instance.messages or {}
+    instance.luaOutputLines = instance.luaOutputLines or {}
 
-    -- Create sections
-    local agents = TreeSection:new("Agents", "agent")
-    local commands = TreeSection:new("Commands", "command")
-    local skills = TreeSection:new("Skills", "skill")
+    -- Create sections if new instance
+    if #instance.sections == 0 then
+        local agents = TreeSection:new({ name = "Agents", itemType = "agent" })
+        local commands = TreeSection:new({ name = "Commands", itemType = "command" })
+        local skills = TreeSection:new({ name = "Skills", itemType = "skill" })
+        instance.sections = { agents, commands, skills }
+    end
 
-    self.sections = { agents, commands, skills }
+    return instance
+end
 
-    -- Load data
+-- Initialize app data (called once on creation, or on refresh)
+function ClaudePanel:initialize()
     self:loadGitStatus()
     self:discoverItems()
 
-    -- Add welcome message
-    table.insert(self.messages, ChatMessage:new("Agent", "How can I help you today?"))
+    -- Add welcome message if none
+    if #self.messages == 0 then
+        local msg = session:create(ChatMessage, { sender = "Agent", text = "How can I help you today?" })
+        table.insert(self.messages, msg)
+    end
 
     self.status = "Ready"
-    return self
 end
 
 -- Quick actions
@@ -120,13 +130,15 @@ end
 -- Chat
 function ClaudePanel:sendChat()
     if self.chatInput == "" then return end
-    table.insert(self.messages, ChatMessage:new("You", self.chatInput))
+    local msg = session:create(ChatMessage, { sender = "You", text = self.chatInput })
+    table.insert(self.messages, msg)
     mcp.pushState({ app = "claude-panel", event = "chat", text = self.chatInput })
     self.chatInput = ""
 end
 
 function ClaudePanel:addAgentMessage(text)
-    table.insert(self.messages, ChatMessage:new("Agent", text))
+    local msg = session:create(ChatMessage, { sender = "Agent", text = text })
+    table.insert(self.messages, msg)
 end
 
 -- Git status
@@ -185,6 +197,7 @@ function ClaudePanel:discoverItems()
 
     -- Agents
     local agents = self.sections[1]
+    agents.items = {}  -- Clear existing
     local agentSet = {}
 
     -- Built-in agents
@@ -205,6 +218,7 @@ function ClaudePanel:discoverItems()
 
     -- Commands
     local commands = self.sections[2]
+    commands.items = {}  -- Clear existing
     local cmdSet = {}
 
     -- Built-in commands
@@ -229,6 +243,7 @@ function ClaudePanel:discoverItems()
 
     -- Skills
     local skills = self.sections[3]
+    skills.items = {}  -- Clear existing
     local skillSet = {}
 
     -- Project skills
@@ -279,7 +294,8 @@ function ClaudePanel:runLua()
     if self.luaInput == "" then return end
 
     -- Add command line to output
-    table.insert(self.luaOutputLines, OutputLine:new("> " .. self.luaInput, self))
+    local cmdLine = session:create(OutputLine, { text = "> " .. self.luaInput, panel = self })
+    table.insert(self.luaOutputLines, cmdLine)
 
     local code = self.luaInput
     local fn, err
@@ -298,27 +314,35 @@ function ClaudePanel:runLua()
         local ok, result = pcall(fn)
         if ok then
             if result ~= nil then
-                table.insert(self.luaOutputLines, OutputLine:new(tostring(result), self))
+                local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
+                table.insert(self.luaOutputLines, resultLine)
             end
             -- Clear input on success
             self.luaInput = ""
         else
             -- Runtime error - keep input for correction
-            table.insert(self.luaOutputLines, OutputLine:new("Error: " .. tostring(result), self))
+            local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
+            table.insert(self.luaOutputLines, errLine)
         end
     else
         -- Syntax error - keep input for correction
-        table.insert(self.luaOutputLines, OutputLine:new("Syntax error: " .. tostring(err), self))
+        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
+        table.insert(self.luaOutputLines, errLine)
     end
 end
 
 function ClaudePanel:appendOutput(text)
-    table.insert(self.luaOutputLines, OutputLine:new(text, self))
+    local line = session:create(OutputLine, { text = text, panel = self })
+    table.insert(self.luaOutputLines, line)
 end
 
 function ClaudePanel:clearOutput()
     self.luaOutputLines = {}
 end
 
--- Create or reuse app instance
-claudePanel = claudePanel or ClaudePanel:new()
+-- Guard app creation (hot-load safe)
+-- Set global for mcp.display() to find
+if not claudePanel then
+    claudePanel = ClaudePanel:new()
+    claudePanel:initialize()
+end

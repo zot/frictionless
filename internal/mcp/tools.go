@@ -65,6 +65,13 @@ func (s *Server) registerTools() {
 		mcp.WithDescription("Install bundled configuration files (agent files, CLAUDE.md instructions). Call after ui_configure when install_needed is true."),
 		mcp.WithBoolean("force", mcp.Description("If true, overwrites existing files. Defaults to false.")),
 	), s.handleInstall)
+
+	// ui_display
+	s.mcpServer.AddTool(mcp.NewTool("ui_display",
+		mcp.WithDescription("Load and display an app by name. Loads from apps/{name}/app.lua if not already loaded."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("App name (e.g., 'claude-panel')")),
+		mcp.WithString("sessionId", mcp.Description("Session ID (defaults to current session)")),
+	), s.handleDisplay)
 }
 
 // Spec: mcp.md
@@ -119,7 +126,8 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 
 	// 5. Check if installation is needed (Spec: mcp.md section 5.1.1)
 	// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
-	projectRoot := filepath.Dir(baseDir)
+	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
+	projectRoot := filepath.Dir(filepath.Dir(baseDir))
 	agentFile := filepath.Join(projectRoot, ".claude", "agents", "ui-builder.md")
 	installNeeded := false
 	if _, err := os.Stat(agentFile); os.IsNotExist(err) {
@@ -156,7 +164,9 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 		}
 	}
 
-	projectRoot := filepath.Dir(s.baseDir)
+	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
+	// Spec: mcp.md section 5.7
+	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
 	installed := []string{}
 	skipped := []string{}
 	appended := []string{}
@@ -705,6 +715,54 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	return mcp.NewToolResultText(string(jsonResult)), nil
+}
+
+// handleDisplay loads and displays an app by calling mcp.display(name) in Lua.
+func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if s.state != Running {
+		return mcp.NewToolResultError("server not running - call ui_start first"), nil
+	}
+
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if !ok {
+		return mcp.NewToolResultError("arguments must be a map"), nil
+	}
+
+	name, ok := args["name"].(string)
+	if !ok || name == "" {
+		return mcp.NewToolResultError("name must be a non-empty string"), nil
+	}
+
+	sessionID, ok := args["sessionId"].(string)
+	if !ok || sessionID == "" {
+		sessionID = s.currentVendedID
+	}
+	if sessionID == "" {
+		return mcp.NewToolResultError("no active session"), nil
+	}
+
+	// Get the session for LoadCodeDirect
+	session := s.UiServer.GetLuaSession(sessionID)
+	if session == nil {
+		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
+	}
+
+	// Call mcp.display(name) in Lua - the common implementation
+	code := fmt.Sprintf("return mcp.display(%q)", name)
+	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
+		return session.LoadCodeDirect("ui_display", code)
+	})
+
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("display failed: %v", err)), nil
+	}
+
+	// Check if display returned an error (returns nil, errorMsg on failure)
+	if result == nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to display app: %s", name)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 
 func stateToString(state State) string {

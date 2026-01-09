@@ -89,7 +89,51 @@ The MCP server operates as a strict Finite State Machine (FSM).
 
 ## 4. Lua Environment Integration
 
-When in `--mcp` mode, the Lua runtime environment is modified to ensure compatibility with the stdio transport:
+When in `--mcp` mode, the Lua runtime environment is modified to ensure compatibility with the stdio transport and enable hot-loading.
+
+### 4.0 Hot-Loading
+
+Hot-loading is **enabled by default** in MCP mode. This capability is provided by ui-engine. The MCP server sets `cfg.Lua.Hotload = true` on startup.
+
+**How it works:** (see ui-engine/USAGE.md and ui-engine/HOT-LOADING.md for full details)
+1. ui-engine watches Lua files in `{base_dir}/apps/*/` for changes
+2. On file change, the file is re-executed in the session's Lua context
+3. Prototypes declared with `session:prototype()` preserve their identity
+4. Existing instances get new methods immediately
+5. `mutate()` methods are called automatically for schema migrations
+
+**Requirements for hot-loadable code:**
+- Use `session:prototype(name, init)` instead of manual metatable setup
+- Use `session:create(prototype, instance)` for instance tracking
+- Guard app creation: `if not session:getApp() then ... end`
+
+**Example:**
+```lua
+-- Declare prototype (preserves identity on reload)
+Contact = session:prototype("Contact", {
+    name = "",
+    email = "",
+})
+
+-- Override :new() only when needed (default provided)
+function Contact:new(data)
+    local instance = session:create(Contact, data)
+    return instance
+end
+
+-- Guard app creation
+if not session:getApp() then
+    session:createAppVariable(App:new())
+end
+```
+
+**What hot-loading enables:**
+- Edit methods → changes take effect immediately
+- Add fields → inherited by existing instances via metatable
+- Remove fields → automatically nil'd out on instances
+- Add `mutate()` → called on all instances for migrations
+
+### 4.1 I/O Redirection
 
 - **`print(...)` Override:** The global `print` function is replaced with a version that:
     - Opens the log file (`{base_dir}/log/lua.log`) in **append** mode.
@@ -101,7 +145,7 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
     - `io.stdout` is redirected to `{base_dir}/log/lua.log`.
     - `io.stderr` is redirected to `{base_dir}/log/lua-err.log`.
 
-### 4.1 Browser Update Mechanism
+### 4.2 Browser Update Mechanism
 
 The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for executing code within a session context. This method:
 

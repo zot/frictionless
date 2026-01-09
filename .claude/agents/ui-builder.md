@@ -12,7 +12,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 ## Architecture
 
 This agent is a **UI designer** that creates app files. The **parent Claude** handles:
-- MCP operations (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser)
+- MCP operations (ui_configure, ui_start, ui_run, ui_open_browser)
 - Event loop (background bash to `/wait` endpoint)
 - Routine event handling (chat, clicks) via `ui_run`
 
@@ -27,10 +27,20 @@ Parent Claude
      │      └── Returns: app location + what parent should do next
      │
      └── Parent handles MCP + event loop
-            ├── Calls: ui_run to load app, ui_upload_viewdef for templates
+            ├── Calls: ui_run to display app (code/viewdefs hot-load from files)
             ├── Runs: .claude/ui/event (background)
             └── On event: handles via ui_run or re-invokes ui-builder
 ```
+
+## Hot-Loading
+
+**Both Lua code and viewdefs hot-load automatically from disk.** When you edit files:
+- Lua files in `apps/<app>/app.lua` → re-executed, preserving app state
+- Viewdef files in `apps/<app>/viewdefs/` → browser updates automatically
+
+**Write order matters:** Write code changes FIRST, then viewdefs. Viewdefs may reference new types/methods that must exist before the viewdef loads.
+
+**Never use `ui_upload_viewdef`** — just write files to disk. The server watches for changes and hot-loads automatically.
 
 ## Capabilities
 
@@ -80,11 +90,13 @@ The parent provides the config directory path and app name in the prompt (e.g., 
       - **Events**: JSON examples of user interactions
       - **Styling**: Visual guidelines (optional)
 
-3. **Write files** to `{base_dir}/apps/<app>/`:
-   - `design.md`
-   - `app.lua` — Lua classes and logic
-   - `viewdefs/<Type>.DEFAULT.html` — HTML templates
+3. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+   - `design.md` — design spec (first, for reference)
+   - `app.lua` — Lua classes and logic (**write this before viewdefs**)
+   - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
+
+   **Order matters for hot-loading:** Viewdefs may reference types/methods that must exist first.
 
 4. **Create symlinks** using the linkapp script:
 
@@ -129,33 +141,43 @@ The parent provides the config directory path and app name in the prompt (e.g., 
 
 ## State Management (Critical)
 
-**Keep app objects in globals to preserve state:**
+**Use `session:prototype()` for hot-loadable code:**
 
 ```lua
-myApp = myApp or MyApp:new()  -- Create once, reuse
-mcp.value = myApp             -- Display
+-- Declare prototype (preserves identity on reload)
+MyApp = session:prototype("MyApp", {
+    items = EMPTY,  -- EMPTY = nil but tracked
+    name = ""
+})
 
--- Reset: myApp = MyApp:new(); mcp.value = myApp
+function MyApp:new(instance)
+    instance = session:create(MyApp, instance)
+    instance.items = instance.items or {}
+    return instance
+end
+
+-- Guard app creation (runs once, preserves state on hot-reload)
+if not session:getApp() then
+    session:createAppVariable(MyApp:new())
+end
 ```
 
-**Why globals?**
-- `mcp.value = obj` displays the object
-- If you create a new instance each time, you lose all user input and state
-- Globals persist across `ui_run()` calls, preserving state
-- User sees their data intact when you re-display
+**Why this pattern?**
+- `session:prototype()` preserves table identity — existing instances get new methods
+- `session:create()` tracks instances for hot-reload migrations
+- `session:getApp()` guard prevents re-creating the app on file changes
+- User sees their data intact; only code/behavior updates
 
 **Key points**:
-- `mcp.value = nil` → blank screen
-- `mcp.value = someObject` → displays that object
-- The object MUST have a `type` field (e.g., `type = "MyApp"`)
-- You MUST upload a viewdef for that type
-- Changes to the object automatically sync to the browser
+- `mcp.display("myApp")` shows the app (parent calls this via `ui_run`)
+- The prototype MUST have a `type` field (set automatically by `session:prototype()`)
+- Viewdefs must exist for that type (written to `viewdefs/` directory)
+- Changes to objects automatically sync to the browser
 
-**Agent-readable state (`mcp.state`):**
-- `mcp.state` is separate from `mcp.value` — it doesn't display anything
-- Set `mcp.state` to provide information the agent can read via `ui://state` resource
-- Use cases: app summary, current selection, status flags, anything the agent needs to know
-- Example: `mcp.state = { totalContacts = #app.contacts, hasUnsavedChanges = app.dirty }`
+**Agent-readable state (`mcp.pushState`):**
+- Use `mcp.pushState({...})` to send events to the agent
+- Events queue up and agent reads them via `/wait` endpoint
+- Example: `mcp.pushState({ app = "myapp", event = "chat", text = userInput })`
 
 ## Behavior
 
@@ -434,29 +456,45 @@ ViewListItem renders `<div ui-view="item"></div>`, which means when your item's 
 
 ## Lua Pattern
 
-Define the app and assign it to a Lua global with the same name as the app
-- starts with a lowercase letter
-- convert snake case to camel case
-
-Do not assign mcp.value in app.lua
+**Use `session:prototype()` for hot-loadable types:**
 
 ```lua
-MyApp = { type = "MyApp" }
-MyApp.__index = MyApp
+-- Declare prototype (hot-loadable)
+MyApp = session:prototype("MyApp", {
+    items = EMPTY,
+    name = ""
+})
 
-function MyApp:new()
-    return setmetatable({ items = {}, name = "" }, self)
+function MyApp:new(instance)
+    instance = session:create(MyApp, instance)
+    instance.items = instance.items or {}
+    return instance
 end
 
 function MyApp:add()
-    table.insert(self.items, { type = "Item", name = self.name })
+    local item = session:create(Item, { name = self.name })
+    table.insert(self.items, item)
     self.name = ""
 end
 
 function MyApp:count() return #self.items .. " items" end
 
-myApp = myApp or MyApp:new
+Item = session:prototype("Item", {
+    name = ""
+})
+
+-- Guard app creation (hot-load safe)
+if not session:getApp() then
+    session:createAppVariable(MyApp:new())
+end
 ```
+
+**Key patterns:**
+- `session:prototype(name, init)` — declare type with default fields
+- `session:create(prototype, instance)` — create tracked instance
+- `EMPTY` — declare fields that start nil but are tracked
+- `if not session:getApp()` — guard prevents re-creating app on hot-reload
+- Do NOT assign `mcp.value` in app.lua — parent calls `mcp.display("appName")`
 
 ## Complete Example: Contact Manager with Chat
 
