@@ -380,7 +380,7 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		}))
 
 		// mcp:display(appName) - load and display an app
-		// Checks for global (sanitized to camelCase), if not found loads from apps/appName/app.lua
+		// Checks for global (sanitized to camelCase), if not found loads from lua/appName.lua (symlink)
 		L.SetField(mcpTable, "display", L.NewFunction(func(L *lua.LState) int {
 			appName := L.CheckString(1)
 			if appName == "" {
@@ -396,9 +396,10 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			// Check if global exists for this app
 			appVal := L.GetGlobal(globalName)
 			if appVal == lua.LNil {
-				// Load the app file
-				appPath := filepath.Join(s.baseDir, "apps", appName, "app.lua")
-				if err := L.DoFile(appPath); err != nil {
+				// Load the app file via RequireLuaFile (uses unified load tracker)
+				// Apps are symlinked: apps/<app>/app.lua -> lua/<app>.lua
+				luaFile := appName + ".lua"
+				if _, err := session.DirectRequireLuaFile(luaFile); err != nil {
 					L.Push(lua.LNil)
 					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
 					return 2
@@ -748,9 +749,19 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	}
 
 	// Call mcp.display(name) in Lua - the common implementation
+	log := func(name, str string) {
+		f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err) // i'm simplifying it here. you can do whatever you want.
+		}
+		defer f.Close()
+		f.WriteString(str + "\n")
+	}
 	code := fmt.Sprintf("return mcp.display(%q)", name)
 	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
+		log("/tmp/bubba", "load code")
 		return session.LoadCodeDirect("ui_display", code)
+		//return session.LoadCode("ui_display", code)
 	})
 
 	if err != nil {
@@ -761,7 +772,15 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	if result == nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to display app: %s", name)), nil
 	}
-
+	log("/tmp/bubba", "after load code, before sync")
+	c := make(chan bool)
+	s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
+		log("/tmp/bubba", "sync")
+		close(c)
+		return nil, nil
+	})
+	<-c
+	log("/tmp/bubba", "finished displaying")
 	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 

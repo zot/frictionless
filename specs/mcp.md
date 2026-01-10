@@ -95,17 +95,30 @@ When in `--mcp` mode, the Lua runtime environment is modified to ensure compatib
 
 Hot-loading is **enabled by default** in MCP mode. This capability is provided by ui-engine. The MCP server sets `cfg.Lua.Hotload = true` on startup.
 
-**How it works:** (see ui-engine/USAGE.md and ui-engine/HOT-LOADING.md for full details)
-1. ui-engine watches Lua files in `{base_dir}/apps/*/` for changes
-2. On file change, the file is re-executed in the session's Lua context
-3. Prototypes declared with `session:prototype()` preserve their identity
-4. Existing instances get new methods immediately
-5. `mutate()` methods are called automatically for schema migrations
+**Supported file types:**
+- **Lua files** (`.lua`) — Code is re-executed in the session's Lua context
+- **Viewdef files** (`.html`) — Templates are reloaded and pushed to connected browsers
 
-**Requirements for hot-loadable code:**
+**How it works:**
+1. ui-engine watches files in `{base_dir}/apps/*/` for changes
+2. On Lua file change:
+   - The file is re-executed in the session's Lua context
+   - Prototypes declared with `session:prototype()` preserve their identity
+   - Existing instances get new methods immediately
+   - `mutate()` methods are called automatically for schema migrations
+   - **Browser automatically updates** — state changes are pushed to connected browsers
+3. On viewdef file change:
+   - The template is reloaded from disk
+   - The new viewdef is pushed to all connected browsers
+   - Components using that viewdef re-render immediately
+
+**Automatic UI updates:** After any hot-loaded change (Lua or viewdef), the browser automatically reflects the changes. No manual refresh or `ui_run` call is needed.
+
+**Requirements for hot-loadable Lua code (idempotent pattern):**
 - Use `session:prototype(name, init)` instead of manual metatable setup
-- Use `session:create(prototype, instance)` for instance tracking
-- Guard app creation: `if not session:getApp() then ... end`
+- Use `session:create(prototype, instance)` for instance tracking (called by default `:new()`)
+- Guard instance creation with `if not session.reloading then ... end`
+- Instance name should be lowercase camelCase matching app directory
 
 **Example:**
 ```lua
@@ -121,17 +134,22 @@ function Contact:new(data)
     return instance
 end
 
--- Guard app creation
-if not session:getApp() then
-    session:createAppVariable(App:new())
+-- Guard instance creation (idempotent)
+if not session.reloading then
+    contact = Contact:new()
 end
 ```
 
+The agent then uses `ui_display("contact")` to show it in the browser.
+
 **What hot-loading enables:**
-- Edit methods → changes take effect immediately
+- Edit Lua methods → changes take effect immediately, UI updates
+- Edit viewdef HTML → browser re-renders with new template
 - Add fields → inherited by existing instances via metatable
 - Remove fields → automatically nil'd out on instances
 - Add `mutate()` → called on all instances for migrations
+
+**Development workflow:** Edit files in your IDE, save, and see changes instantly in the browser. No need to restart the server or manually refresh.
 
 ### 4.1 I/O Redirection
 

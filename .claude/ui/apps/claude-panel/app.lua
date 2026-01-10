@@ -340,9 +340,8 @@ function ClaudePanel:clearOutput()
     self.luaOutputLines = {}
 end
 
--- Guard app creation (hot-load safe)
--- Set global for mcp.display() to find
-if not claudePanel then
+-- Guard instance creation (idempotent)
+if not session.reloading then
     claudePanel = ClaudePanel:new()
     claudePanel:initialize()
 end

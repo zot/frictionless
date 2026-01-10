@@ -17,6 +17,8 @@ src/      # Code with traceability comments
 ## Core Principles
 - SOLID principles, comprehensive unit tests
 - Code and specs as MINIMAL as possible
+- Before using a callback, see if a collaborator reference would be simpler
+- write idiomatic code for the language you use
 
 ## Cross-cutting Concerns
 

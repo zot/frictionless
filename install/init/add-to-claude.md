@@ -1,45 +1,5 @@
 ## Using the ui mcp
-use the directory `.claude/ui` for the mcp's directory; create it if it is not there already.
-
-### Building UIs with ui-builder Agent
-
-**ALWAYS use the `ui-builder` agent when first building UIs.** Do NOT use `ui_*` MCP tools directly.
-**WHEN UPDATING EXISTING UIs**, use the `ui-updater`.
-
-| User Request                        | Action                                      |
-|-------------------------------------|---------------------------------------------|
-| "Build me a UI for X"               | Invoke `ui-builder` agent                   |
-| "Show me a dashboard"               | Invoke `ui-builder` agent                   |
-| "Create a form/list/chat interface" | Invoke `ui-builder` agent                   |
-| "Modify the contacts app"           | Invoke `ui-builder` agent                   |
-| Routine event handling              | Use `ui_run` directly (after agent returns) |
-
-**Why use the agents?**
-- Reads requirements and builds complete app
-- Sets up session correctly (configure, start, symlinks)
-- Reads pattern library for consistency
-- Creates proper app structure in `.claude/ui/apps/<app>/`
-- Returns event loop instructions
-- Documents the app (design.md)
-
-**NEVER manually edit any UI app files other than requirements.md!**
-
-- `requirements.md` — you write/update this
-- `design.md`, `app.lua`, `viewdefs/` — agents generate these
-
-**To change an existing UI:** update `requirements.md`, then invoke `ui-updater`.
-
-Binding syntax is precise (e.g., `ui-class-hidden` not `ui-class="hidden:..."`). Manual edits cause subtle bugs.
-
-**Before invoking ui-builder (for new apps):**
-1. Create the app directory: `mkdir -p .claude/ui/apps/<app>`
-2. Write requirements to `.claude/ui/apps/<app>/requirements.md`
-3. Invoke ui-builder: "Read `.claude/ui/apps/<app>/requirements.md` and build the app"
-
-**When updating**, the app directory `.claude/ui/apps/<app>` already exists.
-- Invoke ui-updater: "Read `.claude/ui/apps/<app>/requirements.md` and update the app"
-
-After ui-builder or ui-updater returns, run the UI (see below)
+Once a UI is built, run it, if that is the user's intent (see below)
 
 ### Running UIs
 
@@ -47,7 +7,7 @@ After ui-builder or ui-updater returns, run the UI (see below)
 1. Read `design.md` - this explains the app's structure and event handling
   - If unclear, read `app.lua`
   - As a last resort, read the viewdefs in `viewdefs/`
-2. Use `ui_run` to Present the UI to the user with `mcp.display("APP")`
+2. Use the `ui_display("APP")` tool to present the UI to the user
 3. Display the browser page
   - if using the system browser, use ui_open_browser
   - if using playwright MCP, just visit the URL, do not use ui_open_browser
@@ -63,13 +23,6 @@ After ui-builder or ui-updater returns, run the UI (see below)
     - Restart wait loop
 5. Respond to routine events as-needed with `ui_run`
 
-### Improving UIs
-When UI needs improvement, update `.claude/ui/apps/<app>/requirements.md` and invoke `ui-updater`
-
-If and only if the user proactively indicates that the UI is stable (do not bug them about it), invoke `ui-learning` agent in background (pattern extraction)
-
 ### Tips
-- **Don't use `ui_upload_viewdef`** if you can refresh the page instead. Edit the file on disk, then refresh - the server reloads viewdefs automatically. Uploading uses many tokens. Refresh options:
-  - Playwright: `browser_navigate` to the same URL
-  - If app has `ui-code` binding: set it to `location.reload()` via `ui_run`
+- **Don't use `ui_upload_viewdef`** because hotloading is enabled; just edit the file on disk.
 - **Debug with `window.uiApp`** in browser console (via Playwright `browser_evaluate`). Contains `store` (variables), `viewdefStore` (viewdefs), and other internals for inspecting UI state.

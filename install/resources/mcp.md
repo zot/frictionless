@@ -60,9 +60,9 @@ Implement the design:
 
 1. `ui_configure(base_dir=".claude/ui")` — Set up environment
 2. `ui_start()` — Start HTTP server (returns URL)
-3. `ui_run(code)` — Define Lua classes
-4. `ui_upload_viewdef(type, namespace, html)` — Upload templates
-5. `ui_open_browser()` — Show to user
+3. `ui_run(code)` — Define Lua classes with `session:prototype()`, guard with `session:getApp()`
+4. Write viewdefs to `apps/<app>/viewdefs/` — Templates are hot-loaded
+5. `ui_open_browser()` — Open browser to user
 
 ## Directory Structure
 
@@ -93,11 +93,11 @@ Use `.claude/ui/` as your base directory:
 
 ## Collaborative Loop
 
-1. **Show UI** — Upload viewdef with inputs and actions
+1. **Show UI** — Write viewdefs to `apps/<app>/viewdefs/` (hot-loaded)
 2. **User interacts** — Clicks, types, selects
-3. **Receive notification** — Lua calls `mcp.notify(method, params)`
+3. **Receive event** — Lua calls `mcp.pushState(event)`, agent polls `/wait`
 4. **Inspect state** — Read `ui://state` to see current values
-5. **Update UI** — Run more Lua or upload new viewdefs
+5. **Update UI** — Edit Lua or viewdef files (hot-loaded automatically)
 6. **Repeat** — Continue the conversation visually
 
 ## Preventing Drift
@@ -142,22 +142,28 @@ Collect user rating and optional comment. Submit notifies agent.
 ### Lua Code
 
 ```lua
-Feedback = { type = "Feedback" }
-Feedback.__index = Feedback
-
-function Feedback:new()
-    return setmetatable({ rating = 5, comment = "" }, self)
-end
+-- Hot-loadable class definition
+Feedback = session:prototype("Feedback", {
+    rating = 5,
+    comment = ""
+})
 
 function Feedback:submit()
-    mcp.notify("feedback", {
+    mcp.pushState({
+        app = "feedback",
+        event = "submit",
         rating = self.rating,
         comment = self.comment
     })
 end
 
-mcp.value = Feedback:new()
+-- Guard instance creation (idempotent)
+if not session.reloading then
+    feedback = Feedback:new()
+end
 ```
+
+The agent then calls `ui_display("feedback")` to show it in the browser.
 
 ### Viewdef
 
@@ -174,9 +180,13 @@ mcp.value = Feedback:new()
 
 ## Best Practices
 
+- **Use `session:prototype()`** — Define hot-loadable classes
+- **Guard instance creation** — `if not session.reloading then ... end`
+- **Use `EMPTY`** — For optional fields that start nil but need mutation tracking
+- **Instance naming** — lowercase camelCase matching app directory (e.g., `feedback` for `feedback/` app)
 - **Atomic viewdefs** — One type per viewdef, keep them focused
-- **Use `mcp.state`** — Set data the agent can read via `ui://state` resource
-- **Informative notifications** — Include enough context in `mcp.notify` params
+- **Informative events** — Include enough context in `mcp.pushState()` params
+- **Use hot-loading** — Edit files directly; changes auto-refresh in browser
 - **Check logs** — Read `.claude/ui/log/lua.log` when debugging
 - **Follow conventions** — Read `.claude/ui/conventions/` before creating UI
 - **Update specs** — Keep `.claude/ui/design/ui-*.md` in sync with implementation

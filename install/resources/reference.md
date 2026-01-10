@@ -34,19 +34,21 @@ Each app lives in `.claude/ui/apps/<app>/`:
 
 ### Multiple Apps
 
-You can have multiple apps. Switch between them by assigning to `mcp.value`:
+You can have multiple apps. The agent uses `ui_display("varName")` to show them:
 
 ```lua
 -- Define apps
-contacts = ContactApp:new()
-tasks = TaskApp:new()
+ContactApp = session:prototype("ContactApp", {})
+TaskApp = session:prototype("TaskApp", {})
 
--- Show contacts app
-mcp.value = contacts
-
--- Later, switch to tasks app
-mcp.value = tasks
+-- Guard instance creation
+if not session.reloading then
+    contacts = ContactApp:new()
+    tasks = TaskApp:new()
+end
 ```
+
+The agent calls `ui_display("contacts")` or `ui_display("tasks")` to show the desired app.
 
 ### Event-Driven Communication
 
@@ -154,11 +156,11 @@ UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNN
 1. Design    → Plan UI, create .claude/ui/design/ui-{name}.md spec
 2. Configure → ui_configure(base_dir=".claude/ui")
 3. Start     → ui_start() → returns URL
-4. Define    → ui_run(lua_code) → create classes
-5. Template  → ui_upload_viewdef(type, ns, html)
-6. Show      → ui_open_browser()
-7. Listen    → mcp.notify() sends events back to you
-8. Iterate   → Update state or viewdefs, user sees changes
+4. Define    → ui_run(lua_code) → create classes with session:prototype()
+5. Template  → Write viewdefs to apps/<app>/viewdefs/ (hot-loaded)
+6. Browser   → ui_open_browser()
+7. Listen    → Poll /wait endpoint for mcp.pushState() events
+8. Iterate   → Edit files, changes appear instantly (hot-loading)
 ```
 
 ## Two-Phase Workflow
@@ -177,15 +179,29 @@ See [AI Interaction Guide](ui://mcp) for details.
 
 ### Displaying Objects
 
-Set `mcp.value` to display an object on screen:
+The agent uses `ui_display("varName")` to show a Lua variable in the browser:
 
 ```lua
-mcp.value = MyForm:new()
+-- Define with session:prototype for hot-loading
+MyForm = session:prototype("MyForm", {
+    userInput = "",
+    error = EMPTY,  -- EMPTY: starts nil, but tracked for mutation
+})
+
+-- Guard instance creation (idempotent)
+if not session.reloading then
+    myForm = MyForm:new()
+end
 ```
 
+The agent then calls `ui_display("myForm")` to show it.
+
 **Key points**:
-- `mcp.value` starts as `nil` (blank screen)
-- The object MUST have a `type` field matching a viewdef
+- The object MUST have a `type` field (set automatically by `session:prototype()`)
+- Use `session:prototype()` for hot-loadable classes
+- Guard with `if not session.reloading` for idempotency
+- Instance name = lowercase camelCase matching app directory
+- Use `EMPTY` for optional fields that start nil
 - Inspect current state via `ui://state`
 
 ### Presenters and Domain Objects
@@ -222,18 +238,44 @@ function MyForm:clear()
 end
 ```
 
-### Notifications
+### Hot-Loading
 
-Send events from Lua back to the AI agent:
+Edit files in your IDE and see changes instantly — no server restart or manual refresh needed.
+
+**Supported files:**
+- **Lua files** (`.lua`) — Code re-executes, browser updates automatically
+- **Viewdef files** (`.html`) — Templates reload, components re-render
+
+**How it works:**
+1. Save a file in `.claude/ui/apps/<app>/`
+2. ui-engine detects the change
+3. Lua is re-executed or viewdef is reloaded
+4. Browser automatically reflects changes
+
+**Requirements for Lua hot-loading:**
+- Use `session:prototype()` for class definitions
+- Use `session:create()` for instance creation
+- Guard instance creation: `if not session.reloading then ... end`
+- Use `EMPTY` for optional fields that start nil but need mutation tracking
+
+This enables rapid iteration: edit code, save, see results immediately.
+
+### Events (UI → Agent)
+
+Send events from Lua back to the AI agent via `mcp.pushState()`:
 
 ```lua
 function Feedback:submit()
-    mcp.notify("feedback_received", {
+    mcp.pushState({
+        app = "feedback",
+        event = "submit",
         rating = self.rating,
         comment = self.comment
     })
 end
 ```
+
+The agent polls for events via the `/wait` HTTP endpoint. Events are returned as a JSON array.
 
 ## Detailed Guides
 

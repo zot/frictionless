@@ -31,7 +31,7 @@ The UI Platform provides a Model Context Protocol (MCP) server that enables AI a
 │  Browser UI                                                 │
 │                                                             │
 │  Renders viewdefs, binds to Lua state                       │
-│  User interactions → mcp.notify() → AI Agent                │
+│  User interactions → mcp.pushState() → /wait → AI Agent    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,8 +82,9 @@ See [AGENTS.md](AGENTS.md) for detailed agent architecture. Summary:
 ┌─────────────────────────────────────────────────┐
 │              BUILD PHASE                         │
 │  ui_configure + ui_start                         │
-│  ui_run (Lua classes)                            │
-│  ui_upload_viewdef (templates)                   │
+│  ui_run (Lua classes, idempotent pattern)        │
+│  Write viewdefs (hot-loaded from disk)           │
+│  ui_display("varName")                           │
 │  ui_open_browser                                 │
 └─────────────────────────────────────────────────┘
 ```
@@ -107,20 +108,23 @@ When the AI uses `.claude/ui/` as the base directory:
 ## Quick Example
 
 ```lua
--- Define a feedback form
-Feedback = { type = "Feedback" }
-Feedback.__index = Feedback
-
-function Feedback:new()
-    return setmetatable({ rating = 5, comment = "" }, self)
-end
+-- Define a feedback form (hot-loadable)
+Feedback = session:prototype("Feedback", {
+    rating = 5,
+    comment = ""
+})
 
 function Feedback:submit()
-    mcp.notify("feedback", { rating = self.rating, comment = self.comment })
+    mcp.pushState({ app = "feedback", event = "submit", rating = self.rating, comment = self.comment })
 end
 
-mcp.value = Feedback:new()
+-- Guard instance creation (idempotent)
+if not session.reloading then
+    feedback = Feedback:new()
+end
 ```
+
+The agent then calls `ui_display("feedback")` to show it in the browser.
 
 ```html
 <!-- Viewdef for Feedback -->
