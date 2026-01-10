@@ -34,7 +34,18 @@ Referenced from other design artifacts: Cards, sequences, and layouts can all sa
 
 ## Gap Analysis
 
-`design.md` Gaps section tracks: Spec→Design, Design→Code, Code→Design, Oversights.
+`design.md` Gaps section tracks (use S1/D1/C1/O1 numbering):
+- **Spec→Design (Sn):** Spec features without design artifacts
+- **Design→Code (Dn):** Designed features without code
+- **Code→Design (Cn):** Code without design artifacts
+- **Oversights (On):** Missing tests, tech debt, enhancements, security concerns, etc.
+
+Nest related items with checkboxes:
+```markdown
+- [ ] O1: Test coverage gaps
+  - [ ] Feature A (5 scenarios)
+  - [ ] Feature B (3 scenarios)
+```
 
 ## Workflow
 

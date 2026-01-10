@@ -245,6 +245,34 @@ Events pushed before agent starts waiting - returned immediately.
      +-----------+        +----------+        +---------+        +---------+        +------------+
 ```
 
+## Scenario 6: Lua Code Checks if Agent is Polling
+
+Lua code uses `mcp:pollingEvents()` to check if an agent is connected to `/wait`.
+
+```
+     +-----------+        +---------+        +---------+
+     | MCPServer |        | Session |        | LuaCode |
+     +-----+-----+        +----+----+        +----+----+
+           |                   |                  |
+           |                   | mcp:pollingEvents()
+           |                   |<-----------------|
+           |                   |                  |
+           | GetWaiterCount()  |                  |
+           |<------------------|                  |
+           | (count: 1)        |                  |
+           |------------------>|                  |
+           |                   |                  |
+           |                   | return true      |
+           |                   |----------------->|
+           |                   |                  |
+           |                   | (update status   |
+           |                   |  indicator)      |
+           |                   |                  |
+     +-----+-----+        +----+----+        +----+----+
+     | MCPServer |        | Session |        | LuaCode |
+     +-----------+        +---------+        +---------+
+```
+
 ## Implementation Notes
 
 - Wait endpoint: `GET /wait?timeout=N` (max 120 seconds, default 30)
@@ -258,3 +286,4 @@ Events pushed before agent starts waiting - returned immediately.
 - Response is JSON array of all accumulated events
 - Script uses `jq -c '.[]'` to output each event as compact JSON on its own line
 - **Browser Update:** After draining the queue, calls `SafeExecuteInSession` with an empty function to trigger `afterBatch`, ensuring UIs monitoring the event queue refresh (see Section 4.1 of mcp.md)
+- **Polling Status:** `mcp:pollingEvents()` returns `true` if waiter count > 0, `false` otherwise

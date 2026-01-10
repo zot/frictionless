@@ -1,6 +1,6 @@
 ---
 name: ui
-description: use when **running ui-mcp UIs** or needing to understand UI structure (before modifying one)
+description: use when **running ui-mcp UIs** or needing to understand UI structure
 ---
 
 # UI MCP
@@ -85,7 +85,7 @@ Returns one JSON array per line containing one or more events:
 - 0 + JSON output = events received
 - 52 = server restarted (restart both server and event loop)
 
-## Building or modifying UIs
+## Building UIs
 
 **ALWAYS use the `/ui-builder` skill to create or modify UIs.** Do NOT use `ui_*` MCP tools directly for building.
 
@@ -119,8 +119,7 @@ Before invoking `/ui-builder`:
 - Check `.claude/ui/log/lua.log` for Lua errors
 - `ui_run` returns error messages
 - `ui://state` resource shows live state JSON
-- `window.uiApp` contains the app object in the browser
-  - `window.uiApp.store` shows all variables
+- Browser console: `window.uiApp.store` shows all variables
 
 ## Resources
 

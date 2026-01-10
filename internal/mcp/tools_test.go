@@ -1,5 +1,5 @@
 // Package mcp tests for tool handlers
-// Test Design: test-MCP.md (Agent File Installation section)
+// Test Design: test-MCP.md (Skill File Installation section)
 package mcp
 
 import (
@@ -24,15 +24,15 @@ func createTestServer(t *testing.T, baseDir string) *Server {
 	return s
 }
 
-// setupInstallSource creates source files in install/agents/ for testing
+// setupInstallSource creates source files in install/init/skills/ui-builder/ for testing
 func setupInstallSource(t *testing.T, projectRoot string, files map[string]string) {
 	t.Helper()
-	installAgentsDir := filepath.Join(projectRoot, "install", "agents")
-	if err := os.MkdirAll(installAgentsDir, 0755); err != nil {
-		t.Fatalf("Failed to create install/agents dir: %v", err)
-	}
 	for name, content := range files {
-		path := filepath.Join(installAgentsDir, name)
+		path := filepath.Join(projectRoot, "install", "init", "skills", "ui-builder", name)
+		dir := filepath.Dir(path)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("Failed to create directory %s: %v", dir, err)
+		}
 		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 			t.Fatalf("Failed to write source file %s: %v", name, err)
 		}
@@ -50,30 +50,28 @@ func callHandleInstall(s *Server, force bool) (*mcp.CallToolResult, error) {
 	return s.handleInstall(context.Background(), request)
 }
 
-// TestInstallAgentFilesFreshInstall tests agent file installation when file is missing
-func TestInstallAgentFilesFreshInstall(t *testing.T) {
+// TestInstallSkillFilesFreshInstall tests skill file installation when file is missing
+func TestInstallSkillFilesFreshInstall(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
 	projectRoot := tempDir
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")
-	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
-	agentFile := filepath.Join(agentsDir, "ui-builder.md")
+	skillFile := filepath.Join(projectRoot, ".claude", "skills", "ui-builder", "SKILL.md")
 
 	// Create base_dir
 	os.MkdirAll(baseDir, 0755)
 
-	// Create source files in install/agents/
+	// Create source files in install/init/skills/ui-builder/
 	setupInstallSource(t, projectRoot, map[string]string{
-		"ui-builder.md":  "# UI Builder Test\n",
-		"ui-learning.md": "# UI Learning Test\n",
+		"SKILL.md": "# UI Builder Skill Test\n",
 	})
 
 	// Create server
 	s := createTestServer(t, baseDir)
 
 	// Verify file doesn't exist
-	if _, err := os.Stat(agentFile); err == nil {
-		t.Fatal("Agent file should not exist before installation")
+	if _, err := os.Stat(skillFile); err == nil {
+		t.Fatal("Skill file should not exist before installation")
 	}
 
 	// Run installation
@@ -86,36 +84,35 @@ func TestInstallAgentFilesFreshInstall(t *testing.T) {
 	}
 
 	// Verify file was created
-	content, err := os.ReadFile(agentFile)
+	content, err := os.ReadFile(skillFile)
 	if err != nil {
-		t.Fatalf("Agent file should exist after installation: %v", err)
+		t.Fatalf("Skill file should exist after installation: %v", err)
 	}
-	if string(content) != "# UI Builder Test\n" {
-		t.Errorf("Agent file content mismatch: got %q", content)
+	if string(content) != "# UI Builder Skill Test\n" {
+		t.Errorf("Skill file content mismatch: got %q", content)
 	}
 }
 
-// TestInstallAgentFilesNoOpIfExists tests no installation when file already exists
-func TestInstallAgentFilesNoOpIfExists(t *testing.T) {
+// TestInstallSkillFilesNoOpIfExists tests no installation when file already exists
+func TestInstallSkillFilesNoOpIfExists(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
 	projectRoot := tempDir
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")
-	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
-	agentFile := filepath.Join(agentsDir, "ui-builder.md")
+	skillsDir := filepath.Join(projectRoot, ".claude", "skills", "ui-builder")
+	skillFile := filepath.Join(skillsDir, "SKILL.md")
 
 	// Create base_dir
 	os.MkdirAll(baseDir, 0755)
 
 	// Create source with different content
 	setupInstallSource(t, projectRoot, map[string]string{
-		"ui-builder.md":  "# New Content\n",
-		"ui-learning.md": "# UI Learning\n",
+		"SKILL.md": "# New Content\n",
 	})
 
 	// Create destination with existing content
-	os.MkdirAll(agentsDir, 0755)
-	os.WriteFile(agentFile, []byte("# Existing Content\n"), 0644)
+	os.MkdirAll(skillsDir, 0755)
+	os.WriteFile(skillFile, []byte("# Existing Content\n"), 0644)
 
 	// Create server
 	s := createTestServer(t, baseDir)
@@ -130,32 +127,31 @@ func TestInstallAgentFilesNoOpIfExists(t *testing.T) {
 	}
 
 	// Verify file was NOT overwritten
-	content, _ := os.ReadFile(agentFile)
+	content, _ := os.ReadFile(skillFile)
 	if string(content) != "# Existing Content\n" {
 		t.Errorf("Existing file should not be overwritten: got %q", content)
 	}
 }
 
-// TestInstallAgentFilesCreatesDirectory tests directory creation
-func TestInstallAgentFilesCreatesDirectory(t *testing.T) {
+// TestInstallSkillFilesCreatesDirectory tests directory creation
+func TestInstallSkillFilesCreatesDirectory(t *testing.T) {
 	// Create temp directories
 	tempDir := t.TempDir()
 	projectRoot := tempDir
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")
-	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
+	skillsDir := filepath.Join(projectRoot, ".claude", "skills")
 
-	// Create base_dir only (not agents dir)
+	// Create base_dir only (not skills dir)
 	os.MkdirAll(baseDir, 0755)
 
-	// Create source agents
+	// Create source skills
 	setupInstallSource(t, projectRoot, map[string]string{
-		"ui-builder.md":  "# Test\n",
-		"ui-learning.md": "# Learning\n",
+		"SKILL.md": "# Test\n",
 	})
 
-	// Verify .claude/agents doesn't exist
-	if _, err := os.Stat(agentsDir); err == nil {
-		t.Fatal("Agents directory should not exist before installation")
+	// Verify .claude/skills doesn't exist
+	if _, err := os.Stat(skillsDir); err == nil {
+		t.Fatal("Skills directory should not exist before installation")
 	}
 
 	// Create server
@@ -168,29 +164,28 @@ func TestInstallAgentFilesCreatesDirectory(t *testing.T) {
 	}
 
 	// Verify directory was created
-	if _, err := os.Stat(agentsDir); err != nil {
-		t.Fatalf("Agents directory should be created: %v", err)
+	if _, err := os.Stat(skillsDir); err != nil {
+		t.Fatalf("Skills directory should be created: %v", err)
 	}
 }
 
-// TestInstallAgentFilesPathResolution tests that path is resolved correctly
-func TestInstallAgentFilesPathResolution(t *testing.T) {
+// TestInstallSkillFilesPathResolution tests that path is resolved correctly
+func TestInstallSkillFilesPathResolution(t *testing.T) {
 	// Create temp directories simulating real structure
 	tempDir := t.TempDir()
 
 	// Simulate: /project/.claude/ui as base_dir
-	// Agent should install to: /project/.claude/agents/
+	// Skill should install to: /project/.claude/skills/ui-builder/
 	projectRoot := filepath.Join(tempDir, "project")
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")
-	expectedAgentsDir := filepath.Join(projectRoot, ".claude", "agents")
+	expectedSkillFile := filepath.Join(projectRoot, ".claude", "skills", "ui-builder", "SKILL.md")
 
 	// Create base_dir
 	os.MkdirAll(baseDir, 0755)
 
-	// Create source agents at install/agents/ relative to projectRoot
+	// Create source skills at install/init/skills/ui-builder/ relative to projectRoot
 	setupInstallSource(t, projectRoot, map[string]string{
-		"ui-builder.md":  "# Test\n",
-		"ui-learning.md": "# Learning\n",
+		"SKILL.md": "# Test\n",
 	})
 
 	// Create server
@@ -202,10 +197,9 @@ func TestInstallAgentFilesPathResolution(t *testing.T) {
 		t.Fatalf("handleInstall returned error: %v", err)
 	}
 
-	// Verify agent installed to correct location
-	agentFile := filepath.Join(expectedAgentsDir, "ui-builder.md")
-	if _, err := os.Stat(agentFile); err != nil {
-		t.Fatalf("Agent file should be at %s: %v", agentFile, err)
+	// Verify skill installed to correct location
+	if _, err := os.Stat(expectedSkillFile); err != nil {
+		t.Fatalf("Skill file should be at %s: %v", expectedSkillFile, err)
 	}
 }
 
@@ -232,21 +226,20 @@ func TestInstallForceOverwrites(t *testing.T) {
 	tempDir := t.TempDir()
 	projectRoot := tempDir
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")
-	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
-	agentFile := filepath.Join(agentsDir, "ui-builder.md")
+	skillsDir := filepath.Join(projectRoot, ".claude", "skills", "ui-builder")
+	skillFile := filepath.Join(skillsDir, "SKILL.md")
 
 	// Create base_dir
 	os.MkdirAll(baseDir, 0755)
 
 	// Create source with new content
 	setupInstallSource(t, projectRoot, map[string]string{
-		"ui-builder.md":  "# New Content\n",
-		"ui-learning.md": "# UI Learning\n",
+		"SKILL.md": "# New Content\n",
 	})
 
 	// Create destination with existing content
-	os.MkdirAll(agentsDir, 0755)
-	os.WriteFile(agentFile, []byte("# Old Content\n"), 0644)
+	os.MkdirAll(skillsDir, 0755)
+	os.WriteFile(skillFile, []byte("# Old Content\n"), 0644)
 
 	// Create server
 	s := createTestServer(t, baseDir)
@@ -261,7 +254,7 @@ func TestInstallForceOverwrites(t *testing.T) {
 	}
 
 	// Verify file WAS overwritten
-	content, _ := os.ReadFile(agentFile)
+	content, _ := os.ReadFile(skillFile)
 	if string(content) != "# New Content\n" {
 		t.Errorf("File should be overwritten with force=true: got %q", content)
 	}

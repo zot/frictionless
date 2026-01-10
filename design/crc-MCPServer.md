@@ -39,7 +39,7 @@
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
 - handleVariables: Render interactive variable tree (GET /variables)
 - handleState: Return session state JSON (GET /state)
-- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState)
+- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents)
 
 ## Collaborators
 

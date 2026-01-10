@@ -46,7 +46,7 @@ The AI agent initializes the environment before starting the server.
 
 **Notes:**
 - Configuration checks if bundled files are installed
-- Returns `install_needed: true` hint if `.claude/agents/ui-builder.md` is missing
+- Returns `install_needed: true` hint if `.claude/skills/ui-builder/SKILL.md` is missing
 - Agent explicitly calls `ui_install` to install files (separated from configure)
 
 ## Scenario 1a: Bundled File Installation (ui_install)
@@ -81,21 +81,17 @@ Shows the installation of bundled files when agent calls `ui_install`.
 ```
 
 **Bundled Files:**
-| Source                        | Destination                               | Purpose                                 |
-|-------------------------------|-------------------------------------------|-----------------------------------------|
-| `init/add-to-claude.md`       | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |
-| `init/agents/ui-builder.md`   | `{project}/.claude/agents/ui-builder.md`  | UI building agent (excluded*)           |
-| `init/agents/ui-learning.md`  | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent (excluded*)    |
-| `init/skills/*`               | `{project}/.claude/skills/*`              | UI builder skills                       |
-| `resources/*`                 | `{base_dir}/resources/*`                  | MCP server resources                    |
-| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                   | Standard viewdefs (ViewList, etc.)      |
-| `event`, `state`, `variables` | `{base_dir}`                              | Scripts for easy MCP endpoint access    |
-
-*Agents excluded due to subagent bug that prevents file access
+| Source                        | Destination                              | Purpose                                |
+|-------------------------------|------------------------------------------|----------------------------------------|
+| `init/skills/ui/*`            | `{project}/.claude/skills/ui/*`          | `/ui` skill (running UIs)              |
+| `init/skills/ui-builder/*`    | `{project}/.claude/skills/ui-builder/*`  | `/ui-builder` skill (building UIs)     |
+| `resources/*`                 | `{base_dir}/resources/*`                 | MCP server resources                   |
+| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                  | Standard viewdefs (ViewList, etc.)     |
+| `event`, `state`, `variables` | `{base_dir}`                             | Scripts for easy MCP endpoint access   |
 
 **Notes:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
-- CLAUDE.md is appended (not replaced) to preserve existing instructions
+- Skills are self-describing (no CLAUDE.md augmentation needed)
 - `force=true` overwrites existing files
 
 ## Scenario 2: Server Startup

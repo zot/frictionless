@@ -584,8 +584,17 @@ func (s *Server) drainStateQueue(sessionID string) []interface{} {
 	return events
 }
 
-// handleWait handles GET /wait - long-poll for state changes on the current session.
+// hasPollingClients returns true if there are clients waiting on the /wait endpoint.
 // Spec: mcp.md Section 8.2
+func (s *Server) hasPollingClients(sessionID string) bool {
+	s.stateWaitersMu.Lock()
+	defer s.stateWaitersMu.Unlock()
+
+	return len(s.stateWaiters[sessionID]) > 0
+}
+
+// handleWait handles GET /wait - long-poll for state changes on the current session.
+// Spec: mcp.md Section 8.3
 // CRC: crc-MCPServer.md
 func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	// Use the distinguished session (currentVendedID)

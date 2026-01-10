@@ -30,7 +30,7 @@ Both modes start an HTTP server with debug and API endpoints.
 Both modes start HTTP servers. In stdio mode, ports are selected randomly and written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`. Endpoints on the MCP port:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
-- `GET /wait`: Long-poll for mcp.state changes (see Section 8.2)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.3)
 
 ### 2.3 SSE Mode (`serve` command)
 
@@ -45,7 +45,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `POST /message`: Send MCP requests
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
-- `GET /wait`: Long-poll for mcp.state changes (see Section 8.2)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.3)
 
 ## 3. Server Lifecycle
 
@@ -204,8 +204,8 @@ The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for
 During configuration, the MCP server checks if bundled files have been installed and prompts the agent to run `ui_install` if needed.
 
 **Behavior:**
-1. **Check:** Look for `.claude/agents/ui-builder.md` relative to the parent of `base_dir`.
-2. **If missing:** Include in `ui_configure` response: `"install_needed": true, "hint": "Run ui_install to install agent files and CLAUDE.md instructions"`
+1. **Check:** Look for `.claude/skills/ui-builder/SKILL.md` relative to the parent of `base_dir`.
+2. **If missing:** Include in `ui_configure` response: `"install_needed": true, "hint": "Run ui_install to install skill files"`
 3. **If present:** No action needed.
 
 **Design Rationale:**
@@ -339,30 +339,21 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 
 **Bundled Files:**
 
-| Source (bundled)              | Destination                               | Purpose                                 | Exclude |
-|-------------------------------|-------------------------------------------|-----------------------------------------|---------|
-| `init/add-to-claude.md`       | `{project}/CLAUDE.md` (appended)          | Instructions for using ui-builder agent |         |
-| `init/agents/ui-builder.md`   | `{project}/.claude/agents/ui-builder.md`  | UI building agent                       | yes     |
-| `init/agents/ui-learning.md`  | `{project}/.claude/agents/ui-learning.md` | Pattern extraction agent                | yes     |
-| `init/skills/*`               | `{project}/.claude/skills/*`              | UI builder skills                       |         |
-| `resources/*`                 | `{base_dir}/resources/*`                  | MCP server resources                    |         |
-| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                   | standard viewdefs, like ViewList's      |         |
-| `event`, `state`, `variables` | `{base_dir}`                              | scripts for easy MCP endpoint access    |         |
-
-**Note:** The agents are currently disabled due to a bug that prevents subagents from accessing files. Users should invoke the skills directly until this is resolved.
+| Source (bundled)              | Destination                              | Purpose                                |
+|-------------------------------|------------------------------------------|----------------------------------------|
+| `init/skills/ui/*`            | `{project}/.claude/skills/ui/*`          | `/ui` skill (running UIs)              |
+| `init/skills/ui-builder/*`    | `{project}/.claude/skills/ui-builder/*`  | `/ui-builder` skill (building UIs)     |
+| `resources/*`                 | `{base_dir}/resources/*`                 | MCP server resources                   |
+| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                  | Standard viewdefs (e.g., ViewList)     |
+| `event`, `state`, `variables` | `{base_dir}`                             | Scripts for easy MCP endpoint access   |
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
-- Creates `.claude/` and `.claude/agents/` directories if they don't exist
+- Creates `.claude/` and `.claude/skills/` directories if they don't exist
 
 **Behavior:**
 1. **Check State:** Must be in CONFIGURED or RUNNING state.
-2. **CLAUDE.md Handling:**
-   - If `CLAUDE.md` doesn't exist in project root: create with bundled content
-   - If exists and ui-builder instructions are not in CLAUDE.md: append bundled content with separator
-   - If exists and ui-builder instructions are in CLAUDE.md and `force=false`: ignore
-   - If exists and ui-builder instructions are in CLAUDE.md and `force=true`: replace ui-builder instructions with bundled content
-3. **Agent Files:**
+2. **Skill/Resource Files:**
    - If file doesn't exist: install from bundle
    - If exists and `force=false`: skip (no-op)
    - If exists and `force=true`: overwrite
@@ -371,16 +362,16 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 - JSON object listing installed files:
 ```json
 {
-  "installed": [".claude/agents/ui-builder.md", ".claude/agents/ui-learning.md"],
+  "installed": [".claude/skills/ui-builder/SKILL.md", ".claude/ui/resources/reference.md"],
   "skipped": [],
-  "appended": ["CLAUDE.md"]
+  "appended": []
 }
 ```
 
 **Design Rationale:**
 - Separates installation from configuration (user controls when files are added)
-- CLAUDE.md append behavior preserves existing project instructions
-- Agent files are only overwritten with explicit `force=true`
+- Skill files are self-describing (no CLAUDE.md augmentation needed)
+- Skill files are only overwritten with explicit `force=true`
 - Enables easy updates: `ui_install(force=true)` reinstalls latest bundled versions
 
 ## 7. Resources
@@ -467,7 +458,26 @@ mcp.pushState({ app = "contacts", event = "button", id = "cancel" })
 - This ensures no events are lost between the read and subsequent writes.
 - Queue contents readable via `ui://state` MCP resource.
 
-### 8.2 HTTP Wait Endpoint
+### 8.2 `mcp:pollingEvents()`
+
+**Purpose:** Check whether an agent is actively polling for events via the `/wait` endpoint.
+
+**Lua API:**
+```lua
+-- Check if a client is connected to the /wait endpoint
+if mcp:pollingEvents() then
+    print("Agent is listening for events")
+end
+```
+
+**Returns:**
+- `true` if there is at least one client currently connected to the `/wait` endpoint.
+- `false` otherwise.
+
+**Use Case:**
+This allows Lua code to conditionally enable event-driven features or provide visual feedback (e.g., a status indicator) based on whether an agent is actively monitoring for events.
+
+### 8.3 HTTP Wait Endpoint
 
 **Endpoint:** `GET /wait`
 
@@ -503,7 +513,7 @@ Content-Type: application/json
 HTTP/1.1 204 No Content
 ```
 
-### 8.3 Agent Integration Pattern
+### 8.4 Agent Integration Pattern
 
 Agents can monitor for state changes using a background shell script:
 

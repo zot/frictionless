@@ -20,7 +20,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-mcp-receive-event.md → `internal/mcp/tools.go`
 - [x] seq-mcp-run.md → `internal/mcp/tools.go`
 - [x] seq-mcp-get-state.md → `internal/mcp/resources.go`
-- [ ] seq-mcp-state-wait.md → `internal/mcp/server.go` (handleWait, notifyStateChange)
+- [x] seq-mcp-state-wait.md → `internal/mcp/server.go` (handleWait, pushStateEvent, drainStateQueue, hasPollingClients)
 
 ### Test Designs
 - [ ] test-MCP.md → `tools_test.go`
@@ -46,13 +46,22 @@ Debug and inspect runtime state:
 
 ## Gaps
 
-### Unimplemented
-- [ ] handleWait() - GET /wait long-poll endpoint
-- [ ] notifyStateChange() - signal waiting HTTP clients
-- [ ] atomicSwapQueue() - atomically swap mcp.state
-- [ ] SafeExecuteInSession() - panic recovery wrapper
-- [ ] triggerBrowserUpdate() - push state changes to browsers
-- [ ] handleInstall() - bundled file installation
+### Spec→Design
+*None*
 
-### Test Coverage
-- [ ] Test code needs to be aligned with test-MCP.md design
+### Design→Code
+*None*
+
+### Code→Design
+*None*
+
+### Oversights
+- [ ] O1: Test coverage - only `tools_test.go` and `notify_test.go` exist
+  - [ ] State Change Waiting (10 scenarios)
+  - [ ] Lifecycle FSM (4 scenarios)
+  - [ ] ui_open_browser (3 scenarios)
+  - [ ] ui_run (4 scenarios)
+  - [ ] ui_upload_viewdef (3 scenarios)
+  - [ ] Frictionless UI Creation (6 scenarios)
+- [ ] O2: Document frontend conserve mode SharedWorker requirements (spec 6.1)
+- [ ] O3: Include current state in FSM error messages for debugging

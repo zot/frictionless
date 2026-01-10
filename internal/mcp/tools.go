@@ -62,7 +62,7 @@ func (s *Server) registerTools() {
 	// ui_install
 	// Spec: mcp.md section 5.7
 	s.mcpServer.AddTool(mcp.NewTool("ui_install",
-		mcp.WithDescription("Install bundled configuration files (agent files, CLAUDE.md instructions). Call after ui_configure when install_needed is true."),
+		mcp.WithDescription("Install bundled configuration files (skill files). Call after ui_configure when install_needed is true."),
 		mcp.WithBoolean("force", mcp.Description("If true, overwrites existing files. Defaults to false.")),
 	), s.handleInstall)
 
@@ -128,9 +128,9 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	// Sequence: seq-mcp-lifecycle.md (Scenario 1a)
 	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
 	projectRoot := filepath.Dir(filepath.Dir(baseDir))
-	agentFile := filepath.Join(projectRoot, ".claude", "agents", "ui-builder.md")
+	skillFile := filepath.Join(projectRoot, ".claude", "skills", "ui-builder", "SKILL.md")
 	installNeeded := false
-	if _, err := os.Stat(agentFile); os.IsNotExist(err) {
+	if _, err := os.Stat(skillFile); os.IsNotExist(err) {
 		installNeeded = true
 	}
 
@@ -141,7 +141,7 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	}
 	if installNeeded {
 		response["install_needed"] = true
-		response["hint"] = "Run ui_install to install agent files and CLAUDE.md instructions"
+		response["hint"] = "Run ui_install to install skill files"
 	}
 
 	responseJSON, _ := json.Marshal(response)
@@ -171,117 +171,64 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 	skipped := []string{}
 	appended := []string{}
 
-	// 1. Install agent files
-	agentFiles := []string{"ui-builder.md", "ui-learning.md"}
-	agentsDir := filepath.Join(projectRoot, ".claude", "agents")
+	// 1. Install skill files
+	// Skills are installed from install/init/skills/ (dev) or bundled skills/ directory
 	isBundled, _ := cli.IsBundled()
+	skillsDir := filepath.Join(projectRoot, ".claude", "skills")
 
-	for _, agentFile := range agentFiles {
-		destPath := filepath.Join(agentsDir, agentFile)
-		relPath := filepath.Join(".claude", "agents", agentFile)
-
-		// Check if file exists
-		exists := false
-		if _, err := os.Stat(destPath); err == nil {
-			exists = true
-		}
-
-		// Skip if exists and not forcing
-		if exists && !force {
-			skipped = append(skipped, relPath)
-			continue
-		}
-
-		// Read from bundle or local
-		bundlePath := filepath.Join("agents", agentFile)
-		var content []byte
-		var err error
-
-		if isBundled {
-			content, err = cli.BundleReadFile(bundlePath)
-		} else {
-			// Development mode: read from install/agents/
-			localPath := filepath.Join(projectRoot, "install", "agents", agentFile)
-			content, err = os.ReadFile(localPath)
-		}
-
-		if err != nil || len(content) == 0 {
-			s.cfg.Log(1, "Agent file not found: %s", bundlePath)
-			continue
-		}
-
-		// Create directory and write file
-		if err := os.MkdirAll(agentsDir, 0755); err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to create agents directory: %v", err)), nil
-		}
-		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", agentFile, err)), nil
-		}
-
-		installed = append(installed, relPath)
-		s.cfg.Log(1, "Installed agent file: %s", destPath)
+	// Skills to install: map of skill name to files
+	skillsToInstall := map[string][]string{
+		"ui": {"SKILL.md"},
+		"ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua",
+			"examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
 	}
 
-	// 2. Handle CLAUDE.md
-	claudePath := filepath.Join(projectRoot, "CLAUDE.md")
-	claudeMarker := "### Building UIs with ui-builder Agent"
+	for skillName, skillFiles := range skillsToInstall {
+		for _, skillFile := range skillFiles {
+			destPath := filepath.Join(skillsDir, skillName, skillFile)
+			relPath := filepath.Join(".claude", "skills", skillName, skillFile)
 
-	// Read bundled content
-	var addToClaudeContent []byte
-	if isBundled {
-		addToClaudeContent, _ = cli.BundleReadFile("add-to-claude.md")
-	} else {
-		localPath := filepath.Join(projectRoot, "install", "add-to-claude.md")
-		addToClaudeContent, _ = os.ReadFile(localPath)
-	}
-
-	if len(addToClaudeContent) > 0 {
-		claudeExists := false
-		var existingContent []byte
-		if _, err := os.Stat(claudePath); err == nil {
-			claudeExists = true
-			existingContent, _ = os.ReadFile(claudePath)
-		}
-
-		hasMarker := strings.Contains(string(existingContent), claudeMarker)
-
-		if !claudeExists {
-			// Create new CLAUDE.md
-			if err := os.WriteFile(claudePath, addToClaudeContent, 0644); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create CLAUDE.md: %v", err)), nil
+			// Check if file exists
+			exists := false
+			if _, err := os.Stat(destPath); err == nil {
+				exists = true
 			}
-			installed = append(installed, "CLAUDE.md")
-		} else if !hasMarker {
-			// Append to existing CLAUDE.md
-			separator := "\n\n---\n\n"
-			newContent := append(existingContent, []byte(separator)...)
-			newContent = append(newContent, addToClaudeContent...)
-			if err := os.WriteFile(claudePath, newContent, 0644); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to append to CLAUDE.md: %v", err)), nil
+
+			// Skip if exists and not forcing
+			if exists && !force {
+				skipped = append(skipped, relPath)
+				continue
 			}
-			appended = append(appended, "CLAUDE.md")
-		} else if force {
-			// Replace ui-builder section in CLAUDE.md
-			content := string(existingContent)
-			markerIdx := strings.Index(content, claudeMarker)
-			if markerIdx >= 0 {
-				// Find end of section (next ## header or end of file)
-				afterMarker := content[markerIdx:]
-				endIdx := len(content)
-				if nextSection := strings.Index(afterMarker[1:], "\n## "); nextSection >= 0 {
-					endIdx = markerIdx + 1 + nextSection
-				}
-				newContent := content[:markerIdx] + string(addToClaudeContent)
-				if endIdx < len(content) {
-					newContent += content[endIdx:]
-				}
-				if err := os.WriteFile(claudePath, []byte(newContent), 0644); err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("failed to update CLAUDE.md: %v", err)), nil
-				}
-				installed = append(installed, "CLAUDE.md")
+
+			// Read from bundle or local
+			bundlePath := filepath.Join("skills", skillName, skillFile)
+			var content []byte
+			var err error
+
+			if isBundled {
+				content, err = cli.BundleReadFile(bundlePath)
+			} else {
+				// Development mode: read from install/init/skills/
+				localPath := filepath.Join(projectRoot, "install", "init", "skills", skillName, skillFile)
+				content, err = os.ReadFile(localPath)
 			}
-		} else {
-			skipped = append(skipped, "CLAUDE.md")
+
+			if err != nil || len(content) == 0 {
+				s.cfg.Log(1, "Skill file not found: %s", bundlePath)
+				continue
+			}
+
+			// Create directory and write file
+			destDir := filepath.Dir(destPath)
+			if err := os.MkdirAll(destDir, 0755); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to create skills directory: %v", err)), nil
+			}
+			if err := os.WriteFile(destPath, content, 0644); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", skillFile, err)), nil
+			}
+
+			installed = append(installed, relPath)
+			s.cfg.Log(1, "Installed skill file: %s", destPath)
 		}
 	}
 
@@ -377,6 +324,18 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			// Add to queue and signal waiters
 			s.pushStateEvent(vendedID, goEvent)
 			return 0
+		}))
+
+		// mcp:pollingEvents() - check if agent is connected to /wait endpoint
+		// Spec: mcp.md Section 8.2
+		L.SetField(mcpTable, "pollingEvents", L.NewFunction(func(L *lua.LState) int {
+			// Note: Called as mcp:pollingEvents() but we ignore the self argument
+			if s.hasPollingClients(vendedID) {
+				L.Push(lua.LTrue)
+			} else {
+				L.Push(lua.LFalse)
+			}
+			return 1
 		}))
 
 		// mcp:display(appName) - load and display an app

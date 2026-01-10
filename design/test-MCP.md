@@ -132,13 +132,13 @@
 
 **Scenarios**:
 1.  **Install Needed (Files Missing)**:
-    - Start with empty project root (no `.claude/agents/` directory).
+    - Start with empty project root (no `.claude/skills/` directory).
     - Call `ui_configure` with `base_dir=".claude/ui"`.
     - Verify response includes `install_needed: true`.
     - Verify response includes hint about running `ui_install`.
 
 2.  **Install Not Needed (Files Present)**:
-    - Pre-create `.claude/agents/ui-builder.md`.
+    - Pre-create `.claude/skills/ui-builder/SKILL.md`.
     - Call `ui_configure` with `base_dir=".claude/ui"`.
     - Verify response does NOT include `install_needed: true`.
 
@@ -151,7 +151,6 @@
     - Start with empty project root.
     - Call `ui_configure` then `ui_install`.
     - Verify all bundled files created:
-      - `{project}/CLAUDE.md` (appended)
       - `{project}/.claude/skills/*`
       - `{base_dir}/resources/*`
       - `{base_dir}/viewdefs/*`
@@ -170,19 +169,13 @@
     - Verify files overwritten with bundled content.
     - Verify response lists files as installed.
 
-4.  **CLAUDE.md Append**:
-    - Pre-create `CLAUDE.md` with existing content.
-    - Call `ui_install`.
-    - Verify ui-builder instructions appended (not replaced).
-    - Verify original content preserved.
-
-5.  **Path Resolution**:
+4.  **Path Resolution**:
     - Set `base_dir="/project/.claude/ui"`.
     - Call `ui_install`.
     - Verify project files installed to `/project/.claude/`.
     - Verify base_dir files installed to `/project/.claude/ui/`.
 
-6.  **State Requirement**:
+5.  **State Requirement**:
     - Server in UNCONFIGURED state.
     - Call `ui_install`.
     - Verify error (must be CONFIGURED or RUNNING).
