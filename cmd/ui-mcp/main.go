@@ -19,6 +19,10 @@ import (
 	"github.com/zot/ui-mcp/internal/mcp"
 )
 
+// Version is set at build time via ldflags
+// Spec: mcp.md Section 1.2
+var Version = "dev"
+
 func main() {
 	hooks := &cli.Hooks{
 		BeforeDispatch: func(command string, args []string) (bool, int) {
@@ -50,7 +54,7 @@ MCP Examples:
   ui-mcp hooks install                              Install permission UI hook`
 		},
 		CustomVersion: func() string {
-			return "MCP Extension v0.1.0"
+			return "ui-mcp " + Version
 		},
 	}
 

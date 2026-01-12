@@ -39,6 +39,17 @@ Support multiple MCP transport modes:
 - **SSE** (`serve` command): Server-Sent Events over HTTP
 - **Default base_dir:** `{project}/.claude/ui` for both modes
 
+### Startup Behavior
+- Server uses `--dir` (defaults to `.claude/ui`)
+- Auto-install if `{base_dir}` or `{base_dir}/README.md` missing
+- Starts in CONFIGURED state (no UNCONFIGURED state)
+- `ui_configure` optional—for reconfiguration only
+
+### Versioning
+- Source of truth: `README.md` (`**Version: X.Y.Z**`)
+- CLI: `--version` flag or `version` subcommand (build-time ldflags)
+- MCP: `ui_status` returns bundled version from README.md
+
 ### HTTP Endpoints (MCP port)
 Debug and inspect runtime state:
 - `GET /wait`: Long-poll for mcp.pushState() events

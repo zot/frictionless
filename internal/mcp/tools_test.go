@@ -203,12 +203,13 @@ func TestInstallSkillFilesPathResolution(t *testing.T) {
 	}
 }
 
-// TestInstallRequiresConfiguredState tests that install fails if not configured
-func TestInstallRequiresConfiguredState(t *testing.T) {
+// TestInstallRequiresBaseDir tests that install fails if baseDir is not set
+func TestInstallRequiresBaseDir(t *testing.T) {
 	cfg := cli.DefaultConfig()
 	s := &Server{
-		cfg:   cfg,
-		state: Unconfigured,
+		cfg:     cfg,
+		state:   Configured,
+		baseDir: "", // Empty baseDir should cause failure
 	}
 
 	result, err := callHandleInstall(s, false)
@@ -216,7 +217,7 @@ func TestInstallRequiresConfiguredState(t *testing.T) {
 		t.Fatalf("handleInstall returned error: %v", err)
 	}
 	if !result.IsError {
-		t.Error("handleInstall should return error when not configured")
+		t.Error("handleInstall should return error when baseDir is not set")
 	}
 }
 

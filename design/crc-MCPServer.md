@@ -10,7 +10,7 @@
 - resources: List of available MCP resources
 - tools: List of available MCP tools
 - activeSession: Current session for AI interaction
-- state: Lifecycle state (UNCONFIGURED, CONFIGURED, RUNNING)
+- state: Lifecycle state (CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
 - uiPort: UI server port (serves HTML/JS/WebSocket)
 - mcpPort: MCP server port (serves /state, /wait, /variables)
@@ -20,8 +20,8 @@
 - mcpStateQueue: Event queue for current session (mcp.state)
 
 ### Does
-- initialize: Set up MCP server connection in UNCONFIGURED state
-- configure: Transition to CONFIGURED state, setup directories and I/O (ui_configure)
+- initialize: Set up MCP server, auto-install if README.md missing, start in CONFIGURED state
+- configure: Reconfigure to different base_dir, auto-install if needed (ui_configure)
 - start: Transition to RUNNING state, launch HTTP server (ui_start)
 - stop: Destroy current session, reset to CONFIGURED (enables session restart)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)

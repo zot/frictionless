@@ -10,45 +10,39 @@
 - HTTPServer: The UI platform's HTTP service
 - OS: Operating system services (filesystem, browser launch)
 
-## Scenario 1: Initial Configuration & Setup
-The AI agent initializes the environment before starting the server.
-**Note:** Use `base_dir = ".claude/ui"` unless the user explicitly requests a different location.
+## Scenario 1: Startup (Auto-Configure)
+Server starts in CONFIGURED state using `--dir` (defaults to `.claude/ui`).
 
 ```
-     ┌────────┐             ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
-     │AI Agent│             │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
-     └────┬───┘             └────┬────┘             └───┬───┘             └─────┬────┘           └─┬──┘
-          │Call("ui_configure", {base_dir})             │                       │                  │
-          │─────────────────────>│                      │                       │                  │
-          │                      │ Handle("ui_configure")                       │                  │
-          │                      │─────────────────────>│                       │                  │
-          │                      │                      │ CreateDir(base_dir)   │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │                       │                  │
-          │                      │                      │ RedirectIO(base_dir)  │                  │
-          │                      │                      │──────────────────────>│                  │
-          │                      │                      │                       │                  │
-          │                      │                      │   LoadConfig()        │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │                       │                  │
-          │                      │  SetState(CONFIGURED)│                       │                  │
-          │                      │<─────────────────────│                       │                  │
-          │                      │                      │                       │                  │
-          │                      │                      │ CheckInstallNeeded()  │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │     [check file]      │                  │
-          │                      │                      │                       │                  │
-          │  Success + install_needed hint              │                       │                  │
-          │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                       │                  │
-     ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─────┴────┘           ┌─┴──┐
-     │AI Agent│             │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
-     └────────┘             └─────────┘             └───┴───┘             └──────────┘           └────┘
+     ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
+     │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
+     └────┬────┘             └───┬───┘             └─────┬────┘           └─┬──┘
+          │ Initialize(base_dir) │                       │                  │
+          │─────────────────────>│                       │                  │
+          │                      │ CreateDir(base_dir)   │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │                       │                  │
+          │                      │ CheckReadme(base_dir) │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │      [exists?]        │                  │
+          │                      │                       │                  │
+          │                      │ [if missing] Install()│                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │                       │                  │
+          │                      │ RedirectIO(base_dir)  │                  │
+          │                      │──────────────────────>│                  │
+          │                      │                       │                  │
+          │  SetState(CONFIGURED)│                       │                  │
+          │<─────────────────────│                       │                  │
+     ┌────┴────┐             ┌───┴───┐             ┌─────┴────┐           ┌─┴──┐
+     │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
+     └─────────┘             └───────┘             └──────────┘           └────┘
 ```
 
 **Notes:**
-- Configuration checks if bundled files are installed
-- Returns `install_needed: true` hint if `.claude/skills/ui-builder/SKILL.md` is missing
-- Agent explicitly calls `ui_install` to install files (separated from configure)
+- Auto-install runs if `{base_dir}/README.md` is missing
+- Server starts in CONFIGURED state (no UNCONFIGURED state)
+- `ui_configure` is optional—only needed to change base_dir
 
 ## Scenario 1a: Bundled File Installation (ui_install)
 Shows the installation of bundled files when agent calls `ui_install`.

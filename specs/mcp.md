@@ -17,6 +17,24 @@ The Makefile provides a `release` target that builds binaries for all supported 
 
 All binaries are built with `CGO_ENABLED=0` for static linking and include bundled assets.
 
+## 1.2 Versioning
+
+**Source of Truth:** `README.md` contains the canonical version in the format `**Version: X.Y.Z**`.
+
+**CLI Version (`--version` flag or `version` subcommand):**
+- Reports the version injected at build time via ldflags (`-X main.Version=$(VERSION)`)
+- Falls back to "dev" if not set
+- Format: `ui-mcp vX.Y.Z` (e.g., `ui-mcp v0.4.0`)
+
+**MCP Version (`ui_status` tool):**
+- Returns version from bundled `README.md` (see Section 5.6)
+
+**Build-time Injection:**
+```makefile
+VERSION ?= $(shell git describe --tags --always --dirty)
+LDFLAGS := -ldflags "-X main.Version=$(VERSION)"
+```
+
 ## 2. Transport & Modes
 
 ### 2.1 Transport Options
@@ -65,41 +83,48 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 
 The MCP server operates as a strict Finite State Machine (FSM).
 
-### 3.1 States
+### 3.1 Startup Behavior
 
-| State            | HTTP Server Status | Configuration | Lua I/O    | Description                                                                                  |
-|:-----------------|:-------------------|:--------------|:-----------|:---------------------------------------------------------------------------------------------|
-| **UNCONFIGURED** | **Stopped**        | None          | Standard   | Initial state on process start. Only `ui_configure` is permitted.                            |
-| **CONFIGURED**   | **Stopped**        | Loaded        | Redirected | Environment is prepped, logs are active, but no network port is bound. Ready for `ui_start`. |
-| **RUNNING**      | **Active**         | Loaded        | Redirected | Server is listening on a port. All tools are fully operational.                              |
+On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically configures:
 
-### 3.2 Transitions
+1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically
+2. **Auto-Configure:** Server starts in CONFIGURED state with the base_dir ready
+3. **Reconfiguration:** `ui_configure` can be called to change base_dir if needed
 
-**1. UNCONFIGURED -> CONFIGURED**
-*   **Trigger:** Successful execution of `ui_configure`.
-*   **Conditions:** `base_dir` is valid and writable.
-*   **Effects:**
-    *   Filesystem (logs, config) is initialized.
-    *   Lua `print`, `stdout`, and `stderr` are redirected to log files.
-    *   Internal config struct is populated.
+### 3.2 States
 
-**2. CONFIGURED -> RUNNING**
+| State          | HTTP Server Status | Configuration | Lua I/O    | Description                                                                 |
+|:---------------|:-------------------|:--------------|:-----------|:----------------------------------------------------------------------------|
+| **CONFIGURED** | **Stopped**        | Loaded        | Redirected | Initial state after startup. Environment is prepped, ready for `ui_start`. |
+| **RUNNING**    | **Active**         | Loaded        | Redirected | Server is listening on a port. All tools are fully operational.            |
+
+### 3.3 Transitions
+
+**1. CONFIGURED -> RUNNING**
 *   **Trigger:** Successful execution of `ui_start`.
 *   **Conditions:** None (other than being in CONFIGURED state).
 *   **Effects:**
     *   HTTP listener starts on ephemeral port.
     *   Background workers (SessionManager, etc.) are started.
 
-### 3.3 State Invariants & Restrictions
+**2. CONFIGURED -> CONFIGURED (reconfigure)**
+*   **Trigger:** Successful execution of `ui_configure`.
+*   **Conditions:** `base_dir` is valid and writable.
+*   **Effects:**
+    *   Filesystem (logs, config) is re-initialized for new base_dir.
 
-*   **UNCONFIGURED:**
-    *   Calling `ui_start`, `ui_run`, `ui_get_state`, etc. MUST fail with error: "Server not configured".
+**3. RUNNING -> CONFIGURED (reconfigure)**
+*   **Trigger:** Successful execution of `ui_configure`.
+*   **Effects:**
+    *   Current session is destroyed, HTTP server stops.
+    *   Re-initializes for new base_dir.
+
+### 3.4 State Invariants & Restrictions
+
 *   **CONFIGURED:**
-    *   Calling `ui_configure` again IS permitted (re-configuration).
     *   Calling runtime tools (`ui_run`, etc.) MUST fail with error: "Server not started".
 *   **RUNNING:**
     *   Calling `ui_start` again MUST fail with error: "Server already running".
-    *   Calling `ui_configure` IS permitted: it destroys the current session, resets state to CONFIGURED, then proceeds with configuration. This allows session restart without process restart.
 
 ## 4. Lua Environment Integration
 
@@ -193,39 +218,26 @@ The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for
 ## 5. Tools
 
 ### 5.1 `ui_configure`
-**Purpose:** Prepares the server environment and file system. This must be the first tool called.
+**Purpose:** Reconfigure the server to use a different base directory. Optional—server auto-configures at startup using `--dir` (defaults to `.claude/ui`).
 
 **Parameters:**
-- `base_dir` (string, required): Absolute path to the UI working directory. **Use `.claude/ui` relative to the project root unless the user explicitly requests a different location.** This keeps UI files organized within the Claude configuration directory.
+- `base_dir` (string, required): Absolute path to the UI working directory. **Use `{project}/.claude/ui` unless the user explicitly requests a different location.**
 
 **Behavior:**
 1.  **Directory Creation:**
     - Creates `base_dir` if it does not exist.
     - Creates a `log` subdirectory within `base_dir`.
-2.  **Configuration Loading:**
+2.  **Auto-Install:** If `{base_dir}/README.md` does not exist, runs `ui_install` automatically.
+3.  **Configuration Loading:**
     - Checks for existing configuration files in `base_dir`.
     - If found, loads them.
-    - If not found, initializes default configuration suitable for the MCP environment.
-3.  **Runtime Setup:**
+    - If not found, initializes default configuration.
+4.  **Runtime Setup:**
     - Configures Lua I/O redirection as described in Section 4.
-4.  **State Transition:** Moves server state from `Unconfigured` to `Configured`.
+5.  **State:** Remains in or transitions to CONFIGURED state.
 
 **Returns:**
 - Success message indicating the configured directory and log paths.
-
-### 5.1.1 Installation Check
-
-During configuration, the MCP server checks if bundled files have been installed and prompts the agent to run `ui_install` if needed.
-
-**Behavior:**
-1. **Check:** Look for `.claude/skills/ui-builder/SKILL.md` relative to the parent of `base_dir`.
-2. **If missing:** Include in `ui_configure` response: `"install_needed": true, "hint": "Run ui_install to install skill files"`
-3. **If present:** No action needed.
-
-**Design Rationale:**
-- Separates configuration from installation (cleaner lifecycle)
-- Agent explicitly calls `ui_install` when needed
-- See section 5.7 for full installation behavior
 
 ### 5.2 `ui_start`
 **Purpose:** Starts the embedded HTTP UI server.
@@ -325,14 +337,14 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 **Parameters:** None.
 
 **Behavior:**
-- Reports the current server state (UNCONFIGURED, CONFIGURED, or RUNNING).
+- Reports the current server state (CONFIGURED or RUNNING).
 - If RUNNING, reports the server URL and number of connected browser sessions.
 
 **Returns:**
 - JSON object with status information:
-  - `state`: Current lifecycle state ("unconfigured", "configured", or "running")
+  - `state`: Current lifecycle state ("configured" or "running")
   - `version`: Bundled version from README.md (always present)
-  - `base_dir`: Configured base directory (only if configured or running)
+  - `base_dir`: Configured base directory (always present)
   - `url`: Server URL (only if running)
   - `sessions`: Number of active browser sessions (only if running)
 

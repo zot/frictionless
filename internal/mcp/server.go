@@ -23,11 +23,11 @@ import (
 )
 
 // State represents the lifecycle state of the MCP server.
+// Spec: mcp.md Section 3.1 - Server starts in CONFIGURED state.
 type State int
 
 const (
-	Unconfigured State = iota
-	Configured
+	Configured State = iota
 	Running
 )
 
@@ -69,7 +69,7 @@ func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManag
 		startFunc:         startFunc,
 		onViewdefUploaded: onViewdefUploaded,
 		getSessionCount:   getSessionCount,
-		state:             Unconfigured,
+		state:             Configured, // Server starts in CONFIGURED state (Spec: mcp.md Section 3.1)
 		stateWaiters:      make(map[string][]chan struct{}),
 		stateQueue:        make(map[string][]interface{}),
 	}
@@ -220,18 +220,37 @@ func (s *Server) ShutdownHTTPServer(ctx context.Context) error {
 }
 
 // Configure transitions the server to the Configured state.
-// Spec: mcp.md
+// Auto-installs if README.md is missing (Spec: mcp.md Section 3.1).
 // CRC: crc-MCPServer.md
+// Sequence: seq-mcp-lifecycle.md (Scenario 1)
 func (s *Server) Configure(baseDir string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.state == Running {
+		s.mu.Unlock()
 		return fmt.Errorf("Cannot reconfigure while running")
 	}
-
 	s.baseDir = baseDir
 	s.state = Configured
+	s.mu.Unlock() // Release lock before I/O operations
+
+	// Create base directory and log directory
+	if err := os.MkdirAll(filepath.Join(baseDir, "log"), 0755); err != nil {
+		return fmt.Errorf("failed to create directories: %w", err)
+	}
+
+	// Store log paths for session setup
+	s.logPath = filepath.Join(baseDir, "log", "lua.log")
+	s.errPath = filepath.Join(baseDir, "log", "lua-err.log")
+
+	// Auto-install if README.md is missing
+	// Spec: mcp.md Section 3.1 - Startup Behavior
+	readmePath := filepath.Join(baseDir, "README.md")
+	if _, err := os.Stat(readmePath); os.IsNotExist(err) {
+		s.cfg.Log(1, "README.md not found, running auto-install")
+		if _, installErr := s.Install(false); installErr != nil {
+			return fmt.Errorf("auto-install failed: %w", installErr)
+		}
+	}
 
 	return nil
 }
@@ -241,13 +260,13 @@ func (s *Server) Configure(baseDir string) error {
 // CRC: crc-MCPServer.md
 func (s *Server) Start() (string, error) {
 	s.mu.Lock()
-	if s.state == Unconfigured {
-		s.mu.Unlock()
-		return "", fmt.Errorf("Server not configured")
-	}
 	if s.state == Running {
 		s.mu.Unlock()
 		return "", fmt.Errorf("Server already running")
+	}
+	if s.state != Configured {
+		s.mu.Unlock()
+		return "", fmt.Errorf("Server not configured")
 	}
 	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
