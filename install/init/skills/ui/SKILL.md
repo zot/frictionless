@@ -1,6 +1,6 @@
 ---
 name: ui
-description: use when **running ui-mcp UIs** or needing to understand UI structure
+description: use when **running ui-mcp UIs** or needing to understand UI structure (before modifying one)
 ---
 
 # UI MCP
@@ -21,7 +21,7 @@ To display an app (e.g., `claude-panel`):
    - ui_display("app-name")
    - ui_open_browser (or navigate with Playwright)
 
-3. Start event loop in background:
+3. Start event loop (foreground is most responsive):
    .claude/ui/event
 
 4. When events arrive, handle via ui_run using the global variable:
@@ -32,13 +32,13 @@ To display an app (e.g., `claude-panel`):
 
 Each app defines a **global variable** for interacting with it via `ui_run`:
 
-| App Name       | Global Variable | Example Call                          |
-|----------------|-----------------|---------------------------------------|
-| `claude-panel` | `claudePanel`   | `claudePanel:addAgentMessage("Hi")`   |
-| `contacts`     | `contactsApp`   | `contactsApp:addContact(name, email)` |
-| `my-app`       | `myApp`         | `myApp:someMethod()`                  |
+| App Name       | Global Variable | Example Call                        |
+|----------------|-----------------|-------------------------------------|
+| `claude-panel` | `claudePanel`   | `claudePanel:addAgentMessage("Hi")` |
+| `contacts`     | `contacts`      | `contacts:addContact(name, email)`  |
+| `ma-luba`      | `maLuba`        | `maLuba:someMethod()`               |
 
-**Convention:** kebab-case app name → camelCase variable (check `app.lua` to confirm).
+**Convention:** kebab-case app name → camelCase variable. The global variable is exactly the camelCase conversion of the app directory name (no "App" suffix).
 
 Find the variable by looking at the bottom of `app.lua` for the instance creation:
 ```lua
@@ -73,19 +73,23 @@ Returns one JSON array per line containing one or more events:
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
 
-**Event loop pattern:**
-1. Start `.claude/ui/event` in background
-2. When it completes, read output file
-3. If output is empty, just restart the loop (timeout with no events)
-4. Otherwise parse JSON array, handle each event with `ui_run`
-5. Restart the event loop
+**Foreground event loop (recommended):**
+1. Run `.claude/ui/event` with Bash (blocking, ~2 min timeout)
+2. When it returns, parse JSON array. If non-empty, handle each event
+   - use `ui_run` to alter app state and reflect changes to the user
+3. Restart the event loop
+
+This is the most responsive approach - events are handled immediately.
+
+**Background event loop (alternative):**
+Run `.claude/ui/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
 
 **Exit codes:**
 - 0 + empty output = timeout, no events (just restart)
 - 0 + JSON output = events received
 - 52 = server restarted (restart both server and event loop)
 
-## Building UIs
+## Building or modifying UIs
 
 **ALWAYS use the `/ui-builder` skill to create or modify UIs.** Do NOT use `ui_*` MCP tools directly for building.
 
@@ -119,7 +123,8 @@ Before invoking `/ui-builder`:
 - Check `.claude/ui/log/lua.log` for Lua errors
 - `ui_run` returns error messages
 - `ui://state` resource shows live state JSON
-- Browser console: `window.uiApp.store` shows all variables
+- `window.uiApp` contains the app object in the browser
+  - `window.uiApp.store` shows all variables
 
 ## Resources
 
