@@ -23,7 +23,7 @@ An MCP server that enables AI agents to build interactive UIs for rich two-way c
 Paste this into Claude Code to install:
 
 ```
-Download ui-mcp to .claude/bin and add it to my MCP servers
+Download the github/zot/ui-mcp release to .claude/bin and add it to my MCP servers
 ```
 
 Or install manually:

@@ -123,25 +123,35 @@ deps:
 #	$(GO) mod download
 #	$(GO) mod tidy
 
-# Build release binaries for all platforms
-release:
+# Build release binaries for all platforms (with bundling)
+release: build
 	@echo "Building release binaries..."
 	@mkdir -p $(RELEASE_DIR)
 	@# Linux AMD64
 	@echo "  Building linux/amd64..."
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64 -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64.bundled install
+	@mv $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64
 	@# Linux ARM64
 	@echo "  Building linux/arm64..."
 	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64 -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64.bundled install
+	@mv $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64
 	@# macOS AMD64
 	@echo "  Building darwin/amd64..."
 	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64 -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64.bundled install
+	@mv $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64
 	@# macOS ARM64 (Apple Silicon)
 	@echo "  Building darwin/arm64..."
 	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64 -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64.bundled install
+	@mv $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64
 	@# Windows AMD64
 	@echo "  Building windows/amd64..."
 	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/ui-mcp
+	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe -o $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.bundled.exe install
+	@mv $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.bundled.exe $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe
 	@echo "Release binaries in $(RELEASE_DIR)/"
 	@ls -la $(RELEASE_DIR)/
 
