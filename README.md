@@ -30,12 +30,12 @@ To install manually:
 
 ```bash
 # Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
-mkdir -p .claude/bin
-curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd64 -o .claude/bin/ui-mcp
-chmod +x .claude/bin/ui-mcp
+mkdir -p {home}/.claude/bin
+curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd64 -o {home}/.claude/bin/ui-mcp
+chmod +x {home}/.claude/bin/ui-mcp
 
 # Add to Claude Code
-claude mcp add ui-mcp -- {full-path-to-.claude/bin/ui-mcp} mcp
+claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
 ```
 
 ## Usage
