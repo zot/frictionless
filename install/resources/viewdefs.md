@@ -17,15 +17,36 @@ View definitions (viewdefs) are HTML templates that define how Lua objects are r
 | Attribute | Description | Example |
 |:----------|:------------|:--------|
 | `ui-value` | Bind element value/text to Lua path | `<sl-input ui-value="name">` or `<span ui-value="fullName()">` |
-| `ui-action` | Bind click to Lua method | `<sl-button ui-action="save()">` |
+| `ui-action` | Bind button click to Lua method | `<sl-button ui-action="save()">` |
+| `ui-event-click` | Bind click on any element | `<div ui-event-click="select()">` |
 | `ui-event-*` | Bind any event to Lua method | `<sl-select ui-event-sl-change="onSelect()">` |
+| `ui-event-keypress-*` | Bind specific key press | `<sl-input ui-event-keypress-enter="submit()">` |
 | `ui-view` | Render child object with its viewdef | `<div ui-view="selectedItem">` |
 | `ui-viewlist` | Render array as list | `<div ui-viewlist="items">` |
 | `ui-attr-*` | Bind HTML attribute to Lua path | `<sl-alert ui-attr-open="hasError">` |
 | `ui-class-*` | Toggle CSS class on boolean | `<div ui-class-active="isSelected">` |
 | `ui-style-*` | Bind CSS style to Lua path | `<div ui-style-color="themeColor">` |
+| `ui-code` | Execute JS when value changes | `<div ui-code="jsHandler">` |
 
-**Note:** `ui-value` works for both input elements (sets `.value`) and display elements like `<span>` (sets text content).
+**Notes:**
+- `ui-value` works for both input elements (sets `.value`) and display elements like `<span>` (sets text content)
+- `ui-action` only works on buttons. Use `ui-event-click` for other elements
+- For checkboxes/switches, use `ui-attr-checked` (not `ui-value`)
+
+## Keypress Events
+
+`ui-event-keypress-*` fires on specific key presses:
+
+```html
+<sl-input ui-event-keypress-enter="submit()">
+<sl-input ui-event-keypress-escape="cancel()">
+<sl-input ui-event-keypress-ctrl-s="save()">
+<sl-input ui-event-keypress-ctrl-shift-z="redo()">
+```
+
+**Modifiers** (combinable): `ctrl`, `shift`, `alt`, `meta`
+
+**Keys:** `enter`, `escape`, `tab`, `space`, `left`, `right`, `up`, `down`, or any letter
 
 ## Path Syntax
 
@@ -50,7 +71,21 @@ Add parameters after `?`:
 
 <!-- Wrap value in a presenter -->
 <div ui-view="contact?wrapper=ContactPresenter">
+
+<!-- Auto-scroll to bottom when content changes -->
+<div ui-view="messages?scrollOnOutput">
+
+<!-- ViewList with wrapper -->
+<div ui-view="items?wrapper=lua.ViewList">
 ```
+
+| Parameter | Purpose |
+|-----------|---------|
+| `keypress` | Send updates on every keystroke (not just blur) |
+| `scrollOnOutput` | Auto-scroll element to bottom when content updates |
+| `wrapper` | Wrap value with a type (e.g., `lua.ViewList`) |
+| `item` | Wrap each list item with a presenter type |
+| `access` | Control read/write: `r`, `w`, `rw`, `action` |
 
 ## Lists and Collections
 
@@ -146,12 +181,19 @@ The platform includes **Shoelace** web components:
 ```html
 <template>
   <form class="my-form">
-    <sl-input label="Name" ui-value="name" ui-attr-invalid="errors.name"></sl-input>
-    <div class="error" ui-class-visible="errors.name" ui-value="errors.name"></div>
+    <sl-input label="Name" ui-value="name" ui-attr-invalid="hasNameError()"></sl-input>
+    <div class="error" ui-class-hidden="noNameError()" ui-value="errors.name"></div>
 
-    <sl-button ui-action="submit()" ui-attr-disabled="!isValid">Submit</sl-button>
+    <sl-button ui-action="submit()" ui-attr-disabled="notValid()">Submit</sl-button>
   </form>
 </template>
+```
+
+**Note:** Paths cannot contain operators. Use Lua methods for negation:
+```lua
+function MyForm:notValid() return not self.isValid end
+function MyForm:hasNameError() return self.errors.name ~= nil end
+function MyForm:noNameError() return self.errors.name == nil end
 ```
 
 ### Conditional Display
@@ -159,18 +201,30 @@ The platform includes **Shoelace** web components:
 ```html
 <template>
   <div>
-    <div ui-class-hidden="!isLoading">Loading...</div>
+    <div ui-class-hidden="notLoading()">Loading...</div>
     <div ui-class-hidden="isLoading" ui-view="content"></div>
   </div>
 </template>
+```
+
+**Note:** Use methods for boolean inversion:
+```lua
+function MyApp:notLoading() return not self.isLoading end
 ```
 
 ### Action with Arguments
 
 ```html
 <template>
-  <sl-button ui-action="setPage(1)">First</sl-button>
-  <sl-button ui-action="setPage(currentPage - 1)">Prev</sl-button>
-  <sl-button ui-action="setPage(currentPage + 1)">Next</sl-button>
+  <sl-button ui-action="goToFirst()">First</sl-button>
+  <sl-button ui-action="goToPrev()">Prev</sl-button>
+  <sl-button ui-action="goToNext()">Next</sl-button>
 </template>
+```
+
+**Note:** Arithmetic in paths is not supported. Use methods:
+```lua
+function MyApp:goToFirst() self.currentPage = 1 end
+function MyApp:goToPrev() self.currentPage = math.max(1, self.currentPage - 1) end
+function MyApp:goToNext() self.currentPage = self.currentPage + 1 end
 ```
