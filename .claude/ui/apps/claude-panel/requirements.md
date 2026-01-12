@@ -62,9 +62,17 @@ A universal panel for Claude Code showing project status and quick actions.
 | Status  | Lua state                         | "Loading" or "Ready"               |
 | Branch  | `git branch --show-current`       | Current git branch                 |
 | Changed | `git status --porcelain \| wc -l` | Count of changed files             |
-| Events  | `mcp.eventQueueSize()`            | Count of pending events for Claude |
 
-Display "Events: N pending" when N > 0, otherwise hidden.
+## Connection Indicator
+
+A pulsating orange asterisk (*) appears next to "Claude Panel" when the agent event loop is **not connected** to the `/wait` endpoint. When connected, the indicator disappears.
+
+| State        | Display                           |
+|--------------|-----------------------------------|
+| Connected    | Nothing (clean title)             |
+| Disconnected | Orange pulsating `*` with glow    |
+
+The animation uses Claude's brand orange (#d97706) with a sparkle effect (scale + glow intensity pulse over 2 seconds).
 
 ## Tree Sections
 

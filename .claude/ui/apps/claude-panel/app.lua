@@ -264,21 +264,9 @@ function ClaudePanel:changedDisplay()
     return self.changedFiles .. " files"
 end
 
--- Pending events (live from mcp.eventQueueSize)
-function ClaudePanel:getPendingEvents()
-    return mcp.eventQueueSize()
-end
-
-function ClaudePanel:hasPendingEvents()
-    return self:getPendingEvents() > 0
-end
-
-function ClaudePanel:hasNoPendingEvents()
-    return not self:hasPendingEvents()
-end
-
-function ClaudePanel:pendingEventsDisplay()
-    return self:getPendingEvents() .. " pending"
+-- Polling status indicator (empty when connected, asterisk when not)
+function ClaudePanel:pollingIndicator()
+    return mcp.pollingEvents() and "" or "*"
 end
 
 -- Lua console

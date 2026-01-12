@@ -71,6 +71,7 @@
       display: flex;
       flex-direction: column;
       background: var(--sl-color-neutral-0);
+      min-height: 0;  /* Required for flex children to scroll */
     }
     .chat-header {
       padding: var(--sl-spacing-medium);
@@ -85,6 +86,7 @@
       flex: 1;
       overflow-y: auto;
       padding: var(--sl-spacing-medium);
+      min-height: 0;  /* Required for scroll in flex container */
     }
     .chat-input-area {
       display: flex;
@@ -172,12 +174,32 @@
       margin-top: var(--sl-spacing-small);
     }
     .hidden { display: none !important; }
+    /* Polling status indicator - Claude-style sparkle when disconnected */
+    .status-indicator {
+      margin-left: var(--sl-spacing-small);
+      color: #d97706;  /* Claude orange */
+      font-weight: bold;
+      animation: claude-sparkle 2s ease-in-out infinite;
+      text-shadow: 0 0 8px rgba(217, 119, 6, 0.6);
+    }
+    @keyframes claude-sparkle {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        text-shadow: 0 0 8px rgba(217, 119, 6, 0.6);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+        text-shadow: 0 0 16px rgba(217, 119, 6, 0.9);
+      }
+    }
   </style>
   <div class="claude-panel-root" ui-code="jsCode">
     <div class="main-content">
       <div class="left-panel">
         <div class="panel-header">
-          <h2>Claude Panel</h2>
+          <h2>Claude Panel<span class="status-indicator" ui-value="pollingIndicator()"></span></h2>
         </div>
         <div class="quick-actions">
           <sl-button size="small" ui-action="commitAction()">Commit</sl-button>
@@ -196,10 +218,6 @@
           <div class="status-row">
             <span class="status-label">Changed</span>
             <span class="status-value" ui-value="changedDisplay()"></span>
-          </div>
-          <div class="status-row" ui-class-hidden="hasNoPendingEvents()">
-            <span class="status-label">Events</span>
-            <span class="status-value" ui-value="pendingEventsDisplay()"></span>
           </div>
         </div>
         <div class="tree-sections" ui-view="sections?wrapper=lua.ViewList"></div>

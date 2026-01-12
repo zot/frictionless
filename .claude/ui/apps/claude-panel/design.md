@@ -8,14 +8,14 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 
 ```
 +----------------------------------+------------------------------------+
-| Claude Panel (320px)             | Chat                               |
+| Claude Panel *                   | Chat                               |
+| (* = pulsating when disconnected)|                                    |
 +----------------------------------+------------------------------------+
 | [Commit] [Test] [Build]          | +--------------------------------+ |
 +----------------------------------+ | Agent: How can I help?         | |
 | Status: Ready                    | | You: Hello                     | |
 | Branch: main                     | | Agent: Hi there!               | |
 | Changed: 3 files                 | |                                | |
-| Events: 2 pending (if > 0)       | |                                | |
 +----------------------------------+ |                                | |
 | > Agents (4)                     | +--------------------------------+ |
 |   - ui-builder                   | +--------------------------------+ |
@@ -43,7 +43,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | status          | string        | "Loading" or "Ready"             |
 | branch          | string        | Current git branch               |
 | changedFiles    | number        | Count of changed files           |
-| pendingEvents   | number        | Count of pending events for Claude (from mcp.eventQueueSize()) - updated live |
 | sections        | TreeSection[] | Collapsible sections             |
 | messages        | ChatMessage[] | Chat message history             |
 | chatInput       | string        | Current chat input text          |
@@ -95,10 +94,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | clearOutput()        | Clear luaOutput                                   |
 | isConsoleCollapsed() | Return not consoleExpanded                        |
 | copyToInput(line)    | Copy an output line to input for re-running       |
-| getPendingEvents()   | Return mcp.eventQueueSize() for live event count  |
-| hasPendingEvents()   | Return true if getPendingEvents() > 0             |
-| hasNoPendingEvents() | Return true if no pending events (for hiding row) |
-| pendingEventsDisplay() | Return "N pending" format for display           |
+| pollingIndicator()   | Return "" if connected, "*" if disconnected       |
 
 ### OutputLine
 | Method      | Description                              |
@@ -167,6 +163,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 
 ## Styling
 
+- Connection indicator: Orange (#d97706) pulsating asterisk next to title when disconnected, empty when connected. Uses `claude-sparkle` animation with scale and glow effects.
 - Left panel: fixed 320px width
 - Right panel: flexible, fills remaining space
 - Section headers: clickable, show expand/collapse indicator

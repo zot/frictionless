@@ -47,6 +47,18 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
    .claude/ui/linkapp add <app>
    ```
 
+5. **Audit** (after any design or modification):
+   - Read all generated files and check for violations:
+     - `<style>` blocks in list-item viewdefs (must be in top-level only)
+     - `item.` prefix in list-item viewdefs (item IS the context)
+     - `ui-action` on non-buttons (use `ui-event-click`)
+     - `ui-class="hidden:..."` (use `ui-class-hidden="..."`)
+     - `ui-value` on checkboxes/switches (use `ui-attr-checked`)
+     - Operators in paths (negation, equality, logical, arithmetic) — use methods instead
+     - Missing `min-height: 0` on scrollable flex children
+     - Missing `session.reloading` guard on instance creation
+   - Fix any violations found before considering the task complete
+
 ## Common Binding Mistakes
 
 These are easy to get wrong:
@@ -56,8 +68,14 @@ These are easy to get wrong:
 | `ui-action="fn()"` on div | `ui-event-click="fn()"` on div |
 | `ui-class="hidden:isCollapsed()"` | `ui-class-hidden="isCollapsed()"` |
 | `ui-viewlist="items"` | `ui-view="items?wrapper=lua.ViewList"` |
+| `<sl-checkbox ui-value="done">` | `<sl-checkbox ui-attr-checked="done">` |
+| `<style>` in list-item viewdef | Put all styles in top-level viewdef |
 
 `ui-action` only works on buttons. Use `ui-event-click` for other elements.
+`ui-value` on checkboxes/switches renders the boolean as text. Use `ui-attr-checked` for display + event handler for changes:
+```html
+<sl-checkbox ui-attr-checked="done" ui-event-sl-change="toggle()">
+```
 
 ## Preventing Drift (Updates)
 
@@ -174,7 +192,7 @@ Use cases: auto-close window, trigger downloads, custom DOM manipulation, browse
   - Properties after `?` are set on the created variable
   - Uses URL query string syntax: `key=value&key2=value2`
 
-**IMPORTANT:** No operators in paths! `!`, `==`, `&&`, `+`, etc. are NOT valid. For negation, create a method (e.g., `isCollapsed()` returning `not self.expanded` instead of `!expanded`).
+**IMPORTANT:** No operators in paths. Operators like negation, equality, logical-and, plus, etc. are NOT valid. For negation, create a method (e.g., `isCollapsed()` returning `not self.expanded` instead of using the negation operator).
 
 **Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy. Use boolean fields (e.g., `isActive`) or methods returning booleans for class/attr toggles.
 
@@ -210,8 +228,8 @@ This allows bindings like `ui-value="selectedContact.firstName"` to work when `s
 <!-- Live --> <sl-input ui-value="search?keypress">
 <!-- Button --> <sl-button ui-action="save()">Save</sl-button>
 <!-- Select --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
-<!-- Check --> <sl-checkbox ui-value="agreed">Agree</sl-checkbox>
-<!-- Switch --> <sl-switch ui-value="dark">Dark</sl-switch>
+<!-- Check --> <sl-checkbox ui-attr-checked="agreed">Agree</sl-checkbox>
+<!-- Switch --> <sl-switch ui-attr-checked="dark">Dark</sl-switch>
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
 <!-- Hide --> <div ui-class-hidden="isHidden()">Content</div>
 <!-- Alert --> <sl-alert ui-attr-open="err" variant="danger"><span ui-value="msg"></span></sl-alert>
@@ -317,7 +335,7 @@ end
 
 ## Styling
 
-**Put all CSS in top-level object viewdefs, NOT in index.html.**
+**Put ALL CSS in top-level object viewdefs only.** Never in index.html or list-item viewdefs.
 
 ```html
 <template>
@@ -329,11 +347,47 @@ end
 </template>
 ```
 
-**Tips:**
-- Put all styles in a `<style>` block in top-level object viewdefs
-- These styles apply to the entire rendered tree including nested viewdefs
+**Rules:**
+- ALL styles go in the top-level viewdef (e.g., `MyApp.DEFAULT.html`)
+- **NEVER put `<style>` blocks in list-item viewdefs** — they get duplicated for each item
+- Styles cascade down to nested viewdefs automatically
 - Use Shoelace CSS variables (e.g., `var(--sl-spacing-medium)`) for consistency
 - The `.hidden` utility class is commonly needed for `ui-class-hidden` bindings
+
+## Viewport Fitting (Critical)
+
+**Apps must fit within the viewport without causing page scroll.** Content that overflows should scroll within its container, not the page.
+
+**Required CSS pattern for full-height apps:**
+
+```html
+<template>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;  /* Prevent page scroll */
+    }
+    .my-app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;  /* Contain children */
+    }
+    .scrollable-area {
+      flex: 1;
+      min-height: 0;     /* CRITICAL: allows flex child to shrink */
+      overflow-y: auto;  /* Scroll within container */
+    }
+  </style>
+</template>
+```
+
+**Key rules:**
+1. Set `html, body { margin: 0; padding: 0; overflow: hidden; }` to prevent page scroll
+2. Root container needs `height: 100vh` and `overflow: hidden`
+3. Flex children that should scroll need BOTH `min-height: 0` AND `overflow-y: auto`
+4. The `min-height: 0` is essential - without it, flex items won't shrink below content size
 
 ## Complete Example
 

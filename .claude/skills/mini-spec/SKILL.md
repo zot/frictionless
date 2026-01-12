@@ -19,6 +19,7 @@ src/      # Code with traceability comments
 - Code and specs as MINIMAL as possible
 - Before using a callback, see if a collaborator reference would be simpler
 - write idiomatic code for the language you use
+- avoid holding locks in sections that have significant functionality
 
 ## Cross-cutting Concerns
 

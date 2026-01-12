@@ -241,14 +241,15 @@ func (s *Server) Configure(baseDir string) error {
 // CRC: crc-MCPServer.md
 func (s *Server) Start() (string, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.state == Unconfigured {
+		s.mu.Unlock()
 		return "", fmt.Errorf("Server not configured")
 	}
 	if s.state == Running {
+		s.mu.Unlock()
 		return "", fmt.Errorf("Server already running")
 	}
+	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
 	// Select random port (0)
 	url, err := s.startFunc(0)
@@ -256,8 +257,12 @@ func (s *Server) Start() (string, error) {
 		return "", err
 	}
 
+	// Update state after successful start
+	s.mu.Lock()
 	s.state = Running
 	s.url = url
+	s.mu.Unlock()
+
 	return url, nil
 }
 
@@ -265,25 +270,30 @@ func (s *Server) Start() (string, error) {
 // This allows reconfiguration without restarting the process.
 func (s *Server) Stop() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if s.state != Running {
+		s.mu.Unlock()
 		return nil // Nothing to stop
 	}
 
-	// Destroy the current session if we have one
-	if s.currentVendedID != "" {
+	// Capture session info while holding lock
+	vendedID := s.currentVendedID
+	s.mu.Unlock() // Release before calling DestroySession to avoid deadlock
+
+	// Destroy the session outside the lock (may trigger callbacks)
+	if vendedID != "" {
 		sessions := s.UiServer.GetSessions()
-		internalID := sessions.GetInternalID(s.currentVendedID)
+		internalID := sessions.GetInternalID(vendedID)
 		if internalID != "" {
 			sessions.DestroySession(internalID)
 		}
-		s.currentVendedID = ""
 	}
 
-	// Reset state (keep baseDir for reconfiguration)
+	// Update state after destruction completes
+	s.mu.Lock()
+	s.currentVendedID = ""
 	s.state = Configured
 	s.url = ""
+	s.mu.Unlock()
 
 	return nil
 }
@@ -571,10 +581,9 @@ func (s *Server) pushStateEvent(sessionID string, event interface{}) {
 // Spec: mcp.md Section 8.2
 func (s *Server) drainStateQueue(sessionID string) []interface{} {
 	s.stateWaitersMu.Lock()
-	defer s.stateWaitersMu.Unlock()
-
 	events := s.stateQueue[sessionID]
 	s.stateQueue[sessionID] = nil
+	s.stateWaitersMu.Unlock() // Release before calling into ui-engine to avoid deadlock
 
 	// Trigger UI update after draining (see mcp.md Section 4.1)
 	if len(events) > 0 {
@@ -640,6 +649,14 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	s.stateWaitersMu.Lock()
 	s.stateWaiters[sessionID] = append(s.stateWaiters[sessionID], waiterCh)
 	s.stateWaitersMu.Unlock()
+
+	// Trigger UI refresh so pollingEvents() status updates
+	s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
+	// Refresh again shortly after to catch any timing issues
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
+	}()
 
 	// Wait for signal or timeout
 	select {
