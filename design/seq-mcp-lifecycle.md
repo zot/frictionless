@@ -12,6 +12,7 @@
 
 ## Scenario 1: Initial Configuration & Setup
 The AI agent initializes the environment before starting the server.
+**Note:** Use `base_dir = ".claude/ui"` unless the user explicitly requests a different location.
 
 ```
      ┌────────┐             ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐

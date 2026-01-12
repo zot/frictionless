@@ -196,7 +196,7 @@ The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for
 **Purpose:** Prepares the server environment and file system. This must be the first tool called.
 
 **Parameters:**
-- `base_dir` (string, required): Absolute path to the directory serving as the project root.
+- `base_dir` (string, required): Absolute path to the UI working directory. **Use `.claude/ui` relative to the project root unless the user explicitly requests a different location.** This keeps UI files organized within the Claude configuration directory.
 
 **Behavior:**
 1.  **Directory Creation:**

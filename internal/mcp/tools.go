@@ -22,9 +22,10 @@ import (
 
 func (s *Server) registerTools() {
 	// ui_configure
+	// Spec: mcp.md section 5.1
 	s.mcpServer.AddTool(mcp.NewTool("ui_configure",
 		mcp.WithDescription("Prepare the server environment and file system. Must be the first tool called."),
-		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the project root directory")),
+		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the UI working directory. Use {project}/.claude/ui unless user specifies otherwise.")),
 	), s.handleConfigure)
 
 	// ui_start

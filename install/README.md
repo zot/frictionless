@@ -1,6 +1,6 @@
 # ui-mcp
 
-**Version: 0.3.0**
+**Version: 0.4.0**
 
 An MCP server that enables AI agents to build interactive UIs for rich two-way communication with users.
 
@@ -23,10 +23,10 @@ An MCP server that enables AI agents to build interactive UIs for rich two-way c
 Paste this into Claude Code to install:
 
 ```
-Download ui-mcp to .claude/bin and add it to my MCP servers
+Install from github zot/ui-mcp readme
 ```
 
-Or install manually:
+To install manually:
 
 ```bash
 # Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
@@ -35,7 +35,7 @@ curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd6
 chmod +x .claude/bin/ui-mcp
 
 # Add to Claude Code
-claude mcp add ui-mcp -- .claude/bin/ui-mcp
+claude mcp add ui-mcp -- {full-path-to-.claude/bin/ui-mcp} mcp
 ```
 
 ## Usage

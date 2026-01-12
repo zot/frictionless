@@ -15,7 +15,7 @@
 - handle: Execute tool logic (interface implementation)
 
 ### Standard Tools
-- ui_configure: Prepare server environment (files, logs, I/O, installation check)
+- ui_configure: Prepare server environment (files, logs, I/O, installation check). Use `.claude/ui` unless user specifies otherwise.
 - ui_start: Launch HTTP servers, write port files (ui-port, mcp-port)
 - ui_run: Execute Lua code in session context
 - ui_upload_viewdef: Add dynamic view definition and push to frontend
