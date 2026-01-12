@@ -149,21 +149,18 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(string(responseJSON)), nil
 }
 
-// parseSkillVersion extracts the version from a skill file's YAML frontmatter.
+// parseReadmeVersion extracts the version from README.md.
+// Looks for **Version: X.Y.Z** pattern near the top.
 // Returns empty string if no version found.
-func parseSkillVersion(content []byte) string {
+func parseReadmeVersion(content []byte) string {
 	lines := strings.Split(string(content), "\n")
-	inFrontmatter := false
 	for _, line := range lines {
-		if strings.TrimSpace(line) == "---" {
-			if inFrontmatter {
-				break // End of frontmatter
-			}
-			inFrontmatter = true
-			continue
-		}
-		if inFrontmatter && strings.HasPrefix(line, "version:") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "version:"))
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "**Version:") && strings.HasSuffix(line, "**") {
+			// Extract version from **Version: X.Y.Z**
+			version := strings.TrimPrefix(line, "**Version:")
+			version = strings.TrimSuffix(version, "**")
+			return strings.TrimSpace(version)
 		}
 	}
 	return ""
@@ -232,26 +229,26 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
 	isBundled, _ := cli.IsBundled()
 
-	// Version checking: compare bundled ui skill version with installed version
+	// Version checking: compare bundled README version with installed version
 	// Spec: mcp.md section 5.7 - Version Checking
 	var bundledVersion, installedVersion string
 
-	// Read bundled version
+	// Read bundled version from README.md
 	var bundledContent []byte
 	var err error
 	if isBundled {
-		bundledContent, err = cli.BundleReadFile(filepath.Join("skills", "ui", "SKILL.md"))
+		bundledContent, err = cli.BundleReadFile("README.md")
 	} else {
-		bundledContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "init", "skills", "ui", "SKILL.md"))
+		bundledContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "README.md"))
 	}
 	if err == nil {
-		bundledVersion = parseSkillVersion(bundledContent)
+		bundledVersion = parseReadmeVersion(bundledContent)
 	}
 
-	// Read installed version
-	installedSkillPath := filepath.Join(projectRoot, ".claude", "skills", "ui", "SKILL.md")
-	if installedContent, err := os.ReadFile(installedSkillPath); err == nil {
-		installedVersion = parseSkillVersion(installedContent)
+	// Read installed version from README.md
+	installedReadmePath := filepath.Join(s.baseDir, "README.md")
+	if installedContent, err := os.ReadFile(installedReadmePath); err == nil {
+		installedVersion = parseReadmeVersion(installedContent)
 	}
 
 	// Skip if installed version >= bundled version (unless force)
@@ -441,6 +438,32 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 
 		installed = append(installed, scriptFile)
 		s.cfg.Log(1, "Installed script: %s", destPath)
+	}
+
+	// 5. Install README.md
+	// Spec: mcp.md section 5.7 - README.md -> {base_dir}/README.md
+	readmeDest := filepath.Join(s.baseDir, "README.md")
+	readmeExists := false
+	if _, err := os.Stat(readmeDest); err == nil {
+		readmeExists = true
+	}
+	if !readmeExists || force {
+		var readmeContent []byte
+		var err error
+		if isBundled {
+			readmeContent, err = cli.BundleReadFile("README.md")
+		} else {
+			readmeContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "README.md"))
+		}
+		if err == nil && len(readmeContent) > 0 {
+			if err := os.WriteFile(readmeDest, readmeContent, 0644); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to write README.md: %v", err)), nil
+			}
+			installed = append(installed, "README.md")
+			s.cfg.Log(1, "Installed README: %s", readmeDest)
+		}
+	} else {
+		skipped = append(skipped, "README.md")
 	}
 
 	// Return result
@@ -868,19 +891,19 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 		"state": stateToString(state),
 	}
 
-	// Always include bundled version
+	// Always include bundled version from README.md
 	// Spec: mcp.md section 5.6 - version is always present
 	isBundled, _ := cli.IsBundled()
 	var bundledContent []byte
 	var err error
 	if isBundled {
-		bundledContent, err = cli.BundleReadFile(filepath.Join("skills", "ui", "SKILL.md"))
+		bundledContent, err = cli.BundleReadFile("README.md")
 	} else {
-		// Development mode: read from install/init/skills/
-		bundledContent, err = os.ReadFile(filepath.Join("install", "init", "skills", "ui", "SKILL.md"))
+		// Development mode: read from install/README.md
+		bundledContent, err = os.ReadFile(filepath.Join("install", "README.md"))
 	}
 	if err == nil {
-		if version := parseSkillVersion(bundledContent); version != "" {
+		if version := parseReadmeVersion(bundledContent); version != "" {
 			result["version"] = version
 		}
 	}

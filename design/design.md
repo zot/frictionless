@@ -37,6 +37,7 @@ AI assistant integration via Model Context Protocol
 Support multiple MCP transport modes:
 - **Stdio** (`mcp` command): JSON-RPC 2.0 over stdin/stdout
 - **SSE** (`serve` command): Server-Sent Events over HTTP
+- **Default base_dir:** `{project}/.claude/ui` for both modes
 
 ### HTTP Endpoints (MCP port)
 Debug and inspect runtime state:
@@ -48,7 +49,7 @@ Debug and inspect runtime state:
 Cross-platform binary builds via Makefile:
 - `make release`: Builds for Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
 - Output in `release/` directory with platform-specific naming
-- Version from ui skill YAML frontmatter (`install/init/skills/ui/SKILL.md`)
+- Version from README.md (`**Version: X.Y.Z**`)
 - `ui_status` returns bundled version; `ui_install` uses semver comparison
 
 ## Gaps

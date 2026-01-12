@@ -45,8 +45,8 @@ Hook Commands:
   hooks status    Check hook installation status
 
 MCP Examples:
-  ui-mcp mcp --dir .claude/ui                       Start MCP server with working directory
-  ui-mcp serve --port 8000 --mcp-port 8001 --dir .  Start standalone with UI on 8000, MCP on 8001
+  ui-mcp mcp                                        Start MCP server (default: --dir .claude/ui)
+  ui-mcp serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
   ui-mcp hooks install                              Install permission UI hook`
 		},
 		CustomVersion: func() string {
@@ -70,8 +70,14 @@ func runMCP(args []string) int {
 	// Spec: mcp.md Section 4.0
 	cfg.Lua.Hotload = true
 
+	// Default dir to .claude/ui if not specified
+	// Spec: mcp.md Section 2.2
+	if cfg.Server.Dir == "" {
+		cfg.Server.Dir = ".claude/ui"
+	}
+
 	logToFile := false
-	// If --dir is specified, redirect stderr to a log file for debugging
+	// Redirect stderr to a log file for debugging
 	if cfg.Server.Dir != "" {
 		logDir := filepath.Join(cfg.Server.Dir, "log")
 		if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -197,9 +203,10 @@ func runServe(args []string) int {
 	// Spec: mcp.md Section 4.0
 	cfg.Lua.Hotload = true
 
-	// Default dir to "." if not specified
+	// Default dir to .claude/ui if not specified
+	// Spec: mcp.md Section 2.3
 	if cfg.Server.Dir == "" {
-		cfg.Server.Dir = "."
+		cfg.Server.Dir = ".claude/ui"
 	}
 	// Default port to 8000 if not specified
 	if cfg.Server.Port == 0 {

@@ -40,10 +40,10 @@ See `.claude/skills/mini-spec/SKILL.md` for the full methodology.
 
 ## Versioning and Releasing
 
-Release versions use semantic versioning and **must match** the `version` field in `install/init/skills/ui/SKILL.md`.
+Release versions use semantic versioning in `README.md` (the `**Version: X.Y.Z**` line near the top).
 
 **To create a release:**
-1. Update `version` in `install/init/skills/ui/SKILL.md`
+1. Update `**Version: X.Y.Z**` in `README.md`
 2. Commit: `git commit -am "Release vX.Y.Z"`
 3. Tag: `git tag vX.Y.Z`
 4. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)

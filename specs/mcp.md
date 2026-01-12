@@ -34,7 +34,7 @@ Both modes start an HTTP server with debug and API endpoints.
 
 - **MCP Protocol:** JSON-RPC 2.0 over Standard Input (stdin) and Standard Output (stdout).
 - **Encoding:** UTF-8.
-- **Activation:** `ui-mcp mcp --dir <base_dir>`
+- **Activation:** `ui-mcp mcp --dir <base_dir>` (default: `{project}/.claude/ui`)
 
 **Output Hygiene:**
 - **STDOUT:** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
@@ -49,7 +49,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 ### 2.3 SSE Mode (`serve` command)
 
 - **MCP Protocol:** JSON-RPC 2.0 over Server-Sent Events (HTTP).
-- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>`
+- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>` (default: `{project}/.claude/ui`)
 - **Two-Port Design:**
   - UI Server port (default 8000): Serves HTML/JS and WebSocket connections
   - MCP Server port (default 8001): SSE transport plus debug endpoints
@@ -331,7 +331,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 **Returns:**
 - JSON object with status information:
   - `state`: Current lifecycle state ("unconfigured", "configured", or "running")
-  - `version`: Bundled ui skill version (always present)
+  - `version`: Bundled version from README.md (always present)
   - `base_dir`: Configured base directory (only if configured or running)
   - `url`: Server URL (only if running)
   - `sessions`: Number of active browser sessions (only if running)
@@ -355,17 +355,16 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 
 **Version Checking:**
 
-The `ui` skill contains a semantic version in its YAML frontmatter:
-```yaml
----
-name: ui
-version: 0.1.0
----
+The README.md contains a semantic version near the top:
+```markdown
+# ui-mcp
+
+**Version: 0.1.0**
 ```
 
 Installation behavior:
-1. Read the `version` from bundled `ui` skill's SKILL.md
-2. If installed `ui` skill exists, read its `version`
+1. Read the `version` from bundled README.md
+2. If installed README.md exists, read its `version`
 3. **Install all bundled files if:**
    - No installed version exists, OR
    - Bundled version > installed version (semver comparison), OR
@@ -382,6 +381,7 @@ Installation behavior:
 | `resources/*`                            | `{base_dir}/resources/*`                | MCP server resources                 |
 | `viewdefs/*`                             | `{base_dir}/viewdefs/*`                 | Standard viewdefs (e.g., ViewList)   |
 | `event`, `state`, `variables`, `linkapp` | `{base_dir}`                            | Scripts for easy MCP endpoint access |
+| `README.md`                              | `{base_dir}/README.md`                  | User documentation                   |
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)

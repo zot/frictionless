@@ -1,6 +1,5 @@
 ---
 name: ui
-version: 0.2.0
 description: use when **running ui-mcp UIs** or needing to understand UI structure (before modifying one)
 ---
 

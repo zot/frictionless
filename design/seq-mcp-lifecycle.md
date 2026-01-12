@@ -92,7 +92,7 @@ Shows the installation of bundled files when agent calls `ui_install`.
 ```
 
 **Version Checking:**
-- Read `version` from bundled `ui` skill's SKILL.md YAML frontmatter
+- Read `version` from bundled README.md (`**Version: X.Y.Z**`)
 - Compare with installed version using semver comparison
 - Install all files only if bundled > installed OR force=true
 - Return `version_skipped: true` with both versions when skipping
