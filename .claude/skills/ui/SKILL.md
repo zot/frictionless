@@ -32,13 +32,13 @@ To display an app (e.g., `claude-panel`):
 
 Each app defines a **global variable** for interacting with it via `ui_run`:
 
-| App Name       | Global Variable | Example Call                          |
-|----------------|-----------------|---------------------------------------|
-| `claude-panel` | `claudePanel`   | `claudePanel:addAgentMessage("Hi")`   |
-| `contacts`     | `contactsApp`   | `contactsApp:addContact(name, email)` |
-| `my-app`       | `myApp`         | `myApp:someMethod()`                  |
+| App Name       | Global Variable | Example Call                        |
+|----------------|-----------------|-------------------------------------|
+| `claude-panel` | `claudePanel`   | `claudePanel:addAgentMessage("Hi")` |
+| `contacts`     | `contacts`      | `contacts:addContact(name, email)`  |
+| `ma-luba`      | `maLuba`        | `maLuba:someMethod()`               |
 
-**Convention:** kebab-case app name → camelCase variable (check `app.lua` to confirm).
+**Convention:** kebab-case app name → camelCase variable. The global variable is exactly the camelCase conversion of the app directory name (no "App" suffix).
 
 Find the variable by looking at the bottom of `app.lua` for the instance creation:
 ```lua

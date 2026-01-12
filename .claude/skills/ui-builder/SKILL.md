@@ -48,7 +48,11 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
    ```
 
 5. **Audit** (after any design or modification):
+   - Compare design.md against requirements.md — **every required feature must be represented**
+   - Compare implementation against design.md — **every designed feature must be implemented**
+   - Feature gaps are violations that must be fixed before the task is complete
    - Read all generated files and check for violations:
+     - Global variable name doesn't match app directory (e.g., `tasks` dir → `tasks` global, not `tasksApp`)
      - `<style>` blocks in list-item viewdefs (must be in top-level only)
      - `item.` prefix in list-item viewdefs (item IS the context)
      - `ui-action` on non-buttons (use `ui-event-click`)
@@ -57,6 +61,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
      - Operators in paths (negation, equality, logical, arithmetic) — use methods instead
      - Missing `min-height: 0` on scrollable flex children
      - Missing `session.reloading` guard on instance creation
+     - Cancel buttons that don't revert changes (see Edit/Cancel Pattern)
    - Fix any violations found before considering the task complete
 
 ## Common Binding Mistakes
@@ -70,12 +75,66 @@ These are easy to get wrong:
 | `ui-viewlist="items"` | `ui-view="items?wrapper=lua.ViewList"` |
 | `<sl-checkbox ui-value="done">` | `<sl-checkbox ui-attr-checked="done">` |
 | `<style>` in list-item viewdef | Put all styles in top-level viewdef |
+| Save/Cancel both call `close()` | Save commits, Cancel restores snapshot |
 
 `ui-action` only works on buttons. Use `ui-event-click` for other elements.
 `ui-value` on checkboxes/switches renders the boolean as text. Use `ui-attr-checked` for display + event handler for changes:
 ```html
 <sl-checkbox ui-attr-checked="done" ui-event-sl-change="toggle()">
 ```
+
+## Edit/Cancel Pattern (Critical)
+
+**Cancel must revert changes.** When editing with Save/Cancel buttons, Cancel restores the original values. Use snapshot/restore:
+
+```lua
+Task = session:prototype("Task", {
+    name = "",
+    description = "",
+    done = false,
+    editing = false,
+    _snapshot = EMPTY  -- stores original values
+})
+
+function Task:openEditor()
+    -- Snapshot current values before editing
+    self._snapshot = {
+        name = self.name,
+        description = self.description,
+        done = self.done
+    }
+    self.editing = true
+end
+
+function Task:save()
+    -- Just close - live bindings already updated the values
+    self._snapshot = nil
+    self.editing = false
+end
+
+function Task:cancel()
+    -- Restore from snapshot
+    if self._snapshot then
+        self.name = self._snapshot.name
+        self.description = self._snapshot.description
+        self.done = self._snapshot.done
+        self._snapshot = nil
+    end
+    self.editing = false
+end
+```
+
+**Viewdef usage:**
+```html
+<sl-button ui-action="save()">Save</sl-button>
+<sl-button ui-action="cancel()">Cancel</sl-button>
+```
+
+**Key points:**
+- Snapshot on `openEditor()`, not on each keystroke
+- `save()` discards snapshot (changes already applied via live binding)
+- `cancel()` restores snapshot values
+- Both clear snapshot and close editor
 
 ## Preventing Drift (Updates)
 
@@ -94,20 +153,20 @@ The spec is the **source of truth**. If it says a close button exists, don't rem
 
 ```lua
 -- 1. Declare prototype (always runs, preserves identity on reload)
-MyApp = session:prototype("MyApp", {
+MaLuba = session:prototype("MaLuba", {
     items = EMPTY,  -- EMPTY = nil but tracked
     name = ""
 })
 
-function MyApp:new(instance)
-    instance = session:create(MyApp, instance)
+function MaLuba:new(instance)
+    instance = session:create(MaLuba, instance)
     instance.items = instance.items or {}
     return instance
 end
 
 -- 2. Guard instance creation (idempotent)
 if not session.reloading then
-    myApp = MyApp:new()  -- lowercase camelCase matching app directory
+    maLuba = MaLuba:new()  -- global name = camelCase of app directory (ma-luba → maLuba)
 end
 ```
 
@@ -210,7 +269,9 @@ This allows bindings like `ui-value="selectedContact.firstName"` to work when `s
 
 ## Variable Properties
 
-`<sl-input ui-value="name?prop1=val1,prop2=val2"></sl-input>`
+`<sl-input ui-value="name?prop1=val1&prop2=val2"></sl-input>`
+
+**Only use properties listed here.** Do not invent new properties like `negate=true` — they don't exist. For boolean inversions, create a Lua method (e.g., `notEditing()` returning `not self.editing`).
 
 | Property  | Values                                   | Description                                                           |
 |-----------|------------------------------------------|-----------------------------------------------------------------------|
@@ -219,6 +280,8 @@ This allows bindings like `ui-value="selectedContact.firstName"` to work when `s
 | `keypress`| (flag)                                   | Live update on every keystroke                                        |
 | `scrollOnOutput` | (flag)                            | Auto-scroll to bottom when content changes                            |
 | `item` | wrapper type                                | specify wrapper type for ViewList items                               |
+
+Custom wrappers may define additional properties, but only use them when the design explicitly specifies a wrapper that documents those properties.
 
 ## Widgets
 
@@ -307,18 +370,18 @@ The `<sl-option>` tells the frontend to use `<sl-option ui-view="options[N]"></s
 
 ```lua
 -- 1. Declare prototypes (always runs, updates methods)
-MyApp = session:prototype("MyApp", {
+MaLuba = session:prototype("MaLuba", {
     items = EMPTY,
     name = ""
 })
 
-function MyApp:new(instance)
-    instance = session:create(MyApp, instance)
+function MaLuba:new(instance)
+    instance = session:create(MaLuba, instance)
     instance.items = instance.items or {}
     return instance
 end
 
-function MyApp:add()
+function MaLuba:add()
     local item = session:create(Item, { name = self.name })
     table.insert(self.items, item)
     self.name = ""
@@ -328,8 +391,8 @@ Item = session:prototype("Item", { name = "" })
 
 -- 2. Guard instance creation and any other immediately run code (idempotent)
 if not session.reloading then
-    -- assign the app variable here
-    myApp = MyApp:new()
+    -- global name = camelCase of app directory (ma-luba → maLuba)
+    maLuba = MaLuba:new()
 end
 ```
 
@@ -340,15 +403,15 @@ end
 ```html
 <template>
   <style>
-    .my-app { padding: 1rem; }
+    .ma-luba { padding: 1rem; }
     .hidden { display: none !important; }
   </style>
-  <div class="my-app">...</div>
+  <div class="ma-luba">...</div>
 </template>
 ```
 
 **Rules:**
-- ALL styles go in the top-level viewdef (e.g., `MyApp.DEFAULT.html`)
+- ALL styles go in the top-level viewdef (e.g., `MaLuba.DEFAULT.html`)
 - **NEVER put `<style>` blocks in list-item viewdefs** — they get duplicated for each item
 - Styles cascade down to nested viewdefs automatically
 - Use Shoelace CSS variables (e.g., `var(--sl-spacing-medium)`) for consistency
