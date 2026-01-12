@@ -3,6 +3,20 @@
 ## 1. Overview
 The UI platform provides a Model Context Protocol (MCP) server integration to allow AI assistants (like Claude) to control the application lifecycle, inspect state, and manipulate the runtime environment.
 
+## 1.1 Build & Release
+
+The Makefile provides a `release` target that builds binaries for all supported platforms:
+
+| Platform       | Architecture | Output File                          |
+|----------------|--------------|--------------------------------------|
+| Linux          | amd64        | `release/ui-mcp-linux-amd64`         |
+| Linux          | arm64        | `release/ui-mcp-linux-arm64`         |
+| macOS          | amd64        | `release/ui-mcp-darwin-amd64`        |
+| macOS          | arm64        | `release/ui-mcp-darwin-arm64`        |
+| Windows        | amd64        | `release/ui-mcp-windows-amd64.exe`   |
+
+All binaries are built with `CGO_ENABLED=0` for static linking and include bundled assets.
+
 ## 2. Transport & Modes
 
 ### 2.1 Transport Options
@@ -317,6 +331,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 **Returns:**
 - JSON object with status information:
   - `state`: Current lifecycle state ("unconfigured", "configured", or "running")
+  - `version`: Bundled ui skill version (always present)
   - `base_dir`: Configured base directory (only if configured or running)
   - `url`: Server URL (only if running)
   - `sessions`: Number of active browser sessions (only if running)
@@ -325,6 +340,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 ```json
 {
   "state": "running",
+  "version": "0.1.0",
   "base_dir": ".claude/ui",
   "url": "http://127.0.0.1:39482",
   "sessions": 1
@@ -335,17 +351,37 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 **Purpose:** Installs bundled configuration files to enable full ui-mcp integration.
 
 **Parameters:**
-- `force` (boolean, optional): If true, overwrites existing files. Defaults to `false`.
+- `force` (boolean, optional): If true, overwrites existing files regardless of version. Defaults to `false`.
 
-**Bundled Files:**
+**Version Checking:**
 
-| Source (bundled)              | Destination                              | Purpose                                |
-|-------------------------------|------------------------------------------|----------------------------------------|
-| `init/skills/ui/*`            | `{project}/.claude/skills/ui/*`          | `/ui` skill (running UIs)              |
-| `init/skills/ui-builder/*`    | `{project}/.claude/skills/ui-builder/*`  | `/ui-builder` skill (building UIs)     |
-| `resources/*`                 | `{base_dir}/resources/*`                 | MCP server resources                   |
-| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                  | Standard viewdefs (e.g., ViewList)     |
-| `event`, `state`, `variables` | `{base_dir}`                             | Scripts for easy MCP endpoint access   |
+The `ui` skill contains a semantic version in its YAML frontmatter:
+```yaml
+---
+name: ui
+version: 0.1.0
+---
+```
+
+Installation behavior:
+1. Read the `version` from bundled `ui` skill's SKILL.md
+2. If installed `ui` skill exists, read its `version`
+3. **Install all bundled files if:**
+   - No installed version exists, OR
+   - Bundled version > installed version (semver comparison), OR
+   - `force=true`
+4. Skip installation if installed version >= bundled version (unless `force=true`)
+5. Return `version_skipped: true` and both versions when skipping due to version
+
+**Bundled Files (from `install/` directory):**
+
+| Source (in `install/`)                   | Destination                             | Purpose                              |
+|------------------------------------------|-----------------------------------------|--------------------------------------|
+| `init/skills/ui/*`                       | `{project}/.claude/skills/ui/*`         | `/ui` skill (running UIs)            |
+| `init/skills/ui-builder/*`               | `{project}/.claude/skills/ui-builder/*` | `/ui-builder` skill (building UIs)   |
+| `resources/*`                            | `{base_dir}/resources/*`                | MCP server resources                 |
+| `viewdefs/*`                             | `{base_dir}/viewdefs/*`                 | Standard viewdefs (e.g., ViewList)   |
+| `event`, `state`, `variables`, `linkapp` | `{base_dir}`                            | Scripts for easy MCP endpoint access |
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)

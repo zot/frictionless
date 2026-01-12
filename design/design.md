@@ -44,6 +44,13 @@ Debug and inspect runtime state:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state JSON
 
+### Build & Release System
+Cross-platform binary builds via Makefile:
+- `make release`: Builds for Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
+- Output in `release/` directory with platform-specific naming
+- Version from ui skill YAML frontmatter (`install/init/skills/ui/SKILL.md`)
+- `ui_status` returns bundled version; `ui_install` uses semver comparison
+
 ## Gaps
 
 ### Spec→Design

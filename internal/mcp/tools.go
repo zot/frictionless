@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -148,6 +149,68 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(string(responseJSON)), nil
 }
 
+// parseSkillVersion extracts the version from a skill file's YAML frontmatter.
+// Returns empty string if no version found.
+func parseSkillVersion(content []byte) string {
+	lines := strings.Split(string(content), "\n")
+	inFrontmatter := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "---" {
+			if inFrontmatter {
+				break // End of frontmatter
+			}
+			inFrontmatter = true
+			continue
+		}
+		if inFrontmatter && strings.HasPrefix(line, "version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "version:"))
+		}
+	}
+	return ""
+}
+
+// compareSemver compares two semantic versions.
+// Returns: -1 if a < b, 0 if a == b, 1 if a > b
+func compareSemver(a, b string) int {
+	parseVersion := func(v string) (int, int, int) {
+		parts := strings.Split(v, ".")
+		major, minor, patch := 0, 0, 0
+		if len(parts) >= 1 {
+			major, _ = strconv.Atoi(parts[0])
+		}
+		if len(parts) >= 2 {
+			minor, _ = strconv.Atoi(parts[1])
+		}
+		if len(parts) >= 3 {
+			patch, _ = strconv.Atoi(parts[2])
+		}
+		return major, minor, patch
+	}
+
+	aMajor, aMinor, aPatch := parseVersion(a)
+	bMajor, bMinor, bPatch := parseVersion(b)
+
+	if aMajor != bMajor {
+		if aMajor < bMajor {
+			return -1
+		}
+		return 1
+	}
+	if aMinor != bMinor {
+		if aMinor < bMinor {
+			return -1
+		}
+		return 1
+	}
+	if aPatch != bPatch {
+		if aPatch < bPatch {
+			return -1
+		}
+		return 1
+	}
+	return 0
+}
+
 // handleInstall installs bundled configuration files.
 // Spec: mcp.md section 5.7
 func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -167,20 +230,56 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
 	// Spec: mcp.md section 5.7
 	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
+	isBundled, _ := cli.IsBundled()
+
+	// Version checking: compare bundled ui skill version with installed version
+	// Spec: mcp.md section 5.7 - Version Checking
+	var bundledVersion, installedVersion string
+
+	// Read bundled version
+	var bundledContent []byte
+	var err error
+	if isBundled {
+		bundledContent, err = cli.BundleReadFile(filepath.Join("skills", "ui", "SKILL.md"))
+	} else {
+		bundledContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "init", "skills", "ui", "SKILL.md"))
+	}
+	if err == nil {
+		bundledVersion = parseSkillVersion(bundledContent)
+	}
+
+	// Read installed version
+	installedSkillPath := filepath.Join(projectRoot, ".claude", "skills", "ui", "SKILL.md")
+	if installedContent, err := os.ReadFile(installedSkillPath); err == nil {
+		installedVersion = parseSkillVersion(installedContent)
+	}
+
+	// Skip if installed version >= bundled version (unless force)
+	if !force && installedVersion != "" && bundledVersion != "" {
+		if compareSemver(installedVersion, bundledVersion) >= 0 {
+			result := map[string]interface{}{
+				"version_skipped":   true,
+				"bundled_version":   bundledVersion,
+				"installed_version": installedVersion,
+				"hint":              "Use force=true to reinstall",
+			}
+			resultJSON, _ := json.Marshal(result)
+			return mcp.NewToolResultText(string(resultJSON)), nil
+		}
+	}
+
 	installed := []string{}
 	skipped := []string{}
 	appended := []string{}
 
 	// 1. Install skill files
 	// Skills are installed from install/init/skills/ (dev) or bundled skills/ directory
-	isBundled, _ := cli.IsBundled()
 	skillsDir := filepath.Join(projectRoot, ".claude", "skills")
 
 	// Skills to install: map of skill name to files
 	skillsToInstall := map[string][]string{
-		"ui": {"SKILL.md"},
-		"ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua",
-			"examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
+		"ui":         {"SKILL.md"},
+		"ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua", "examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
 	}
 
 	for skillName, skillFiles := range skillsToInstall {
@@ -188,48 +287,160 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 			destPath := filepath.Join(skillsDir, skillName, skillFile)
 			relPath := filepath.Join(".claude", "skills", skillName, skillFile)
 
-			// Check if file exists
-			exists := false
-			if _, err := os.Stat(destPath); err == nil {
-				exists = true
-			}
-
-			// Skip if exists and not forcing
-			if exists && !force {
-				skipped = append(skipped, relPath)
-				continue
-			}
-
 			// Read from bundle or local
 			bundlePath := filepath.Join("skills", skillName, skillFile)
 			var content []byte
-			var err error
+			var readErr error
 
 			if isBundled {
-				content, err = cli.BundleReadFile(bundlePath)
+				content, readErr = cli.BundleReadFile(bundlePath)
 			} else {
 				// Development mode: read from install/init/skills/
 				localPath := filepath.Join(projectRoot, "install", "init", "skills", skillName, skillFile)
-				content, err = os.ReadFile(localPath)
+				content, readErr = os.ReadFile(localPath)
 			}
 
-			if err != nil || len(content) == 0 {
+			if readErr != nil || len(content) == 0 {
 				s.cfg.Log(1, "Skill file not found: %s", bundlePath)
 				continue
 			}
 
 			// Create directory and write file
 			destDir := filepath.Dir(destPath)
-			if err := os.MkdirAll(destDir, 0755); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create skills directory: %v", err)), nil
+			if mkErr := os.MkdirAll(destDir, 0755); mkErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to create skills directory: %v", mkErr)), nil
 			}
-			if err := os.WriteFile(destPath, content, 0644); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", skillFile, err)), nil
+			if writeErr := os.WriteFile(destPath, content, 0644); writeErr != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", skillFile, writeErr)), nil
 			}
 
 			installed = append(installed, relPath)
 			s.cfg.Log(1, "Installed skill file: %s", destPath)
 		}
+	}
+
+	// 2. Install resources
+	// Spec: mcp.md section 5.7 - resources/* -> {base_dir}/resources/*
+	resourceFiles := []string{"reference.md", "viewdefs.md", "lua.md", "mcp.md"}
+	for _, resFile := range resourceFiles {
+		destPath := filepath.Join(s.baseDir, "resources", resFile)
+		relPath := filepath.Join("resources", resFile)
+
+		exists := false
+		if _, err := os.Stat(destPath); err == nil {
+			exists = true
+		}
+
+		if exists && !force {
+			skipped = append(skipped, relPath)
+			continue
+		}
+
+		var content []byte
+		var err error
+		if isBundled {
+			content, err = cli.BundleReadFile(filepath.Join("resources", resFile))
+		} else {
+			localPath := filepath.Join(projectRoot, "install", "resources", resFile)
+			content, err = os.ReadFile(localPath)
+		}
+
+		if err != nil || len(content) == 0 {
+			s.cfg.Log(1, "Resource file not found: %s", resFile)
+			continue
+		}
+
+		destDir := filepath.Dir(destPath)
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to create resources directory: %v", err)), nil
+		}
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", resFile, err)), nil
+		}
+
+		installed = append(installed, relPath)
+		s.cfg.Log(1, "Installed resource: %s", destPath)
+	}
+
+	// 3. Install viewdefs
+	// Spec: mcp.md section 5.7 - viewdefs/* -> {base_dir}/viewdefs/*
+	viewdefFiles := []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html"}
+	for _, vdFile := range viewdefFiles {
+		destPath := filepath.Join(s.baseDir, "viewdefs", vdFile)
+		relPath := filepath.Join("viewdefs", vdFile)
+
+		exists := false
+		if _, err := os.Stat(destPath); err == nil {
+			exists = true
+		}
+
+		if exists && !force {
+			skipped = append(skipped, relPath)
+			continue
+		}
+
+		var content []byte
+		var err error
+		if isBundled {
+			content, err = cli.BundleReadFile(filepath.Join("viewdefs", vdFile))
+		} else {
+			localPath := filepath.Join(projectRoot, "install", "viewdefs", vdFile)
+			content, err = os.ReadFile(localPath)
+		}
+
+		if err != nil || len(content) == 0 {
+			s.cfg.Log(1, "Viewdef file not found: %s", vdFile)
+			continue
+		}
+
+		destDir := filepath.Dir(destPath)
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to create viewdefs directory: %v", err)), nil
+		}
+		if err := os.WriteFile(destPath, content, 0644); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", vdFile, err)), nil
+		}
+
+		installed = append(installed, relPath)
+		s.cfg.Log(1, "Installed viewdef: %s", destPath)
+	}
+
+	// 4. Install scripts
+	// Spec: mcp.md section 5.7 - event, state, variables, linkapp -> {base_dir}
+	scriptFiles := []string{"event", "state", "variables", "linkapp"}
+	for _, scriptFile := range scriptFiles {
+		destPath := filepath.Join(s.baseDir, scriptFile)
+
+		exists := false
+		if _, err := os.Stat(destPath); err == nil {
+			exists = true
+		}
+
+		if exists && !force {
+			skipped = append(skipped, scriptFile)
+			continue
+		}
+
+		var content []byte
+		var err error
+		if isBundled {
+			content, err = cli.BundleReadFile(scriptFile)
+		} else {
+			localPath := filepath.Join(projectRoot, "install", scriptFile)
+			content, err = os.ReadFile(localPath)
+		}
+
+		if err != nil || len(content) == 0 {
+			s.cfg.Log(1, "Script file not found: %s", scriptFile)
+			continue
+		}
+
+		if err := os.WriteFile(destPath, content, 0755); err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to write %s: %v", scriptFile, err)), nil
+		}
+
+		installed = append(installed, scriptFile)
+		s.cfg.Log(1, "Installed script: %s", destPath)
 	}
 
 	// Return result
@@ -655,6 +866,23 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 
 	result := map[string]interface{}{
 		"state": stateToString(state),
+	}
+
+	// Always include bundled version
+	// Spec: mcp.md section 5.6 - version is always present
+	isBundled, _ := cli.IsBundled()
+	var bundledContent []byte
+	var err error
+	if isBundled {
+		bundledContent, err = cli.BundleReadFile(filepath.Join("skills", "ui", "SKILL.md"))
+	} else {
+		// Development mode: read from install/init/skills/
+		bundledContent, err = os.ReadFile(filepath.Join("install", "init", "skills", "ui", "SKILL.md"))
+	}
+	if err == nil {
+		if version := parseSkillVersion(bundledContent); version != "" {
+			result["version"] = version
+		}
 	}
 
 	// Include base_dir when configured or running

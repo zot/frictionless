@@ -1,6 +1,6 @@
 ---
 name: mini-spec
-description: use **whenever designing, updating, or implementing the design, code, or docs** or **whenever reverse engineering a design from code**
+description: use **whenever modifying specs**, **designing, updating, or implementing the design, code, or docs**, or **reverse engineering a design from code**
 ---
 
 # Mini-spec
@@ -56,6 +56,7 @@ Nest related items with checkboxes:
 - **"Design"** = design only, no code
 - **"Implement"** = code only, update Artifacts checkboxes
 - **"Code changes"** = uncheck Artifacts, ask user
+- **Spec changes** = always update design next (never jump to code unless user explicitly requests)
 
 ### Design Phase
 Create in `design/`:

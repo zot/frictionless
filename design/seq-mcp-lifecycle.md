@@ -61,6 +61,17 @@ Shows the installation of bundled files when agent calls `ui_install`.
           │                      │ Handle("ui_install") │                   │                   │
           │                      │─────────────────────>│                   │                   │
           │                      │                      │                   │                   │
+          │                      │                      │ ReadBundledVersion│                   │
+          │                      │                      │───────────────────────────────────────>│
+          │                      │                      │      "0.1.0"      │                   │
+          │                      │                      │<──────────────────────────────────────│
+          │                      │                      │                   │                   │
+          │                      │                      │ ReadInstalledVer  │                   │
+          │                      │                      │──────────────────>│                   │
+          │                      │                      │    "0.0.9" or nil │                   │
+          │                      │                      │<─────────────────│                   │
+          │                      │                      │                   │                   │
+          │                      │                      │ [if bundled > installed OR force]     │
           │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
           │                      │                      │ loop [each bundle]│                   │
           │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
@@ -73,21 +84,27 @@ Shows the installation of bundled files when agent calls `ui_install`.
           │                      │                      │  │───────────────>│                   │
           │                      │                      │─ ─ ─ ─ ─ ─ ─ ─ ─ ─│─ ─ ─ ─ ─ ─ ─ ─ ─ ─│
           │                      │                      │                   │                   │
-          │  Success({installed, skipped, appended})    │                   │                   │
+          │  Success({installed, skipped, version_skipped, versions})       │                   │
           │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                   │                   │
      ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─┴──┐             ┌──┴───┐
      │AI Agent│             │MCPServer│             │MCPTool│             │ OS │             │Bundle│
      └────────┘             └─────────┘             └───────┘             └────┘             └──────┘
 ```
 
-**Bundled Files:**
-| Source                        | Destination                              | Purpose                                |
-|-------------------------------|------------------------------------------|----------------------------------------|
-| `init/skills/ui/*`            | `{project}/.claude/skills/ui/*`          | `/ui` skill (running UIs)              |
-| `init/skills/ui-builder/*`    | `{project}/.claude/skills/ui-builder/*`  | `/ui-builder` skill (building UIs)     |
-| `resources/*`                 | `{base_dir}/resources/*`                 | MCP server resources                   |
-| `viewdefs/*`                  | `{base_dir}/viewdefs/*`                  | Standard viewdefs (ViewList, etc.)     |
-| `event`, `state`, `variables` | `{base_dir}`                             | Scripts for easy MCP endpoint access   |
+**Version Checking:**
+- Read `version` from bundled `ui` skill's SKILL.md YAML frontmatter
+- Compare with installed version using semver comparison
+- Install all files only if bundled > installed OR force=true
+- Return `version_skipped: true` with both versions when skipping
+
+**Bundled Files (from `install/` directory):**
+| Source (in `install/`)           | Destination                              | Purpose                                |
+|----------------------------------|------------------------------------------|----------------------------------------|
+| `init/skills/ui/*`               | `{project}/.claude/skills/ui/*`          | `/ui` skill (running UIs)              |
+| `init/skills/ui-builder/*`       | `{project}/.claude/skills/ui-builder/*`  | `/ui-builder` skill (building UIs)     |
+| `resources/*`                    | `{base_dir}/resources/*`                 | MCP server resources                   |
+| `viewdefs/*`                     | `{base_dir}/viewdefs/*`                  | Standard viewdefs (ViewList, etc.)     |
+| `event`, `state`, `variables`, `linkapp` | `{base_dir}`                       | Scripts for easy MCP endpoint access   |
 
 **Notes:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)

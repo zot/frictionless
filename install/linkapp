@@ -1,0 +1,109 @@
+#!/bin/bash
+# linkapp - Create or remove symlinks for a ui-engine app
+#
+# Usage:
+#   linkapp add <app>     Create symlinks for app
+#   linkapp remove <app>  Remove symlinks for app
+#   linkapp list          List linked apps
+#
+# Base directory: .claude/ui (relative to current directory)
+
+set -e
+
+BASE_DIR=$(dirname "$(realpath "$0")")
+APPS_DIR="$BASE_DIR/apps"
+LUA_DIR="$BASE_DIR/lua"
+VIEWDEFS_DIR="$BASE_DIR/viewdefs"
+
+usage() {
+    echo "Usage: linkapp <command> [app]"
+    echo ""
+    echo "Commands:"
+    echo "  add <app>     Create symlinks for app"
+    echo "  remove <app>  Remove symlinks for app"
+    echo "  list          List linked apps"
+    exit 1
+}
+
+check_app_exists() {
+    local app="$1"
+    if [[ ! -d "$APPS_DIR/$app" ]]; then
+        echo "Error: App '$app' not found in $APPS_DIR/"
+        exit 1
+    fi
+}
+
+add_app() {
+    local app="$1"
+    check_app_exists "$app"
+
+    # Create directories if needed
+    mkdir -p "$LUA_DIR" "$VIEWDEFS_DIR"
+
+    # Link lua file
+    if [[ -f "$APPS_DIR/$app/app.lua" ]]; then
+        ln -sf "../apps/$app/app.lua" "$LUA_DIR/$app.lua"
+        echo "Linked: $LUA_DIR/$app.lua"
+    fi
+
+    # Link viewdefs
+    if [[ -d "$APPS_DIR/$app/viewdefs" ]]; then
+        for f in "$APPS_DIR/$app/viewdefs"/*.html; do
+            [[ -e "$f" ]] || continue
+            name=$(basename "$f")
+            ln -sf "../apps/$app/viewdefs/$name" "$VIEWDEFS_DIR/$name"
+            echo "Linked: $VIEWDEFS_DIR/$name"
+        done
+    fi
+
+    echo "Done: $app linked"
+}
+
+remove_app() {
+    local app="$1"
+
+    # Remove lua file
+    if [[ -L "$LUA_DIR/$app.lua" ]]; then
+        rm "$LUA_DIR/$app.lua"
+        echo "Removed: $LUA_DIR/$app.lua"
+    fi
+
+    # Remove viewdefs that point to this app
+    for f in "$VIEWDEFS_DIR"/*.html; do
+        [[ -L "$f" ]] || continue
+        target=$(readlink "$f")
+        if [[ "$target" == *"/apps/$app/viewdefs/"* ]]; then
+            rm "$f"
+            echo "Removed: $f"
+        fi
+    done
+
+    echo "Done: $app unlinked"
+}
+
+list_apps() {
+    echo "Linked apps:"
+    for f in "$LUA_DIR"/*.lua; do
+        [[ -L "$f" ]] || continue
+        name=$(basename "$f" .lua)
+        echo "  $name"
+    done
+}
+
+# Main
+case "${1:-}" in
+    add)
+        [[ -n "${2:-}" ]] || usage
+        add_app "$2"
+        ;;
+    remove)
+        [[ -n "${2:-}" ]] || usage
+        remove_app "$2"
+        ;;
+    list)
+        list_apps
+        ;;
+    *)
+        usage
+        ;;
+esac

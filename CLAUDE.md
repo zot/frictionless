@@ -37,3 +37,15 @@ Use the mini-spec skill for all design and implementation work.
 - Tracks gaps between spec, design, and implementation
 
 See `.claude/skills/mini-spec/SKILL.md` for the full methodology.
+
+## Versioning and Releasing
+
+Release versions use semantic versioning and **must match** the `version` field in `install/init/skills/ui/SKILL.md`.
+
+**To create a release:**
+1. Update `version` in `install/init/skills/ui/SKILL.md`
+2. Commit: `git commit -am "Release vX.Y.Z"`
+3. Tag: `git tag vX.Y.Z`
+4. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
+5. Push: `git push && git push --tags`
+6. Create GitHub release: `gh release create vX.Y.Z release/* --title "vX.Y.Z" --notes "Release notes here"`
