@@ -41,7 +41,9 @@ Support multiple MCP transport modes:
 
 ### Startup Behavior
 - Server uses `--dir` (defaults to `.claude/ui`)
-- Auto-install if `{base_dir}` or `{base_dir}/README.md` missing
+- Auto-install if `{base_dir}` or `{base_dir}/README.md` missing:
+  - Claude skills (`/ui`, `/ui-builder`) to `{project}/.claude/skills/`
+  - MCP resources, viewdefs, and helper scripts to `{base_dir}/`
 - Starts in CONFIGURED state (no UNCONFIGURED state)
 - `ui_configure` optional—for reconfiguration only
 

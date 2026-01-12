@@ -87,7 +87,11 @@ The MCP server operates as a strict Finite State Machine (FSM).
 
 On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically configures:
 
-1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically
+1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically. This installs:
+   - **Claude skills** (`/ui` and `/ui-builder`) to `{project}/.claude/skills/`
+   - **MCP resources** (reference docs) to `{base_dir}/resources/`
+   - **Standard viewdefs** to `{base_dir}/viewdefs/`
+   - **Helper scripts** to `{base_dir}/`
 2. **Auto-Configure:** Server starts in CONFIGURED state with the base_dir ready
 3. **Reconfiguration:** `ui_configure` can be called to change base_dir if needed
 
