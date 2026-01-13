@@ -1,0 +1,1 @@
+../apps/contacts/app.lua

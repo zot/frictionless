@@ -231,6 +231,74 @@ The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for
 
 **Panic Recovery Requirement:** The MCP server MUST wrap `ExecuteInSession` with panic recovery (e.g., `SafeExecuteInSession`) to prevent Lua errors or panics from crashing the MCP process. Panics should be caught and returned as errors.
 
+### 4.3 The `mcp` Global Object
+
+A global `mcp` table is created in each Lua session to provide MCP-specific functionality.
+
+#### Extension via `mcp.lua`
+
+Projects can extend the `mcp` object with custom shell functionality (e.g., app menus, global UI chrome) by providing `{base_dir}/lua/mcp.lua`.
+
+**Loading sequence:**
+1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
+2. Go creates the `mcp` global with core methods (`display`, `status`, `pushState`, etc.)
+3. Go loads `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
+
+**Note:** Since `main.lua` runs before the `mcp` global is created, `mcp.lua` must be loaded by Go code after creating the mcp table, not by main.lua.
+
+**Example `mcp.lua`:**
+```lua
+-- Add app menu functionality to mcp global
+function mcp:toggleMenu()
+    self.menuOpen = not self.menuOpen
+end
+
+function mcp:availableApps()
+    -- Return list of apps for menu
+end
+```
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | string | Always `"MCP"`. Used for viewdef resolution. |
+| `value` | any | The current app value displayed in the browser. Set via `mcp:display()` or direct assignment. Initially `nil`. |
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `pushState` | `mcp.pushState(event)` | Push an event table to the state queue. Signals waiting HTTP clients. See Section 8.1. |
+| `pollingEvents` | `mcp:pollingEvents()` | Returns `true` if an agent is connected to `/wait`. See Section 8.2. |
+| `display` | `mcp:display(appName)` | Load and display an app. Returns `true` on success, or `nil, error` on failure. |
+| `status` | `mcp:status()` | Returns the current MCP server status as a table. See below. |
+
+#### `mcp:status()`
+
+**Purpose:** Returns the current MCP server status, equivalent to the `ui_status` tool response.
+
+**Returns:** A table with the following fields:
+
+| Field      | Lua Type | Presence     | Description                                      |
+|------------|----------|--------------|--------------------------------------------------|
+| `state`    | `string` | Always       | `"configured"` or `"running"`                    |
+| `version`  | `string` | Always       | Semver string (e.g., `"0.6.0"`)                  |
+| `base_dir` | `string` | Always       | Absolute or relative path (e.g., `".claude/ui"`) |
+| `url`      | `string` | Running only | Server URL (e.g., `"http://127.0.0.1:39482"`)    |
+| `sessions` | `number` | Running only | Integer count of connected browsers              |
+
+Fields marked "Running only" are `nil` when `state == "configured"`.
+
+**Example:**
+```lua
+local status = mcp:status()
+if status.state == "running" then
+    print("Server running at " .. status.url)
+    print("Connected browsers: " .. status.sessions)
+end
+```
+
 ## 5. Tools
 
 ### 5.1 `ui_configure`
@@ -400,18 +468,60 @@ Installation behavior:
 4. Skip installation if installed version >= bundled version (unless `force=true`)
 5. Return `version_skipped: true` and both versions when skipping due to version
 
-**Bundled Files (from `install/` directory):**
+**Install Manifest:**
 
-| Source (in `install/`)                   | Destination                             | Purpose                              |
-|------------------------------------------|-----------------------------------------|--------------------------------------|
-| `skills/ui/*`                            | `{project}/.claude/skills/ui/*`         | `/ui` skill (running UIs)            |
-| `skills/ui-builder/*`                    | `{project}/.claude/skills/ui-builder/*` | `/ui-builder` skill (building UIs)   |
-| `agents/*`                               | `{project}/.claude/agents/*`            | Agent configurations                 |
-| `html/*`                                 | `{base_dir}/html/*`                     | Web frontend (index.html, JS, CSS)   |
-| `resources/*`                            | `{base_dir}/resources/*`                | MCP server resources                 |
-| `viewdefs/*`                             | `{base_dir}/viewdefs/*`                 | Standard viewdefs (e.g., ViewList)   |
-| `event`, `state`, `variables`, `linkapp` | `{base_dir}`                            | Scripts for easy MCP endpoint access |
-| `README.md`                              | `{base_dir}/README.md`                  | User documentation                   |
+Skills and agents installed to `{project}/.claude/`:
+```
+.claude/skills/ui/SKILL.md
+.claude/skills/ui-builder/SKILL.md
+.claude/skills/ui-builder/examples/requirements.md
+.claude/skills/ui-builder/examples/design.md
+.claude/skills/ui-builder/examples/app.lua
+.claude/skills/ui-builder/examples/viewdefs/ContactApp.DEFAULT.html
+.claude/skills/ui-builder/examples/viewdefs/Contact.list-item.html
+.claude/skills/ui-builder/examples/viewdefs/ChatMessage.list-item.html
+.claude/agents/ui-builder.md
+```
+
+Resources installed to `{base_dir}/resources/`:
+```
+resources/reference.md
+resources/viewdefs.md
+resources/lua.md
+resources/mcp.md
+```
+
+Viewdefs installed to `{base_dir}/viewdefs/`:
+```
+viewdefs/lua.ViewList.DEFAULT.html
+viewdefs/lua.ViewListItem.list-item.html
+viewdefs/MCP.DEFAULT.html
+```
+
+Scripts installed to `{base_dir}/` (executable):
+```
+event
+state
+variables
+linkapp
+```
+
+Lua entry point installed to `{base_dir}/lua/`:
+```
+lua/main.lua
+```
+
+HTML files installed to `{base_dir}/html/` (dynamically discovered from bundle):
+```
+html/index.html
+html/main-*.js
+html/worker-*.js
+```
+
+Documentation installed to `{base_dir}`:
+```
+README.md
+```
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)

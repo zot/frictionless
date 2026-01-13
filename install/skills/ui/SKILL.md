@@ -121,16 +121,8 @@ Before invoking `/ui-builder`:
 ## Debugging
 
 - Check `.claude/ui/log/lua.log` for Lua errors
+- `ui://variables` resource shows full variable tree with IDs, parents, types, values
 - `ui_run` returns error messages
 - `ui://state` resource shows live state JSON
 - `window.uiApp` contains the app object in the browser
   - `window.uiApp.store` shows all variables
-
-## Resources
-
-| Resource         | Content                          |
-|------------------|----------------------------------|
-| `ui://reference` | Quick start and overview         |
-| `ui://lua`       | Lua API (session, mcp, etc.)     |
-| `ui://viewdefs`  | Viewdef syntax and bindings      |
-| `ui://state`     | Live state JSON (for debugging)  |

@@ -1,6 +1,6 @@
 ---
 name: ui-builder
-description: use when **building or modifying ui-engine UIs** with Lua apps connected to widgets
+description: **Use proactively** Use for any **UI** design, building, modifying, or testing. This is the required process for managing **all ui app code**. This supercedes other applicable skills when dealing with ui apps.
 ---
 
 # UI Builder
@@ -10,6 +10,12 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 ## Prerequisite
 
 **Run `/ui` skill first** if you haven't already. It covers directory structure and how to run UIs after building.
+
+## Core Principles
+- use SOLID principles, comprehensive unit tests
+- when adding code, verify whether it needs to be factored
+- Code and specs as MINIMAL as possible
+- write idiomatic Lua code
 
 ## Hot-Loading
 
@@ -23,9 +29,11 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 ## Workflow
 
-1. **Read requirements**: Check `{base_dir}/apps/<app>/requirements.md` first. If it does not exist, create it with human-readable prose (no ASCII art or tables)
+1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 
-2. **Design**:
+2. **Read requirements**: Check `{base_dir}/apps/<app>/requirements.md` first. If it does not exist, create it with human-readable prose (no ASCII art or tables)
+
+3. **Design**:
    - Check `{base_dir}/patterns/` for reusable patterns
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
@@ -35,22 +43,28 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
       - **ViewDefs**: Template files needed
       - **Events**: JSON examples of user interactions
 
-3. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
    - `design.md` — design spec (first, for reference)
    - `app.lua` — Lua classes and logic (**write this before viewdefs**)
    - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-4. **Create symlinks** using the linkapp script:
+5. **Create symlinks** using the linkapp script:
 
    ```bash
    .claude/ui/linkapp add <app>
    ```
 
-5. **Audit** (after any design or modification):
+6. **Audit** (after any design or modification):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
+   - Compare implementation against requirements.md — **every principle must be followed**
    - Feature gaps are violations that must be fixed before the task is complete
+   - **Responsibility verification:** When requirements.md has explicit responsibility sections (e.g., "Lua Responsibilities", "Claude Responsibilities", "Data Flow"):
+     - For each stated Lua responsibility, find the Lua code that implements it — if no code exists or it just sends an event to Claude, it's a violation
+     - For each stated Claude responsibility, verify Lua does NOT implement it (Claude handles via events)
+     - If requirements say "Lua-driven" or "all X happens in Lua", verify Lua actually does the work
+     - Example violation: Requirements say "Lua scans directories" but code sends `refresh_request` event (Claude does scanning)
    - Read all generated files and check for violations:
      - Global variable name doesn't match app directory (e.g., `tasks` dir → `tasks` global, not `tasksApp`)
      - `<style>` blocks in list-item viewdefs (must be in top-level only)

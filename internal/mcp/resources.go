@@ -71,7 +71,7 @@ func (s *Server) registerResources() {
 
 	// Debug resource for variable inspection
 	s.mcpServer.AddResource(mcp.NewResource("ui://variables", "Variable Tree",
-		mcp.WithResourceDescription("Topologically sorted array of all tracked variables with their IDs, parent IDs, types, values, and properties"),
+		mcp.WithResourceDescription("Debug UI bindings: shows all tracked variables with IDs, parents, types, and current values. Use when troubleshooting why a binding isn't updating or to understand the variable hierarchy."),
 		mcp.WithMIMEType("application/json"),
 	), s.handleGetVariablesResource)
 }
@@ -327,7 +327,11 @@ Example: "I notice you always allow git commands. Want me to update the prompt v
 
 // handleGetVariablesResource returns all variables in topological order.
 func (s *Server) handleGetVariablesResource(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	variables, err := s.getDebugVariables("1")
+	sessionID := s.currentVendedID
+	if sessionID == "" {
+		return nil, fmt.Errorf("no active session")
+	}
+	variables, err := s.getDebugVariables(sessionID)
 	if err != nil {
 		return nil, err
 	}

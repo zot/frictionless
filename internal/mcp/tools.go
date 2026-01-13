@@ -254,7 +254,7 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 
 	// 3. Install viewdefs to {base_dir}/viewdefs/
-	for _, file := range []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html"} {
+	for _, file := range []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html", "MCP.DEFAULT.html"} {
 		bundlePath := filepath.Join("viewdefs", file)
 		destPath := filepath.Join(s.baseDir, "viewdefs", file)
 		status, err := s.installFile(bundlePath, destPath, 0644, force)
@@ -501,6 +501,58 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			L.Push(lua.LTrue)
 			return 1
 		}))
+
+		// mcp:status() - get current server status
+		// Spec: mcp.md Section 4.3
+		L.SetField(mcpTable, "status", L.NewFunction(func(L *lua.LState) int {
+			// Note: Called as mcp:status() but we ignore the self argument
+			result := L.NewTable()
+
+			// Get server state
+			s.mu.RLock()
+			state := s.state
+			url := s.url
+			baseDir := s.baseDir
+			s.mu.RUnlock()
+
+			L.SetField(result, "state", lua.LString(stateToString(state)))
+			L.SetField(result, "base_dir", lua.LString(baseDir))
+
+			// Get bundled version (same logic as handleStatus)
+			isBundled, _ := cli.IsBundled()
+			var bundledContent []byte
+			var err error
+			if isBundled {
+				bundledContent, err = cli.BundleReadFile("README.md")
+			} else {
+				bundledContent, err = os.ReadFile(filepath.Join("install", "README.md"))
+			}
+			if err == nil {
+				if version := parseReadmeVersion(bundledContent); version != "" {
+					L.SetField(result, "version", lua.LString(version))
+				}
+			}
+
+			// Add running-only fields
+			if state == Running {
+				L.SetField(result, "url", lua.LString(url))
+				if s.getSessionCount != nil {
+					L.SetField(result, "sessions", lua.LNumber(s.getSessionCount()))
+				}
+			}
+
+			L.Push(result)
+			return 1
+		}))
+
+		// Load mcp.lua if it exists to extend the mcp global
+		// Spec: mcp.md Section 4.3 "Extension via mcp.lua"
+		mcpLuaPath := filepath.Join(s.baseDir, "lua", "mcp.lua")
+		if _, err := os.Stat(mcpLuaPath); err == nil {
+			if err := L.DoFile(mcpLuaPath); err != nil {
+				return nil, fmt.Errorf("failed to load mcp.lua: %w", err)
+			}
+		}
 
 		// Register as app variable - this creates variable 1 in the tracker
 		code := "session:createAppVariable(mcp)"
@@ -863,7 +915,6 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
 		log("/tmp/bubba", "load code")
 		return session.LoadCodeDirect("ui_display", code)
-		//return session.LoadCode("ui_display", code)
 	})
 
 	if err != nil {

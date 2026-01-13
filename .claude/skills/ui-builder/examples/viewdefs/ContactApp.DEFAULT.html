@@ -1,0 +1,93 @@
+<template>
+  <style>
+    .header {
+      display: flex;
+      align-items: center;
+      gap: var(--sl-spacing-medium);
+      margin-bottom: var(--sl-spacing-large);
+    }
+    .header sl-input { flex: 1; }
+    .body {
+      display: flex;
+      gap: var(--sl-spacing-large);
+      margin-bottom: var(--sl-spacing-large);
+    }
+    .list {
+      flex: 1;
+      min-height: 200px;
+      border: 1px solid var(--sl-color-neutral-200);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-medium);
+    }
+    .detail {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sl-spacing-medium);
+      padding: var(--sl-spacing-medium);
+      border: 1px solid var(--sl-color-neutral-200);
+      border-radius: var(--sl-border-radius-medium);
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: var(--sl-spacing-medium);
+    }
+    .chat {
+      border: 1px solid var(--sl-color-neutral-200);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-medium);
+    }
+    .chat h3 { margin: 0 0 var(--sl-spacing-medium) 0; }
+    .chat-messages {
+      min-height: 100px;
+      max-height: 200px;
+      overflow-y: auto;
+      margin-bottom: var(--sl-spacing-medium);
+      padding: var(--sl-spacing-small);
+      background: var(--sl-color-neutral-50);
+      border-radius: var(--sl-border-radius-small);
+    }
+    .chat-input {
+      display: flex;
+      gap: var(--sl-spacing-small);
+    }
+    .chat-input sl-input { flex: 1; }
+    .hidden { display: none !important; }
+  </style>
+  <div>
+    <div class="header">
+      <sl-input ui-value="searchQuery?keypress" placeholder="Search contacts..." clearable>
+        <sl-icon name="search" slot="prefix"></sl-icon>
+      </sl-input>
+      <sl-badge variant="neutral" ui-value="contactCount()"></sl-badge>
+      <sl-button ui-action="add()">+ Add</sl-button>
+      <sl-switch ui-value="darkMode">Dark</sl-switch>
+    </div>
+    <div class="body">
+      <div class="list" ui-view="contacts()?wrapper=lua.ViewList"></div>
+      <div class="detail" ui-class-hidden="hideDetail">
+        <sl-input ui-value="current.name" label="Name"></sl-input>
+        <sl-input ui-value="current.email" label="Email" type="email"></sl-input>
+        <sl-select ui-value="current.status" label="Status">
+          <sl-option value="active">Active</sl-option>
+          <sl-option value="inactive">Inactive</sl-option>
+        </sl-select>
+        <sl-switch ui-value="current.vip">VIP</sl-switch>
+        <div class="actions">
+          <sl-button ui-action="deleteCurrent()" variant="danger">Delete</sl-button>
+          <sl-button ui-action="cancel()">Cancel</sl-button>
+          <sl-button ui-action="save()" variant="primary">Save</sl-button>
+        </div>
+      </div>
+    </div>
+    <div class="chat">
+      <h3>Chat with Agent</h3>
+      <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList"></div>
+      <div class="chat-input">
+        <sl-input ui-value="chatInput?keypress" placeholder="Type a message..."></sl-input>
+        <sl-button ui-action="sendChat()" variant="primary">Send</sl-button>
+      </div>
+    </div>
+  </div>
+</template>

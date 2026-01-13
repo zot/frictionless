@@ -61,6 +61,32 @@ Debug and inspect runtime state:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state JSON
 
+### Lua `mcp` Global Object (Spec 4.3)
+Registered by `setupMCPGlobal` in each session:
+
+**Properties:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | `string` | Always `"MCP"` |
+| `value` | `table\|nil` | Current app value |
+
+**Methods:**
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `pushState` | `mcp.pushState(event: table)` | `nil` |
+| `pollingEvents` | `mcp:pollingEvents()` | `boolean` |
+| `display` | `mcp:display(appName: string)` | `true` or `nil, string` |
+| `status` | `mcp:status()` | `table` (see below) |
+
+**`mcp:status()` returns:**
+| Field | Type | Presence | Description |
+|-------|------|----------|-------------|
+| `state` | `string` | Always | `"configured"` or `"running"` |
+| `version` | `string` | Always | Semver (e.g., `"0.6.0"`) |
+| `base_dir` | `string` | Always | Path (e.g., `".claude/ui"`) |
+| `url` | `string` | Running | Server URL |
+| `sessions` | `number` | Running | Browser count |
+
 ### Build & Release System
 Cross-platform binary builds via Makefile:
 - `make cache`: Extracts web assets from ui-engine-bundled, copies html/* to install/html/

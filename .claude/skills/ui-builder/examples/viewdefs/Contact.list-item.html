@@ -1,0 +1,32 @@
+<template>
+  <style>
+    .contact-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: var(--sl-border-radius-small);
+      border-left: 3px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .contact-row:hover {
+      background: var(--sl-color-neutral-100);
+    }
+    .contact-row.selected {
+      border-left-color: var(--sl-color-primary-600);
+      background: var(--sl-color-primary-50);
+    }
+    .contact-name {
+      flex: 1;
+      font-weight: var(--sl-font-weight-medium);
+    }
+    .contact-email {
+      color: var(--sl-color-neutral-500);
+      font-size: var(--sl-font-size-small);
+    }
+  </style>
+  <div class="contact-row" ui-action="selectMe()" ui-class-selected="isSelected()">
+    <span class="contact-name" ui-value="name"></span>
+    <span class="contact-email" ui-value="email"></span>
+  </div>
+</template>
