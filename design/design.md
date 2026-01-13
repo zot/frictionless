@@ -44,6 +44,8 @@ Support multiple MCP transport modes:
 - Server uses `--dir` (defaults to `.claude/ui`)
 - Auto-install if `{base_dir}` or `{base_dir}/README.md` missing:
   - Claude skills (`/ui`, `/ui-builder`) to `{project}/.claude/skills/`
+  - Claude agents to `{project}/.claude/agents/`
+  - Web frontend (html/*) to `{base_dir}/html/`
   - MCP resources, viewdefs, and helper scripts to `{base_dir}/`
 - Starts in CONFIGURED state (no UNCONFIGURED state)
 - `ui_configure` optional—for reconfiguration only
@@ -61,6 +63,8 @@ Debug and inspect runtime state:
 
 ### Build & Release System
 Cross-platform binary builds via Makefile:
+- `make cache`: Extracts web assets from ui-engine-bundled, copies html/* to install/html/
+- `make build`: Builds binary, bundles install/ directory into binary
 - `make release`: Builds for Linux (amd64, arm64), macOS (amd64, arm64), Windows (amd64)
 - Output in `release/` directory with platform-specific naming
 - Version from README.md (`**Version: X.Y.Z**`)

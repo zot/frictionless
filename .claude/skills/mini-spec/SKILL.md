@@ -1,6 +1,6 @@
 ---
 name: mini-spec
-description: use **whenever modifying specs**, **designing, updating, or implementing the design, code, or docs**, or **reverse engineering a design from code**
+description: **Use proactively**. Use a central index to explore the project. Update it properly when changing it. Covers specs, design, and code
 ---
 
 # Mini-spec
@@ -15,7 +15,8 @@ src/      # Code with traceability comments
 ```
 
 ## Core Principles
-- SOLID principles, comprehensive unit tests
+- use SOLID principles, comprehensive unit tests
+- when adding code, verify whether it needs to be factored
 - Code and specs as MINIMAL as possible
 - Before using a callback, see if a collaborator reference would be simpler
 - write idiomatic code for the language you use

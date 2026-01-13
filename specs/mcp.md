@@ -407,6 +407,7 @@ Installation behavior:
 | `skills/ui/*`                            | `{project}/.claude/skills/ui/*`         | `/ui` skill (running UIs)            |
 | `skills/ui-builder/*`                    | `{project}/.claude/skills/ui-builder/*` | `/ui-builder` skill (building UIs)   |
 | `agents/*`                               | `{project}/.claude/agents/*`            | Agent configurations                 |
+| `html/*`                                 | `{base_dir}/html/*`                     | Web frontend (index.html, JS, CSS)   |
 | `resources/*`                            | `{base_dir}/resources/*`                | MCP server resources                 |
 | `viewdefs/*`                             | `{base_dir}/viewdefs/*`                 | Standard viewdefs (e.g., ViewList)   |
 | `event`, `state`, `variables`, `linkapp` | `{base_dir}`                            | Scripts for easy MCP endpoint access |

@@ -1,30 +1,34 @@
--- Contacts app
+-- Contact Manager App
+-- Example demonstrating lists, forms, and chat with filtering
 
 -- Chat message model
-ChatMessage = { type = "ChatMessage" }
-ChatMessage.__index = ChatMessage
+ChatMessage = session:prototype("ChatMessage", {
+    sender = "",
+    text = ""
+})
+
 function ChatMessage:new(sender, text)
-    return setmetatable({ sender = sender, text = text }, self)
+    return session:create(ChatMessage, { sender = sender, text = text })
 end
 
 -- Contact model
-Contact = { type = "Contact" }
-Contact.__index = Contact
+Contact = session:prototype("Contact", {
+    name = "",
+    email = "",
+    status = "active",
+    vip = false
+})
+
 function Contact:new(name)
-    return setmetatable({
-        name = name or "",
-        email = "",
-        status = "active",
-        vip = false
-    }, self)
+    return session:create(Contact, { name = name or "" })
 end
 
 function Contact:clone()
-    local c = Contact:new(self.name)
-    c.email = self.email
-    c.status = self.status
-    c.vip = self.vip
-    return c
+    return Contact:new(self.name, {
+        email = self.email,
+        status = self.status,
+        vip = self.vip
+    })
 end
 
 function Contact:copyFrom(other)
@@ -34,28 +38,33 @@ function Contact:copyFrom(other)
     self.vip = other.vip
 end
 
+-- Select this contact (called from viewdef click)
 function Contact:selectMe()
-    app:select(self)
+    contactApp:select(self)
 end
 
+-- Check if this contact is the one being edited
 function Contact:isSelected()
-    return app:isEditing(self)
+    return contactApp:isEditing(self)
 end
 
 -- Main app
-ContactApp = { type = "ContactApp" }
-ContactApp.__index = ContactApp
-function ContactApp:new()
-    return setmetatable({
-        _allContacts = {},
-        searchQuery = "",
-        current = nil,        -- Temp contact being edited
-        _editing = nil,       -- Original contact (nil = adding new)
-        hideDetail = true,
-        darkMode = false,
-        messages = {},
-        chatInput = ""
-    }, self)
+ContactApp = session:prototype("ContactApp", {
+    _allContacts = EMPTY,
+    searchQuery = "",
+    current = EMPTY,
+    _editing = EMPTY,
+    hideDetail = true,
+    darkMode = false,
+    messages = EMPTY,
+    chatInput = ""
+})
+
+function ContactApp:new(instance)
+    instance = session:create(ContactApp, instance)
+    instance._allContacts = instance._allContacts or {}
+    instance.messages = instance.messages or {}
+    return instance
 end
 
 -- Computed: filtered contacts based on searchQuery
@@ -83,17 +92,18 @@ end
 -- Add new contact (creates temp, doesn't insert until save)
 function ContactApp:add()
     self.current = Contact:new("New Contact")
-    self._editing = nil
+    self._editing = nil  -- nil means adding new
     self.hideDetail = false
 end
 
 -- Edit existing contact (clones into temp)
 function ContactApp:select(contact)
     self.current = contact:clone()
-    self._editing = contact
+    self._editing = contact  -- remember original
     self.hideDetail = false
 end
 
+-- Check if contact is the one being edited
 function ContactApp:isEditing(contact)
     return self._editing == contact
 end
@@ -103,10 +113,12 @@ function ContactApp:save()
     if not self.current then return end
 
     if self._editing then
+        -- Editing existing: copy temp back to original
         self._editing:copyFrom(self.current)
     else
+        -- Adding new: insert into list
         table.insert(self._allContacts, self.current)
-        self._editing = self.current
+        self._editing = self.current  -- now it's a real contact
     end
 
     mcp.pushState({
@@ -150,4 +162,7 @@ function ContactApp:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
 end
 
-contacts = contacts or ContactApp:new()
+-- Initialize (idempotent - only runs on first load)
+if not session.reloading then
+    contactApp = ContactApp:new()
+end

@@ -131,13 +131,43 @@ func parseReadmeVersion(content []byte) string {
 
 // InstallResult contains the results of an install operation.
 type InstallResult struct {
-	Installed       []string `json:"installed"`
-	Skipped         []string `json:"skipped"`
-	Appended        []string `json:"appended"`
-	VersionSkipped  bool     `json:"version_skipped,omitempty"`
-	BundledVersion  string   `json:"bundled_version,omitempty"`
-	InstalledVersion string  `json:"installed_version,omitempty"`
-	Hint            string   `json:"hint,omitempty"`
+	Installed        []string `json:"installed"`
+	Skipped          []string `json:"skipped"`
+	Appended         []string `json:"appended"`
+	VersionSkipped   bool     `json:"version_skipped,omitempty"`
+	BundledVersion   string   `json:"bundled_version,omitempty"`
+	InstalledVersion string   `json:"installed_version,omitempty"`
+	Hint             string   `json:"hint,omitempty"`
+}
+
+// installFile installs a single file from the bundle.
+// bundlePath: path relative to bundle root (e.g., "resources/reference.md")
+// destPath: absolute destination path
+// mode: file permissions (0644 for regular files, 0755 for scripts)
+// Returns: "installed", "skipped", or "" (file not found in bundle)
+func (s *Server) installFile(bundlePath, destPath string, mode os.FileMode, force bool) (string, error) {
+	// Skip if file exists (unless force)
+	if _, err := os.Stat(destPath); err == nil && !force {
+		return "skipped", nil
+	}
+
+	// Read content from bundle
+	content, err := cli.BundleReadFile(bundlePath)
+	if err != nil || len(content) == 0 {
+		s.cfg.Log(1, "File not found in bundle: %s", bundlePath)
+		return "", nil
+	}
+
+	// Create directory and write file
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
+	}
+	if err := os.WriteFile(destPath, content, mode); err != nil {
+		return "", fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+	}
+
+	s.cfg.Log(1, "Installed: %s", destPath)
+	return "installed", nil
 }
 
 // Install installs bundled configuration files.
@@ -148,28 +178,20 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		return nil, fmt.Errorf("server not configured (baseDir not set)")
 	}
 
+	// Require bundled binary for install
+	if bundled, _ := cli.IsBundled(); !bundled {
+		return nil, fmt.Errorf("install requires a bundled binary (use 'make build')")
+	}
+
 	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
 	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
-	isBundled, _ := cli.IsBundled()
 
 	// Version checking: compare bundled README version with installed version
 	var bundledVersion, installedVersion string
-
-	// Read bundled version from README.md
-	var bundledContent []byte
-	var err error
-	if isBundled {
-		bundledContent, err = cli.BundleReadFile("README.md")
-	} else {
-		bundledContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "README.md"))
-	}
-	if err == nil {
+	if bundledContent, err := cli.BundleReadFile("README.md"); err == nil {
 		bundledVersion = parseReadmeVersion(bundledContent)
 	}
-
-	// Read installed version from README.md
-	installedReadmePath := filepath.Join(s.baseDir, "README.md")
-	if installedContent, err := os.ReadFile(installedReadmePath); err == nil {
+	if installedContent, err := os.ReadFile(filepath.Join(s.baseDir, "README.md")); err == nil {
 		installedVersion = parseReadmeVersion(installedContent)
 	}
 
@@ -185,207 +207,96 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		}
 	}
 
-	installed := []string{}
-	skipped := []string{}
-	appended := []string{}
+	var installed, skipped []string
+
+	// Helper to track install results
+	track := func(relPath, status string) {
+		switch status {
+		case "installed":
+			installed = append(installed, relPath)
+		case "skipped":
+			skipped = append(skipped, relPath)
+		}
+	}
 
 	// 1. Install skills and agents to {project}/.claude/{category}/
-	claudeCategories := map[string][]string{
-		"skills/ui":         {"SKILL.md"},
-		"skills/ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua", "examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
-		"agents":            {"ui-builder.md"},
+	claudeFiles := []struct{ category, file string }{
+		{"skills/ui", "SKILL.md"},
+		{"skills/ui-builder", "SKILL.md"},
+		{"skills/ui-builder", "examples/requirements.md"},
+		{"skills/ui-builder", "examples/design.md"},
+		{"skills/ui-builder", "examples/app.lua"},
+		{"skills/ui-builder", "examples/viewdefs/ContactApp.DEFAULT.html"},
+		{"skills/ui-builder", "examples/viewdefs/Contact.list-item.html"},
+		{"skills/ui-builder", "examples/viewdefs/ChatMessage.list-item.html"},
+		{"agents", "ui-builder.md"},
+	}
+	for _, f := range claudeFiles {
+		bundlePath := filepath.Join(f.category, f.file)
+		destPath := filepath.Join(projectRoot, ".claude", f.category, f.file)
+		relPath := filepath.Join(".claude", f.category, f.file)
+		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		if err != nil {
+			return nil, err
+		}
+		track(relPath, status)
 	}
 
-	for category, files := range claudeCategories {
-		for _, file := range files {
-			destPath := filepath.Join(projectRoot, ".claude", category, file)
-			relPath := filepath.Join(".claude", category, file)
-
-			// Skip if file exists (unless force)
-			if _, err := os.Stat(destPath); err == nil && !force {
-				skipped = append(skipped, relPath)
-				continue
-			}
-
-			bundlePath := filepath.Join(category, file)
-			var content []byte
-			var readErr error
-
-			if isBundled {
-				content, readErr = cli.BundleReadFile(bundlePath)
-			} else {
-				localPath := filepath.Join(projectRoot, "install", category, file)
-				content, readErr = os.ReadFile(localPath)
-			}
-
-			if readErr != nil || len(content) == 0 {
-				s.cfg.Log(1, "File not found: %s", bundlePath)
-				continue
-			}
-
-			destDir := filepath.Dir(destPath)
-			if mkErr := os.MkdirAll(destDir, 0755); mkErr != nil {
-				return nil, fmt.Errorf("failed to create %s directory: %v", category, mkErr)
-			}
-			if writeErr := os.WriteFile(destPath, content, 0644); writeErr != nil {
-				return nil, fmt.Errorf("failed to write %s: %v", file, writeErr)
-			}
-
-			installed = append(installed, relPath)
-			s.cfg.Log(1, "Installed: %s", destPath)
+	// 2. Install resources to {base_dir}/resources/
+	for _, file := range []string{"reference.md", "viewdefs.md", "lua.md", "mcp.md"} {
+		bundlePath := filepath.Join("resources", file)
+		destPath := filepath.Join(s.baseDir, "resources", file)
+		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		if err != nil {
+			return nil, err
 		}
+		track(bundlePath, status)
 	}
 
-	// 2. Install resources
-	resourceFiles := []string{"reference.md", "viewdefs.md", "lua.md", "mcp.md"}
-	for _, resFile := range resourceFiles {
-		destPath := filepath.Join(s.baseDir, "resources", resFile)
-		relPath := filepath.Join("resources", resFile)
-
-		exists := false
-		if _, err := os.Stat(destPath); err == nil {
-			exists = true
+	// 3. Install viewdefs to {base_dir}/viewdefs/
+	for _, file := range []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html"} {
+		bundlePath := filepath.Join("viewdefs", file)
+		destPath := filepath.Join(s.baseDir, "viewdefs", file)
+		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		if err != nil {
+			return nil, err
 		}
-
-		if exists && !force {
-			skipped = append(skipped, relPath)
-			continue
-		}
-
-		var content []byte
-		var err error
-		if isBundled {
-			content, err = cli.BundleReadFile(filepath.Join("resources", resFile))
-		} else {
-			localPath := filepath.Join(projectRoot, "install", "resources", resFile)
-			content, err = os.ReadFile(localPath)
-		}
-
-		if err != nil || len(content) == 0 {
-			s.cfg.Log(1, "Resource file not found: %s", resFile)
-			continue
-		}
-
-		destDir := filepath.Dir(destPath)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create resources directory: %v", err)
-		}
-		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write %s: %v", resFile, err)
-		}
-
-		installed = append(installed, relPath)
-		s.cfg.Log(1, "Installed resource: %s", destPath)
+		track(bundlePath, status)
 	}
 
-	// 3. Install viewdefs
-	viewdefFiles := []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html"}
-	for _, vdFile := range viewdefFiles {
-		destPath := filepath.Join(s.baseDir, "viewdefs", vdFile)
-		relPath := filepath.Join("viewdefs", vdFile)
-
-		exists := false
-		if _, err := os.Stat(destPath); err == nil {
-			exists = true
+	// 4. Install scripts to {base_dir}/ (executable)
+	for _, file := range []string{"event", "state", "variables", "linkapp"} {
+		destPath := filepath.Join(s.baseDir, file)
+		status, err := s.installFile(file, destPath, 0755, force)
+		if err != nil {
+			return nil, err
 		}
-
-		if exists && !force {
-			skipped = append(skipped, relPath)
-			continue
-		}
-
-		var content []byte
-		var err error
-		if isBundled {
-			content, err = cli.BundleReadFile(filepath.Join("viewdefs", vdFile))
-		} else {
-			localPath := filepath.Join(projectRoot, "install", "viewdefs", vdFile)
-			content, err = os.ReadFile(localPath)
-		}
-
-		if err != nil || len(content) == 0 {
-			s.cfg.Log(1, "Viewdef file not found: %s", vdFile)
-			continue
-		}
-
-		destDir := filepath.Dir(destPath)
-		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create viewdefs directory: %v", err)
-		}
-		if err := os.WriteFile(destPath, content, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write %s: %v", vdFile, err)
-		}
-
-		installed = append(installed, relPath)
-		s.cfg.Log(1, "Installed viewdef: %s", destPath)
+		track(file, status)
 	}
 
-	// 4. Install scripts
-	scriptFiles := []string{"event", "state", "variables", "linkapp"}
-	for _, scriptFile := range scriptFiles {
-		destPath := filepath.Join(s.baseDir, scriptFile)
-
-		exists := false
-		if _, err := os.Stat(destPath); err == nil {
-			exists = true
+	// 5. Install html files to {base_dir}/html/ (dynamically discovered from bundle)
+	htmlFiles, _ := cli.BundleListFiles("html")
+	for _, bundlePath := range htmlFiles {
+		fileName := filepath.Base(bundlePath)
+		destPath := filepath.Join(s.baseDir, "html", fileName)
+		relPath := filepath.Join("html", fileName)
+		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		if err != nil {
+			return nil, err
 		}
-
-		if exists && !force {
-			skipped = append(skipped, scriptFile)
-			continue
-		}
-
-		var content []byte
-		var err error
-		if isBundled {
-			content, err = cli.BundleReadFile(scriptFile)
-		} else {
-			localPath := filepath.Join(projectRoot, "install", scriptFile)
-			content, err = os.ReadFile(localPath)
-		}
-
-		if err != nil || len(content) == 0 {
-			s.cfg.Log(1, "Script file not found: %s", scriptFile)
-			continue
-		}
-
-		if err := os.WriteFile(destPath, content, 0755); err != nil {
-			return nil, fmt.Errorf("failed to write %s: %v", scriptFile, err)
-		}
-
-		installed = append(installed, scriptFile)
-		s.cfg.Log(1, "Installed script: %s", destPath)
+		track(relPath, status)
 	}
 
-	// 5. Install README.md
-	readmeDest := filepath.Join(s.baseDir, "README.md")
-	readmeExists := false
-	if _, err := os.Stat(readmeDest); err == nil {
-		readmeExists = true
+	// 6. Install README.md to {base_dir}/
+	status, err := s.installFile("README.md", filepath.Join(s.baseDir, "README.md"), 0644, force)
+	if err != nil {
+		return nil, err
 	}
-	if !readmeExists || force {
-		var readmeContent []byte
-		var err error
-		if isBundled {
-			readmeContent, err = cli.BundleReadFile("README.md")
-		} else {
-			readmeContent, err = os.ReadFile(filepath.Join(projectRoot, "install", "README.md"))
-		}
-		if err == nil && len(readmeContent) > 0 {
-			if err := os.WriteFile(readmeDest, readmeContent, 0644); err != nil {
-				return nil, fmt.Errorf("failed to write README.md: %v", err)
-			}
-			installed = append(installed, "README.md")
-			s.cfg.Log(1, "Installed README: %s", readmeDest)
-		}
-	} else {
-		skipped = append(skipped, "README.md")
-	}
+	track("README.md", status)
 
 	return &InstallResult{
 		Installed: installed,
 		Skipped:   skipped,
-		Appended:  appended,
 	}, nil
 }
 

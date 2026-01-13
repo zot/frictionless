@@ -65,6 +65,11 @@ $(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 		cp -r agents/* $(CACHE_DIR)/agents/ 2>/dev/null || true; \
 		echo "Copied agents"; \
 	fi
+	@# Copy html files to install/html for bundling
+	@rm -rf install/html
+	@mkdir -p install/html
+	@cp -r $(CACHE_DIR)/html/* install/html/
+	@echo "Copied html files to install/html/"
 	@touch $(CACHE_DIR)/.cached
 	@echo "Cached web assets in $(CACHE_DIR)/"
 

@@ -455,8 +455,9 @@ end
 ## Complete Example
 
 See the `examples/` directory for a complete Contact Manager with Chat:
+- `examples/requirements.md` — Requirements spec
 - `examples/design.md` — Design spec
-- `examples/code.lua` — Lua code
-- `examples/ContactApp.DEFAULT.html` — App viewdef
-- `examples/Contact.list-item.html` — Contact item viewdef
-- `examples/ChatMessage.list-item.html` — Chat message viewdef
+- `examples/app.lua` — Lua code
+- `examples/viewdefs/ContactApp.DEFAULT.html` — App viewdef
+- `examples/viewdefs/Contact.list-item.html` — Contact item viewdef
+- `examples/viewdefs/ChatMessage.list-item.html` — Chat message viewdef

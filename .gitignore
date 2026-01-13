@@ -15,3 +15,4 @@ node_modules
 /.claude/ui/log/
 /.claude/ui/mcp-port
 /.claude/ui/ui-port
+/install/html/
