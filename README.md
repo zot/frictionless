@@ -36,6 +36,9 @@ chmod +x {home}/.claude/bin/ui-mcp
 
 # Add to Claude Code
 claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
+
+# Initialize the project
+{home}/.claude/bin/ui-mcp} install
 ```
 
 ## Usage
