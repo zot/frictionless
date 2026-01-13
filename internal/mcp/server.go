@@ -255,6 +255,14 @@ func (s *Server) Configure(baseDir string) error {
 	return nil
 }
 
+// SetBaseDir sets the base directory without running auto-install.
+// Used by the install command which handles installation separately.
+func (s *Server) SetBaseDir(baseDir string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.baseDir = baseDir
+}
+
 // Start transitions the server to the Running state and starts the HTTP server.
 // Spec: mcp.md
 // CRC: crc-MCPServer.md

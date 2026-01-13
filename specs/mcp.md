@@ -79,6 +79,17 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `GET /state`: Current session state (JSON)
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.3)
 
+### 2.4 Install Command (`install`)
+
+Manually install bundled skills and resources without starting the MCP server.
+
+- **Activation:** `ui-mcp install [--dir <base_dir>] [--force]`
+- **Default base_dir:** `{project}/.claude/ui`
+- **Behavior:** Same as `ui_install` MCP tool (see Section 5.7):
+  - Installs Claude skills to `{project}/.claude/skills/`
+  - Installs resources, viewdefs, and scripts to `{base_dir}/`
+  - Uses version checking (skips if installed >= bundled unless `--force`)
+
 ## 3. Server Lifecycle
 
 The MCP server operates as a strict Finite State Machine (FSM).
@@ -89,6 +100,7 @@ On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically
 
 1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically. This installs:
    - **Claude skills** (`/ui` and `/ui-builder`) to `{project}/.claude/skills/`
+   - **Claude agents** to `{project}/.claude/agents/`
    - **MCP resources** (reference docs) to `{base_dir}/resources/`
    - **Standard viewdefs** to `{base_dir}/viewdefs/`
    - **Helper scripts** to `{base_dir}/`
@@ -392,8 +404,9 @@ Installation behavior:
 
 | Source (in `install/`)                   | Destination                             | Purpose                              |
 |------------------------------------------|-----------------------------------------|--------------------------------------|
-| `init/skills/ui/*`                       | `{project}/.claude/skills/ui/*`         | `/ui` skill (running UIs)            |
-| `init/skills/ui-builder/*`               | `{project}/.claude/skills/ui-builder/*` | `/ui-builder` skill (building UIs)   |
+| `skills/ui/*`                            | `{project}/.claude/skills/ui/*`         | `/ui` skill (running UIs)            |
+| `skills/ui-builder/*`                    | `{project}/.claude/skills/ui-builder/*` | `/ui-builder` skill (building UIs)   |
+| `agents/*`                               | `{project}/.claude/agents/*`            | Agent configurations                 |
 | `resources/*`                            | `{base_dir}/resources/*`                | MCP server resources                 |
 | `viewdefs/*`                             | `{base_dir}/viewdefs/*`                 | Standard viewdefs (e.g., ViewList)   |
 | `event`, `state`, `variables`, `linkapp` | `{base_dir}`                            | Scripts for easy MCP endpoint access |
@@ -401,7 +414,7 @@ Installation behavior:
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
-- Creates `.claude/` and `.claude/skills/` directories if they don't exist
+- Creates `.claude/`, `.claude/skills/`, and `.claude/agents/` directories if they don't exist
 
 **Behavior:**
 1. **Check State:** Must be in CONFIGURED or RUNNING state.

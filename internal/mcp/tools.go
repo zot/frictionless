@@ -189,17 +189,17 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	skipped := []string{}
 	appended := []string{}
 
-	// 1. Install skill files
-	skillsDir := filepath.Join(projectRoot, ".claude", "skills")
-	skillsToInstall := map[string][]string{
-		"ui":         {"SKILL.md"},
-		"ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua", "examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
+	// 1. Install skills and agents to {project}/.claude/{category}/
+	claudeCategories := map[string][]string{
+		"skills/ui":         {"SKILL.md"},
+		"skills/ui-builder": {"SKILL.md", "examples/requirements.md", "examples/design.md", "examples/code.lua", "examples/ContactApp.DEFAULT.html", "examples/Contact.list-item.html", "examples/ChatMessage.list-item.html"},
+		"agents":            {"ui-builder.md"},
 	}
 
-	for skillName, skillFiles := range skillsToInstall {
-		for _, skillFile := range skillFiles {
-			destPath := filepath.Join(skillsDir, skillName, skillFile)
-			relPath := filepath.Join(".claude", "skills", skillName, skillFile)
+	for category, files := range claudeCategories {
+		for _, file := range files {
+			destPath := filepath.Join(projectRoot, ".claude", category, file)
+			relPath := filepath.Join(".claude", category, file)
 
 			// Skip if file exists (unless force)
 			if _, err := os.Stat(destPath); err == nil && !force {
@@ -207,32 +207,32 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 				continue
 			}
 
-			bundlePath := filepath.Join("skills", skillName, skillFile)
+			bundlePath := filepath.Join(category, file)
 			var content []byte
 			var readErr error
 
 			if isBundled {
 				content, readErr = cli.BundleReadFile(bundlePath)
 			} else {
-				localPath := filepath.Join(projectRoot, "install", "init", "skills", skillName, skillFile)
+				localPath := filepath.Join(projectRoot, "install", category, file)
 				content, readErr = os.ReadFile(localPath)
 			}
 
 			if readErr != nil || len(content) == 0 {
-				s.cfg.Log(1, "Skill file not found: %s", bundlePath)
+				s.cfg.Log(1, "File not found: %s", bundlePath)
 				continue
 			}
 
 			destDir := filepath.Dir(destPath)
 			if mkErr := os.MkdirAll(destDir, 0755); mkErr != nil {
-				return nil, fmt.Errorf("failed to create skills directory: %v", mkErr)
+				return nil, fmt.Errorf("failed to create %s directory: %v", category, mkErr)
 			}
 			if writeErr := os.WriteFile(destPath, content, 0644); writeErr != nil {
-				return nil, fmt.Errorf("failed to write %s: %v", skillFile, writeErr)
+				return nil, fmt.Errorf("failed to write %s: %v", file, writeErr)
 			}
 
 			installed = append(installed, relPath)
-			s.cfg.Log(1, "Installed skill file: %s", destPath)
+			s.cfg.Log(1, "Installed: %s", destPath)
 		}
 	}
 

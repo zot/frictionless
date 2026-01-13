@@ -34,24 +34,25 @@ func main() {
 			if command == "serve" {
 				return true, runServe(args)
 			}
+			// Handle install command
+			// Spec: mcp.md Section 2.4
+			if command == "install" {
+				return true, runInstall(args)
+			}
 			return false, 0
 		},
 		CustomHelp: func() string {
 			return `
-MCP Commands:
+Commands:
   mcp             Start MCP server on Stdio (for AI integration)
   serve           Start standalone server with HTTP UI and MCP endpoints
-  hooks           Manage Claude Code permission hooks
+  install         Install skills and resources (without starting server)
 
-Hook Commands:
-  hooks install   Install permission UI hook for Claude Code
-  hooks uninstall Remove permission UI hook
-  hooks status    Check hook installation status
-
-MCP Examples:
+Examples:
   ui-mcp mcp                                        Start MCP server (default: --dir .claude/ui)
   ui-mcp serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
-  ui-mcp hooks install                              Install permission UI hook`
+  ui-mcp install                                    Install skills and resources
+  ui-mcp install --force                            Force reinstall even if up to date`
 		},
 		CustomVersion: func() string {
 			return "ui-mcp " + Version
@@ -178,6 +179,82 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 		os.Exit(0)
 	}()
 	return mcpServer
+}
+
+// runInstall installs skills and resources without starting the MCP server.
+// Spec: mcp.md Section 2.4
+func runInstall(args []string) int {
+	// Parse --force flag
+	force := false
+	var filteredArgs []string
+	for _, arg := range args {
+		if arg == "--force" || arg == "-f" {
+			force = true
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	// Load config for --dir flag
+	cfg, err := cli.Load(filteredArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+		return 1
+	}
+
+	// Default dir to .claude/ui if not specified
+	if cfg.Server.Dir == "" {
+		cfg.Server.Dir = ".claude/ui"
+	}
+
+	// Create a minimal MCP server just for installation
+	srv := cli.NewServer(cfg)
+	mcpServer := mcp.NewServer(
+		cfg,
+		srv,
+		srv.GetViewdefManager(),
+		nil, // No start function needed
+		nil, // No viewdef callback needed
+		nil, // No session count needed
+	)
+
+	// Create base directory if it doesn't exist
+	if err := os.MkdirAll(cfg.Server.Dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create directory %s: %v\n", cfg.Server.Dir, err)
+		return 1
+	}
+
+	// Set baseDir (needed for Install)
+	mcpServer.SetBaseDir(cfg.Server.Dir)
+
+	// Run installation
+	result, err := mcpServer.Install(force)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Install failed: %v\n", err)
+		return 1
+	}
+
+	// Print results
+	if result.VersionSkipped {
+		fmt.Printf("Skipped: installed version %s >= bundled version %s\n", result.InstalledVersion, result.BundledVersion)
+		fmt.Println("Use --force to reinstall")
+		return 0
+	}
+
+	if len(result.Installed) > 0 {
+		fmt.Println("Installed:")
+		for _, f := range result.Installed {
+			fmt.Printf("  %s\n", f)
+		}
+	}
+	if len(result.Skipped) > 0 {
+		fmt.Println("Skipped (already exist):")
+		for _, f := range result.Skipped {
+			fmt.Printf("  %s\n", f)
+		}
+	}
+
+	return 0
 }
 
 // runServe runs the standalone server with HTTP UI and SSE MCP endpoints.

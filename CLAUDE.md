@@ -1,5 +1,14 @@
 # Project Instructions
 
+### Testing with the bundled binary
+Always use `make build` before testing features that depend on bundled files (install, skills, agents, resources). The unbundled binary (`go build`) won't find these files.
+
+```bash
+make build                    # Creates build/ui-mcp with bundled files
+./build/ui-mcp install        # Test install command
+./build/ui-mcp mcp -vvvv      # Run MCP server
+```
+
 ### Running the demo
 From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .claude/ui -vvvv`
 You can use the playwright browser to connect to it.
@@ -43,7 +52,7 @@ See `.claude/skills/mini-spec/SKILL.md` for the full methodology.
 Release versions use semantic versioning in `README.md` (the `**Version: X.Y.Z**` line near the top).
 
 **To create a release:**
-1. Update `**Version: X.Y.Z**` in `README.md`
+1. Update `**Version: X.Y.Z**` in both `README.md` and `install/README.md`
 2. Commit: `git commit -am "Release vX.Y.Z"`
 3. Tag: `git tag vX.Y.Z`
 4. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
