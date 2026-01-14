@@ -34,7 +34,37 @@ Referenced from other design artifacts: Cards, sequences, and layouts can all sa
 **Code changes:** Uncheck `[x]`→`[ ]`, ask user: "Update design, specs, or defer?"
 **Update design:** Read code, update design file, re-check box.
 
-## Gap Analysis
+## Workflow
+
+**Read specs first.** Specs must indicate language/environment.
+
+1. Spec Phase
+Create in `specs/`: human readable, natural language descriptions
+
+**Upon completion**, offer to update the design (Design Phase). Do not jump to Implementation.
+
+2. Design Phase
+Create in `design/`:
+- `design.md`: Intent + Artifacts (design files → code file checkboxes)
+- `crc-*`: CRC cards (see format below)
+- `seq-*`: sequence diagrams (≤150 chars wide)
+- `ui-*`: ASCII layouts, reference CRC cards
+- `test-*`: test designs (see format below)
+- `manifest-ui.md`: routes, theme, global components
+
+**Upon completion**, offer to update the implementation (Implementation Phase). Do not jump to Gaps.
+
+3. Implementation Phase
+Add traceability comments:
+```
+// CRC: crc-Store.md | Seq: seq-crud.md
+add(data): Item {
+```
+Mark implemented: `[ ]`→`[x]` in Artifacts.
+
+**Upon completion always do the Gaps Phase.**
+
+4. Gaps Phase
 
 `design.md` Gaps section tracks (use S1/D1/C1/O1 numbering):
 - **Spec→Design (Sn):** Spec features without design artifacts
@@ -49,39 +79,9 @@ Nest related items with checkboxes:
   - [ ] Feature B (3 scenarios)
 ```
 
-## Workflow
+**Upon completion**, offer to update Documentation (Documentation Phase).
 
-**Read specs first.** Specs must indicate language/environment.
-
-### Phase Separation
-- **"Design"** = design only, no code
-- **"Implement"** = code only, update Artifacts checkboxes
-- **"Code changes"** = uncheck Artifacts, ask user
-- **Spec changes** = always update design next (never jump to code unless user explicitly requests)
-
-### Spec Phase
-Create in `specs/`: human readable, natural language descriptions
-
-After spec changes, offer to update the design. Do not jump to implementation.
-
-### Design Phase
-Create in `design/`:
-- `design.md`: Intent + Artifacts (design files → code file checkboxes)
-- `crc-*`: CRC cards (see format below)
-- `seq-*`: sequence diagrams (≤150 chars wide)
-- `ui-*`: ASCII layouts, reference CRC cards
-- `test-*`: test designs (see format below)
-- `manifest-ui.md`: routes, theme, global components
-
-### Implementation Phase
-Add traceability comments:
-```
-// CRC: crc-Store.md | Seq: seq-crud.md
-add(data): Item {
-```
-Mark implemented: `[ ]`→`[x]` in Artifacts.
-
-### Documentation Phase
+5. Documentation Phase, Optional -- offer to user after Gaps
 Create `docs/user-manual.md` and `docs/developer-guide.md` with traceability links.
 
 ## CRC Card Format

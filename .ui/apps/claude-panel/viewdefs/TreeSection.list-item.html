@@ -1,0 +1,46 @@
+<template>
+  <style>
+    .tree-section {
+      border-bottom: 1px solid var(--sl-color-neutral-200);
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      padding: var(--sl-spacing-small) var(--sl-spacing-medium);
+      cursor: pointer;
+      user-select: none;
+      background: var(--sl-color-neutral-0);
+    }
+    .section-header:hover {
+      background: var(--sl-color-neutral-100);
+    }
+    .section-icon {
+      margin-right: var(--sl-spacing-small);
+      transition: transform 0.2s;
+    }
+    .section-icon.collapsed {
+      transform: rotate(-90deg);
+    }
+    .section-name {
+      flex: 1;
+      font-weight: var(--sl-font-weight-medium);
+      font-size: var(--sl-font-size-small);
+    }
+    .section-count {
+      color: var(--sl-color-neutral-500);
+      font-size: var(--sl-font-size-small);
+    }
+    .section-items {
+      background: var(--sl-color-neutral-50);
+    }
+    .hidden { display: none !important; }
+  </style>
+  <div class="tree-section">
+    <div class="section-header" ui-action="toggle()">
+      <sl-icon name="chevron-down" class="section-icon" ui-class-collapsed="isCollapsed()"></sl-icon>
+      <span class="section-name" ui-value="name"></span>
+      <span class="section-count" ui-value="itemCount()"></span>
+    </div>
+    <div class="section-items" ui-class-hidden="isCollapsed()" ui-view="items?wrapper=lua.ViewList"></div>
+  </div>
+</template>

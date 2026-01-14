@@ -175,7 +175,7 @@ Agent waits but no events are pushed within timeout period.
 
 ## Scenario 4: No Active Session
 
-Wait request when server has no active session (not RUNNING).
+Wait request when server has no active session.
 
 ```
      +------------+        +-----------+

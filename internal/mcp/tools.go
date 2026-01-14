@@ -28,11 +28,6 @@ func (s *Server) registerTools() {
 		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the UI working directory. Use {project}/.claude/ui unless user specifies otherwise.")),
 	), s.handleConfigure)
 
-	// ui_start
-	s.mcpServer.AddTool(mcp.NewTool("ui_start",
-		mcp.WithDescription("Start the embedded HTTP UI server. Requires server to be Configured."),
-	), s.handleStart)
-
 	// ui_open_browser
 	s.mcpServer.AddTool(mcp.NewTool("ui_open_browser",
 		mcp.WithDescription("Open the system's default web browser to the UI session."),
@@ -58,7 +53,7 @@ func (s *Server) registerTools() {
 
 	// ui_status
 	s.mcpServer.AddTool(mcp.NewTool("ui_status",
-		mcp.WithDescription("Get current server status including lifecycle state and browser connection count"),
+		mcp.WithDescription("Get current server status including browser connection count"),
 	), s.handleStatus)
 
 	// ui_install
@@ -101,11 +96,18 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Return structured response
+	// Start and create session (shared with process startup)
+	// Spec: mcp.md Section 5.1 - ui_configure now also starts the server
+	sessionURL, err := s.StartAndCreateSession()
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	// Return structured response with URL
 	response := map[string]interface{}{
-		"status":   "configured",
-		"base_dir": baseDir,
-		"log_path": filepath.Join(baseDir, "log"),
+		"base_dir":       baseDir,
+		"url":            sessionURL,
+		"install_needed": false,
 	}
 
 	responseJSON, _ := json.Marshal(response)
@@ -343,11 +345,11 @@ func compareSemver(a, b string) int {
 }
 
 // handleInstall installs bundled configuration files.
-// Spec: mcp.md section 5.7
+// Spec: mcp.md section 5.6
 func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Check state - server must be configured
-	if s.state != Configured && s.state != Running {
-		return mcp.NewToolResultError("ui_install requires CONFIGURED or RUNNING state. Call ui_configure first."), nil
+	// Check state - server must be running
+	if s.state != Running {
+		return mcp.NewToolResultError("ui_install requires the server to be running. Call ui_configure first."), nil
 	}
 
 	// Parse force parameter
@@ -366,56 +368,6 @@ func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest)
 
 	resultJSON, _ := json.Marshal(result)
 	return mcp.NewToolResultText(string(resultJSON)), nil
-}
-
-// Spec: mcp.md
-// CRC: crc-MCPTool.md
-// Sequence: seq-mcp-lifecycle.md
-func (s *Server) handleStart(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	baseURL, err := s.Start()
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-
-	// Extract UI port from URL and write ui-port file
-	// Spec: mcp.md Section 5.2
-	uiPort, err := parsePortFromURL(baseURL)
-	if err != nil {
-		s.cfg.Log(0, "Warning: failed to parse UI port from URL %s: %v", baseURL, err)
-	} else {
-		if err := s.WriteUIPortFile(uiPort); err != nil {
-			s.cfg.Log(0, "Warning: failed to write ui-port file: %v", err)
-		}
-	}
-
-	// Create session - this triggers CreateLuaBackendForSession
-	// Returns (session, vendedID, error) - session.ID has the UUID for URLs
-	session, vendedID, err := s.UiServer.GetSessions().CreateSession()
-	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to create session: %v", err)), nil
-	}
-
-	// Store the vended ID for later cleanup
-	s.currentVendedID = vendedID
-
-	// Apply Lua I/O redirection to the new session (if paths were set at configure time)
-	if s.logPath != "" && s.errPath != "" {
-		luaSession := s.UiServer.GetLuaSession(vendedID)
-		if luaSession != nil {
-			if err := luaSession.RedirectOutput(s.logPath, s.errPath); err != nil {
-				s.cfg.Log(0, "Warning: failed to redirect Lua output: %v", err)
-			}
-		}
-	}
-
-	// Set up mcp global in Lua with Go functions
-	if err := s.setupMCPGlobal(vendedID); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to setup mcp global: %v", err)), nil
-	}
-
-	// Return URL with session UUID so browser connects to the right session
-	sessionURL := fmt.Sprintf("%s/%s", baseURL, session.ID)
-	return mcp.NewToolResultText(sessionURL), nil
 }
 
 // setupMCPGlobal creates the mcp global object in Lua with Go functions attached.
@@ -515,7 +467,6 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			baseDir := s.baseDir
 			s.mu.RUnlock()
 
-			L.SetField(result, "state", lua.LString(stateToString(state)))
 			L.SetField(result, "base_dir", lua.LString(baseDir))
 
 			// Get bundled version (same logic as handleStatus)
@@ -692,7 +643,7 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 		sessionID = s.currentVendedID
 	}
 	if sessionID == "" {
-		return mcp.NewToolResultError("no active session - call ui_start first"), nil
+		return mcp.NewToolResultError("no active session - call ui_configure first"), nil
 	}
 
 	path, ok := args["path"].(string)
@@ -753,11 +704,6 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 	return mcp.NewToolResultText(fmt.Sprintf("Opened %s", fullURL)), nil
 }
 
-func (s *Server) handleGetState(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Removed in favor of ui_run
-	return mcp.NewToolResultError("Tool removed. Use ui_run to inspect state."), nil
-}
-
 // Spec: mcp.md
 // CRC: crc-MCPTool.md
 // Sequence: seq-mcp-run.md
@@ -776,7 +722,7 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		sessionID = s.currentVendedID
 	}
 	if sessionID == "" {
-		return mcp.NewToolResultError("no active session - call ui_start first"), nil
+		return mcp.NewToolResultError("no active session - call ui_configure first"), nil
 	}
 
 	// Get the session for LoadCodeDirect
@@ -840,19 +786,18 @@ func (s *Server) handleUploadViewdef(ctx context.Context, request mcp.CallToolRe
 }
 
 // CRC: crc-MCPTool.md
-// Spec: mcp.md (section 5.6)
+// Spec: mcp.md (section 5.5)
 func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	s.mu.RLock()
 	state := s.state
 	url := s.url
+	baseDir := s.baseDir
 	s.mu.RUnlock()
 
-	result := map[string]interface{}{
-		"state": stateToString(state),
-	}
+	result := map[string]interface{}{}
 
 	// Always include bundled version from README.md
-	// Spec: mcp.md section 5.6 - version is always present
+	// Spec: mcp.md section 5.5 - version is always present
 	isBundled, _ := cli.IsBundled()
 	var bundledContent []byte
 	var err error
@@ -868,11 +813,12 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 		}
 	}
 
-	// Include base_dir when configured or running
-	if state == Configured || state == Running {
-		result["base_dir"] = s.baseDir
+	// Include base_dir when set
+	if baseDir != "" {
+		result["base_dir"] = baseDir
 	}
 
+	// Include url and sessions when running
 	if state == Running {
 		result["url"] = url
 		if s.getSessionCount != nil {
@@ -891,7 +837,7 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 // handleDisplay loads and displays an app by calling mcp.display(name) in Lua.
 func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.state != Running {
-		return mcp.NewToolResultError("server not running - call ui_start first"), nil
+		return mcp.NewToolResultError("server not running - call ui_configure first"), nil
 	}
 
 	args, ok := request.Params.Arguments.(map[string]interface{})
@@ -953,13 +899,3 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 
-func stateToString(state State) string {
-	switch state {
-	case Configured:
-		return "configured"
-	case Running:
-		return "running"
-	default:
-		return "unknown"
-	}
-}

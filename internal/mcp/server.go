@@ -22,13 +22,13 @@ import (
 	"github.com/zot/ui-engine/cli"
 )
 
-// State represents the lifecycle state of the MCP server.
-// Spec: mcp.md Section 3.1 - Server starts in CONFIGURED state.
+// State represents the internal state of the MCP server (not exposed externally).
+// Spec: mcp.md Section 3.1 - Server auto-starts.
 type State int
 
 const (
-	Configured State = iota
-	Running
+	Configured State = iota // Internal state during configuration (not exposed)
+	Running                 // Server is running and accepting connections
 )
 
 // Server implements an MCP server for AI integration.
@@ -69,7 +69,7 @@ func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManag
 		startFunc:         startFunc,
 		onViewdefUploaded: onViewdefUploaded,
 		getSessionCount:   getSessionCount,
-		state:             Configured, // Server starts in CONFIGURED state (Spec: mcp.md Section 3.1)
+		state:             Configured, // Initial internal state before ui_configure is called
 		stateWaiters:      make(map[string][]chan struct{}),
 		stateQueue:        make(map[string][]interface{}),
 	}
@@ -219,19 +219,16 @@ func (s *Server) ShutdownHTTPServer(ctx context.Context) error {
 	return nil
 }
 
-// Configure transitions the server to the Configured state.
+// Configure prepares the server environment (directories, auto-install).
+// Called by handleConfigure after Stop() to allow reconfiguration.
 // Auto-installs if README.md is missing (Spec: mcp.md Section 3.1).
 // CRC: crc-MCPServer.md
 // Sequence: seq-mcp-lifecycle.md (Scenario 1)
 func (s *Server) Configure(baseDir string) error {
 	s.mu.Lock()
-	if s.state == Running {
-		s.mu.Unlock()
-		return fmt.Errorf("Cannot reconfigure while running")
-	}
 	s.baseDir = baseDir
-	s.state = Configured
-	s.mu.Unlock() // Release lock before I/O operations
+	s.state = Configured // Temporary state during configuration
+	s.mu.Unlock()        // Release lock before I/O operations
 
 	// Create base directory and log directory
 	if err := os.MkdirAll(filepath.Join(baseDir, "log"), 0755); err != nil {
@@ -263,7 +260,77 @@ func (s *Server) SetBaseDir(baseDir string) {
 	s.baseDir = baseDir
 }
 
+// StartAndCreateSession starts the UI server and creates a session with mcp global.
+// This is called both on process startup (auto-start) and by ui_configure (reconfiguration).
+// Spec: mcp.md Section 3.1 - Server auto-starts
+// Sequence: seq-mcp-lifecycle.md (Scenario 1)
+func (s *Server) StartAndCreateSession() (string, error) {
+	// Start the UI HTTP server
+	baseURL, err := s.Start()
+	if err != nil {
+		return "", fmt.Errorf("failed to start server: %w", err)
+	}
+
+	// Extract UI port from URL and write ui-port file
+	uiPort, err := parsePortFromURL(baseURL)
+	if err != nil {
+		s.cfg.Log(0, "Warning: failed to parse UI port from URL %s: %v", baseURL, err)
+	} else {
+		if err := s.WriteUIPortFile(uiPort); err != nil {
+			s.cfg.Log(0, "Warning: failed to write ui-port file: %v", err)
+		}
+	}
+
+	// Create session - this triggers CreateLuaBackendForSession
+	// Returns (session, vendedID, error) - session.ID has the UUID for URLs
+	session, vendedID, err := s.UiServer.GetSessions().CreateSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create session: %w", err)
+	}
+
+	// Store the vended ID for later use
+	s.currentVendedID = vendedID
+
+	// Apply Lua I/O redirection to the new session (if paths were set at configure time)
+	if s.logPath != "" && s.errPath != "" {
+		luaSession := s.UiServer.GetLuaSession(vendedID)
+		if luaSession != nil {
+			if err := luaSession.RedirectOutput(s.logPath, s.errPath); err != nil {
+				s.cfg.Log(0, "Warning: failed to redirect Lua output: %v", err)
+			}
+		}
+	}
+
+	// Set up mcp global in Lua with Go functions
+	if err := s.setupMCPGlobal(vendedID); err != nil {
+		return "", fmt.Errorf("failed to setup mcp global: %w", err)
+	}
+
+	// Build session URL for the response
+	sessionURL := fmt.Sprintf("%s/%s", baseURL, session.ID)
+
+	return sessionURL, nil
+}
+
+// GetCurrentSessionID returns the internal session ID for the current MCP session.
+// This is used by the root session provider to serve "/" without creating a new session.
+// Spec: mcp.md Section 3.3 - Root URL Session Binding
+func (s *Server) GetCurrentSessionID() string {
+	s.mu.RLock()
+	vendedID := s.currentVendedID
+	s.mu.RUnlock()
+
+	if vendedID == "" {
+		return ""
+	}
+
+	// Convert vended ID to internal session ID (the UUID used in URLs)
+	internalID := s.UiServer.GetSessions().GetInternalID(vendedID)
+	return internalID
+}
+
 // Start transitions the server to the Running state and starts the HTTP server.
+// Called by handleConfigure after Configure() completes.
 // Spec: mcp.md
 // CRC: crc-MCPServer.md
 func (s *Server) Start() (string, error) {
@@ -271,10 +338,6 @@ func (s *Server) Start() (string, error) {
 	if s.state == Running {
 		s.mu.Unlock()
 		return "", fmt.Errorf("Server already running")
-	}
-	if s.state != Configured {
-		s.mu.Unlock()
-		return "", fmt.Errorf("Server not configured")
 	}
 	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
@@ -293,8 +356,8 @@ func (s *Server) Start() (string, error) {
 	return url, nil
 }
 
-// Stop destroys the current session and resets state to Configured.
-// This allows reconfiguration without restarting the process.
+// Stop destroys the current session and resets state.
+// This allows reconfiguration via ui_configure.
 func (s *Server) Stop() error {
 	s.mu.Lock()
 	if s.state != Running {

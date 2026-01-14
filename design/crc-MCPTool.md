@@ -15,8 +15,7 @@
 - handle: Execute tool logic (interface implementation)
 
 ### Standard Tools
-- ui_configure: Prepare server environment (files, logs, I/O, installation check). Use `.claude/ui` unless user specifies otherwise.
-- ui_start: Launch HTTP servers, write port files (ui-port, mcp-port)
+- ui_configure: Configure and start server (stop existing, reinitialize, start HTTP servers, write port files). Use `.claude/ui` unless user specifies otherwise.
 - ui_run: Execute Lua code in session context
 - ui_upload_viewdef: Add dynamic view definition and push to frontend
 - ui_open_browser: Open system browser to session URL (defaults to ?conserve=true)
@@ -37,6 +36,6 @@
 
 ## Sequences
 
-- seq-mcp-lifecycle.md: Server lifecycle tools (configure, start, open_browser)
+- seq-mcp-lifecycle.md: Server lifecycle tools (configure, open_browser)
 - seq-mcp-run.md: Code execution
 - seq-mcp-create-presenter.md: Viewdef creation

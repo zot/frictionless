@@ -1,0 +1,18 @@
+<template>
+  <style>
+    .tree-item {
+      padding: var(--sl-spacing-x-small) var(--sl-spacing-medium);
+      padding-left: calc(var(--sl-spacing-medium) + 20px);
+      cursor: pointer;
+      font-size: var(--sl-font-size-small);
+      color: var(--sl-color-neutral-700);
+    }
+    .tree-item:hover {
+      background: var(--sl-color-neutral-100);
+      color: var(--sl-color-primary-600);
+    }
+  </style>
+  <div class="tree-item" ui-action="invoke()">
+    <span ui-value="name"></span>
+  </div>
+</template>

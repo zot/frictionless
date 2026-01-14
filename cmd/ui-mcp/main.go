@@ -113,6 +113,18 @@ func runMCP(args []string) int {
 	if mcpServer == nil {
 		return 1
 	}
+
+	// Auto-start: create session and start server
+	// Must be called AFTER newMCPServer returns so mcpServer is assigned
+	// Spec: mcp.md Section 3.1 - Server auto-starts
+	// Sequence: seq-mcp-lifecycle.md (Scenario 1)
+	if cfg.Server.Dir != "" {
+		if _, err := mcpServer.StartAndCreateSession(); err != nil {
+			log.Printf("Failed to start MCP server: %v", err)
+			return 1
+		}
+	}
+
 	// Start HTTP server for debug endpoints and state wait
 	// Spec: mcp.md Section 2.2
 	httpPort, err := mcpServer.StartHTTPServer()
@@ -159,11 +171,20 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 			return srv.GetSessions().Count()
 		},
 	)
+
+	// Set root session provider so "/" uses the MCP session instead of creating a new one
+	// Spec: mcp.md Section 3.3 - Root URL Session Binding
+	srv.SetRootSessionProvider(func() string {
+		return mcpServer.GetCurrentSessionID()
+	})
+
 	if cfg.Server.Dir != "" {
 		if err := mcpServer.Configure(cfg.Server.Dir); err != nil {
 			log.Printf("Failed to configure MCP server: %v", err)
 			return nil
 		}
+		// Note: StartAndCreateSession is called AFTER newMCPServer returns
+		// to avoid nil pointer in startFunc closure (see runMCP)
 	}
 	// Handle shutdown signals
 	sigChan := make(chan os.Signal, 1)
@@ -309,6 +330,16 @@ func runServe(args []string) int {
 		return 1
 	}
 	log.Printf("UI server running at %s", url)
+
+	// Auto-start: create session and start server
+	// Spec: mcp.md Section 3.1 - Server auto-starts
+	// Sequence: seq-mcp-lifecycle.md (Scenario 1)
+	if cfg.Server.Dir != "" {
+		if _, err := mcpServer.StartAndCreateSession(); err != nil {
+			log.Printf("Failed to start MCP server: %v", err)
+			return 1
+		}
+	}
 
 	// Start MCP SSE server (blocks)
 	mcpAddr := fmt.Sprintf(":%d", mcpPort)

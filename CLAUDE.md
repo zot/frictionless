@@ -1,7 +1,8 @@
 # Project Instructions
 
-Use the ui-builder skill whenever you need to explore, change, or audit specs, design, or code for **ui-mcp UIs**.
-Use the mini-spec skill whenever you need to explore or change specs, design, or code.
+Use the `/ui` skill to run ui-mcp UIs.
+Use the `/ui-builder` skill whenever you need to explore, change, or audit specs, design, or code for **ui-mcp UIs**.
+Use the `/mini-spec` skill whenever you need to explore or change specs, design, or code.
 `design/design.md ` contains a map of the project's non-ui code.
 
 ### Testing with the bundled binary

@@ -16,8 +16,7 @@ To display an app (e.g., `claude-panel`):
    - The global variable name (e.g., `claudePanel`)
    - Event types and how to respond
 
-2. Ensure server is running (do all steps in parallel):
-   - ui_status → if not "running", call ui_configure + ui_start
+2. Display and open:
    - ui_display("app-name")
    - ui_open_browser (or navigate with Playwright)
 
@@ -49,16 +48,9 @@ end
 
 ## Server Lifecycle
 
-Always ensure the server is running before displaying UIs:
+The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
 
-```
-ui_status → state?
-  "unconfigured" → ui_configure(".claude/ui") → ui_start()
-  "configured"   → ui_start()
-  "running"      → ready!
-```
-
-**Shortcut:** Call `ui_status`, `ui_configure`, and `ui_start` as needed, then `ui_display` and `ui_open_browser` - all can be done in quick succession.
+If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
 
 ## Event Loop
 

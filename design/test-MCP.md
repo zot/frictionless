@@ -4,34 +4,26 @@
 **Sequences**: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-create-session.md, seq-mcp-create-presenter.md, seq-mcp-state-wait.md
 
 ### Test: MCP Server Lifecycle
-**Purpose**: Verify the FSM behavior of the MCP server.
+**Purpose**: Verify the lifecycle behavior of the MCP server.
 
 **Scenarios**:
-1.  **Initial State (Unconfigured)**:
-    - Verify server starts in UNCONFIGURED state.
-    - Call `ui_start` -> Expect Error ("Server not configured").
-    - Call `ui_run` -> Expect Error ("Server not configured").
-    - Call `ui_configure` with valid path -> Expect Success.
-
-2.  **Configured State**:
-    - Post-configuration, verify state is CONFIGURED.
-    - Check filesystem: `log/` directory created.
-    - Check Lua I/O: `print()` output goes to `log/lua.log`.
-    - Call `ui_run` -> Expect Error ("Server not started").
-    - Call `ui_start` -> Expect Success (returns URL).
-
-3.  **Running State**:
-    - Verify state is RUNNING.
-    - Call `ui_start` -> Expect Error ("Server already running").
-    - Call `ui_run` -> Expect execution success.
+1.  **Startup (Auto-Start)**:
+    - Server starts with `--dir` parameter.
+    - Verify auto-install runs if README.md missing.
+    - Verify server starts and is ready to accept requests.
     - Verify port files: `{base_dir}/ui-port` and `{base_dir}/mcp-port` exist.
     - Verify port files contain valid port numbers.
+    - Check filesystem: `log/` directory created.
+    - Check Lua I/O: `print()` output goes to `log/lua.log`.
+    - Call `ui_run` -> Expect execution success.
 
-4.  **Session Restart (ui_configure while Running)**:
-    - Start in RUNNING state with active session.
-    - Call `ui_configure` -> Expect Success (old session destroyed).
-    - Verify state is CONFIGURED.
-    - Call `ui_start` -> Expect Success (new session created).
+2.  **Reconfiguration (ui_configure while Running)**:
+    - Start server with active session.
+    - Call `ui_configure` with new base_dir -> Expect Success.
+    - Verify old session destroyed, HTTP server stopped.
+    - Verify new server started with new base_dir.
+    - Verify server running with new URL.
+    - Call `ui_run` -> Expect execution success (new session).
 
 ### Test: Tool - ui_open_browser
 **Purpose**: Verify browser launch logic.
@@ -81,26 +73,16 @@
     - Verify "update" message sent for that variable.
 
 ### Test: Tool - ui_status
-**Purpose**: Verify status reporting across lifecycle states.
+**Purpose**: Verify status reporting.
 
 **Scenarios**:
-1.  **Unconfigured State**:
-    - Call `ui_status` before any configuration.
-    - Expect `state: "unconfigured"`.
-    - Expect no `base_dir`, `url`, or `sessions` fields.
-2.  **Configured State**:
-    - Call `ui_configure` with `base_dir=".claude/ui"`.
+1.  **Server Status**:
+    - Server auto-starts on initialization.
     - Call `ui_status`.
-    - Expect `state: "configured"`.
-    - Expect `base_dir: ".claude/ui"`.
-    - Expect no `url` or `sessions` fields.
-3.  **Running State**:
-    - Call `ui_start`.
-    - Call `ui_status`.
-    - Expect `state: "running"`.
-    - Expect `base_dir: ".claude/ui"`.
+    - Expect `base_dir` field with configured path.
     - Expect `url` field with valid URL pattern.
     - Expect `sessions` field with numeric value.
+    - Expect `version` field with semver string.
 
 ### Test: MCP frictionless UI creation
 **Purpose**: Verify end-to-end workflow for on-the-fly UI creation. This represents the core value proposition of the MCP integration: allowing an AI agent to build tiny collaborative apps to facilitate two-way communication and collaboration with the user.
@@ -149,7 +131,8 @@
 **Scenarios**:
 1.  **Fresh Install (Files Missing)**:
     - Start with empty project root.
-    - Call `ui_configure` then `ui_install`.
+    - Server auto-starts (auto-install if README.md missing).
+    - Call `ui_install` explicitly if needed.
     - Verify all bundled files created:
       - `{project}/.claude/skills/*`
       - `{base_dir}/resources/*`
@@ -175,11 +158,6 @@
     - Verify project files installed to `/project/.claude/`.
     - Verify base_dir files installed to `/project/.claude/ui/`.
 
-5.  **State Requirement**:
-    - Server in UNCONFIGURED state.
-    - Call `ui_install`.
-    - Verify error (must be CONFIGURED or RUNNING).
-
 ### Test: MCP initialization
 **Purpose**: Verify MCP server setup
 - initialize() called by MCP client
@@ -192,37 +170,35 @@
 
 **Scenarios**:
 1.  **Wait Success (Single Event)**:
-    - Start server in RUNNING state.
+    - Start server.
     - Make GET request to `/wait?timeout=5`.
     - In another goroutine, push event via `mcp.pushState({app="test", event="click"})`.
     - Verify request returns 200 with JSON array `[{"app":"test","event":"click"}]`.
 
 2.  **Wait Timeout (Empty Queue)**:
-    - Start server in RUNNING state.
+    - Start server.
     - Make GET request to `/wait?timeout=1`.
     - Do not push any events to mcp.state.
     - Verify request returns 204 No Content after ~1 second.
 
 3.  **No Active Session**:
-    - Server in CONFIGURED state (not RUNNING).
-    - Make GET request to `/wait?timeout=5`.
-    - Verify request returns 404 Not Found.
+    - (N/A - server always has an active session after startup)
 
 4.  **Multiple Waiters**:
-    - Start server in RUNNING state.
+    - Start server.
     - Make two concurrent GET requests to `/wait?timeout=10`.
     - Push event via `mcp.pushState({app="test", event="broadcast"})`.
     - Verify BOTH requests return 200 with the same JSON array.
 
 5.  **Client Disconnect**:
-    - Start server in RUNNING state.
+    - Start server.
     - Make GET request to `/wait?timeout=30`.
     - Cancel request (client disconnect) before timeout.
     - Verify server cleans up waiter without error.
     - Verify subsequent wait requests work normally.
 
 6.  **Multiple Events Accumulated**:
-    - Start server in RUNNING state.
+    - Start server.
     - Make GET request to `/wait?timeout=10`.
     - Push two events in sequence:
       - `mcp.pushState({app="c", event="btn", id="save"})`

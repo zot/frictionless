@@ -19,7 +19,7 @@ func createTestServer(t *testing.T, baseDir string) *Server {
 	s := &Server{
 		cfg:     cfg,
 		baseDir: baseDir,
-		state:   Configured, // Must be configured to run install
+		state:   Running, // Server must be running for tools (ui_configure auto-starts)
 	}
 	return s
 }
@@ -208,7 +208,7 @@ func TestInstallRequiresBaseDir(t *testing.T) {
 	cfg := cli.DefaultConfig()
 	s := &Server{
 		cfg:     cfg,
-		state:   Configured,
+		state:   Running,
 		baseDir: "", // Empty baseDir should cause failure
 	}
 

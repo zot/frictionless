@@ -10,12 +10,12 @@
 - HTTPServer: The UI platform's HTTP service
 - OS: Operating system services (filesystem, browser launch)
 
-## Scenario 1: Startup (Auto-Configure)
-Server starts in CONFIGURED state using `--dir` (defaults to `.claude/ui`).
+## Scenario 1: Startup (Auto-Configure and Start)
+Server configures and auto-starts using `--dir` (defaults to `.claude/ui`).
 
 ```
      ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
-     │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
+     │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
      └────┬────┘             └───┬───┘             └─────┬────┘           └─┬──┘
           │ Initialize(base_dir) │                       │                  │
           │─────────────────────>│                       │                  │
@@ -29,20 +29,49 @@ Server starts in CONFIGURED state using `--dir` (defaults to `.claude/ui`).
           │                      │ [if missing] Install()│                  │
           │                      │─────────────────────────────────────────>│
           │                      │                       │                  │
-          │                      │ RedirectIO(base_dir)  │                  │
+          │                      │ SelectPorts(0, 0)     │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │     (ui, mcp ports)   │                  │
+          │                      │                       │                  │
+          │                      │   StartUI(uiPort)     │                  │
           │                      │──────────────────────>│                  │
           │                      │                       │                  │
-          │  SetState(CONFIGURED)│                       │                  │
-          │<─────────────────────│                       │                  │
+          │                      │   StartMCP(mcpPort)   │                  │
+          │                      │──────────────────────>│                  │
+          │                      │                       │                  │
+          │                      │ setupMCPGlobal()      │                  │
+          │                      │────┐ [creates mcp table]                 │
+          │                      │<───┘                  │                  │
+          │                      │                       │                  │
+          │                      │ loadMCPLua()          │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │ [load mcp.lua if exists]                 │
+          │                      │                       │                  │
+          │                      │ loadAppInitFiles()    │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │ [scan apps/*/init.lua]│                  │
+          │                      │                       │                  │
+          │                      │ WriteFile(ui-port)    │                  │
+          │                      │─────────────────────────────────────────>│
+          │                      │                       │                  │
+          │                      │ WriteFile(mcp-port)   │                  │
+          │                      │─────────────────────────────────────────>│
      ┌────┴────┐             ┌───┴───┐             ┌─────┴────┐           ┌─┴──┐
-     │MCPServer│             │MCPTool│             │LuaRuntime│           │ OS │
+     │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
      └─────────┘             └───────┘             └──────────┘           └────┘
 ```
 
+**Lua Loading Sequence (during startup):**
+1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
+2. `setupMCPGlobal()` creates the `mcp` global with core methods
+3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
+4. `loadAppInitFiles()` scans `{base_dir}/apps/*/` and loads each `init.lua`
+
 **Notes:**
 - Auto-install runs if `{base_dir}/README.md` is missing
-- Server starts in CONFIGURED state (no UNCONFIGURED state)
-- `ui_configure` is optional—only needed to change base_dir
+- Server auto-starts
+- Port files written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`
+- `ui_configure` is optional—triggers full reconfigure if needed
 
 ## Scenario 1a: Bundled File Installation (ui_install)
 Shows the installation of bundled files when agent calls `ui_install`.
@@ -106,69 +135,7 @@ Shows the installation of bundled files when agent calls `ui_install`.
 - Skills are self-describing (no CLAUDE.md augmentation needed)
 - `force=true` overwrites existing files
 
-## Scenario 2: Server Startup
-The AI agent starts the HTTP server after configuration.
-
-```
-     ┌────────┐             ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
-     │AI Agent│             │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
-     └────┬───┘             └────┬────┘             └───┬───┘             └─────┬────┘           └─┬──┘
-          │ Call("ui_start")     │                      │                       │                  │
-          │─────────────────────>│                      │                       │                  │
-          │                      │  Handle("ui_start")  │                       │                  │
-          │                      │─────────────────────>│                       │                  │
-          │                      │                      │                       │                  │
-          │                      │                      │ SelectPorts(0, 0)     │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │     (ui, mcp ports)   │                  │
-          │                      │                      │                       │                  │
-          │                      │                      │   StartUI(uiPort)     │                  │
-          │                      │                      │──────────────────────>│                  │
-          │                      │                      │                       │                  │
-          │                      │                      │   StartMCP(mcpPort)   │                  │
-          │                      │                      │──────────────────────>│                  │
-          │                      │                      │                       │                  │
-          │                      │                      │ setupMCPGlobal()      │                  │
-          │                      │                      │────┐ [creates mcp table]                 │
-          │                      │                      │<───┘                  │                  │
-          │                      │                      │                       │                  │
-          │                      │                      │ loadMCPLua()          │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │ [load mcp.lua if exists]                 │
-          │                      │                      │                       │                  │
-          │                      │                      │ loadAppInitFiles()    │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │ [scan apps/*/init.lua]│                  │
-          │                      │                      │                       │                  │
-          │                      │                      │ WriteFile(ui-port)    │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │                       │                  │
-          │                      │                      │ WriteFile(mcp-port)   │                  │
-          │                      │                      │─────────────────────────────────────────>│
-          │                      │                      │                       │                  │
-          │                      │   SetState(RUNNING)  │                       │                  │
-          │                      │<─────────────────────│                       │                  │
-          │                      │                      │                       │                  │
-          │     Success(URL)     │                      │                       │                  │
-          │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                       │                  │
-     ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─────┴────┘           ┌─┴──┐
-     │AI Agent│             │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
-     └────────┘             └─────────┘             └───┴───┘             └──────────┘           └────┘
-```
-
-**Lua Loading Sequence (during StartUI):**
-1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
-2. `setupMCPGlobal()` creates the `mcp` global with core methods
-3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
-4. `loadAppInitFiles()` scans `{base_dir}/apps/*/` and loads each `init.lua`
-
-**Notes:**
-- Port files written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`
-- UI server serves HTML/JS and WebSocket connections
-- MCP server serves /state, /wait, /variables endpoints
-- App init files run after mcp global exists, can register with mcp shell
-
-## Scenario 3: Opening Browser
+## Scenario 2: Opening Browser
 The AI agent instructs the system to open a browser to the session.
 
 ```
@@ -194,3 +161,49 @@ The AI agent instructs the system to open a browser to the session.
      │AI Agent│             │MCPServer│             │MCPTool│             │ OS │
      └────────┘             └─────────┘             └───┴───┘             └────┘
 ```
+
+## Scenario 3: Reconfiguration
+The AI agent reconfigures the server with a different base directory.
+
+```
+     ┌────────┐             ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
+     │AI Agent│             │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
+     └────┬───┘             └────┬────┘             └───┬───┘             └─────┬────┘           └─┬──┘
+          │Call("ui_configure", {base_dir})              │                       │                  │
+          │─────────────────────>│                      │                       │                  │
+          │                      │Handle("ui_configure")│                       │                  │
+          │                      │─────────────────────>│                       │                  │
+          │                      │                      │                       │                  │
+          │                      │                      │  StopServer()         │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │                      │                      │ DestroySession()      │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │                      │                      │ CreateDir(base_dir)   │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │                       │                  │
+          │                      │                      │ [if missing] Install()│                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │                       │                  │
+          │                      │                      │ SelectPorts(0, 0)     │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │                       │                  │
+          │                      │                      │   StartUI(uiPort)     │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │                      │                      │   StartMCP(mcpPort)   │                  │
+          │                      │                      │──────────────────────>│                  │
+          │                      │                      │                       │                  │
+          │  Success({base_dir, url})                   │                       │                  │
+          │<─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─│                      │                       │                  │
+     ┌────┴───┐             ┌────┴────┐             ┌───┴───┐             ┌─────┴────┐           ┌─┴──┐
+     │AI Agent│             │MCPServer│             │MCPTool│             │HTTPServer│           │ OS │
+     └────────┘             └─────────┘             └───────┘             └──────────┘           └────┘
+```
+
+**Notes:**
+- Calling `ui_configure` triggers a full reconfigure
+- Current session is destroyed, HTTP server stops
+- Filesystem is re-initialized for new base_dir
+- HTTP listeners restart on new ephemeral ports

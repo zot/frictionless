@@ -76,8 +76,10 @@ Call `mcp:appUpdated("app-name")` after all files are written so the dashboard r
 
 5. **Create symlinks** → `mcp:appProgress(app, 80, "linking")`
 
+   Use linkapp in base_dir (reported by `ui_status`, as in `/ui` skill)
+
    ```bash
-   .claude/ui/linkapp add <app>
+   {base_dir}/linkapp add <app>
    ```
 
 6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):

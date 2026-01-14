@@ -7,22 +7,25 @@ description: use when **running ui-mcp UIs** or needing to understand UI structu
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
+## Getting base_dir
+
+Always get `base_dir` from `ui_status` first. All paths below use `{base_dir}` as a placeholder for this value.
+
 ## Quick Start: Show an Existing App
 
 To display an app (e.g., `claude-panel`):
 
 ```
-1. Read design.md to learn:
+1. Read {base_dir}/apps/APP/design.md to learn (e.g. .ui/apps/claude-panel/design.md):
    - The global variable name (e.g., `claudePanel`)
    - Event types and how to respond
 
-2. Ensure server is running (do all steps in parallel):
-   - ui_status → if not "running", call ui_configure + ui_start
+2. Display and open:
    - ui_display("app-name")
    - ui_open_browser (or navigate with Playwright)
 
 3. Start event loop (foreground is most responsive):
-   .claude/ui/event
+   {base_dir}/event
 
 4. When events arrive, handle via ui_run using the global variable:
    claudePanel:addAgentMessage("response")
@@ -49,23 +52,16 @@ end
 
 ## Server Lifecycle
 
-Always ensure the server is running before displaying UIs:
+The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
 
-```
-ui_status → state?
-  "unconfigured" → ui_configure(".claude/ui") → ui_start()
-  "configured"   → ui_start()
-  "running"      → ready!
-```
-
-**Shortcut:** Call `ui_status`, `ui_configure`, and `ui_start` as needed, then `ui_display` and `ui_open_browser` - all can be done in quick succession.
+If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
 
 ## Event Loop
 
 The event script waits for user interactions and returns JSON:
 
 ```bash
-.claude/ui/event
+{base_dir}/event
 ```
 
 Returns one JSON array per line containing one or more events:
@@ -74,7 +70,7 @@ Returns one JSON array per line containing one or more events:
 ```
 
 **Foreground event loop (recommended):**
-1. Run `.claude/ui/event` with Bash (blocking, ~2 min timeout)
+1. Run `{base_dir}/event` with Bash (blocking, ~2 min timeout)
 2. When it returns, parse JSON array. If non-empty, handle each event
    - use `ui_run` to alter app state and reflect changes to the user
 3. Restart the event loop
@@ -82,7 +78,7 @@ Returns one JSON array per line containing one or more events:
 This is the most responsive approach - events are handled immediately.
 
 **Background event loop (alternative):**
-Run `.claude/ui/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
+Run `{base_dir}/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
 
 **Exit codes:**
 - 0 + empty output = timeout, no events (just restart)
@@ -94,9 +90,9 @@ Run `.claude/ui/event` in background if you need to do other work while waiting.
 **ALWAYS use the `/ui-builder` skill to create or modify UIs.** Do NOT use `ui_*` MCP tools directly for building.
 
 Before invoking `/ui-builder`:
-1. Create the app directory: `mkdir -p .claude/ui/apps/<app>`
-2. Write requirements to `.claude/ui/apps/<app>/requirements.md`
-3. Invoke `/ui-builder`: "Read `.claude/ui/apps/<app>/requirements.md` and build the app"
+1. Create the app directory: `mkdir -p {base_dir}/apps/<app>`
+2. Write requirements to `{base_dir}/apps/<app>/requirements.md`
+3. Invoke `/ui-builder`: "Read `{base_dir}/apps/<app>/requirements.md` and build the app"
 
 ### Requirements Format
 
@@ -114,7 +110,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 ## Directory Structure
 
 ```
-.claude/ui/
+{base_dir}/
 ├── apps/<app>/           # App source files
 │   ├── requirements.md   # What to build (you write this)
 │   ├── design.md         # How it works (generated)
@@ -133,7 +129,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 
 ## Debugging
 
-- Check `.claude/ui/log/lua.log` for Lua errors
+- Check `{base_dir}/log/lua.log` for Lua errors
 - `ui://variables` resource shows full variable tree with IDs, parents, types, values
 - `ui_run` returns error messages
 - `ui://state` resource shows live state JSON

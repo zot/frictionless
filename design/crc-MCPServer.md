@@ -10,7 +10,6 @@
 - resources: List of available MCP resources
 - tools: List of available MCP tools
 - activeSession: Current session for AI interaction
-- state: Lifecycle state (CONFIGURED, RUNNING)
 - config: Server configuration (paths, I/O settings)
 - uiPort: UI server port (serves HTML/JS/WebSocket)
 - mcpPort: MCP server port (serves /state, /wait, /variables)
@@ -20,13 +19,11 @@
 - mcpStateQueue: Event queue for current session (mcp.state)
 
 ### Does
-- initialize: Set up MCP server, auto-install if README.md missing, start in CONFIGURED state
-- configure: Reconfigure to different base_dir, auto-install if needed (ui_configure)
-- start: Transition to RUNNING state, launch HTTP server (ui_start)
-- stop: Destroy current session, reset to CONFIGURED (enables session restart)
+- initialize: Set up MCP server, auto-install if README.md missing, auto-start HTTP server
+- configure: Reconfigure to different base_dir (stop, reinitialize, restart) (ui_configure)
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (ui://state, ui://variables)
-- listTools: Return available tools (ui_configure, ui_start, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)
+- listTools: Return available tools (ui_configure, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)
 - handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
 - handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); after draining queue, calls SafeExecuteInSession with empty function to trigger browser update
@@ -34,7 +31,7 @@
 - atomicSwapQueue: Atomically swap mcp.state with empty table, return accumulated events
 - SafeExecuteInSession: Wraps ui-server's ExecuteInSession with panic recovery; converts Lua errors/panics to errors
 - triggerBrowserUpdate: Call SafeExecuteInSession with empty function to push state changes to browsers
-- getStatus: Return current lifecycle state, URL, and session count
+- getStatus: Return current URL and session count
 - shutdown: Clean up MCP connection
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
 - handleVariables: Render interactive variable tree (GET /variables)

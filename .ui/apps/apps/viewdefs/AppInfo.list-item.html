@@ -1,0 +1,11 @@
+<template>
+  <div class="app-item" ui-class-selected="isSelected()" ui-event-click="selectMe()">
+    <span class="app-item-name" ui-value="name"></span>
+    <div class="app-item-progress" ui-class-hidden="isBuilding()">
+      <sl-badge ui-value="statusText()" ui-attr-variant="statusVariant()"></sl-badge>
+    </div>
+    <div class="app-item-progress" ui-class-hidden="notBuilding()">
+      <sl-progress-bar ui-attr-value="buildProgress" ui-attr-title="buildStage"></sl-progress-bar>
+    </div>
+  </div>
+</template>

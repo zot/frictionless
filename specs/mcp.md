@@ -92,11 +92,9 @@ Manually install bundled skills and resources without starting the MCP server.
 
 ## 3. Server Lifecycle
 
-The MCP server operates as a strict Finite State Machine (FSM).
-
 ### 3.1 Startup Behavior
 
-On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically configures:
+On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically configures and starts:
 
 1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically. This installs:
    - **Claude skills** (`/ui` and `/ui-builder`) to `{project}/.claude/skills/`
@@ -104,43 +102,39 @@ On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically
    - **MCP resources** (reference docs) to `{base_dir}/resources/`
    - **Standard viewdefs** to `{base_dir}/viewdefs/`
    - **Helper scripts** to `{base_dir}/`
-2. **Auto-Configure:** Server starts in CONFIGURED state with the base_dir ready
-3. **Reconfiguration:** `ui_configure` can be called to change base_dir if needed
+2. **Auto-Start:** Server starts HTTP listeners
+3. **Reconfiguration:** `ui_configure` can be called to reconfigure and restart with a different base_dir
 
-### 3.2 States
+### 3.2 Reconfiguration
 
-| State          | HTTP Server Status | Configuration | Lua I/O    | Description                                                                 |
-|:---------------|:-------------------|:--------------|:-----------|:----------------------------------------------------------------------------|
-| **CONFIGURED** | **Stopped**        | Loaded        | Redirected | Initial state after startup. Environment is prepped, ready for `ui_start`. |
-| **RUNNING**    | **Active**         | Loaded        | Redirected | Server is listening on a port. All tools are fully operational.            |
-
-### 3.3 Transitions
-
-**1. CONFIGURED -> RUNNING**
-*   **Trigger:** Successful execution of `ui_start`.
-*   **Conditions:** None (other than being in CONFIGURED state).
-*   **Effects:**
-    *   HTTP listener starts on ephemeral port.
-    *   Background workers (SessionManager, etc.) are started.
-
-**2. CONFIGURED -> CONFIGURED (reconfigure)**
+Calling `ui_configure` while running triggers a full reconfigure:
 *   **Trigger:** Successful execution of `ui_configure`.
 *   **Conditions:** `base_dir` is valid and writable.
 *   **Effects:**
-    *   Filesystem (logs, config) is re-initialized for new base_dir.
-
-**3. RUNNING -> CONFIGURED (reconfigure)**
-*   **Trigger:** Successful execution of `ui_configure`.
-*   **Effects:**
     *   Current session is destroyed, HTTP server stops.
-    *   Re-initializes for new base_dir.
+    *   Filesystem (logs, config) is re-initialized for new base_dir.
+    *   HTTP listener restarts on new ephemeral port.
+    *   Background workers are restarted.
 
-### 3.4 State Invariants & Restrictions
+### 3.3 Root URL Session Binding
 
-*   **CONFIGURED:**
-    *   Calling runtime tools (`ui_run`, etc.) MUST fail with error: "Server not started".
-*   **RUNNING:**
-    *   Calling `ui_start` again MUST fail with error: "Server already running".
+**Problem:** ui-engine's default behavior creates a new session when a browser navigates to `/`. This is incorrect for MCP mode where a session with the `mcp` global already exists.
+
+**Solution:** ui-mcp registers a root session provider that returns the current MCP session ID:
+
+*   **Trigger:** Browser navigates to `http://127.0.0.1:PORT/`
+*   **Behavior:** Server sets a `ui-session` cookie with the current session ID and serves index.html (no redirect)
+*   **Effect:** Browser connects to the existing session containing the `mcp` global and any displayed app
+
+**Session Cookie (`ui-session`):**
+- Set by the server when serving index.html (both for `/` and `/{session-id}` paths)
+- JavaScript client reads session ID from cookie (takes precedence over URL path)
+- Allows URL to stay clean (`/`) while maintaining correct session binding
+
+**Implementation Notes:**
+- ui-mcp calls `SetRootSessionProvider` on the ui-engine server with a callback that returns the current session's internal ID
+- The cookie is set with `HttpOnly: false` (JS needs to read it), `SameSite: Lax`, `Path: /`
+- If no session exists (server not started), falls back to ui-engine's default behavior (create new session and redirect)
 
 ## 4. Lua Environment Integration
 
@@ -308,68 +302,57 @@ end
 
 **Returns:** A table with the following fields:
 
-| Field      | Lua Type | Presence     | Description                                      |
-|------------|----------|--------------|--------------------------------------------------|
-| `state`    | `string` | Always       | `"configured"` or `"running"`                    |
-| `version`  | `string` | Always       | Semver string (e.g., `"0.6.0"`)                  |
-| `base_dir` | `string` | Always       | Absolute or relative path (e.g., `".claude/ui"`) |
-| `url`      | `string` | Running only | Server URL (e.g., `"http://127.0.0.1:39482"`)    |
-| `sessions` | `number` | Running only | Integer count of connected browsers              |
-
-Fields marked "Running only" are `nil` when `state == "configured"`.
+| Field      | Lua Type | Description                                      |
+|------------|----------|--------------------------------------------------|
+| `version`  | `string` | Semver string (e.g., `"0.6.0"`)                  |
+| `base_dir` | `string` | Absolute or relative path (e.g., `".claude/ui"`) |
+| `url`      | `string` | Server URL (e.g., `"http://127.0.0.1:39482"`)    |
+| `sessions` | `number` | Integer count of connected browsers              |
 
 **Example:**
 ```lua
 local status = mcp:status()
-if status.state == "running" then
-    print("Server running at " .. status.url)
-    print("Connected browsers: " .. status.sessions)
-end
+print("Server running at " .. status.url)
+print("Connected browsers: " .. status.sessions)
 ```
 
 ## 5. Tools
 
 ### 5.1 `ui_configure`
-**Purpose:** Reconfigure the server to use a different base directory. Optional—server auto-configures at startup using `--dir` (defaults to `.claude/ui`).
+**Purpose:** Configure and start the UI server. Optional—server auto-configures at startup using `--dir` (defaults to `.claude/ui`).
 
 **Parameters:**
 - `base_dir` (string, required): Absolute path to the UI working directory. **Use `{project}/.claude/ui` unless the user explicitly requests a different location.**
 
 **Behavior:**
-1.  **Directory Creation:**
+1.  **Stop Existing Server:** If already running, stops current HTTP server and destroys session.
+2.  **Directory Creation:**
     - Creates `base_dir` if it does not exist.
     - Creates a `log` subdirectory within `base_dir`.
-2.  **Auto-Install:** If `{base_dir}/README.md` does not exist, runs `ui_install` automatically.
-3.  **Configuration Loading:**
+3.  **Auto-Install:** If `{base_dir}/README.md` does not exist, runs `ui_install` automatically.
+4.  **Configuration Loading:**
     - Checks for existing configuration files in `base_dir`.
     - If found, loads them.
     - If not found, initializes default configuration.
-4.  **Runtime Setup:**
+5.  **Runtime Setup:**
     - Configures Lua I/O redirection as described in Section 4.
-5.  **State:** Remains in or transitions to CONFIGURED state.
-
-**Returns:**
-- Success message indicating the configured directory and log paths.
-
-### 5.2 `ui_start`
-**Purpose:** Starts the embedded HTTP UI server.
-
-**Pre-requisites:**
-- Server must be in the `Configured` state.
-- Server must not already be `Running`.
-
-**Behavior:**
-1.  **Port Selection:** Selects random available ephemeral ports for UI and MCP servers.
-2.  **Server Start:** Launches the HTTP servers on `127.0.0.1`.
-3.  **Port File Creation:** Writes port numbers to files in `base_dir`:
+6.  **Port Selection:** Selects random available ephemeral ports for UI and MCP servers.
+7.  **Server Start:** Launches the HTTP servers on `127.0.0.1`.
+8.  **Port File Creation:** Writes port numbers to files in `base_dir`:
     - `{base_dir}/ui-port` - The UI server port (serves HTML/JS/WebSocket)
     - `{base_dir}/mcp-port` - The MCP server port (serves /state, /wait, /variables endpoints)
-4.  **State Transition:** Moves server state from `Configured` to `Running`.
 
 **Returns:**
-- The full base URL of the running UI server (e.g., `http://127.0.0.1:39482`).
+- JSON object with configuration details including the server URL:
+```json
+{
+  "base_dir": "/path/to/.claude/ui",
+  "url": "http://127.0.0.1:39482",
+  "install_needed": false
+}
+```
 
-### 5.3 `ui_run`
+### 5.2 `ui_run`
 **Purpose:** Execute arbitrary Lua code within a session's context.
 
 **Parameters:**
@@ -392,7 +375,7 @@ return session:getApp().contacts[1].firstName
 - If not marshalable: A JSON object `{"non-json": "STRING_REPRESENTATION"}`.
 - If execution fails: An error message.
 
-### 5.4 `ui_upload_viewdef`
+### 5.3 `ui_upload_viewdef`
 **Purpose:** Dynamically add or update a view definition.
 
 **Parameters:**
@@ -408,7 +391,7 @@ return session:getApp().contacts[1].firstName
 **Returns:**
 - Confirmation message.
 
-### 5.5 `ui_open_browser`
+### 5.4 `ui_open_browser`
 **Purpose:** Opens the system's default web browser to the UI session.
 
 **Parameters:**
@@ -443,27 +426,24 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
         - **Action 3:** Triggers a **Desktop Notification** (via the Web Notifications API) to alert the user: "Session [ID] is already active in another tab."
     - If no other clients are active, the tab proceeds to load normally.
 
-### 5.6 `ui_status`
-**Purpose:** Returns the current status of the MCP server including lifecycle state and browser connection status.
+### 5.5 `ui_status`
+**Purpose:** Returns the current status of the MCP server including browser connection status.
 
 **Parameters:** None.
 
 **Behavior:**
-- Reports the current server state (CONFIGURED or RUNNING).
-- If RUNNING, reports the server URL and number of connected browser sessions.
+- Reports the current server status and connection information.
 
 **Returns:**
 - JSON object with status information:
-  - `state`: Current lifecycle state ("configured" or "running")
-  - `version`: Bundled version from README.md (always present)
-  - `base_dir`: Configured base directory (always present)
-  - `url`: Server URL (only if running)
-  - `sessions`: Number of active browser sessions (only if running)
+  - `version`: Bundled version from README.md
+  - `base_dir`: Configured base directory
+  - `url`: Server URL
+  - `sessions`: Number of active browser sessions
 
 **Example Response:**
 ```json
 {
-  "state": "running",
   "version": "0.1.0",
   "base_dir": ".claude/ui",
   "url": "http://127.0.0.1:39482",
@@ -471,7 +451,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 }
 ```
 
-### 5.7 `ui_install`
+### 5.6 `ui_install`
 **Purpose:** Installs bundled configuration files to enable full ui-mcp integration.
 
 **Parameters:**
@@ -556,7 +536,7 @@ README.md
 - Creates `.claude/`, `.claude/skills/`, and `.claude/agents/` directories if they don't exist
 
 **Behavior:**
-1. **Check State:** Must be in CONFIGURED or RUNNING state.
+1. **Check State:** Server must be running.
 2. **Skill/Resource Files:**
    - If file doesn't exist: install from bundle
    - If exists and `force=false`: skip (no-op)

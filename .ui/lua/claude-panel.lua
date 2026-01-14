@@ -1,0 +1,1 @@
+../apps/claude-panel/app.lua

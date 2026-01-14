@@ -1,0 +1,3 @@
+-- main.lua - entry point for ui-mcp Lua environment
+-- mcp global is created by handleStart in Go AFTER this runs
+-- mcp.lua (if present) is loaded by Go after creating the mcp global

@@ -47,8 +47,8 @@ Support multiple MCP transport modes:
   - Claude agents to `{project}/.claude/agents/`
   - Web frontend (html/*) to `{base_dir}/html/`
   - MCP resources, viewdefs, and helper scripts to `{base_dir}/`
-- Starts in CONFIGURED state (no UNCONFIGURED state)
-- `ui_configure` optional—for reconfiguration only
+- Auto-starts HTTP server
+- `ui_configure` optional—triggers full reconfigure (stop, reinitialize, restart)
 
 ### Versioning
 - Source of truth: `README.md` (`**Version: X.Y.Z**`)
@@ -62,7 +62,7 @@ Debug and inspect runtime state:
 - `GET /state`: Current session state JSON
 
 ### Lua Loading Sequence (Spec 4.2)
-During `ui_start`, Go executes:
+During startup, Go executes:
 1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
 2. `setupMCPGlobal()` creates the `mcp` global with core methods
 3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
@@ -88,13 +88,12 @@ Registered by `setupMCPGlobal` in each session:
 | `status` | `mcp:status()` | `table` (see below) |
 
 **`mcp:status()` returns:**
-| Field | Type | Presence | Description |
-|-------|------|----------|-------------|
-| `state` | `string` | Always | `"configured"` or `"running"` |
-| `version` | `string` | Always | Semver (e.g., `"0.6.0"`) |
-| `base_dir` | `string` | Always | Path (e.g., `".claude/ui"`) |
-| `url` | `string` | Running | Server URL |
-| `sessions` | `number` | Running | Browser count |
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | `string` | Semver (e.g., `"0.6.0"`) |
+| `base_dir` | `string` | Path (e.g., `".claude/ui"`) |
+| `url` | `string` | Server URL |
+| `sessions` | `number` | Browser count |
 
 ### Build & Release System
 Cross-platform binary builds via Makefile:
@@ -119,10 +118,9 @@ Cross-platform binary builds via Makefile:
 ### Oversights
 - [ ] O1: Test coverage - only `tools_test.go` and `notify_test.go` exist
   - [ ] State Change Waiting (10 scenarios)
-  - [ ] Lifecycle FSM (4 scenarios)
+  - [ ] Lifecycle (startup, reconfigure)
   - [ ] ui_open_browser (3 scenarios)
   - [ ] ui_run (4 scenarios)
   - [ ] ui_upload_viewdef (3 scenarios)
   - [ ] Frictionless UI Creation (6 scenarios)
 - [ ] O2: Document frontend conserve mode SharedWorker requirements (spec 6.1)
-- [ ] O3: Include current state in FSM error messages for debugging
