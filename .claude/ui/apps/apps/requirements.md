@@ -25,8 +25,8 @@ When an app is selected, show:
 - App name as header
 - Description (first paragraph from requirements.md, parsed by Lua)
 - Action buttons based on state:
-  - Build (when no app.lua)
-  - Open (when has app.lua) - uses `mcp.display(appName)` directly to switch apps
+  - Build (when no viewdefs) - sends build_request to Claude
+  - Open (when has viewdefs) - uses `mcp.display(appName)` directly to switch apps
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
@@ -38,14 +38,14 @@ When an app is selected, show:
 When "+" is clicked, show a form instead of details:
 - Name field (becomes directory name, kebab-case)
 - Description textarea (what the app should do)
-- Create button (Lua creates app directory and requirements.md, then sends build_request to Claude)
+- Create button (Lua creates app directory and requirements.md, selects the new app)
 - Cancel button (returns to app details or empty state)
 
 **On Create (Lua):**
 1. Create directory `{base_dir}/apps/{name}/`
 2. Write `requirements.md` with title and description
 3. Rescan to add app to list
-4. Send `build_request` event to Claude
+4. Select the new app (shows Build button since no viewdefs)
 
 ## Chat Panel
 
@@ -68,7 +68,7 @@ When Claude is building an app, Lua tracks progress state:
 - Progress bar (0-100%)
 - Stage label (designing, writing code, creating viewdefs, linking)
 
-Claude pushes progress updates via `mcp.pushState()` when building.
+Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when building.
 
 ## Events to Claude
 
@@ -86,20 +86,36 @@ Claude pushes progress updates via `mcp.pushState()` when building.
 2. Scan `{base_dir}/apps/` for directories with `requirements.md`
 3. For each app, parse:
    - `requirements.md` → name, description
-   - `app.lua` presence → built status
+   - `viewdefs/` presence → built status (has viewdefs = can be opened)
    - `TESTING.md` → test counts, checklist, issues
 
 **On app creation:**
 1. Create `{base_dir}/apps/{name}/` directory
 2. Write `requirements.md` with `# {Name}` title and description
 3. Rescan to add app to list
-4. Send `build_request` event to Claude
+4. Select the new app (user can click Build to trigger build_request)
 
-### Claude Responsibilities (push only):
-- `mcp.pushState({type="app_progress", app=name, progress=N, stage=S})` during build
-- `mcp.pushState({type="app_updated", app=name})` after any file changes
+### Claude Responsibilities (via mcp methods):
+- `mcp:appProgress(name, progress, stage)` - call during build to update progress
+- `mcp:appUpdated(name)` - call after modifying app files to trigger rescan
 
-Lua listens for these events and re-parses affected apps.
+Claude uses `ui_run` to call these mcp methods.
+
+### App Initialization (`init.lua`)
+
+The apps app provides `init.lua` which adds convenience methods to the `mcp` global:
+
+```lua
+function mcp:appProgress(name, progress, stage)
+    if apps then apps:onAppProgress(name, progress, stage) end
+end
+
+function mcp:appUpdated(name)
+    if apps then apps:onAppUpdated(name) end
+end
+```
+
+This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps dashboard is loaded.
 
 ## Refresh
 

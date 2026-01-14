@@ -40,6 +40,12 @@ Legend:
 - `v` = Expanded section, `>` = Collapsed section
 - `[✓]` = Test passed, `[ ]` = Untested, `[✗]` = Test failed
 
+**Action buttons** (based on app state):
+- `[Build]` — shown when app has no viewdefs (needsBuild)
+- `[Open]` — shown when app has viewdefs (canOpen)
+- `[Test]` — shown when app has viewdefs
+- `[Fix Issues]` — shown when app has known issues
+
 ### New App Form (replaces details)
 ```
 +------------------+-----------------------------+
@@ -83,7 +89,7 @@ Legend:
 |-------|------|-------------|
 | name | string | Directory name |
 | description | string | First paragraph from requirements.md |
-| isBuilt | boolean | Has app.lua |
+| hasViewdefs | boolean | Has viewdefs/ directory |
 | tests | TestItem[] | Test checklist from TESTING.md |
 | testsPassing | number | Count of passing tests |
 | testsTotal | number | Total test count |
@@ -144,7 +150,7 @@ Legend:
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
-| createApp() | Create app dir, write requirements.md, rescan, send build_request |
+| createApp() | Create app dir, write requirements.md, rescan, select new app |
 | sendChat() | Send chat event with selected app context |
 | addAgentMessage(text) | Add agent message to chat |
 | onAppProgress(name, progress, stage) | Update app build progress |
@@ -161,6 +167,8 @@ Legend:
 | hasTests() | Returns true if tests array not empty |
 | hasIssues() | Returns true if knownIssues not empty |
 | isBuilding() | Returns true if buildProgress is not nil |
+| canOpen() | Returns true if hasViewdefs |
+| needsBuild() | Returns true if not hasViewdefs |
 | toggleKnownIssues() | Toggle showKnownIssues |
 | toggleFixedIssues() | Toggle showFixedIssues |
 | requestBuild() | Send build_request event |
@@ -207,19 +215,36 @@ Legend:
 
 ### Claude Event Handling
 
-| Event | How Claude Should Handle |
-|-------|--------------------------|
-| `chat` | Respond to user message about the app in `context`. Reply via `apps:addAgentMessage(text)` |
-| `build_request` | Use `/ui-builder` skill to build/complete/update the app named in `target` |
-| `test_request` | Use `/ui-testing` skill to test the app named in `target` |
-| `fix_request` | Read TESTING.md for the app, fix known issues using `/ui-builder` |
+| Event Types     | How Claude Should Handle                                                                   |
+|-----------------|--------------------------------------------------------------------------------------------|
+| `chat`          | Respond to user message about the app in `context`. Reply via `apps:addAgentMessage(text)` |
+| `build_request` | Use `/ui-builder` skill to build/complete/update the app named in `target`                 |
+| `test_request`  | Use `/ui-testing` skill to test the app named in `target`                                  |
+| `fix_request`   | Read TESTING.md for the app, fix known issues using `/ui-builder`                          |
 
-### From Claude to UI (via mcp.pushState)
+### From Claude to UI (via mcp methods)
 
-```json
-{"type": "app_progress", "app": "my-app", "progress": 40, "stage": "writing code"}
-{"type": "app_updated", "app": "contacts"}
+Claude uses `ui_run` to call mcp convenience methods:
+```lua
+mcp:appProgress("my-app", 40, "writing code")
+mcp:appUpdated("contacts")
 ```
+
+## App Initialization (`init.lua`)
+
+The apps app provides `init.lua` which adds convenience methods to the `mcp` global:
+
+```lua
+function mcp:appProgress(name, progress, stage)
+    if apps then apps:onAppProgress(name, progress, stage) end
+end
+
+function mcp:appUpdated(name)
+    if apps then apps:onAppUpdated(name) end
+end
+```
+
+This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without checking if apps is loaded.
 
 ## File Parsing (Lua)
 

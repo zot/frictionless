@@ -59,6 +59,11 @@ Nest related items with checkboxes:
 - **"Code changes"** = uncheck Artifacts, ask user
 - **Spec changes** = always update design next (never jump to code unless user explicitly requests)
 
+### Spec Phase
+Create in `specs/`: human readable, natural language descriptions
+
+After spec changes, offer to update the design. Do not jump to implementation.
+
 ### Design Phase
 Create in `design/`:
 - `design.md`: Intent + Artifacts (design files → code file checkboxes)

@@ -61,6 +61,15 @@ Debug and inspect runtime state:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state JSON
 
+### Lua Loading Sequence (Spec 4.2)
+During `ui_start`, Go executes:
+1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
+2. `setupMCPGlobal()` creates the `mcp` global with core methods
+3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
+4. `loadAppInitFiles()` scans `{base_dir}/apps/*/` and loads each `init.lua`
+
+App init files can register metadata with the mcp shell since `mcp` global exists.
+
 ### Lua `mcp` Global Object (Spec 4.3)
 Registered by `setupMCPGlobal` in each session:
 

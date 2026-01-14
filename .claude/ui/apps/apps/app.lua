@@ -75,7 +75,7 @@ end
 AppInfo = session:prototype("AppInfo", {
     name = "",
     description = "",
-    isBuilt = false,
+    hasViewdefs = false,
     testsPassing = 0,
     testsTotal = 0,
     knownIssues = EMPTY,
@@ -106,7 +106,7 @@ end
 function AppInfo:statusText()
     if self.buildProgress then
         return self.buildStage or "building..."
-    elseif not self.isBuilt then
+    elseif not self.hasViewdefs then
         return "not built"
     elseif self.testsTotal == 0 then
         return "--"
@@ -118,7 +118,7 @@ end
 function AppInfo:statusVariant()
     if self.buildProgress then
         return "primary"
-    elseif not self.isBuilt then
+    elseif not self.hasViewdefs then
         return "neutral"
     elseif self.testsTotal == 0 then
         return "neutral"
@@ -137,8 +137,12 @@ function AppInfo:noIssues()
     return #self.knownIssues == 0
 end
 
-function AppInfo:notBuilt()
-    return not self.isBuilt
+function AppInfo:canOpen()
+    return self.hasViewdefs
+end
+
+function AppInfo:needsBuild()
+    return not self.hasViewdefs
 end
 
 function AppInfo:knownIssueCount()
@@ -198,11 +202,12 @@ function AppInfo:fixedIssuesIcon()
 end
 
 function AppInfo:requestBuild()
-    mcp.pushState({
-        app = "apps",
-        event = "build_request",
-        target = self.name
-    })
+   self.buildStage = "starting..."
+   mcp.pushState({
+         app = "apps",
+         event = "build_request",
+         target = self.name
+   })
 end
 
 function AppInfo:requestTest()
@@ -242,6 +247,17 @@ local function fileExists(path)
     if handle then
         handle:close()
         return true
+    end
+    return false
+end
+
+-- Check if directory exists and has files
+local function dirHasFiles(path)
+    local handle = io.popen('ls -1 "' .. path .. '" 2>/dev/null | head -1')
+    if handle then
+        local result = handle:read("*l")
+        handle:close()
+        return result ~= nil and result ~= ""
     end
     return false
 end
@@ -380,8 +396,8 @@ function AppsApp:scanAppsFromDisk()
             -- Parse requirements.md for description
             app.description = parseRequirements(reqContent)
 
-            -- Check if built (has app.lua)
-            app.isBuilt = fileExists(appPath .. "/app.lua")
+            -- Check if built (has viewdefs directory with files)
+            app.hasViewdefs = dirHasFiles(appPath .. "/viewdefs")
 
             -- Parse TESTING.md if exists
             local testContent = readFile(appPath .. "/TESTING.md")
@@ -451,7 +467,7 @@ function AppsApp:rescanApp(name)
 
     -- Update app data
     app.description = parseRequirements(reqContent)
-    app.isBuilt = fileExists(appPath .. "/app.lua")
+    app.hasViewdefs = dirHasFiles(appPath .. "/viewdefs")
 
     -- Parse TESTING.md
     local testContent = readFile(appPath .. "/TESTING.md")
@@ -489,7 +505,7 @@ function AppsApp:setApps(appDataList)
     for _, data in ipairs(appDataList) do
         local app = AppInfo:new(data.name)
         app.description = data.description or ""
-        app.isBuilt = data.isBuilt or false
+        app.hasViewdefs = data.hasViewdefs or false
         app.testsPassing = data.testsPassing or 0
         app.testsTotal = data.testsTotal or 0
 
@@ -612,19 +628,11 @@ function AppsApp:createApp()
 
     -- 3. Rescan to add app to list
     self:rescanApp(name)
+
+    -- 4. Select the new app (user can click Build to trigger build_request)
     local app = self:findApp(name)
-
-    -- 4. Send build_request to Claude
     if app then
-        app.buildProgress = 0
-        app.buildStage = "starting..."
         self.selected = app
-
-        mcp.pushState({
-            app = "apps",
-            event = "build_request",
-            target = name
-        })
     end
 
     self.showNewForm = false

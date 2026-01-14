@@ -554,6 +554,22 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			}
 		}
 
+		// Load init.lua from each app directory if it exists
+		// Spec: mcp.md Section 4.3 "App Initialization (init.lua)"
+		appsDir := filepath.Join(s.baseDir, "apps")
+		if entries, err := os.ReadDir(appsDir); err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					initPath := filepath.Join(appsDir, entry.Name(), "init.lua")
+					if _, err := os.Stat(initPath); err == nil {
+						if err := L.DoFile(initPath); err != nil {
+							return nil, fmt.Errorf("failed to load %s/init.lua: %w", entry.Name(), err)
+						}
+					}
+				}
+			}
+		}
+
 		// Register as app variable - this creates variable 1 in the tracker
 		code := "session:createAppVariable(mcp)"
 		if err := L.DoString(code); err != nil {

@@ -27,13 +27,36 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 **Never use `ui_upload_viewdef`** — just write files to disk. The server watches for changes and hot-loads automatically.
 
+## Progress Reporting
+
+Report build progress via `ui_run` so the apps dashboard can show status:
+
+```lua
+mcp:appProgress("app-name", progress, "stage")
+```
+
+| Phase | Progress | Stage |
+|-------|----------|-------|
+| Starting | 0 | "starting" |
+| Reading requirements | 10 | "reading requirements" |
+| Designing | 20 | "designing" |
+| Writing code | 40 | "writing code" |
+| Writing viewdefs | 60 | "writing viewdefs" |
+| Linking | 80 | "linking" |
+| Auditing | 90 | "auditing" |
+| Complete | 100 | "complete" |
+
+Call `mcp:appUpdated("app-name")` after all files are written so the dashboard rescans.
+
 ## Workflow
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 
-2. **Read requirements**: Check `{base_dir}/apps/<app>/requirements.md` first. If it does not exist, create it with human-readable prose (no ASCII art or tables)
+2. **Read requirements** → `mcp:appProgress(app, 10, "reading requirements")`
+   - Check `{base_dir}/apps/<app>/requirements.md` first
+   - If it does not exist, create it with human-readable prose (no ASCII art or tables)
 
-3. **Design**:
+3. **Design** → `mcp:appProgress(app, 20, "designing")`
    - Check `{base_dir}/patterns/` for reusable patterns
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
@@ -44,18 +67,20 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
       - **Events**: JSON examples of user interactions, including how Claude should handle each event type (Claude reads design.md to understand the app)
 
 4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+   - → `mcp:appProgress(app, 40, "writing code")`
    - `design.md` — design spec (first, for reference)
    - `app.lua` — Lua classes and logic (**write this before viewdefs**)
+   - → `mcp:appProgress(app, 60, "writing viewdefs")`
    - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-5. **Create symlinks** using the linkapp script:
+5. **Create symlinks** → `mcp:appProgress(app, 80, "linking")`
 
    ```bash
    .claude/ui/linkapp add <app>
    ```
 
-6. **Audit** (after any design or modification):
+6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
    - Compare implementation against requirements.md — **every principle must be followed**
@@ -77,6 +102,10 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
      - Missing `session.reloading` guard on instance creation
      - Cancel buttons that don't revert changes (see Edit/Cancel Pattern)
    - Fix any violations found before considering the task complete
+
+7. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
+   - Report completion so progress bar shows 100%
+   - Trigger dashboard rescan so app status updates
 
 ## Common Binding Mistakes
 

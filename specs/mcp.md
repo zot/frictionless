@@ -243,8 +243,36 @@ Projects can extend the `mcp` object with custom shell functionality (e.g., app 
 1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
 2. Go creates the `mcp` global with core methods (`display`, `status`, `pushState`, etc.)
 3. Go loads `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
+4. Go scans `{base_dir}/apps/*/` and loads `init.lua` from each app directory if it exists
 
 **Note:** Since `main.lua` runs before the `mcp` global is created, `mcp.lua` must be loaded by Go code after creating the mcp table, not by main.lua.
+
+#### App Initialization (`init.lua`)
+
+Apps can provide `{base_dir}/apps/{app}/init.lua` to run initialization code at startup, before the app is displayed.
+
+**Use cases:**
+- Register app metadata with the mcp shell
+- Set up shared prototypes or utilities
+- Pre-load data or configuration
+
+**Example `apps/contacts/init.lua`:**
+```lua
+-- Register this app with the mcp shell
+if mcp.registerApp then
+    mcp:registerApp("contacts", {
+        name = "Contacts",
+        description = "Contact manager"
+    })
+end
+```
+
+**Available at init time:**
+- `mcp` global with all methods
+- `session` for creating prototypes
+
+**Not available:**
+- Browser connection (app not displayed yet)
 
 **Example `mcp.lua`:**
 ```lua

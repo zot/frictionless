@@ -281,15 +281,15 @@
             <div class="detail-description" ui-value="selected.description"></div>
           </div>
           <div class="detail-actions">
-            <sl-button variant="primary" ui-class-hidden="selected.isBuilt" ui-action="selected.requestBuild()">
+            <sl-button variant="primary" ui-class-hidden="selected.canOpen()" ui-action="selected.requestBuild()">
               <sl-icon slot="prefix" name="hammer"></sl-icon>
               Build
             </sl-button>
-            <sl-button variant="default" ui-class-hidden="selected.notBuilt()" ui-action="selected.openApp()">
+            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.openApp()">
               <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
               Open
             </sl-button>
-            <sl-button variant="default" ui-class-hidden="selected.notBuilt()" ui-action="selected.requestTest()">
+            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestTest()">
               <sl-icon slot="prefix" name="check2-square"></sl-icon>
               Test
             </sl-button>

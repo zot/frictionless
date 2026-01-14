@@ -128,6 +128,18 @@ The AI agent starts the HTTP server after configuration.
           │                      │                      │   StartMCP(mcpPort)   │                  │
           │                      │                      │──────────────────────>│                  │
           │                      │                      │                       │                  │
+          │                      │                      │ setupMCPGlobal()      │                  │
+          │                      │                      │────┐ [creates mcp table]                 │
+          │                      │                      │<───┘                  │                  │
+          │                      │                      │                       │                  │
+          │                      │                      │ loadMCPLua()          │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │ [load mcp.lua if exists]                 │
+          │                      │                      │                       │                  │
+          │                      │                      │ loadAppInitFiles()    │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │ [scan apps/*/init.lua]│                  │
+          │                      │                      │                       │                  │
           │                      │                      │ WriteFile(ui-port)    │                  │
           │                      │                      │─────────────────────────────────────────>│
           │                      │                      │                       │                  │
@@ -144,10 +156,17 @@ The AI agent starts the HTTP server after configuration.
      └────────┘             └─────────┘             └───┴───┘             └──────────┘           └────┘
 ```
 
+**Lua Loading Sequence (during StartUI):**
+1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
+2. `setupMCPGlobal()` creates the `mcp` global with core methods
+3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
+4. `loadAppInitFiles()` scans `{base_dir}/apps/*/` and loads each `init.lua`
+
 **Notes:**
 - Port files written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`
 - UI server serves HTML/JS and WebSocket connections
 - MCP server serves /state, /wait, /variables endpoints
+- App init files run after mcp global exists, can register with mcp shell
 
 ## Scenario 3: Opening Browser
 The AI agent instructs the system to open a browser to the session.
