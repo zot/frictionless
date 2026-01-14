@@ -11,6 +11,14 @@ function ChatMessage:new(sender, text)
     return session:create(ChatMessage, { sender = sender, text = text })
 end
 
+function ChatMessage:isUser()
+    return self.sender == "You"
+end
+
+function ChatMessage:prefix()
+    return self.sender == "You" and "> " or ""
+end
+
 -- Issue model
 Issue = session:prototype("Issue", {
     number = 0,
@@ -214,11 +222,7 @@ function AppInfo:requestFix()
 end
 
 function AppInfo:openApp()
-    mcp.pushState({
-        app = "apps",
-        event = "open_app",
-        target = self.name
-    })
+    mcp.display(self.name)
 end
 
 -- Filesystem helpers for Lua-driven app discovery
@@ -552,12 +556,6 @@ function AppsApp:onAppUpdated(name)
     self:rescanApp(name)
 end
 
--- Handle app created event from Claude
-function AppsApp:onAppCreated(name)
-    -- Rescan just the new app from disk
-    self:rescanApp(name)
-end
-
 -- Refresh: rescan all apps from disk (Lua-driven)
 function AppsApp:refresh()
     self:scanAppsFromDisk()
@@ -583,25 +581,53 @@ function AppsApp:cancelNewForm()
     self.newAppDesc = ""
 end
 
--- Create new app
+-- Create new app (Lua creates directory and requirements.md)
 function AppsApp:createApp()
     if self.newAppName == "" then return end
+    if self._baseDir == "" then
+        -- Need base_dir to create files
+        local status = mcp:status()
+        if not status or not status.base_dir then return end
+        self._baseDir = status.base_dir
+    end
 
-    mcp.pushState({
-        app = "apps",
-        event = "create_app",
-        name = self.newAppName,
-        description = self.newAppDesc
-    })
+    local name = self.newAppName
+    local desc = self.newAppDesc
+    local appPath = self._baseDir .. "/apps/" .. name
 
-    -- Add to list with building status
-    local app = self:addApp(self.newAppName)
-    app.description = self.newAppDesc
-    app.buildProgress = 0
-    app.buildStage = "starting..."
+    -- 1. Create app directory
+    os.execute('mkdir -p "' .. appPath .. '"')
+
+    -- 2. Write requirements.md with title and description
+    -- Convert kebab-case to Title Case for the heading
+    local title = name:gsub("-", " "):gsub("(%a)([%w]*)", function(first, rest)
+        return first:upper() .. rest
+    end)
+    local reqContent = "# " .. title .. "\n\n" .. desc .. "\n"
+    local handle = io.open(appPath .. "/requirements.md", "w")
+    if handle then
+        handle:write(reqContent)
+        handle:close()
+    end
+
+    -- 3. Rescan to add app to list
+    self:rescanApp(name)
+    local app = self:findApp(name)
+
+    -- 4. Send build_request to Claude
+    if app then
+        app.buildProgress = 0
+        app.buildStage = "starting..."
+        self.selected = app
+
+        mcp.pushState({
+            app = "apps",
+            event = "build_request",
+            target = name
+        })
+    end
 
     self.showNewForm = false
-    self.selected = app
     self.newAppName = ""
     self.newAppDesc = ""
 end

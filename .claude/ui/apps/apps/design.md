@@ -22,6 +22,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  |   2. Cancel doesn't revert  |
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
+| ═══════════════ drag handle ════════════════  |
 | Chat                                           |
 | Agent: Which app would you like to work on?    |
 | You: Test the contacts app                     |
@@ -114,6 +115,22 @@ Legend:
 | sender | string | "You" or "Agent" |
 | text | string | Message content |
 
+## Chat Panel Features
+
+### Resizable
+- Drag handle at top edge of chat panel
+- Drag up to increase height, down to decrease
+- Minimum height: 120px, Maximum: 60vh
+- Initial height: 200px
+
+### Auto-scroll
+- Messages container uses `scrollOnOutput` variable property
+- New messages automatically scroll into view
+
+### User Message Styling
+- User messages prefixed with `>` character
+- CSS class `user-message` applied for distinct styling
+
 ## Methods
 
 ### AppsApp
@@ -127,12 +144,11 @@ Legend:
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
-| createApp() | Send create_app event, close form |
+| createApp() | Create app dir, write requirements.md, rescan, send build_request |
 | sendChat() | Send chat event with selected app context |
 | addAgentMessage(text) | Add agent message to chat |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
-| onAppCreated(name) | Calls rescanApp(name) |
 
 ### AppInfo
 
@@ -150,7 +166,7 @@ Legend:
 | requestBuild() | Send build_request event |
 | requestTest() | Send test_request event |
 | requestFix() | Send fix_request event |
-| openApp() | Open app in browser |
+| openApp() | Switch to app using mcp.display(self.name) |
 
 ### TestItem
 
@@ -160,6 +176,13 @@ Legend:
 | isFailed() | Returns status == "failed" |
 | isUntested() | Returns status == "untested" |
 | icon() | Returns "✓", "✗", or " " based on status |
+
+### ChatMessage
+
+| Method | Description |
+|--------|-------------|
+| isUser() | Returns true if sender == "You" |
+| prefix() | Returns "> " for user messages, "" for agent |
 
 ## ViewDefs
 
@@ -180,15 +203,22 @@ Legend:
 {"app": "apps", "event": "build_request", "target": "my-app"}
 {"app": "apps", "event": "test_request", "target": "contacts"}
 {"app": "apps", "event": "fix_request", "target": "contacts"}
-{"app": "apps", "event": "create_app", "name": "my-app", "description": "..."}
 ```
+
+### Claude Event Handling
+
+| Event | How Claude Should Handle |
+|-------|--------------------------|
+| `chat` | Respond to user message about the app in `context`. Reply via `apps:addAgentMessage(text)` |
+| `build_request` | Use `/ui-builder` skill to build/complete/update the app named in `target` |
+| `test_request` | Use `/ui-testing` skill to test the app named in `target` |
+| `fix_request` | Read TESTING.md for the app, fix known issues using `/ui-builder` |
 
 ### From Claude to UI (via mcp.pushState)
 
 ```json
 {"type": "app_progress", "app": "my-app", "progress": 40, "stage": "writing code"}
 {"type": "app_updated", "app": "contacts"}
-{"type": "app_created", "app": "my-app"}
 ```
 
 ## File Parsing (Lua)

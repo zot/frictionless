@@ -204,6 +204,10 @@ end
 
 **Prefer Lua.** Lua methods execute instantly when users click buttons or type.
 
+**When JS is needed:**
+- **App-local JS** (resize handlers, DOM tricks): Use `<script>` tags in the viewdef (after root element, before `</template>`)
+- **Claude-triggered JS** (remote execution): The MCP shell provides `mcp.code` via `ui-code="code"` binding. Claude sets `mcp.code = "window.close()"` to execute JS remotely. Don't add `ui-code` bindings in apps — use the existing MCP shell capability.
+
 ## Bindings
 
 | Attribute             | Purpose                     | Example                                                                      |

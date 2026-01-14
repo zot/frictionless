@@ -185,14 +185,42 @@
     /* Chat panel */
     .chat-panel {
       border-top: 1px solid var(--sl-color-neutral-200);
-      padding: var(--sl-spacing-medium);
       display: flex;
       flex-direction: column;
       height: 200px;
+      min-height: 120px;
+      max-height: 60vh;
+      flex-shrink: 0;
+    }
+    .chat-resize-handle {
+      height: 6px;
+      background: var(--sl-color-neutral-200);
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .chat-resize-handle:hover {
+      background: var(--sl-color-primary-200);
+    }
+    .chat-resize-handle::after {
+      content: '';
+      width: 40px;
+      height: 3px;
+      background: var(--sl-color-neutral-400);
+      border-radius: 2px;
+    }
+    .chat-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: var(--sl-spacing-small) var(--sl-spacing-medium) var(--sl-spacing-medium);
     }
     .chat-panel h3 {
       margin: 0 0 var(--sl-spacing-small) 0;
       font-size: var(--sl-font-size-medium);
+      flex-shrink: 0;
     }
     .chat-messages {
       flex: 1;
@@ -206,6 +234,7 @@
     .chat-input-row {
       display: flex;
       gap: var(--sl-spacing-small);
+      flex-shrink: 0;
     }
     .chat-input-row sl-input {
       flex: 1;
@@ -213,13 +242,18 @@
     /* Chat message styles */
     .chat-message {
       margin-bottom: var(--sl-spacing-small);
-    }
-    .chat-message-sender {
-      font-weight: var(--sl-font-weight-semibold);
       font-size: var(--sl-font-size-small);
+      line-height: 1.4;
+    }
+    .chat-message.user-message {
+      color: var(--sl-color-neutral-700);
+    }
+    .chat-message.user-message .chat-prefix {
+      color: var(--sl-color-primary-600);
+      font-weight: var(--sl-font-weight-bold);
     }
     .chat-message-text {
-      margin-top: var(--sl-spacing-2x-small);
+      white-space: pre-wrap;
     }
     .hidden { display: none !important; }
   </style>
@@ -311,13 +345,44 @@
     </div>
 
     <!-- Chat Panel -->
-    <div class="chat-panel">
-      <h3>Chat with Claude</h3>
-      <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList"></div>
-      <div class="chat-input-row">
-        <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-        <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+    <div class="chat-panel" id="chat-panel">
+      <div class="chat-resize-handle" id="chat-resize-handle"></div>
+      <div class="chat-content">
+        <h3>Chat with Claude</h3>
+        <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+        <div class="chat-input-row">
+          <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
+          <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+        </div>
       </div>
     </div>
   </div>
+  <script>
+    (function() {
+      const panel = document.getElementById('chat-panel');
+      const handle = document.getElementById('chat-resize-handle');
+      if (!panel || !handle) return;
+
+      let startY, startHeight;
+
+      handle.addEventListener('mousedown', (e) => {
+        startY = e.clientY;
+        startHeight = panel.offsetHeight;
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', onRelease);
+        e.preventDefault();
+      });
+
+      function onDrag(e) {
+        const delta = startY - e.clientY;
+        const newHeight = Math.max(120, Math.min(window.innerHeight * 0.6, startHeight + delta));
+        panel.style.height = newHeight + 'px';
+      }
+
+      function onRelease() {
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', onRelease);
+      }
+    })();
+  </script>
 </template>

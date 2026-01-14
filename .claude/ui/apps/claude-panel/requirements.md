@@ -1,7 +1,5 @@
 # Claude Panel Requirements
 
-## Purpose
-
 A universal panel for Claude Code showing project status and quick actions.
 
 ## Layout

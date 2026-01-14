@@ -98,6 +98,19 @@ Before invoking `/ui-builder`:
 2. Write requirements to `.claude/ui/apps/<app>/requirements.md`
 3. Invoke `/ui-builder`: "Read `.claude/ui/apps/<app>/requirements.md` and build the app"
 
+### Requirements Format
+
+```markdown
+# Descriptive Title
+
+A short paragraph describing what the app does.
+
+## Section 1
+...
+```
+
+The first line is a descriptive title (e.g., "# Contact Manager"), followed by prose describing the app. See the `/ui-builder` skill's `examples/requirements.md` for a reference.
+
 ## Directory Structure
 
 ```

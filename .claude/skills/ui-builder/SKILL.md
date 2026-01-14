@@ -41,7 +41,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
       - **Data Model**: Tables of types, fields, and descriptions
       - **Methods**: Actions each type performs
       - **ViewDefs**: Template files needed
-      - **Events**: JSON examples of user interactions
+      - **Events**: JSON examples of user interactions, including how Claude should handle each event type (Claude reads design.md to understand the app)
 
 4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
    - `design.md` — design spec (first, for reference)
@@ -209,6 +209,10 @@ end
 | **JavaScript** | Extending presentation (browser APIs, DOM tricks) | Last resort, harder to maintain        |
 
 **Prefer Lua.** Lua methods execute instantly when users click buttons or type.
+
+**When JS is needed:**
+- **App-local JS** (resize handlers, DOM tricks): Use `<script>` tags in the viewdef (after root element, before `</template>`)
+- **Claude-triggered JS** (remote execution): The MCP shell provides `mcp.code` via `ui-code="code"` binding. Claude sets `mcp.code = "window.close()"` to execute JS remotely. Don't add `ui-code` bindings in apps — use the existing MCP shell capability.
 
 ## Bindings
 
