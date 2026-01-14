@@ -183,6 +183,12 @@ The AI agent reconfigures the server with a different base directory.
           │                      │                      │ CreateDir(base_dir)   │                  │
           │                      │                      │─────────────────────────────────────────>│
           │                      │                      │                       │                  │
+          │                      │                      │ ClearLogs(base_dir)   │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │                       │                  │
+          │                      │                      │ ReopenGoLogFile()     │                  │
+          │                      │                      │─────────────────────────────────────────>│
+          │                      │                      │                       │                  │
           │                      │                      │ [if missing] Install()│                  │
           │                      │                      │─────────────────────────────────────────>│
           │                      │                      │                       │                  │
@@ -205,5 +211,8 @@ The AI agent reconfigures the server with a different base directory.
 **Notes:**
 - Calling `ui_configure` triggers a full reconfigure
 - Current session is destroyed, HTTP server stops
+- Log files in `{base_dir}/log/` are cleared (deleted or truncated)
+- Go log file handles (`mcp.log`) are reopened to point to fresh files
 - Filesystem is re-initialized for new base_dir
 - HTTP listeners restart on new ephemeral ports
+- Returns `{base_dir, url, install_needed}` where url is `http://HOST:PORT` (no session ID)

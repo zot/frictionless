@@ -120,7 +120,14 @@ Cross-platform binary builds via Makefile:
   - [ ] State Change Waiting (10 scenarios)
   - [ ] Lifecycle (startup, reconfigure)
   - [ ] ui_open_browser (3 scenarios)
-  - [ ] ui_run (4 scenarios)
+  - [x] ui_run (6 tests: execute code, session access, JSON marshalling, non-JSON result, mcp global, no session)
   - [ ] ui_upload_viewdef (3 scenarios)
   - [ ] Frictionless UI Creation (6 scenarios)
+  - [x] ClearLogs (5 tests: clears files, calls callback, handles missing dir, skips subdirs, no callback)
 - [ ] O2: Document frontend conserve mode SharedWorker requirements (spec 6.1)
+- [ ] O3: Install tests fail without bundled binary (`make build`)
+  - [ ] TestInstallSkillFilesFreshInstall
+  - [ ] TestInstallSkillFilesNoOpIfExists
+  - [ ] TestInstallSkillFilesCreatesDirectory
+  - [ ] TestInstallSkillFilesPathResolution
+  - [ ] TestInstallForceOverwrites

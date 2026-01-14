@@ -1,6 +1,6 @@
 ---
 name: ui-builder
-description: use when **building, modifying, or fixing ui-engine UIs** with Lua apps connected to widgets
+description: **Use proactively** Use for any **UI** design, building, modifying, or testing. This is the required process for managing **all ui app code**. This supercedes other applicable skills when dealing with ui apps.
 ---
 
 # UI Builder
@@ -10,6 +10,12 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 ## Prerequisite
 
 **Run `/ui` skill first** if you haven't already. It covers directory structure and how to run UIs after building.
+
+## Core Principles
+- use SOLID principles, comprehensive unit tests
+- when adding code, verify whether it needs to be factored
+- Code and specs as MINIMAL as possible
+- write idiomatic Lua code
 
 ## Hot-Loading
 
@@ -21,13 +27,36 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 **Never use `ui_upload_viewdef`** — just write files to disk. The server watches for changes and hot-loads automatically.
 
+## Progress Reporting
+
+Report build progress via `ui_run` so the apps dashboard can show status:
+
+```lua
+mcp:appProgress("app-name", progress, "stage")
+```
+
+| Phase | Progress | Stage |
+|-------|----------|-------|
+| Starting | 0 | "starting" |
+| Reading requirements | 10 | "reading requirements" |
+| Designing | 20 | "designing" |
+| Writing code | 40 | "writing code" |
+| Writing viewdefs | 60 | "writing viewdefs" |
+| Linking | 80 | "linking" |
+| Auditing | 90 | "auditing" |
+| Complete | 100 | "complete" |
+
+Call `mcp:appUpdated("app-name")` after all files are written so the dashboard rescans.
+
 ## Workflow
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 
-2. **Read requirements**: Check `{base_dir}/apps/<app>/requirements.md` first. If it does not exist, create it with human-readable prose (no ASCII art or tables)
+2. **Read requirements** → `mcp:appProgress(app, 10, "reading requirements")`
+   - Check `{base_dir}/apps/<app>/requirements.md` first
+   - If it does not exist, create it with human-readable prose (no ASCII art or tables)
 
-3. **Design**:
+3. **Design** → `mcp:appProgress(app, 20, "designing")`
    - Check `{base_dir}/patterns/` for reusable patterns
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
@@ -35,21 +64,25 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
       - **Data Model**: Tables of types, fields, and descriptions
       - **Methods**: Actions each type performs
       - **ViewDefs**: Template files needed
-      - **Events**: JSON examples of user interactions
+      - **Events**: JSON examples of user interactions, including how Claude should handle each event type (Claude reads design.md to understand the app)
 
 4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+   - → `mcp:appProgress(app, 40, "writing code")`
    - `design.md` — design spec (first, for reference)
    - `app.lua` — Lua classes and logic (**write this before viewdefs**)
+   - → `mcp:appProgress(app, 60, "writing viewdefs")`
    - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-5. **Create symlinks** using the linkapp script:
+5. **Create symlinks** → `mcp:appProgress(app, 80, "linking")`
+
+   Use linkapp in base_dir (reported by `ui_status`, as in `/ui` skill)
 
    ```bash
-   .claude/ui/linkapp add <app>
+   {base_dir}/linkapp add <app>
    ```
 
-6. **Audit** (after any design or modification):
+6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
    - Compare implementation against requirements.md — **every principle must be followed**
@@ -71,6 +104,10 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
      - Missing `session.reloading` guard on instance creation
      - Cancel buttons that don't revert changes (see Edit/Cancel Pattern)
    - Fix any violations found before considering the task complete
+
+7. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
+   - Report completion so progress bar shows 100%
+   - Trigger dashboard rescan so app status updates
 
 ## Common Binding Mistakes
 
@@ -96,13 +133,15 @@ These are easy to get wrong:
 **Cancel must revert changes.** When editing with Save/Cancel buttons, Cancel restores the original values. Use snapshot/restore:
 
 ```lua
-Task = session:prototype("Task", {
+-- Nested prototype for tasks
+Tasks.Task = session:prototype("Tasks.Task", {
     name = "",
     description = "",
     done = false,
     editing = false,
     _snapshot = EMPTY  -- stores original values
 })
+local Task = Tasks.Task
 
 function Task:openEditor()
     -- Snapshot current values before editing
@@ -157,14 +196,18 @@ The spec is the **source of truth**. If it says a close button exists, don't rem
 
 ## State Management (Critical)
 
-**Use `session:prototype()` with the idempotent pattern:**
+**Use `session:prototype()` with the namespace pattern:**
 
 ```lua
--- 1. Declare prototype (always runs, preserves identity on reload)
+-- 1. Declare app prototype (serves as namespace)
 MaLuba = session:prototype("MaLuba", {
     items = EMPTY,  -- EMPTY = nil but tracked
     name = ""
 })
+
+-- 2. Nested prototypes use dotted names
+MaLuba.Item = session:prototype("MaLuba.Item", { name = "" })
+local Item = MaLuba.Item  -- local shortcut
 
 function MaLuba:new(instance)
     instance = session:create(MaLuba, instance)
@@ -172,21 +215,24 @@ function MaLuba:new(instance)
     return instance
 end
 
--- 2. Guard instance creation (idempotent)
+-- 3. Guard instance creation (idempotent)
 if not session.reloading then
     maLuba = MaLuba:new()  -- global name = camelCase of app directory (ma-luba → maLuba)
 end
 ```
 
 **Why this pattern?**
-- `session:prototype()` always runs → methods get updated on hot-reload
+- `session:prototype(name)` accepts arbitrary names (does not consult globals)
+- The `name` becomes the prototype's `type` field, used for viewdef resolution (e.g., `"MaLuba.Item"` → `MaLuba.Item.list-item.html`)
+- Each app creates only two globals: `Name` (prototype/namespace) and `name` (instance)
+- Nested prototypes use dotted names: `MaLuba.Item` registered as `"MaLuba.Item"`
 - `session.reloading` is true during hot-reload, false on initial load
 - Instance creation only runs on first load → idempotent
 - `session:create()` tracks instances for hot-reload migrations
 
 **Key points**:
-- The prototype MUST have a `type` field (set automatically by `session:prototype()`)
-- Viewdefs must exist for that type
+- The `type` field is set automatically by `session:prototype()` from the name argument
+- Viewdefs must exist for that type (e.g., `MaLuba.DEFAULT.html`, `MaLuba.Item.list-item.html`)
 - Changes to objects automatically sync to the browser
 
 **Agent-readable state (`mcp.pushState`):**
@@ -381,11 +427,15 @@ The `<sl-option>` tells the frontend to use `<sl-option ui-view="options[N]"></s
 ## Lua Pattern
 
 ```lua
--- 1. Declare prototypes (always runs, updates methods)
+-- 1. Declare app prototype (serves as namespace)
 MaLuba = session:prototype("MaLuba", {
     items = EMPTY,
     name = ""
 })
+
+-- 2. Nested prototypes use dotted names
+MaLuba.Item = session:prototype("MaLuba.Item", { name = "" })
+local Item = MaLuba.Item  -- local shortcut for cleaner code
 
 function MaLuba:new(instance)
     instance = session:create(MaLuba, instance)
@@ -399,9 +449,7 @@ function MaLuba:add()
     self.name = ""
 end
 
-Item = session:prototype("Item", { name = "" })
-
--- 2. Guard instance creation and any other immediately run code (idempotent)
+-- 3. Guard instance creation (idempotent)
 if not session.reloading then
     -- global name = camelCase of app directory (ma-luba → maLuba)
     maLuba = MaLuba:new()
@@ -469,7 +517,7 @@ end
 See the `examples/` directory for a complete Contact Manager with Chat:
 - `examples/requirements.md` — Requirements spec
 - `examples/design.md` — Design spec
-- `examples/app.lua` — Lua code
-- `examples/viewdefs/ContactApp.DEFAULT.html` — App viewdef
-- `examples/viewdefs/Contact.list-item.html` — Contact item viewdef
-- `examples/viewdefs/ChatMessage.list-item.html` — Chat message viewdef
+- `examples/app.lua` — Lua code (shows namespace pattern: `Contacts`, `Contacts.Contact`, `Contacts.ChatMessage`)
+- `examples/viewdefs/Contacts.DEFAULT.html` — App viewdef
+- `examples/viewdefs/Contacts.Contact.list-item.html` — Contact item viewdef
+- `examples/viewdefs/Contacts.ChatMessage.list-item.html` — Chat message viewdef

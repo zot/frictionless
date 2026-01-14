@@ -133,13 +133,15 @@ These are easy to get wrong:
 **Cancel must revert changes.** When editing with Save/Cancel buttons, Cancel restores the original values. Use snapshot/restore:
 
 ```lua
-Task = session:prototype("Task", {
+-- Nested prototype for tasks
+Tasks.Task = session:prototype("Tasks.Task", {
     name = "",
     description = "",
     done = false,
     editing = false,
     _snapshot = EMPTY  -- stores original values
 })
+local Task = Tasks.Task
 
 function Task:openEditor()
     -- Snapshot current values before editing
@@ -194,14 +196,18 @@ The spec is the **source of truth**. If it says a close button exists, don't rem
 
 ## State Management (Critical)
 
-**Use `session:prototype()` with the idempotent pattern:**
+**Use `session:prototype()` with the namespace pattern:**
 
 ```lua
--- 1. Declare prototype (always runs, preserves identity on reload)
+-- 1. Declare app prototype (serves as namespace)
 MaLuba = session:prototype("MaLuba", {
     items = EMPTY,  -- EMPTY = nil but tracked
     name = ""
 })
+
+-- 2. Nested prototypes use dotted names
+MaLuba.Item = session:prototype("MaLuba.Item", { name = "" })
+local Item = MaLuba.Item  -- local shortcut
 
 function MaLuba:new(instance)
     instance = session:create(MaLuba, instance)
@@ -209,21 +215,24 @@ function MaLuba:new(instance)
     return instance
 end
 
--- 2. Guard instance creation (idempotent)
+-- 3. Guard instance creation (idempotent)
 if not session.reloading then
     maLuba = MaLuba:new()  -- global name = camelCase of app directory (ma-luba → maLuba)
 end
 ```
 
 **Why this pattern?**
-- `session:prototype()` always runs → methods get updated on hot-reload
+- `session:prototype(name)` accepts arbitrary names (does not consult globals)
+- The `name` becomes the prototype's `type` field, used for viewdef resolution (e.g., `"MaLuba.Item"` → `MaLuba.Item.list-item.html`)
+- Each app creates only two globals: `Name` (prototype/namespace) and `name` (instance)
+- Nested prototypes use dotted names: `MaLuba.Item` registered as `"MaLuba.Item"`
 - `session.reloading` is true during hot-reload, false on initial load
 - Instance creation only runs on first load → idempotent
 - `session:create()` tracks instances for hot-reload migrations
 
 **Key points**:
-- The prototype MUST have a `type` field (set automatically by `session:prototype()`)
-- Viewdefs must exist for that type
+- The `type` field is set automatically by `session:prototype()` from the name argument
+- Viewdefs must exist for that type (e.g., `MaLuba.DEFAULT.html`, `MaLuba.Item.list-item.html`)
 - Changes to objects automatically sync to the browser
 
 **Agent-readable state (`mcp.pushState`):**
@@ -418,11 +427,15 @@ The `<sl-option>` tells the frontend to use `<sl-option ui-view="options[N]"></s
 ## Lua Pattern
 
 ```lua
--- 1. Declare prototypes (always runs, updates methods)
+-- 1. Declare app prototype (serves as namespace)
 MaLuba = session:prototype("MaLuba", {
     items = EMPTY,
     name = ""
 })
+
+-- 2. Nested prototypes use dotted names
+MaLuba.Item = session:prototype("MaLuba.Item", { name = "" })
+local Item = MaLuba.Item  -- local shortcut for cleaner code
 
 function MaLuba:new(instance)
     instance = session:create(MaLuba, instance)
@@ -436,9 +449,7 @@ function MaLuba:add()
     self.name = ""
 end
 
-Item = session:prototype("Item", { name = "" })
-
--- 2. Guard instance creation and any other immediately run code (idempotent)
+-- 3. Guard instance creation (idempotent)
 if not session.reloading then
     -- global name = camelCase of app directory (ma-luba → maLuba)
     maLuba = MaLuba:new()
@@ -506,7 +517,7 @@ end
 See the `examples/` directory for a complete Contact Manager with Chat:
 - `examples/requirements.md` — Requirements spec
 - `examples/design.md` — Design spec
-- `examples/app.lua` — Lua code
-- `examples/viewdefs/ContactApp.DEFAULT.html` — App viewdef
-- `examples/viewdefs/Contact.list-item.html` — Contact item viewdef
-- `examples/viewdefs/ChatMessage.list-item.html` — Chat message viewdef
+- `examples/app.lua` — Lua code (shows namespace pattern: `Contacts`, `Contacts.Contact`, `Contacts.ChatMessage`)
+- `examples/viewdefs/Contacts.DEFAULT.html` — App viewdef
+- `examples/viewdefs/Contacts.Contact.list-item.html` — Contact item viewdef
+- `examples/viewdefs/Contacts.ChatMessage.list-item.html` — Chat message viewdef

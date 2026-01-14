@@ -1,5 +1,6 @@
 -- MCP Shell
 -- Outer shell for all ui-mcp apps with app switcher menu
+-- Note: MCP is the type of the server-created mcp object
 
 -- Filesystem helpers (same pattern as apps app)
 
@@ -27,11 +28,13 @@ local function listDirs(path)
     return dirs
 end
 
--- App menu item (wraps app name for list binding)
-AppMenuItem = session:prototype("AppMenuItem", {
+-- Nested prototype: App menu item (wraps app name for list binding)
+-- Namespace under MCP since mcp is the global instance of type MCP
+MCP.AppMenuItem = session:prototype("MCP.AppMenuItem", {
     _name = "",
     _mcp = EMPTY
 })
+local AppMenuItem = MCP.AppMenuItem
 
 function AppMenuItem:new(name, mcpRef)
     local item = session:create(AppMenuItem, { _name = name, _mcp = mcpRef })

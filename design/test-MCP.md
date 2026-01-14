@@ -231,6 +231,39 @@
       - `mcp.pushState({app="chat", event="message", text="hi"})`
     - Verify both events returned with correct app fields.
 
+### Test: ClearLogs
+**Purpose**: Verify log clearing on ui_configure.
+**Spec**: mcp.md Section 5.1 - ui_configure clears logs
+**CRC**: crc-MCPServer.md - clearLogs, reopenGoLogFile
+
+**Scenarios**:
+1.  **Clear All Files**:
+    - Create log directory with mcp.log, lua.log, lua-err.log.
+    - Call ClearLogs().
+    - Verify all files are removed.
+    - Verify log directory itself remains.
+
+2.  **Callback Invoked**:
+    - Set onClearLogs callback via SetOnClearLogs().
+    - Call ClearLogs().
+    - Verify callback was invoked.
+
+3.  **Missing Directory**:
+    - Configure server with non-existent log directory.
+    - Call ClearLogs().
+    - Verify no error returned.
+
+4.  **Skip Subdirectories**:
+    - Create log directory with file and subdirectory containing nested file.
+    - Call ClearLogs().
+    - Verify top-level file removed.
+    - Verify subdirectory and its contents remain.
+
+5.  **No Callback Set**:
+    - Do not set onClearLogs callback.
+    - Call ClearLogs().
+    - Verify no panic, files still cleared.
+
 ### Test: mcp.pushState() Lua API
 **Purpose**: Verify mcp.pushState() function and queue behavior.
 **Sequence**: seq-mcp-state-wait.md

@@ -7,29 +7,35 @@ description: use when **running ui-mcp UIs** or needing to understand UI structu
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
-## Getting base_dir
+## Getting base_dir and url
 
-Always get `base_dir` from `ui_status` first. All paths below use `{base_dir}` as a placeholder for this value.
+Always get `base_dir` and `url` from `ui_status` first. All paths below use `{base_dir}` as a placeholder. Use `{url}` exactly as returned (e.g., `http://127.0.0.1:34919`).
 
 ## Quick Start: Show an Existing App
 
 To display an app (e.g., `claude-panel`):
 
 ```
-1. Read {base_dir}/apps/APP/design.md to learn (e.g. .ui/apps/claude-panel/design.md):
+1. Read {base_dir}/apps/APP/design.md to learn:
    - The global variable name (e.g., `claudePanel`)
    - Event types and how to respond
 
 2. Display and open:
    - ui_display("app-name")
-   - ui_open_browser (or navigate with Playwright)
+   - ui_open_browser (or navigate to {url}/?conserve=true with Playwright)
 
-3. Start event loop (foreground is most responsive):
+3. IMMEDIATELY start the event loop:
    {base_dir}/event
 
-4. When events arrive, handle via ui_run using the global variable:
-   claudePanel:addAgentMessage("response")
+   The UI will NOT respond to clicks until the event loop is running!
+
+4. When events arrive, handle via ui_run, then restart the loop:
+   - Parse JSON: [{"app":"apps","event":"select","name":"contacts"}]
+   - Respond: ui_run('contacts:doSomething()')
+   - Restart: {base_dir}/event
 ```
+
+**The event loop is NOT optional.** Without it, button clicks and form submissions are silently ignored.
 
 ## App Variable Convention
 
@@ -53,6 +59,8 @@ end
 ## Server Lifecycle
 
 The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
+
+**URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. The server binds the root URL to the MCP session automatically via a cookie - no session ID needed in the URL.
 
 If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
 

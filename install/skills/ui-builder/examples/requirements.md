@@ -1,7 +1,5 @@
 # Contact Manager with Chat
 
-## Overview
-
 A contact management application that allows users to browse, search, and edit contacts. The interface includes an integrated chat panel for communicating with an AI agent.
 
 ## Features

@@ -2,17 +2,33 @@
 -- Design: design.md
 -- Hot-loadable: uses session:prototype() for live code updates
 
--- Chat message model
-ChatMessage = session:prototype("ChatMessage", {
+-- App prototype (serves as namespace)
+ClaudePanel = session:prototype("ClaudePanel", {
+    status = "Loading",
+    branch = "...",
+    changedFiles = 0,
+    sections = EMPTY,
+    messages = EMPTY,
+    chatInput = "",
+    jsCode = "",
+    consoleExpanded = false,
+    luaOutputLines = EMPTY,
+    luaInput = ""
+})
+
+-- Nested prototype: Chat message model
+ClaudePanel.ChatMessage = session:prototype("ClaudePanel.ChatMessage", {
     sender = "",
     text = ""
 })
+local ChatMessage = ClaudePanel.ChatMessage
 
--- Output line model (for Lua console)
-OutputLine = session:prototype("OutputLine", {
+-- Nested prototype: Output line model (for Lua console)
+ClaudePanel.OutputLine = session:prototype("ClaudePanel.OutputLine", {
     text = "",
     panel = EMPTY
 })
+local OutputLine = ClaudePanel.OutputLine
 
 function OutputLine:copyToInput()
     -- Strip leading "> " from command lines when copying
@@ -23,11 +39,12 @@ function OutputLine:copyToInput()
     self.panel.luaInput = text
 end
 
--- Tree item model
-TreeItem = session:prototype("TreeItem", {
+-- Nested prototype: Tree item model
+ClaudePanel.TreeItem = session:prototype("ClaudePanel.TreeItem", {
     name = "",
     section = EMPTY
 })
+local TreeItem = ClaudePanel.TreeItem
 
 function TreeItem:invoke()
     mcp.pushState({
@@ -38,13 +55,14 @@ function TreeItem:invoke()
     })
 end
 
--- Tree section model
-TreeSection = session:prototype("TreeSection", {
+-- Nested prototype: Tree section model
+ClaudePanel.TreeSection = session:prototype("ClaudePanel.TreeSection", {
     name = "",
     itemType = "",
     expanded = false,
     items = EMPTY
 })
+local TreeSection = ClaudePanel.TreeSection
 
 function TreeSection:new(instance)
     instance = session:create(TreeSection, instance)
@@ -69,20 +87,7 @@ function TreeSection:addItem(name)
     table.insert(self.items, item)
 end
 
--- Main app
-ClaudePanel = session:prototype("ClaudePanel", {
-    status = "Loading",
-    branch = "...",
-    changedFiles = 0,
-    sections = EMPTY,
-    messages = EMPTY,
-    chatInput = "",
-    jsCode = "",
-    consoleExpanded = false,
-    luaOutputLines = EMPTY,
-    luaInput = ""
-})
-
+-- Main app methods
 function ClaudePanel:new(instance)
     instance = session:create(ClaudePanel, instance)
     instance.sections = instance.sections or {}
@@ -328,7 +333,7 @@ function ClaudePanel:clearOutput()
     self.luaOutputLines = {}
 end
 
--- Guard instance creation (idempotent)
+-- Idempotent instance creation
 if not session.reloading then
     claudePanel = ClaudePanel:new()
     claudePanel:initialize()

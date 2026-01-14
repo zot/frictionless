@@ -1,11 +1,24 @@
 -- Apps Dashboard
 -- Command center for UI development with Claude
 
--- Chat message model
-ChatMessage = session:prototype("ChatMessage", {
+-- App prototype (serves as namespace)
+Apps = session:prototype("Apps", {
+    _apps = EMPTY,
+    _baseDir = "",  -- Cached base_dir from mcp:status()
+    selected = EMPTY,
+    showNewForm = false,
+    newAppName = "",
+    newAppDesc = "",
+    messages = EMPTY,
+    chatInput = ""
+})
+
+-- Nested prototype: Chat message model
+Apps.ChatMessage = session:prototype("Apps.ChatMessage", {
     sender = "",
     text = ""
 })
+local ChatMessage = Apps.ChatMessage
 
 function ChatMessage:new(sender, text)
     return session:create(ChatMessage, { sender = sender, text = text })
@@ -19,21 +32,23 @@ function ChatMessage:prefix()
     return self.sender == "You" and "> " or ""
 end
 
--- Issue model
-Issue = session:prototype("Issue", {
+-- Nested prototype: Issue model
+Apps.Issue = session:prototype("Apps.Issue", {
     number = 0,
     title = ""
 })
+local Issue = Apps.Issue
 
 function Issue:new(num, title)
     return session:create(Issue, { number = num, title = title })
 end
 
--- Test item model
-TestItem = session:prototype("TestItem", {
+-- Nested prototype: Test item model
+Apps.TestItem = session:prototype("Apps.TestItem", {
     text = "",
     status = "untested"  -- "passed", "failed", or "untested"
 })
+local TestItem = Apps.TestItem
 
 function TestItem:new(text, status)
     return session:create(TestItem, { text = text, status = status or "untested" })
@@ -71,8 +86,8 @@ function TestItem:iconClass()
     end
 end
 
--- App info model
-AppInfo = session:prototype("AppInfo", {
+-- Nested prototype: App info model
+Apps.AppInfo = session:prototype("Apps.AppInfo", {
     name = "",
     description = "",
     hasViewdefs = false,
@@ -86,6 +101,7 @@ AppInfo = session:prototype("AppInfo", {
     buildProgress = EMPTY,
     buildStage = EMPTY
 })
+local AppInfo = Apps.AppInfo
 
 function AppInfo:new(name)
     local app = session:create(AppInfo, { name = name })
@@ -334,32 +350,21 @@ local function parseTesting(content)
     return result
 end
 
--- Main app
-AppsApp = session:prototype("AppsApp", {
-    _apps = EMPTY,
-    _baseDir = "",  -- Cached base_dir from mcp:status()
-    selected = EMPTY,
-    showNewForm = false,
-    newAppName = "",
-    newAppDesc = "",
-    messages = EMPTY,
-    chatInput = ""
-})
-
-function AppsApp:new(instance)
-    instance = session:create(AppsApp, instance)
+-- Main app methods
+function Apps:new(instance)
+    instance = session:create(Apps, instance)
     instance._apps = instance._apps or {}
     instance.messages = instance.messages or {}
     return instance
 end
 
 -- Return apps list for binding
-function AppsApp:apps()
+function Apps:apps()
     return self._apps
 end
 
 -- Find app by name
-function AppsApp:findApp(name)
+function Apps:findApp(name)
     for _, app in ipairs(self._apps) do
         if app.name == name then
             return app
@@ -370,7 +375,7 @@ end
 
 -- Scan apps from disk (Lua-driven discovery)
 -- Uses mcp:status() to get base_dir, then scans apps/ directory
-function AppsApp:scanAppsFromDisk()
+function Apps:scanAppsFromDisk()
     -- Get base_dir from mcp:status()
     local status = mcp:status()
     if not status or not status.base_dir then
@@ -434,7 +439,7 @@ function AppsApp:scanAppsFromDisk()
 end
 
 -- Rescan a single app from disk
-function AppsApp:rescanApp(name)
+function Apps:rescanApp(name)
     if not self._baseDir or self._baseDir == "" then
         -- No base_dir cached, do full scan
         self:scanAppsFromDisk()
@@ -500,7 +505,7 @@ end
 
 -- Set entire apps list (deprecated: use scanAppsFromDisk instead)
 -- Kept for backwards compatibility if Claude pushes data
-function AppsApp:setApps(appDataList)
+function Apps:setApps(appDataList)
     self._apps = {}
     for _, data in ipairs(appDataList) do
         local app = AppInfo:new(data.name)
@@ -542,14 +547,14 @@ function AppsApp:setApps(appDataList)
 end
 
 -- Add a single app (used during create flow)
-function AppsApp:addApp(name)
+function Apps:addApp(name)
     local app = AppInfo:new(name)
     table.insert(self._apps, app)
     return app
 end
 
 -- Set build progress for an app (legacy, use onAppProgress)
-function AppsApp:setBuildProgress(name, progress, stage)
+function Apps:setBuildProgress(name, progress, stage)
     local app = self:findApp(name)
     if app then
         app.buildProgress = progress
@@ -558,7 +563,7 @@ function AppsApp:setBuildProgress(name, progress, stage)
 end
 
 -- Handle app progress event from Claude
-function AppsApp:onAppProgress(name, progress, stage)
+function Apps:onAppProgress(name, progress, stage)
     local app = self:findApp(name)
     if app then
         app.buildProgress = progress
@@ -567,39 +572,39 @@ function AppsApp:onAppProgress(name, progress, stage)
 end
 
 -- Handle app updated event from Claude (re-parse single app)
-function AppsApp:onAppUpdated(name)
+function Apps:onAppUpdated(name)
     -- Rescan just this app from disk
     self:rescanApp(name)
 end
 
 -- Refresh: rescan all apps from disk (Lua-driven)
-function AppsApp:refresh()
+function Apps:refresh()
     mcp:scanAvailableApps()  -- sync MCP server's app list with disk
     self:scanAppsFromDisk()
 end
 
 -- Select an app
-function AppsApp:select(app)
+function Apps:select(app)
     self.selected = app
     self.showNewForm = false
 end
 
 -- Show new app form
-function AppsApp:openNewForm()
+function Apps:openNewForm()
     self.showNewForm = true
     self.newAppName = ""
     self.newAppDesc = ""
 end
 
 -- Cancel new app form
-function AppsApp:cancelNewForm()
+function Apps:cancelNewForm()
     self.showNewForm = false
     self.newAppName = ""
     self.newAppDesc = ""
 end
 
 -- Create new app (Lua creates directory and requirements.md)
-function AppsApp:createApp()
+function Apps:createApp()
     if self.newAppName == "" then return end
     if self._baseDir == "" then
         -- Need base_dir to create files
@@ -642,7 +647,7 @@ function AppsApp:createApp()
 end
 
 -- Send chat message
-function AppsApp:sendChat()
+function Apps:sendChat()
     if self.chatInput == "" then return end
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
@@ -658,38 +663,38 @@ function AppsApp:sendChat()
 end
 
 -- Add agent message (called by Claude)
-function AppsApp:addAgentMessage(text)
+function Apps:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
 end
 
 -- Check if detail panel should show
-function AppsApp:showDetail()
+function Apps:showDetail()
     return self.selected ~= nil and not self.showNewForm
 end
 
 -- Check if detail panel should hide
-function AppsApp:hideDetail()
+function Apps:hideDetail()
     return not self:showDetail()
 end
 
 -- Check if placeholder should show
-function AppsApp:showPlaceholder()
+function Apps:showPlaceholder()
     return self.selected == nil and not self.showNewForm
 end
 
 -- Check if placeholder should hide
-function AppsApp:hidePlaceholder()
+function Apps:hidePlaceholder()
     return not self:showPlaceholder()
 end
 
 -- Check if new form should hide
-function AppsApp:hideNewForm()
+function Apps:hideNewForm()
     return not self.showNewForm
 end
 
--- Initialize
+-- Idempotent instance creation
 if not session.reloading then
-    apps = AppsApp:new()
+    apps = Apps:new()
 
     -- Scan apps from disk (Lua-driven discovery)
     apps:scanAppsFromDisk()

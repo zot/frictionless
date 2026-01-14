@@ -17,10 +17,13 @@
 - currentVendedID: Current session's vended ID for cleanup on reconfigure
 - stateWaiters: Waiting HTTP requests for current session (channels)
 - mcpStateQueue: Event queue for current session (mcp.state)
+- goLogFile: Current Go log file handle (`mcp.log`) for reopening on reconfigure
 
 ### Does
 - initialize: Set up MCP server, auto-install if README.md missing, auto-start HTTP server
-- configure: Reconfigure to different base_dir (stop, reinitialize, restart) (ui_configure)
+- configure: Reconfigure to different base_dir (stop, clear logs, reopen Go log handles, reinitialize, restart) (ui_configure)
+- clearLogs: Delete or truncate all files in `{base_dir}/log/`
+- reopenGoLogFile: Close current Go log file handle and reopen `{base_dir}/log/mcp.log`
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (ui://state, ui://variables)
 - listTools: Return available tools (ui_configure, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)

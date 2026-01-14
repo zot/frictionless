@@ -167,29 +167,86 @@ Hot-loading is **enabled by default** in MCP mode. This capability is provided b
 - Use `session:prototype(name, init)` instead of manual metatable setup
 - Use `session:create(prototype, instance)` for instance tracking (called by default `:new()`)
 - Guard instance creation with `if not session.reloading then ... end`
-- Instance name should be lowercase camelCase matching app directory
 
-**Example:**
+**Prototype Naming Convention:**
+
+The `session:prototype(name, init)` function accepts arbitrary prototype names and does not consult global variables. The `name` becomes the prototype's `type` field, which is used for viewdef resolution. This allows apps to maintain their own namespaces with minimal global pollution.
+
+Each app creates two globals:
+- **Name** (PascalCase) — The app prototype, which also serves as a namespace for related prototypes
+- **name** (camelCase) — The instance that ui-mcp uses to display the app
+
+| App Directory | Prototype/Namespace | Instance Variable |
+|---------------|---------------------|-------------------|
+| `contacts`    | `Contacts`          | `contacts`        |
+| `tasks`       | `Tasks`             | `tasks`           |
+| `my-cool-app` | `MyCoolApp`         | `myCoolApp`       |
+
+**Nested Prototypes:**
+
+Other prototypes are assigned to fields on the app prototype and registered with dotted names:
+
 ```lua
--- Declare prototype (preserves identity on reload)
-Contact = session:prototype("Contact", {
+-- Register Contact as a nested prototype under Contacts
+Contacts.Contact = session:prototype('Contacts.Contact', {
     name = "",
     email = "",
 })
+local Contact = Contacts.Contact  -- Local shortcut for cleaner method declarations
 
--- Override :new() only when needed (default provided)
 function Contact:new(data)
-    local instance = session:create(Contact, data)
-    return instance
+    return session:create(Contact, data)
+end
+
+function Contact:fullName()
+    return self.name
+end
+```
+
+This pattern:
+- Keeps the global namespace clean (only `Contacts` and `contacts` are global)
+- Groups related prototypes under the app namespace
+- Allows local shortcuts for cleaner code within the app file
+
+**Complete App Example:**
+
+```lua
+-- Declare app prototype (serves as namespace)
+Contacts = session:prototype("Contacts", {
+    _contacts = {},
+    selectedContact = nil,
+})
+
+-- Nested prototype with dotted name
+Contacts.Contact = session:prototype('Contacts.Contact', {
+    name = "",
+    email = "",
+})
+local Contact = Contacts.Contact
+
+function Contact:new(data)
+    return session:create(Contact, data)
+end
+
+function Contacts:new()
+    return session:create(Contacts, {
+        _contacts = {},
+    })
+end
+
+function Contacts:addContact(name, email)
+    local contact = Contact:new({ name = name, email = email })
+    table.insert(self._contacts, contact)
+    return contact
 end
 
 -- Guard instance creation (idempotent)
 if not session.reloading then
-    contact = Contact:new()
+    contacts = Contacts:new()
 end
 ```
 
-The agent then uses `ui_display("contact")` to show it in the browser.
+The agent then uses `ui_display("contacts")` to show it in the browser (loads `apps/contacts/app.lua` and displays `contacts`).
 
 **What hot-loading enables:**
 - Edit Lua methods → changes take effect immediately, UI updates
@@ -329,6 +386,8 @@ print("Connected browsers: " .. status.sessions)
 2.  **Directory Creation:**
     - Creates `base_dir` if it does not exist.
     - Creates a `log` subdirectory within `base_dir`.
+    - **Clears all existing log files** in the `log` subdirectory (deletes or truncates).
+    - **Reopens Go log file handles** (`mcp.log`) to point to the cleared/new files.
 3.  **Auto-Install:** If `{base_dir}/README.md` does not exist, runs `ui_install` automatically.
 4.  **Configuration Loading:**
     - Checks for existing configuration files in `base_dir`.
@@ -400,8 +459,8 @@ return session:getApp().contacts[1].firstName
 - `conserve` (boolean, optional): If true, attempts to focus an existing tab or notifies the user instead of opening a duplicate session. Defaults to `true`.
 
 **Behavior:**
-- Constructs the full URL using the running server's port and session ID.
-- **URL Pattern:** `http://127.0.0.1:PORT/SESSION-ID/PATH?conserve=true`
+- Constructs the full URL using the running server's port.
+- **URL Pattern:** `http://127.0.0.1:{PORT}{PATH}?conserve=true`
 - **Default:** Always appends `?conserve=true` unless explicitly disabled, ensuring the SharedWorker coordination logic is engaged to prevent duplicate tabs.
 - Invokes the system's default browser opener (e.g., `xdg-open`, `open`, or `start`).
 

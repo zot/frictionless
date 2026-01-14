@@ -97,16 +97,16 @@ func (s *Server) handleConfigure(ctx context.Context, request mcp.CallToolReques
 	}
 
 	// Start and create session (shared with process startup)
-	// Spec: mcp.md Section 5.1 - ui_configure now also starts the server
-	sessionURL, err := s.StartAndCreateSession()
+	// Spec: mcp.md Section 5.1 - ui_configure starts server, returns base URL
+	baseURL, err := s.StartAndCreateSession()
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	// Return structured response with URL
+	// Return structured response with URL (no session ID per spec)
 	response := map[string]interface{}{
 		"base_dir":       baseDir,
-		"url":            sessionURL,
+		"url":            baseURL,
 		"install_needed": false,
 	}
 
@@ -381,9 +381,14 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 	_, err := s.SafeExecuteInSession(vendedID, func() (interface{}, error) {
 		L := session.State
 
-		// Create mcp table
+		// Create mcp table (instance)
 		mcpTable := L.NewTable()
 		L.SetGlobal("mcp", mcpTable)
+
+		// Create MCP table (namespace for nested prototypes like MCP.AppMenuItem)
+		// This allows mcp.lua to do: MCP.AppMenuItem = session:prototype(...)
+		mcpNamespace := L.NewTable()
+		L.SetGlobal("MCP", mcpNamespace)
 
 		// Set type for viewdef resolution
 		L.SetField(mcpTable, "type", lua.LString("MCP"))

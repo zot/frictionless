@@ -40,6 +40,7 @@ type Server struct {
 	startFunc         func(port int) (string, error) // Callback to start HTTP server
 	onViewdefUploaded func(typeName string)          // Callback when a viewdef is uploaded
 	getSessionCount   func() int                     // Callback to get active session count
+	onClearLogs       func()                         // Callback to reopen Go log file after clearing logs
 
 	mu              sync.RWMutex
 	state           State
@@ -235,6 +236,12 @@ func (s *Server) Configure(baseDir string) error {
 		return fmt.Errorf("failed to create directories: %w", err)
 	}
 
+	// Clear existing log files and reopen Go log handles
+	// Spec: mcp.md Section 5.1 - ui_configure clears logs
+	if err := s.ClearLogs(); err != nil {
+		s.cfg.Log(1, "Warning: failed to clear logs: %v", err)
+	}
+
 	// Store log paths for session setup
 	s.logPath = filepath.Join(baseDir, "log", "lua.log")
 	s.errPath = filepath.Join(baseDir, "log", "lua-err.log")
@@ -260,6 +267,57 @@ func (s *Server) SetBaseDir(baseDir string) {
 	s.baseDir = baseDir
 }
 
+// SetOnClearLogs sets a callback to be called after logs are cleared.
+// Used by main.go to reopen the Go log file handle.
+// CRC: crc-MCPServer.md
+func (s *Server) SetOnClearLogs(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onClearLogs = fn
+}
+
+// ClearLogs clears all log files in the log directory.
+// After clearing, calls the onClearLogs callback to allow reopening Go log file handles.
+// Spec: mcp.md Section 5.1 - ui_configure clears logs
+// CRC: crc-MCPServer.md
+func (s *Server) ClearLogs() error {
+	s.mu.RLock()
+	baseDir := s.baseDir
+	callback := s.onClearLogs
+	s.mu.RUnlock()
+
+	if baseDir == "" {
+		return nil // No base directory configured yet
+	}
+
+	logDir := filepath.Join(baseDir, "log")
+	entries, err := os.ReadDir(logDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // Log directory doesn't exist, nothing to clear
+		}
+		return fmt.Errorf("failed to read log directory: %w", err)
+	}
+
+	// Delete all files in the log directory
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue // Skip subdirectories
+		}
+		path := filepath.Join(logDir, entry.Name())
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			s.cfg.Log(1, "Warning: failed to remove log file %s: %v", path, err)
+		}
+	}
+
+	// Call callback to reopen Go log file handles
+	if callback != nil {
+		callback()
+	}
+
+	return nil
+}
+
 // StartAndCreateSession starts the UI server and creates a session with mcp global.
 // This is called both on process startup (auto-start) and by ui_configure (reconfiguration).
 // Spec: mcp.md Section 3.1 - Server auto-starts
@@ -282,8 +340,8 @@ func (s *Server) StartAndCreateSession() (string, error) {
 	}
 
 	// Create session - this triggers CreateLuaBackendForSession
-	// Returns (session, vendedID, error) - session.ID has the UUID for URLs
-	session, vendedID, err := s.UiServer.GetSessions().CreateSession()
+	// Returns (session, vendedID, error)
+	_, vendedID, err := s.UiServer.GetSessions().CreateSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
@@ -306,10 +364,10 @@ func (s *Server) StartAndCreateSession() (string, error) {
 		return "", fmt.Errorf("failed to setup mcp global: %w", err)
 	}
 
-	// Build session URL for the response
-	sessionURL := fmt.Sprintf("%s/%s", baseURL, session.ID)
-
-	return sessionURL, nil
+	// Return base URL without session ID
+	// Spec: mcp.md Section 5.1 - url is http://HOST:PORT (no session ID)
+	// Browser uses cookie-based session binding (Section 3.3)
+	return baseURL, nil
 }
 
 // GetCurrentSessionID returns the internal session ID for the current MCP session.

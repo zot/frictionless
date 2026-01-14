@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -81,23 +82,43 @@ func runMCP(args []string) int {
 		cfg.Server.Dir = ".claude/ui"
 	}
 
-	logToFile := false
-	// Redirect stderr to a log file for debugging
-	if cfg.Server.Dir != "" {
+	// Track the current log file for reopening after log clearing
+	var currentLogFile *os.File
+	var logFileMu sync.Mutex
+
+	// openLogFile opens (or reopens) the Go log file
+	// Spec: mcp.md Section 5.1 - reopening Go log handles after clearing
+	openLogFile := func() {
+		logFileMu.Lock()
+		defer logFileMu.Unlock()
+
+		// Close existing file if any
+		if currentLogFile != nil {
+			currentLogFile.Close()
+			currentLogFile = nil
+		}
+
 		logDir := filepath.Join(cfg.Server.Dir, "log")
 		if err := os.MkdirAll(logDir, 0755); err != nil {
-			log.Printf("Warning: failed to create log directory: %v", err)
-		} else {
-			logPath := filepath.Join(logDir, "mcp.log")
-			logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-			if err != nil {
-				log.Printf("Warning: failed to open mcp.log: %v", err)
-			} else {
-				logToFile = true
-				os.Stderr = logFile
-				log.SetOutput(logFile)
-			}
+			return
 		}
+		logPath := filepath.Join(logDir, "mcp.log")
+		logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			return
+		}
+		currentLogFile = logFile
+		os.Stderr = logFile
+		log.SetOutput(logFile)
+	}
+
+	// Initial log file setup
+	logToFile := false
+	if cfg.Server.Dir != "" {
+		openLogFile()
+		logFileMu.Lock()
+		logToFile = currentLogFile != nil
+		logFileMu.Unlock()
 	}
 
 	if !logToFile {
@@ -112,6 +133,21 @@ func runMCP(args []string) int {
 	})
 	if mcpServer == nil {
 		return 1
+	}
+
+	// Set callback to reopen Go log file after logs are cleared
+	// Spec: mcp.md Section 5.1 - ui_configure clears logs
+	if logToFile {
+		mcpServer.SetOnClearLogs(openLogFile)
+	}
+
+	// Configure AFTER SetOnClearLogs so log file can be reopened after ClearLogs()
+	// Spec: mcp.md Section 3.1 - Server auto-starts
+	if cfg.Server.Dir != "" {
+		if err := mcpServer.Configure(cfg.Server.Dir); err != nil {
+			log.Printf("Failed to configure MCP server: %v", err)
+			return 1
+		}
 	}
 
 	// Auto-start: create session and start server
@@ -178,14 +214,10 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 		return mcpServer.GetCurrentSessionID()
 	})
 
-	if cfg.Server.Dir != "" {
-		if err := mcpServer.Configure(cfg.Server.Dir); err != nil {
-			log.Printf("Failed to configure MCP server: %v", err)
-			return nil
-		}
-		// Note: StartAndCreateSession is called AFTER newMCPServer returns
-		// to avoid nil pointer in startFunc closure (see runMCP)
-	}
+	// Note: Configure() is called by runMCP AFTER SetOnClearLogs is set,
+	// so the log file can be reopened after ClearLogs() deletes it.
+	// StartAndCreateSession is also called AFTER newMCPServer returns
+	// to avoid nil pointer in startFunc closure.
 	// Handle shutdown signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -321,6 +353,14 @@ func runServe(args []string) int {
 	})
 	if mcpServer == nil {
 		return 1
+	}
+
+	// Configure before starting (serve mode doesn't redirect Go logs)
+	if cfg.Server.Dir != "" {
+		if err := mcpServer.Configure(cfg.Server.Dir); err != nil {
+			log.Printf("Failed to configure MCP server: %v", err)
+			return 1
+		}
 	}
 
 	// Start UI HTTP server

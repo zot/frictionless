@@ -34,17 +34,17 @@ Each app lives in `.claude/ui/apps/<app>/`:
 
 ### Multiple Apps
 
-You can have multiple apps. The agent uses `ui_display("varName")` to show them:
+You can have multiple apps. The agent uses `ui_display("appName")` to show them:
 
 ```lua
--- Define apps
-ContactApp = session:prototype("ContactApp", {})
-TaskApp = session:prototype("TaskApp", {})
+-- Define app prototypes (each serves as its own namespace)
+Contacts = session:prototype("Contacts", {})
+Tasks = session:prototype("Tasks", {})
 
 -- Guard instance creation
 if not session.reloading then
-    contacts = ContactApp:new()
-    tasks = TaskApp:new()
+    contacts = Contacts:new()
+    tasks = Tasks:new()
 end
 ```
 
@@ -66,7 +66,7 @@ Users interact with the UI, which pushes events to the agent:
 
 **Lua side** — Push events to the queue:
 ```lua
-function ContactApp:sendChat()
+function Contacts:sendChat()
     mcp.pushState({ app = "contacts", event = "chat", text = self.chatInput })
 end
 ```
@@ -99,7 +99,7 @@ As you build apps, common patterns emerge. Store reusable patterns in:
 ┌─────────────────────────────────────────────────────────────┐
 │  UI MCP Server (Go)                                         │
 │                                                             │
-│  Lifecycle:          ui_configure → ui_start                │
+│  Lifecycle:          auto-starts, ui_configure (optional)   │
 │  Code execution:     ui_run(lua_code)                       │
 │  UI templates:       ui_upload_viewdef(type, ns, html)      │
 │  Browser:            ui_open_browser()                      │
@@ -119,26 +119,29 @@ As you build apps, common patterns emerge. Store reusable patterns in:
 
 ## Server Lifecycle
 
-The MCP server operates as a Finite State Machine:
+The server auto-starts when the MCP connection is established:
 
 ```
-UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNNING
-     │                              │      ◄──────────────────┘
-     │ Only ui_configure allowed    │       ui_configure
-     │                              │       (restarts session)
+STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
+                               │                      │
+                               └──────────────────────┘
+                                  (reconfigure)
 ```
+
+- **Auto-start:** Server uses `--dir` flag (defaults to `.claude/ui`) and starts automatically
+- **Reconfigure:** Call `ui_configure(base_dir)` to restart with a different directory
 
 ## MCP Tools
 
 | Tool | Purpose |
 |------|---------|
-| `ui_configure` | Set base directory, initialize filesystem |
-| `ui_start` | Start HTTP server on ephemeral port |
+| `ui_status` | Get server state, URL, and connection count |
 | `ui_run` | Execute Lua code in session context |
-| `ui_upload_viewdef` | Upload HTML template for a type |
+| `ui_display` | Load and display an app by name |
 | `ui_open_browser` | Open browser to session (with conserve mode) |
-| `ui_install` | Install agent files and CLAUDE.md instructions |
-| `ui_status` | Get server state and connection count |
+| `ui_upload_viewdef` | Upload HTML template for a type |
+| `ui_configure` | Reconfigure with different base directory (optional) |
+| `ui_install` | Install/update bundled skills and resources |
 
 ## MCP Resources
 
@@ -153,12 +156,12 @@ UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNN
 ## Quick Start for AI Agents
 
 ```
-1. Design    → Plan UI, create .claude/ui/design/ui-{name}.md spec
-2. Configure → ui_configure(base_dir=".claude/ui")
-3. Start     → ui_start() → returns URL
-4. Define    → ui_run(lua_code) → create classes with session:prototype()
-5. Template  → Write viewdefs to apps/<app>/viewdefs/ (hot-loaded)
-6. Browser   → ui_open_browser()
+1. Status    → ui_status() → get base_dir and url (server auto-started)
+2. Design    → Plan UI in apps/<app>/design.md
+3. Code      → Write Lua in apps/<app>/app.lua (hot-loaded)
+4. Template  → Write viewdefs to apps/<app>/viewdefs/ (hot-loaded)
+5. Display   → ui_display("app-name") → load and show the app
+6. Browser   → ui_open_browser() or navigate to {url}/?conserve=true
 7. Listen    → Poll /wait endpoint for mcp.pushState() events
 8. Iterate   → Edit files, changes appear instantly (hot-loading)
 ```
@@ -168,10 +171,10 @@ UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNN
 **Phase 1: Design** — Before writing code:
 - Read `.claude/ui/patterns/` for established UI patterns
 - Read `.claude/ui/conventions/` for layout and terminology rules
-- Create/update `.claude/ui/design/ui-{name}.md` layout spec
+- Create/update `apps/<app>/design.md` layout spec
 
 **Phase 2: Build** — Implement the design:
-- Configure, start, run Lua, upload viewdefs, open browser
+- Write Lua code, create viewdefs, display app, open browser
 
 See [AI Interaction Guide](ui://mcp) for details.
 
@@ -179,10 +182,10 @@ See [AI Interaction Guide](ui://mcp) for details.
 
 ### Displaying Objects
 
-The agent uses `ui_display("varName")` to show a Lua variable in the browser:
+The agent uses `ui_display("appName")` to show a Lua variable in the browser:
 
 ```lua
--- Define with session:prototype for hot-loading
+-- Define app prototype (serves as namespace)
 MyForm = session:prototype("MyForm", {
     userInput = "",
     error = EMPTY,  -- EMPTY: starts nil, but tracked for mutation
@@ -194,14 +197,16 @@ if not session.reloading then
 end
 ```
 
-The agent then calls `ui_display("myForm")` to show it.
+The agent then calls `ui_display("my-form")` to show it.
 
 **Key points**:
-- The object MUST have a `type` field (set automatically by `session:prototype()`)
-- Use `session:prototype()` for hot-loadable classes
+- The `type` field is set automatically by `session:prototype()` from the name argument
+- The `type` is used for viewdef resolution (e.g., `MyForm` → `MyForm.DEFAULT.html`)
+- Use `session:prototype()` with arbitrary names (does not consult globals)
+- Naming: `Name` (PascalCase) for prototype, `name` (camelCase) for instance
 - Guard with `if not session.reloading` for idempotency
-- Instance name = lowercase camelCase matching app directory
 - Use `EMPTY` for optional fields that start nil
+- Nested prototypes: `Name.SubType = session:prototype('Name.SubType', ...)` → `Name.SubType.list-item.html`
 - Inspect current state via `ui://state`
 
 ### Presenters and Domain Objects

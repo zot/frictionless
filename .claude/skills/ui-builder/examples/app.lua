@@ -1,23 +1,37 @@
 -- Contact Manager App
 -- Example demonstrating lists, forms, and chat with filtering
 
--- Chat message model
-ChatMessage = session:prototype("ChatMessage", {
+-- App prototype (serves as namespace for all related types)
+Contacts = session:prototype("Contacts", {
+    _allContacts = EMPTY,
+    searchQuery = "",
+    current = EMPTY,
+    _editing = EMPTY,
+    hideDetail = true,
+    darkMode = false,
+    messages = EMPTY,
+    chatInput = ""
+})
+
+-- Nested prototype: Chat message model
+Contacts.ChatMessage = session:prototype("Contacts.ChatMessage", {
     sender = "",
     text = ""
 })
+local ChatMessage = Contacts.ChatMessage
 
 function ChatMessage:new(sender, text)
     return session:create(ChatMessage, { sender = sender, text = text })
 end
 
--- Contact model
-Contact = session:prototype("Contact", {
+-- Nested prototype: Contact model
+Contacts.Contact = session:prototype("Contacts.Contact", {
     name = "",
     email = "",
     status = "active",
     vip = false
 })
+local Contact = Contacts.Contact
 
 function Contact:new(name)
     return session:create(Contact, { name = name or "" })
@@ -40,35 +54,24 @@ end
 
 -- Select this contact (called from viewdef click)
 function Contact:selectMe()
-    contactApp:select(self)
+    contacts:select(self)
 end
 
 -- Check if this contact is the one being edited
 function Contact:isSelected()
-    return contactApp:isEditing(self)
+    return contacts:isEditing(self)
 end
 
--- Main app
-ContactApp = session:prototype("ContactApp", {
-    _allContacts = EMPTY,
-    searchQuery = "",
-    current = EMPTY,
-    _editing = EMPTY,
-    hideDetail = true,
-    darkMode = false,
-    messages = EMPTY,
-    chatInput = ""
-})
-
-function ContactApp:new(instance)
-    instance = session:create(ContactApp, instance)
+-- Main app methods
+function Contacts:new(instance)
+    instance = session:create(Contacts, instance)
     instance._allContacts = instance._allContacts or {}
     instance.messages = instance.messages or {}
     return instance
 end
 
 -- Computed: filtered contacts based on searchQuery
-function ContactApp:contacts()
+function Contacts:contacts()
     local query = (self.searchQuery or ""):lower()
     local result = {}
     for _, contact in ipairs(self._allContacts) do
@@ -85,31 +88,31 @@ function ContactApp:contacts()
     return result
 end
 
-function ContactApp:contactCount()
+function Contacts:contactCount()
     return #self:contacts()
 end
 
 -- Add new contact (creates temp, doesn't insert until save)
-function ContactApp:add()
+function Contacts:add()
     self.current = Contact:new("New Contact")
     self._editing = nil  -- nil means adding new
     self.hideDetail = false
 end
 
 -- Edit existing contact (clones into temp)
-function ContactApp:select(contact)
+function Contacts:select(contact)
     self.current = contact:clone()
     self._editing = contact  -- remember original
     self.hideDetail = false
 end
 
 -- Check if contact is the one being edited
-function ContactApp:isEditing(contact)
+function Contacts:isEditing(contact)
     return self._editing == contact
 end
 
 -- Save: insert new or update existing
-function ContactApp:save()
+function Contacts:save()
     if not self.current then return end
 
     if self._editing then
@@ -130,14 +133,14 @@ function ContactApp:save()
 end
 
 -- Cancel editing (discard changes)
-function ContactApp:cancel()
+function Contacts:cancel()
     self.current = nil
     self._editing = nil
     self.hideDetail = true
 end
 
 -- Delete the contact being edited
-function ContactApp:deleteCurrent()
+function Contacts:deleteCurrent()
     if self._editing then
         for i, c in ipairs(self._allContacts) do
             if c == self._editing then
@@ -151,18 +154,18 @@ function ContactApp:deleteCurrent()
     self.hideDetail = true
 end
 
-function ContactApp:sendChat()
+function Contacts:sendChat()
     if self.chatInput == "" then return end
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
     mcp.pushState({ app = "contacts", event = "chat", text = self.chatInput })
     self.chatInput = ""
 end
 
-function ContactApp:addAgentMessage(text)
+function Contacts:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
 end
 
 -- Initialize (idempotent - only runs on first load)
 if not session.reloading then
-    contact = ContactApp:new()
+    contacts = Contacts:new()
 end

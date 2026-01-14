@@ -15,7 +15,7 @@
 - handle: Execute tool logic (interface implementation)
 
 ### Standard Tools
-- ui_configure: Configure and start server (stop existing, reinitialize, start HTTP servers, write port files). Use `.claude/ui` unless user specifies otherwise.
+- ui_configure: Configure and start server (stop existing, clear logs, reopen Go log handles, reinitialize, start HTTP servers, write port files). Returns `{base_dir, url, install_needed}` where url is `http://HOST:PORT` (no session ID). Use `.claude/ui` unless user specifies otherwise.
 - ui_run: Execute Lua code in session context
 - ui_upload_viewdef: Add dynamic view definition and push to frontend
 - ui_open_browser: Open system browser to session URL (defaults to ?conserve=true)

@@ -22,22 +22,18 @@ Use this platform to build "tiny apps" for rich two-way communication with the u
 
 ## Server Lifecycle
 
-The MCP server has three states:
+The server auto-starts when the MCP connection is established:
 
 ```
-UNCONFIGURED ──ui_configure──► CONFIGURED ──ui_start──► RUNNING
-                                    ▲                       │
-                                    └───ui_configure────────┘
-                                      (restarts session)
+STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
+                               │                      │
+                               └──────────────────────┘
+                                  (reconfigure)
 ```
 
-| State | What Works |
-|-------|------------|
-| UNCONFIGURED | Only `ui_configure` |
-| CONFIGURED | `ui_configure` again (reconfigure) |
-| RUNNING | `ui_run`, `ui_upload_viewdef`, `ui_open_browser`, `ui_configure` (restarts session) |
-
-**Always call `ui_configure` first**, then `ui_start`.
+- **Auto-start:** Server uses `--dir` flag (defaults to `.claude/ui`) and starts automatically
+- **Reconfigure:** Call `ui_configure(base_dir)` to restart with a different directory
+- **All tools available:** `ui_status`, `ui_run`, `ui_display`, `ui_open_browser`, etc.
 
 ## Two-Phase Workflow
 
@@ -47,8 +43,8 @@ Before writing code, understand and plan:
 
 1. **Read existing patterns** — Check `.claude/ui/patterns/` for established UI patterns
 2. **Read conventions** — Check `.claude/ui/conventions/` for layout and terminology rules
-3. **Check for similar UIs** — Look in `.claude/ui/design/` for existing layout specs
-4. **Create/update design spec** — Write `.claude/ui/design/ui-{name}.md` with:
+3. **Check for similar UIs** — Look in `apps/*/design.md` for existing layout specs
+4. **Create/update design spec** — Write `apps/<app>/design.md` with:
    - Intent (what this UI accomplishes)
    - ASCII layout (visual structure)
    - Components table (element, binding, notes)
@@ -58,10 +54,10 @@ Before writing code, understand and plan:
 
 Implement the design:
 
-1. `ui_configure(base_dir=".claude/ui")` — Set up environment
-2. `ui_start()` — Start HTTP server (returns URL)
-3. `ui_run(code)` — Define Lua classes with `session:prototype()`, guard with `session:getApp()`
-4. Write viewdefs to `apps/<app>/viewdefs/` — Templates are hot-loaded
+1. `ui_status()` — Get base_dir and url (server auto-started)
+2. Write Lua code in `apps/<app>/app.lua` — Classes with `session:prototype()`
+3. Write viewdefs to `apps/<app>/viewdefs/` — Templates are hot-loaded
+4. `ui_display("app-name")` — Load and display the app
 5. `ui_open_browser()` — Open browser to user
 
 ## Directory Structure
@@ -70,12 +66,15 @@ Use `.claude/ui/` as your base directory:
 
 ```
 .claude/ui/
-├── lua/            # Lua source (main.lua loaded automatically)
-├── viewdefs/       # Viewdef templates
+├── apps/           # App source of truth
+│   └── <app>/          # Each app has its own directory
+│       ├── app.lua         # Lua classes and logic
+│       ├── viewdefs/       # HTML templates
+│       ├── design.md       # UI layout spec (prevents drift)
+│       └── README.md       # Events, state, methods (for agent)
+├── lua/            # Symlinks to apps/<app>/*.lua
+├── viewdefs/       # Symlinks to apps/<app>/viewdefs/*
 ├── log/            # Runtime logs (check lua.log for errors)
-│
-├── design/         # UI layout specs (prevents drift)
-│   └── ui-*.md         # Per-UI ASCII layouts
 │
 ├── patterns/       # Reusable UI patterns
 │   ├── pattern-form.md
@@ -104,7 +103,7 @@ Use `.claude/ui/` as your base directory:
 
 During iterative changes, features can accidentally disappear. To prevent this:
 
-1. **Before modifying** — Read the design spec (`.claude/ui/design/ui-*.md`)
+1. **Before modifying** — Read the design spec (`apps/<app>/design.md`)
 2. **Update spec first** — Add/change components in the spec
 3. **Then update code** — Modify viewdef and Lua to match
 4. **Verify** — Check that implementation matches spec
@@ -113,7 +112,7 @@ The spec is the source of truth. If it says a close button exists, don't remove 
 
 ## Example: Feedback Form
 
-### Design Spec (`.claude/ui/design/ui-feedback.md`)
+### Design Spec (`apps/feedback/design.md`)
 
 ```markdown
 # Feedback Form
@@ -142,7 +141,7 @@ Collect user rating and optional comment. Submit notifies agent.
 ### Lua Code
 
 ```lua
--- Hot-loadable class definition
+-- App prototype (serves as namespace)
 Feedback = session:prototype("Feedback", {
     rating = 5,
     comment = ""
@@ -180,13 +179,14 @@ The agent then calls `ui_display("feedback")` to show it in the browser.
 
 ## Best Practices
 
-- **Use `session:prototype()`** — Define hot-loadable classes
+- **Use `session:prototype()`** — Define hot-loadable classes with arbitrary names
+- **Namespace pattern** — `Name` (PascalCase) for prototype, `name` (camelCase) for instance
+- **Nested prototypes** — `Name.NestedType = session:prototype('Name.NestedType', ...)`
 - **Guard instance creation** — `if not session.reloading then ... end`
 - **Use `EMPTY`** — For optional fields that start nil but need mutation tracking
-- **Instance naming** — lowercase camelCase matching app directory (e.g., `feedback` for `feedback/` app)
 - **Atomic viewdefs** — One type per viewdef, keep them focused
 - **Informative events** — Include enough context in `mcp.pushState()` params
 - **Use hot-loading** — Edit files directly; changes auto-refresh in browser
 - **Check logs** — Read `.claude/ui/log/lua.log` when debugging
 - **Follow conventions** — Read `.claude/ui/conventions/` before creating UI
-- **Update specs** — Keep `.claude/ui/design/ui-*.md` in sync with implementation
+- **Update specs** — Keep `apps/<app>/design.md` in sync with implementation
