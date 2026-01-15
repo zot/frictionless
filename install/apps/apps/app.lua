@@ -12,7 +12,10 @@ Apps = session:prototype("Apps", {
     messages = EMPTY,
     chatInput = "",
     embeddedApp = EMPTY,  -- Name of embedded app, or nil
-    embeddedValue = EMPTY -- App global loaded via mcp:app, or nil
+    embeddedValue = EMPTY, -- App global loaded via mcp:app, or nil
+    panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
+    luaOutputLines = EMPTY,
+    luaInput = ""
 })
 
 -- Nested prototype: Chat message model
@@ -32,6 +35,22 @@ end
 
 function ChatMessage:prefix()
     return self.sender == "You" and "> " or ""
+end
+
+-- Nested prototype: Output line model (for Lua console)
+Apps.OutputLine = session:prototype("Apps.OutputLine", {
+    text = "",
+    panel = EMPTY
+})
+local OutputLine = Apps.OutputLine
+
+function OutputLine:copyToInput()
+    -- Strip leading "> " from command lines when copying
+    local text = self.text
+    if text:match("^> ") then
+        text = text:sub(3)
+    end
+    self.panel.luaInput = text
 end
 
 -- Nested prototype: Issue model
@@ -390,6 +409,7 @@ function Apps:new(instance)
     instance = session:create(Apps, instance)
     instance._apps = instance._apps or {}
     instance.messages = instance.messages or {}
+    instance.luaOutputLines = instance.luaOutputLines or {}
     return instance
 end
 
@@ -778,6 +798,85 @@ function Apps:updateRequirements(name, content)
         -- Also update description from first paragraph
         app.description = parseRequirements(content)
     end
+end
+
+-- Panel mode methods (Chat vs Lua)
+function Apps:showChatPanel()
+    self.panelMode = "chat"
+end
+
+function Apps:showLuaPanel()
+    self.panelMode = "lua"
+end
+
+function Apps:isChatPanel()
+    return self.panelMode == "chat"
+end
+
+function Apps:isLuaPanel()
+    return self.panelMode == "lua"
+end
+
+function Apps:notChatPanel()
+    return self.panelMode ~= "chat"
+end
+
+function Apps:notLuaPanel()
+    return self.panelMode ~= "lua"
+end
+
+function Apps:chatTabVariant()
+    return self.panelMode == "chat" and "primary" or "default"
+end
+
+function Apps:luaTabVariant()
+    return self.panelMode == "lua" and "primary" or "default"
+end
+
+-- Lua console methods
+function Apps:runLua()
+    if self.luaInput == "" then return end
+
+    -- Add command line to output
+    local cmdLine = session:create(OutputLine, { text = "> " .. self.luaInput, panel = self })
+    table.insert(self.luaOutputLines, cmdLine)
+
+    local code = self.luaInput
+    local fn, err
+
+    -- If input doesn't start with "return", try prepending it (for expressions)
+    if not code:match("^%s*return%s") then
+        fn, err = loadstring("return " .. code)
+    end
+
+    -- If that failed or wasn't tried, use original code
+    if not fn then
+        fn, err = loadstring(code)
+    end
+
+    if fn then
+        local ok, result = pcall(fn)
+        if ok then
+            if result ~= nil then
+                local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
+                table.insert(self.luaOutputLines, resultLine)
+            end
+            -- Clear input on success
+            self.luaInput = ""
+        else
+            -- Runtime error - keep input for correction
+            local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
+            table.insert(self.luaOutputLines, errLine)
+        end
+    else
+        -- Syntax error - keep input for correction
+        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
+        table.insert(self.luaOutputLines, errLine)
+    end
+end
+
+function Apps:clearLuaOutput()
+    self.luaOutputLines = {}
 end
 
 -- Idempotent instance creation

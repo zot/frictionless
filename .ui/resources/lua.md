@@ -73,15 +73,53 @@ The agent then calls `ui_display("my-form")` to show it in the browser.
 - `if not session.reloading` — guard prevents re-creating instance on hot-reload
 - Only two globals per app: `Name` (prototype/namespace) and `name` (instance)
 
+## Prototype Inheritance
+
+Prototypes can inherit from other prototypes using the optional third parameter:
+
+```lua
+Animal = session:prototype('Animal', { name = "" })
+function Animal:speak() return "..." end
+
+Dog = session:prototype('Dog', { breed = "" }, Animal)
+function Dog:speak() return "Woof!" end
+```
+
+## The Object Prototype
+
+`main.lua` defines a global `Object` prototype as the default base. It provides:
+
+- `Object:tostring()` — Returns "a <Type>" or "an <Type>" with correct article
+
+```lua
+local contact = Contact:new({ name = "Alice" })
+print(contact:tostring())  -- "a Contact"
+
+local item = Item:new()
+print(item:tostring())     -- "an Item"
+```
+
 ## Global Objects
 
-### 1. `session`
+### 1. `Object`
+Base prototype providing default methods for all objects.
+- `Object:tostring()`: Returns "a <Type>" or "an <Type>" (e.g., "a Person", "an Object")
+
+### 2. `session`
 Provides access to session-level services and hot-loading support.
-- `session:prototype(name, init)`: Define a hot-loadable class
+- `session:prototype(name, init, proto)`: Define a hot-loadable class (proto defaults to Object). Automatically sets `__tostring = session.metaTostring` on the prototype.
 - `session:create(prototype, instance)`: Create a tracked instance
 - `session.reloading`: `true` during hot-reload, `false` otherwise
+- `session.metaTostring(obj)`: If obj has a `tostring` method (direct or inherited), calls it; otherwise uses Lua's built-in `tostring()`
 
-### 2. `mcp` (AI Agents Only)
+**Automatic `__tostring` support:**
+```lua
+local contact = Contact:new({ name = "Alice" })
+print(contact)           -- "a Contact" (calls contact:tostring() via __tostring)
+print(tostring(contact)) -- "a Contact"
+```
+
+### 3. `mcp` (AI Agents Only)
 Provides display and communication for AI Agents.
 - `mcp.pushState(event)`: Queue an event for the agent (polled via `/wait` endpoint)
 

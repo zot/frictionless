@@ -106,6 +106,26 @@ Registered by `setupMCPGlobal` in each session:
 | `mcp_port` | `number` | MCP server port |
 | `sessions` | `number` | Browser count |
 
+### Lua `session` Object (Spec 4.0)
+Provided by ui-engine, used by apps for prototype management:
+
+**Prototype Methods:**
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `prototype` | `session:prototype(name, init, parent?)` | Create/update a prototype with optional inheritance |
+| `create` | `session:create(proto, instance)` | Create a tracked instance |
+
+**Prototype Helper:**
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `metaTostring` | `session.metaTostring(obj)` | If obj has a `tostring` method, calls it; otherwise uses Lua's `tostring()` |
+
+**Automatic `__tostring` Wiring:**
+- `main.lua` wraps `session:prototype()` to set `prototype.__tostring = session.metaTostring` on every prototype
+- Required because GopherLua doesn't inherit `__tostring` through metatables properly
+- Enables `print(obj)` and `tostring(obj)` to call `obj:tostring()` if defined
+- Falls back to the object's type for objects without a `tostring` method
+
 ### Build & Release System
 Cross-platform binary builds via Makefile:
 - `make cache`: Extracts web assets from ui-engine-bundled, copies html/* to install/html/
@@ -127,7 +147,10 @@ Cross-platform binary builds via Makefile:
 *None*
 
 ### Oversights
-- [ ] O1: Test coverage - only `tools_test.go` and `notify_test.go` exist
+- [x] O1: `session:prototype()` automatic `__tostring` wiring ~~requires ui-engine change~~
+  - Fixed: main.lua wraps `session:prototype()` to set `__tostring` on every prototype
+  - GopherLua doesn't inherit `__tostring` through metatables, so explicit setting is required
+- [ ] O2: Test coverage - only `tools_test.go` and `notify_test.go` exist
   - [ ] State Change Waiting (10 scenarios)
   - [ ] Lifecycle (startup, reconfigure)
   - [ ] ui_open_browser (3 scenarios)
@@ -135,8 +158,8 @@ Cross-platform binary builds via Makefile:
   - [ ] ui_upload_viewdef (3 scenarios)
   - [ ] Frictionless UI Creation (6 scenarios)
   - [x] ClearLogs (5 tests: clears files, calls callback, handles missing dir, skips subdirs, no callback)
-- [ ] O2: Document frontend conserve mode SharedWorker requirements (spec 6.1)
-- [ ] O3: Install tests fail without bundled binary (`make build`)
+- [ ] O3: Document frontend conserve mode SharedWorker requirements (spec 6.1)
+- [ ] O4: Install tests fail without bundled binary (`make build`)
   - [ ] TestInstallSkillFilesFreshInstall
   - [ ] TestInstallSkillFilesNoOpIfExists
   - [ ] TestInstallSkillFilesCreatesDirectory

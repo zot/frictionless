@@ -295,17 +295,71 @@
       min-height: 0;
       overflow: auto;
     }
-    /* Chat header with restore button */
-    .chat-header {
+    /* Chat/Lua panel header with tabs */
+    .panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin: 0 0 var(--sl-spacing-small) 0;
       flex-shrink: 0;
     }
-    .chat-header h3 {
-      margin: 0;
-      font-size: var(--sl-font-size-medium);
+    .panel-tabs {
+      display: flex;
+      gap: var(--sl-spacing-x-small);
+    }
+    .panel-tabs sl-button::part(base) {
+      font-size: var(--sl-font-size-small);
+      padding: 0 var(--sl-spacing-small);
+    }
+    /* Lua console styles */
+    .lua-panel {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .lua-output {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: var(--sl-color-neutral-900);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-small);
+      margin-bottom: var(--sl-spacing-small);
+      font-family: var(--sl-font-mono);
+      font-size: var(--sl-font-size-small);
+      color: var(--sl-color-neutral-100);
+    }
+    .lua-output-line {
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 2px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .lua-output-line:hover {
+      background: var(--sl-color-neutral-700);
+    }
+    .lua-output-line.command {
+      color: var(--sl-color-primary-400);
+    }
+    .lua-output-line.error {
+      color: var(--sl-color-danger-400);
+    }
+    .lua-input-area {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sl-spacing-x-small);
+      flex-shrink: 0;
+    }
+    .lua-input-area sl-textarea::part(textarea) {
+      font-family: var(--sl-font-mono);
+      font-size: var(--sl-font-size-small);
+    }
+    .lua-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--sl-spacing-x-small);
     }
     .hidden { display: none !important; }
   </style>
@@ -416,18 +470,35 @@
       </div>
     </div>
 
-    <!-- Chat Panel -->
+    <!-- Chat/Lua Panel -->
     <div class="chat-panel" id="chat-panel">
       <div class="chat-resize-handle" id="chat-resize-handle"></div>
       <div class="chat-content">
-        <div class="chat-header">
-          <h3>Chat with Claude</h3>
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
+            <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+          </div>
           <sl-icon-button name="arrows-angle-expand" label="Restore" ui-class-hidden="noEmbeddedApp()" ui-action="closeEmbedded()"></sl-icon-button>
         </div>
-        <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
-        <div class="chat-input-row">
+
+        <!-- Chat Panel Content -->
+        <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+        <div class="chat-input-row" ui-class-hidden="notChatPanel()">
           <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
           <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+        </div>
+
+        <!-- Lua Panel Content -->
+        <div class="lua-panel" ui-class-hidden="notLuaPanel()">
+          <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
+          <div class="lua-input-area">
+            <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+            <div class="lua-buttons">
+              <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
+              <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

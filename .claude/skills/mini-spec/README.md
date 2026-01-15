@@ -1,6 +1,6 @@
 # Mini-Spec
 
-Version: 1.0.1
+Version: 1.1.0
 Location: github.com/zot/mini-spec
 
 **Create and maintain designs at minimal token cost.**
@@ -33,7 +33,7 @@ Design docs are *much* smaller than code—easier for humans to review, and they
 
 | Feature | Mini-Spec | Heavy Frameworks |
 |---------|-----------|------------------|
-| Skill file | ~93 lines | 500+ lines |
+| Skill file | ~115 lines | 500+ lines |
 | Agents | None | Multiple |
 | Scripts | None | Build tooling |
 | Learning curve | Minutes | Hours |

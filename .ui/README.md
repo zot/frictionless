@@ -1,6 +1,6 @@
 # ui-mcp
 
-**Version: 0.5.0**
+**Version: 0.6.0**
 
 An MCP server that enables AI agents to build interactive UIs for rich two-way communication with users.
 

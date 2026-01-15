@@ -24,10 +24,18 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
 | ═══════════════ drag handle ════════════════  |
-| Chat with Claude                               |
+| [Chat] [Lua]                             [⬆]  |
+|------------------------------------------------|
+| (Chat Panel - when Chat tab selected)          |
 | Agent: Which app would you like to work on?    |
 | You: Test the contacts app                     |
 | [____________________________________] [Send]  |
+|------------------------------------------------|
+| (Lua Panel - when Lua tab selected)            |
+| > print("hello")                               |
+| hello                                          |
+| [                                    ] [Run]   |
+| [Clear]                                        |
 +------------------------------------------------+
 ```
 
@@ -111,6 +119,9 @@ Legend:
 | chatInput | string | Current chat input |
 | embeddedApp | string | Name of embedded app, or nil |
 | embeddedValue | object | App global loaded via mcp:app, or nil |
+| panelMode | string | "chat" or "lua" (bottom panel mode) |
+| luaOutputLines | OutputLine[] | Lua console output history |
+| luaInput | string | Current Lua code input |
 
 ### AppInfo (app metadata)
 
@@ -152,6 +163,13 @@ Legend:
 | sender | string | "You" or "Agent" |
 | text | string | Message content |
 
+### OutputLine
+
+| Field | Type | Description |
+|-------|------|-------------|
+| text | string | Line content |
+| panel | ref | Reference to Apps for copyToInput |
+
 ## Chat Panel Features
 
 ### Resizable
@@ -191,6 +209,22 @@ Legend:
 | hasEmbeddedApp() | Returns true if embeddedApp is set |
 | noEmbeddedApp() | Returns true if embeddedApp is nil |
 | updateRequirements(name, content) | Update an app's requirementsContent and rescan it from disk |
+| showChatPanel() | Set panelMode to "chat" |
+| showLuaPanel() | Set panelMode to "lua" |
+| isChatPanel() | Returns panelMode == "chat" |
+| isLuaPanel() | Returns panelMode == "lua" |
+| notChatPanel() | Returns panelMode ~= "chat" |
+| notLuaPanel() | Returns panelMode ~= "lua" |
+| chatTabVariant() | Returns "primary" if chat, else "default" |
+| luaTabVariant() | Returns "primary" if lua, else "default" |
+| runLua() | Execute luaInput, append output to luaOutputLines |
+| clearLuaOutput() | Clear luaOutputLines |
+
+### OutputLine
+
+| Method | Description |
+|--------|-------------|
+| copyToInput() | Copy this line's text to apps.luaInput |
 
 ### Apps.AppInfo
 
@@ -238,11 +272,12 @@ Legend:
 
 | File | Type | Purpose |
 |------|------|---------|
-| AppsApp.DEFAULT.html | AppsApp | Main layout with list, details, chat |
-| AppInfo.list-item.html | AppInfo | App row in list with status badge (title attr shows buildStage on progress) |
-| TestItem.list-item.html | TestItem | Test checkbox row |
-| Issue.list-item.html | Issue | Issue row |
-| ChatMessage.list-item.html | ChatMessage | Chat message bubble |
+| Apps.DEFAULT.html | Apps | Main layout with list, details, chat/lua panels |
+| Apps.AppInfo.list-item.html | Apps.AppInfo | App row in list with status badge |
+| Apps.TestItem.list-item.html | Apps.TestItem | Test checkbox row |
+| Apps.Issue.list-item.html | Apps.Issue | Issue row |
+| Apps.ChatMessage.list-item.html | Apps.ChatMessage | Chat message bubble |
+| Apps.OutputLine.list-item.html | Apps.OutputLine | Clickable Lua output line |
 
 ## Events
 

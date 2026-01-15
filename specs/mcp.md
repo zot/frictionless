@@ -277,6 +277,70 @@ This pattern:
 - Groups related prototypes under the app namespace
 - Allows local shortcuts for cleaner code within the app file
 
+**Prototype Inheritance:**
+
+Prototypes can inherit from other prototypes using the optional third parameter to `session:prototype()`:
+
+```lua
+-- Define a base prototype
+Animal = session:prototype('Animal', { name = "" })
+function Animal:speak() return "..." end
+
+-- Inherit from Animal
+Dog = session:prototype('Dog', { breed = "" }, Animal)
+function Dog:speak() return "Woof!" end
+```
+
+Instances of `Dog` inherit methods from `Animal` through the prototype chain.
+
+**The Object Prototype:**
+
+`main.lua` defines an `Object` prototype as the default base for all prototypes. It provides:
+
+```lua
+-- Returns "a <Type>" or "an <Type>" with correct article
+function Object:tostring()
+    local t = self.type or "Object"
+    local first = t:sub(1,1):lower()
+    local article = first:match("[aeiou]") and "an" or "a"
+    return article .. " " .. t
+end
+```
+
+Apps can use this for debugging and display:
+```lua
+local contact = Contact:new({ name = "Alice" })
+print(contact:tostring())  -- "a Contact"
+
+local item = Item:new()
+print(item:tostring())     -- "an Item"
+```
+
+**`session.metaTostring(obj)`:**
+
+A helper function that enables Lua's `tostring()` to work with prototype methods:
+
+```lua
+-- Checks if obj has a "tostring" property (or inherited one) that's a function
+-- If so, calls obj:tostring()
+-- Otherwise, falls back to Lua's built-in tostring(obj)
+local str = session.metaTostring(contact)  -- calls contact:tostring() if defined
+```
+
+**Automatic `__tostring` Setup:**
+
+When `session:prototype(name, init)` creates a prototype, it automatically sets:
+```lua
+prototype.__tostring = session.metaTostring
+```
+
+This means instances can be printed directly with Lua's `tostring()` and `print()`:
+```lua
+local contact = Contact:new({ name = "Alice" })
+print(contact)           -- "a Contact" (via __tostring → metaTostring → contact:tostring())
+print(tostring(contact)) -- "a Contact"
+```
+
 **Complete App Example:**
 
 ```lua

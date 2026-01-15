@@ -259,6 +259,83 @@ end
 - Events queue up and agent reads them via `/wait` endpoint
 - Example: `mcp.pushState({ app = "myapp", event = "chat", text = userInput })`
 
+## Hot-Loading Mutations (Critical Timing)
+
+When adding new fields to a prototype, existing instances need initialization. Use the `mutate()` method:
+
+```lua
+MaLuba = session:prototype("MaLuba", {
+    items = EMPTY,
+    name = "",
+    newField = EMPTY  -- NEW: added in this change
+})
+
+function MaLuba:mutate()
+    -- Initialize newField for existing instances
+    if self.newField == nil then
+        self.newField = {}
+    end
+end
+```
+
+**CRITICAL: All field additions and their `mutate()` methods must arrive in a SINGLE hot-load.**
+
+If they arrive in separate hot-loads, it fails silently:
+
+| Hot-load | What Happens | Result |
+|----------|--------------|--------|
+| 1st: Add field | Calls `mutate()` | `mutate()` doesn't exist yet → field stays nil |
+| 2nd: Add `mutate()` | Checks for init changes | Prototype init unchanged → `mutate()` not called |
+
+**Why this happens:** Hot-reload only calls `mutate()` when the prototype's init table changes. Adding a method doesn't change the init table, so the second hot-load doesn't trigger mutation.
+
+**Solution: Use atomic writes via temp file**
+
+Hot-loading only watches files that are already loaded. Write to a temp copy, make all your changes, then `mv` to trigger exactly one hot-load:
+
+```bash
+# 1. Copy to temp file (not watched)
+cp {base_dir}/apps/myapp/app.lua {base_dir}/apps/myapp/app.lua.tmp
+
+# 2. Make ALL changes to the temp file
+#    - Add new fields to prototype init
+#    - Add/update mutate() method
+#    - Add new methods
+#    (multiple edits here don't trigger hot-loads)
+
+# 3. Audit the temp file (see below)
+
+# 4. Atomic replace triggers single hot-load
+mv {base_dir}/apps/myapp/app.lua.tmp {base_dir}/apps/myapp/app.lua
+```
+
+**Audit the finished temp file before mv:**
+
+1. **Identify new fields**: Compare temp file's prototype init against original
+2. **Check for table/array fields**: Look for fields with `EMPTY` or `{}` defaults
+3. **Verify mutate() coverage**: For each new table/array field, confirm `mutate()` initializes it
+4. **Fix if needed**: Edit the temp file again (still no hot-load), then mv
+
+If you're adding `outputLines = EMPTY`, your mutate() must have:
+```lua
+function App:mutate()
+    if self.outputLines == nil then
+        self.outputLines = {}
+    end
+end
+```
+
+**When mutate() is needed:**
+- Adding array/table fields (need `{}` initialization)
+- Adding fields that other code expects to be non-nil
+- Removing fields (set to `nil` to clear from existing instances)
+- Not needed for simple values with sensible nil defaults
+
+**mutate() rules:**
+- **Idempotent**: Must be safe to run multiple times (use `if self.field == nil then`)
+- **Replaceable**: Contents can be completely rewritten each hot-load — no need to preserve old mutation code
+- **Runs on all instances**: Called after hotload for every tracked instance whose prototype init changed
+
 ## Behavior
 
 | Location       | Use For                                           | Trade-offs                             |
