@@ -90,7 +90,21 @@
     }
     .detail-description {
       color: var(--sl-color-neutral-600);
+      margin-bottom: var(--sl-spacing-small);
+    }
+    .requirements-section {
       margin-bottom: var(--sl-spacing-medium);
+    }
+    .requirements-content {
+      background: var(--sl-color-neutral-50);
+      border: 1px solid var(--sl-color-neutral-200);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-medium);
+      font-family: var(--sl-font-mono);
+      font-size: var(--sl-font-size-small);
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
     }
     .build-progress {
       display: flex;
@@ -323,6 +337,14 @@
           <div class="detail-header">
             <h2 ui-value="selected.name"></h2>
             <div class="detail-description" ui-value="selected.description"></div>
+          </div>
+          <!-- Requirements Section (expandable) -->
+          <div class="requirements-section">
+            <div class="section-header" ui-event-click="selected.toggleRequirements()">
+              <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
+              <h3>Requirements</h3>
+            </div>
+            <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
           </div>
           <!-- Build Progress (when building) -->
           <div class="build-progress" ui-class-hidden="selected.notBuilding()">

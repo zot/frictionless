@@ -8,7 +8,7 @@ Outer shell for all ui-mcp apps. Displays the current app full-viewport and prov
 
 ```
 +--------------------------------------------------+
-|                                        [:::] <- 9-dot menu
+|                                        [:::] <- 9-dot menu (overlay, glow effect)
 |                                                  |
 |              Current App (mcp.value)             |
 |                  (full viewport)                 |

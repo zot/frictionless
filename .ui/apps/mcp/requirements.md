@@ -18,7 +18,8 @@ The shell is minimal chrome around the current app:
 ## App Switcher Menu
 
 The 9-dot button (grid icon) in the top-right corner:
-- Positioned absolutely, floating over app content
+- Overlays the app content (always visible on top)
+- Has a glow for easy visibility
 - Opens a dropdown/popover menu listing available apps
 - Clicking an app name calls `mcp:display(appName)` to switch
 - Menu closes after selection

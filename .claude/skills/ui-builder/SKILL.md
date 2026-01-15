@@ -62,6 +62,8 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 **Important:** `mcp:display(appName)` expects a **string** app name, not an object. If you have an AppInfo object, pass `appInfo.name`.
 
+**Important:** do not display the app after building it unless the user specifically requests it.
+
 ## Workflow
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
@@ -78,7 +80,10 @@ The `mcp` global provides methods for interacting with the MCP server:
       - **Data Model**: Tables of types, fields, and descriptions
       - **Methods**: Actions each type performs
       - **ViewDefs**: Template files needed
-      - **Events**: JSON examples of user interactions, including how Claude should handle each event type (Claude reads design.md to understand the app)
+      - **Events**: JSON examples of user interactions with **complete handling instructions**
+        - Claude reads design.md to understand how to handle events — requirements.md may have detailed event handling that must be copied to design.md
+        - Include: event name, JSON payload example, and exactly what Claude should do (spawn agent, call ui_run, respond via method, etc.)
+        - If requirements.md has a "Claude Event Handling" or similar section, transfer all that information to design.md
 
 4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
    - → `mcp:appProgress(app, 40, "writing code")`

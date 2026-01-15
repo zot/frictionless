@@ -118,6 +118,8 @@ Legend:
 |-------|------|-------------|
 | name | string | Directory name |
 | description | string | First paragraph from requirements.md |
+| requirementsContent | string | Full requirements.md content |
+| showRequirements | boolean | Expand requirements section (default false) |
 | hasViewdefs | boolean | Has viewdefs/ directory |
 | tests | TestItem[] | Test checklist from TESTING.md |
 | testsPassing | number | Count of passing tests |
@@ -179,7 +181,7 @@ Legend:
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
-| createApp() | Create app dir, write requirements.md, rescan, select new app |
+| createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
 | sendChat() | Send chat event with selected app context |
 | addAgentMessage(text) | Add agent message to chat |
 | onAppProgress(name, progress, stage) | Update app build progress |
@@ -188,6 +190,7 @@ Legend:
 | closeEmbedded() | Clear embeddedApp/embeddedValue, restore normal view |
 | hasEmbeddedApp() | Returns true if embeddedApp is set |
 | noEmbeddedApp() | Returns true if embeddedApp is nil |
+| updateRequirements(name, content) | Update an app's requirementsContent and rescan it from disk |
 
 ### Apps.AppInfo
 
@@ -204,9 +207,13 @@ Legend:
 | needsBuild() | Returns true if not hasViewdefs |
 | toggleKnownIssues() | Toggle showKnownIssues |
 | toggleFixedIssues() | Toggle showFixedIssues |
-| requestBuild() | Send build_request event with mcp_port |
-| requestTest() | Send test_request event with mcp_port |
-| requestFix() | Send fix_request event with mcp_port |
+| toggleRequirements() | Toggle showRequirements |
+| requirementsHidden() | Returns not showRequirements |
+| requirementsIcon() | Returns chevron icon based on showRequirements |
+| pushEvent(eventType, extra) | Push event with common fields (app, mcp_port, note) plus custom fields |
+| requestBuild() | Call pushEvent("build_request", {target = self.name}) |
+| requestTest() | Call pushEvent("test_request", {target = self.name}) |
+| requestFix() | Call pushEvent("fix_request", {target = self.name}) |
 | openApp() | Call apps:openEmbedded(self.name) to show in embedded view |
 | isSelf() | Returns true if this is the "apps" app itself |
 | canOpenApp() | Returns canOpen() and not isSelf() |
@@ -242,22 +249,30 @@ Legend:
 ### From UI to Claude
 
 ```json
-{"app": "apps", "event": "chat", "text": "...", "context": "contacts"}
-{"app": "apps", "event": "build_request", "target": "my-app", "mcp_port": 37067}
-{"app": "apps", "event": "test_request", "target": "contacts", "mcp_port": 37067}
-{"app": "apps", "event": "fix_request", "target": "contacts", "mcp_port": 37067}
+{"app": "apps", "event": "chat", "text": "...", "context": "contacts", "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "apps", "event": "build_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "apps", "event": "test_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "apps", "event": "fix_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "apps", "event": "app_created", "name": "my-app", "description": "A brief description", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 ```
 
-Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly.
+Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly. Each event also includes a `note` field with the full path to the app, reminding Claude to read the app's docs before acting.
 
 ### Claude Event Handling
 
 | Event | Handler |
 |-------|---------|
-| `chat` | Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)` |
+| `chat` | See detailed handling below |
 | `build_request` | Spawn background ui-builder agent using `mcp_port` from event |
 | `test_request` | Spawn background agent to run `/ui-testing` on app in `target` |
 | `fix_request` | Spawn background agent to read TESTING.md and fix issues using `/ui-builder` |
+| `app_created` | Flesh out requirements.md for the new app based on `description`, write to disk, then call `apps:updateRequirements(name, content)` to populate the UI |
+
+**chat event handling:**
+
+Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)`.
+
+If the chat involves modifying an app: Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, use the `/ui-builder` skill and follow its phased approach (requirements → design → code → viewdefs → linking → audit). Don't make ad-hoc changes without going through the proper phases.
 
 **Background Agent Pattern (build_request):**
 
@@ -265,6 +280,8 @@ Use `mcp_port` from the event payload:
 ```
 Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
 ```
+
+Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
 The ui-builder agent:
 - Uses HTTP API (curl) since background agents don't have MCP tool access

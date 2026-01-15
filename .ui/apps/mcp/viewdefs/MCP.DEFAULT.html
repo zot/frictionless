@@ -22,18 +22,20 @@
       position: fixed;
       top: 8px;
       right: 8px;
-      z-index: 1000;
-      opacity: 0.6;
-      transition: opacity 0.2s;
+      z-index: 10000;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: var(--sl-border-radius-medium);
+      box-shadow: 0 0 8px 2px rgba(100, 149, 237, 0.6);
+      transition: box-shadow 0.2s;
     }
     .mcp-menu-button:hover {
-      opacity: 1;
+      box-shadow: 0 0 12px 4px rgba(100, 149, 237, 0.8);
     }
     .mcp-menu-dropdown {
       position: fixed;
       top: 44px;
       right: 8px;
-      z-index: 1000;
+      z-index: 10000;
       background: var(--sl-color-neutral-0);
       border: 1px solid var(--sl-color-neutral-200);
       border-radius: var(--sl-border-radius-medium);
@@ -57,7 +59,7 @@
     <!-- Current app content -->
     <div class="mcp-app-container" ui-view="value"></div>
 
-    <!-- App switcher menu button (9-dot grid) -->
+    <!-- App switcher menu button (9-dot grid) - floats above all content -->
     <sl-icon-button
       class="mcp-menu-button"
       name="grid-3x3-gap-fill"

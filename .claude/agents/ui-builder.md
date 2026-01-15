@@ -53,4 +53,3 @@ curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/
 ## Instructions
 
 Run the `/ui-builder` skill, then follow its instructions to build the UI.
-

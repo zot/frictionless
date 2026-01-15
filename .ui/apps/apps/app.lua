@@ -92,6 +92,8 @@ end
 Apps.AppInfo = session:prototype("Apps.AppInfo", {
     name = "",
     description = "",
+    requirementsContent = "",
+    showRequirements = false,
     hasViewdefs = false,
     testsPassing = 0,
     testsTotal = 0,
@@ -219,32 +221,46 @@ function AppInfo:fixedIssuesIcon()
     return self.showFixedIssues and "chevron-down" or "chevron-right"
 end
 
+function AppInfo:toggleRequirements()
+    self.showRequirements = not self.showRequirements
+end
+
+function AppInfo:requirementsHidden()
+    return not self.showRequirements
+end
+
+function AppInfo:requirementsIcon()
+    return self.showRequirements and "chevron-down" or "chevron-right"
+end
+
+-- Push an event with common fields (app, mcp_port, note) plus custom fields
+function AppInfo:pushEvent(eventType, extra)
+    local status = mcp:status()
+    local event = {
+        app = "apps",
+        event = eventType,
+        mcp_port = status.mcp_port,
+        note = "make sure you have understood the app at " .. status.base_dir .. "/apps/" .. self.name
+    }
+    if extra then
+        for k, v in pairs(extra) do
+            event[k] = v
+        end
+    end
+    mcp.pushState(event)
+end
+
 function AppInfo:requestBuild()
    self.buildStage = "starting..."
-   mcp.pushState({
-         app = "apps",
-         event = "build_request",
-         target = self.name,
-         mcp_port = mcp:status().mcp_port
-   })
+   self:pushEvent("build_request", { target = self.name })
 end
 
 function AppInfo:requestTest()
-    mcp.pushState({
-        app = "apps",
-        event = "test_request",
-        target = self.name,
-        mcp_port = mcp:status().mcp_port
-    })
+    self:pushEvent("test_request", { target = self.name })
 end
 
 function AppInfo:requestFix()
-    mcp.pushState({
-        app = "apps",
-        event = "fix_request",
-        target = self.name,
-        mcp_port = mcp:status().mcp_port
-    })
+    self:pushEvent("fix_request", { target = self.name })
 end
 
 function AppInfo:openApp()
@@ -295,6 +311,7 @@ local function dirHasFiles(path)
     end
     return false
 end
+
 
 -- List directories in a path
 local function listDirs(path)
@@ -418,6 +435,7 @@ function Apps:scanAppsFromDisk()
 
             -- Parse requirements.md for description
             app.description = parseRequirements(reqContent)
+            app.requirementsContent = reqContent
 
             -- Check if built (has viewdefs directory with files)
             app.hasViewdefs = dirHasFiles(appPath .. "/viewdefs")
@@ -490,6 +508,7 @@ function Apps:rescanApp(name)
 
     -- Update app data
     app.description = parseRequirements(reqContent)
+    app.requirementsContent = reqContent
     app.hasViewdefs = dirHasFiles(appPath .. "/viewdefs")
 
     -- Parse TESTING.md
@@ -660,6 +679,10 @@ function Apps:createApp()
     end
 
     self.showNewForm = false
+
+    -- 5. Send app_created event to Claude for requirements fleshing out
+    app:pushEvent("app_created", { name = name, description = desc })
+
     self.newAppName = ""
     self.newAppDesc = ""
 end
@@ -670,12 +693,11 @@ function Apps:sendChat()
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
-    mcp.pushState({
-        app = "apps",
-        event = "chat",
-        text = self.chatInput,
-        context = self.selected and self.selected.name or nil
-    })
+    if self.selected then
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name })
+    else
+        mcp.pushState({ app = "apps", event = "chat", text = self.chatInput })
+    end
 
     self.chatInput = ""
 end
@@ -746,6 +768,16 @@ end
 -- Check if no app is embedded
 function Apps:noEmbeddedApp()
     return self.embeddedApp == nil
+end
+
+-- Update an app's requirements content (called by Claude after fleshing out)
+function Apps:updateRequirements(name, content)
+    local app = self:findApp(name)
+    if app then
+        app.requirementsContent = content
+        -- Also update description from first paragraph
+        app.description = parseRequirements(content)
+    end
 end
 
 -- Idempotent instance creation

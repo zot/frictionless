@@ -57,6 +57,14 @@ When "+" is clicked, show a form instead of details:
 2. Write `requirements.md` with title and description
 3. Rescan to add app to list
 4. Select the new app (shows Build button since no viewdefs)
+5. Send `app_created` event to Claude with the app name and description
+
+**On Create (Claude):**
+When Claude receives the `app_created` event, it should:
+1. Read the basic requirements.md that Lua created
+2. Flesh out the requirements with proper structure and detail based on the description
+3. Write the expanded requirements.md to disk
+4. Use `ui_run` to call `apps:updateRequirements(name, content)` to populate the requirements textbox in the UI
 
 ## Chat Panel
 
@@ -85,8 +93,12 @@ Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when 
 
 Events are sent via `mcp.pushState()` and include `app` (the app name) and `event` (the event type).
 
+**Note field:** Lua includes a `note` field in each event reminding Claude to understand the target app: `"note": "make sure you have understood the app at {base_dir}/apps/{APP}"`. Claude should read the app's requirements.md and design.md before taking action.
+
 ### `chat`
 User message with selected app as context. Respond conversationally.
+
+**If the chat involves modifying an app:** Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, use the `/ui-builder` skill and follow its phased approach (requirements → design → code → viewdefs → linking → audit). Don't make ad-hoc changes without going through the proper phases.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
@@ -97,6 +109,8 @@ Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent direct
 ```
 Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
 ```
+
+Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
 The ui-builder agent:
 - Uses the HTTP API (curl) since background agents don't have MCP tool access
