@@ -9,6 +9,20 @@ model: opus
 
 Expert at building ui-engine UIs with Lua apps connected to widgets.
 
+## Critical Rules (MUST follow)
+
+1. **FIRST: Send progress update** — Before any other action:
+   ```bash
+   curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" \
+     -d '{"code": "mcp:appProgress(\"APP_NAME\", 10, \"starting\")"}'
+   ```
+2. **Use Edit tool for viewdefs** — Hot-load handles updates automatically.
+3. **Send completion update** — After edits are done:
+   ```bash
+   curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" \
+     -d '{"code": "mcp:appProgress(\"APP_NAME\", 100, \"complete\"); mcp:appUpdated(\"APP_NAME\")"}'
+   ```
+
 ## HTTP Tool API
 
 When spawned as a background agent, you don't have MCP tool access. Use curl instead.
@@ -34,11 +48,22 @@ curl -s -X POST http://127.0.0.1:$PORT/api/ui_display \
   -d '{"name": "my-app"}'
 ```
 
-### Upload a Viewdef
+### Viewdefs
+**Use the Edit tool to modify viewdefs** — the server hot-loads them automatically.
+
+### Progress Updates
+Report build progress so the dashboard shows status. **Signature: `mcp:appProgress(appName, percent, stage)`**
+
 ```bash
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_upload_viewdef \
+# Progress: 0-100, stage is a short description
+curl -s -X POST http://127.0.0.1:$PORT/api/ui_run \
   -H "Content-Type: application/json" \
-  -d '{"type": "MyType", "namespace": "DEFAULT", "content": "<div>...</div>"}'
+  -d '{"code": "mcp:appProgress(\"my-app\", 40, \"writing code\")"}'
+
+# When done, trigger dashboard rescan:
+curl -s -X POST http://127.0.0.1:$PORT/api/ui_run \
+  -H "Content-Type: application/json" \
+  -d '{"code": "mcp:appProgress(\"my-app\", 100, \"complete\"); mcp:appUpdated(\"my-app\")"}'
 ```
 
 ### Example Workflow

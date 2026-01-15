@@ -16,7 +16,6 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 ### Sequences
 - [x] seq-mcp-lifecycle.md → `internal/mcp/server.go`, `internal/mcp/tools.go`
 - [x] seq-mcp-create-session.md → `internal/mcp/server.go`
-- [x] seq-mcp-create-presenter.md → `internal/mcp/server.go`
 - [x] seq-mcp-receive-event.md → `internal/mcp/tools.go`
 - [x] seq-mcp-run.md → `internal/mcp/tools.go`
 - [x] seq-mcp-get-state.md → `internal/mcp/resources.go`
@@ -30,7 +29,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 ### MCP Integration System
 AI assistant integration via Model Context Protocol
 - crc-MCPServer.md, crc-MCPResource.md, crc-MCPTool.md
-- seq-mcp-lifecycle.md, seq-mcp-create-session.md, seq-mcp-create-presenter.md
+- seq-mcp-lifecycle.md, seq-mcp-create-session.md
 - seq-mcp-receive-event.md, seq-mcp-run.md, seq-mcp-get-state.md, seq-mcp-state-wait.md
 
 ### Transport System
@@ -65,7 +64,6 @@ Tool API (Spec 2.5) - enables curl access for spawned agents:
 - `GET /api/ui_status`: Get server status
 - `POST /api/ui_run`: Execute Lua code
 - `POST /api/ui_display`: Load and display an app
-- `POST /api/ui_upload_viewdef`: Upload a view definition
 - `POST /api/ui_configure`: Reconfigure server
 - `POST /api/ui_install`: Install bundled files
 - `POST /api/ui_open_browser`: Open browser to UI
@@ -155,7 +153,6 @@ Cross-platform binary builds via Makefile:
   - [ ] Lifecycle (startup, reconfigure)
   - [ ] ui_open_browser (3 scenarios)
   - [x] ui_run (6 tests: execute code, session access, JSON marshalling, non-JSON result, mcp global, no session)
-  - [ ] ui_upload_viewdef (3 scenarios)
   - [ ] Frictionless UI Creation (6 scenarios)
   - [x] ClearLogs (5 tests: clears files, calls callback, handles missing dir, skips subdirs, no callback)
 - [ ] O3: Document frontend conserve mode SharedWorker requirements (spec 6.1)

@@ -45,14 +45,6 @@ func (s *Server) registerTools() {
 		mcp.WithString("sessionId", mcp.Description("The vended session ID to run in (defaults to '1')")),
 	), s.handleRun)
 
-	// ui_upload_viewdef
-	s.mcpServer.AddTool(mcp.NewTool("ui_upload_viewdef",
-		mcp.WithDescription("Upload a dynamic view definition"),
-		mcp.WithString("type", mcp.Required(), mcp.Description("Presenter type (e.g. 'MyPresenter')")),
-		mcp.WithString("namespace", mcp.Required(), mcp.Description("Namespace (e.g. 'DEFAULT')")),
-		mcp.WithString("content", mcp.Required(), mcp.Description("HTML content")),
-	), s.handleUploadViewdef)
-
 	// ui_status
 	s.mcpServer.AddTool(mcp.NewTool("ui_status",
 		mcp.WithDescription("Get current server status including browser connection count"),
@@ -798,38 +790,6 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 	return mcp.NewToolResultText(string(jsonResult)), nil
 }
 
-// Spec: mcp.md
-// CRC: crc-MCPTool.md
-func (s *Server) handleUploadViewdef(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	args, ok := request.Params.Arguments.(map[string]interface{})
-	if !ok {
-		return mcp.NewToolResultError("arguments must be a map"), nil
-	}
-
-	typeName, ok := args["type"].(string)
-	if !ok {
-		return mcp.NewToolResultError("type must be a string"), nil
-	}
-	namespace, ok := args["namespace"].(string)
-	if !ok {
-		return mcp.NewToolResultError("namespace must be a string"), nil
-	}
-	content, ok := args["content"].(string)
-	if !ok {
-		return mcp.NewToolResultError("content must be a string"), nil
-	}
-
-	key := fmt.Sprintf("%s.%s", typeName, namespace)
-	s.viewdefs.AddViewdef(key, content)
-
-	// Notify server to refresh variables of this type
-	if s.onViewdefUploaded != nil {
-		s.onViewdefUploaded(typeName)
-	}
-
-	return mcp.NewToolResultText(fmt.Sprintf("Viewdef %s uploaded", key)), nil
-}
-
 // CRC: crc-MCPTool.md
 // Spec: mcp.md (section 5.5)
 func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1048,21 +1008,6 @@ func (s *Server) handleAPIDisplay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.callMCPHandler(s.handleDisplay, args)
-	apiResponse(w, result, err)
-}
-
-// handleAPIUploadViewdef handles POST /api/ui_upload_viewdef
-func (s *Server) handleAPIUploadViewdef(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		apiError(w, http.StatusMethodNotAllowed, "POST required")
-		return
-	}
-	args, err := parseJSONBody(r)
-	if err != nil {
-		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
-		return
-	}
-	result, err := s.callMCPHandler(s.handleUploadViewdef, args)
 	apiResponse(w, result, err)
 }
 

@@ -25,7 +25,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 **Write order matters:** Write code changes FIRST, then viewdefs. Viewdefs may reference new types/methods that must exist before the viewdef loads.
 
-**Never use `ui_upload_viewdef`** — just write files to disk. The server watches for changes and hot-loads automatically.
+**Just write files to disk.** The server watches for changes and hot-loads automatically.
 
 ## Progress Reporting
 

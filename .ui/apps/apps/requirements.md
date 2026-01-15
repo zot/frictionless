@@ -98,7 +98,7 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 ### `chat`
 User message with selected app as context. Respond conversationally.
 
-**If the chat involves modifying an app:** Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, use the `/ui-builder` skill and follow its phased approach (requirements → design → code → viewdefs → linking → audit). Don't make ad-hoc changes without going through the proper phases.
+**If the chat involves modifying an app:** Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, spawn a background ui-builder agent like with a build_request, then send a response and listen for more events.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
@@ -112,10 +112,11 @@ Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mc
 
 Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
-The ui-builder agent:
-- Uses the HTTP API (curl) since background agents don't have MCP tool access
-- Reports progress via `curl POST /api/ui_run` calling `mcp:appProgress(name, progress, stage)`
-- Calls `mcp:appUpdated(name)` when done (triggers rescan)
+Tell the ui-builder agent:
+- Use the HTTP API (curl) since background agents don't have MCP tool access
+- Use fire-and-forget curl calls (no response parsing, no jq) to avoid permission issues
+- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
+- Call `mcp:appUpdated("{name}")` when done (triggers rescan)
 
 **Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
 

@@ -198,10 +198,6 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 		srv,
 		srv.GetViewdefManager(),
 		fn,
-		func(typeName string) {
-			// Called when a viewdef is uploaded - could trigger refresh
-			cfg.Log(2, "Viewdef uploaded for type: %s", typeName)
-		},
 		func() int {
 			// Return count of active browser sessions
 			return srv.GetSessions().Count()
@@ -267,7 +263,6 @@ func runInstall(args []string) int {
 		srv,
 		srv.GetViewdefManager(),
 		nil, // No start function needed
-		nil, // No viewdef callback needed
 		nil, // No session count needed
 	)
 

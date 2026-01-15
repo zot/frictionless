@@ -27,7 +27,7 @@ All binaries are built with `CGO_ENABLED=0` for static linking and include bundl
 - Format: `ui-mcp vX.Y.Z` (e.g., `ui-mcp v0.4.0`)
 
 **MCP Version (`ui_status` tool):**
-- Returns version from bundled `README.md` (see Section 5.6)
+- Returns version from bundled `README.md` (see Section 5.5)
 
 **Build-time Injection:**
 ```makefile
@@ -101,7 +101,6 @@ All MCP tools are accessible via HTTP on the MCP port at `/api/{tool_name}`. Thi
 | `/api/ui_status` | GET | Get server status |
 | `/api/ui_run` | POST | Execute Lua code |
 | `/api/ui_display` | POST | Load and display an app |
-| `/api/ui_upload_viewdef` | POST | Upload a view definition |
 | `/api/ui_configure` | POST | Reconfigure server |
 | `/api/ui_install` | POST | Install bundled files |
 | `/api/ui_open_browser` | POST | Open browser to UI |
@@ -154,7 +153,6 @@ The following scripts are installed to `{base_dir}/` and wrap the HTTP Tool API 
 | `status` | `./status` | Get server status (JSON) |
 | `run` | `./run '<lua code>'` | Execute Lua code |
 | `display` | `./display <app>` | Display an app by name |
-| `viewdef` | `./viewdef <type> <ns> '<html>'` | Upload a view definition |
 | `browser` | `./browser` | Open browser to UI |
 
 Scripts auto-discover the port from `mcp-port` in the same directory.
@@ -570,23 +568,7 @@ return session:getApp().contacts[1].firstName
 - If not marshalable: A JSON object `{"non-json": "STRING_REPRESENTATION"}`.
 - If execution fails: An error message.
 
-### 5.3 `ui_upload_viewdef`
-**Purpose:** Dynamically add or update a view definition.
-
-**Parameters:**
-- `type` (string, required): The presenter type (e.g., "MyPresenter").
-- `namespace` (string, required): The view namespace (e.g., "DEFAULT").
-- `content` (string, required): The HTML content of the view definition.
-
-**Behavior:**
-- Registers the view definition in the runtime's viewdef store.
-- **Push Update:** If any frontends are currently connected to the server, the new view definition MUST be pushed to them immediately to ensure they can re-render affected components without a page reload.
-- **Variable Refresh:** The server MUST identify all active variables in the session that match the `type` of the uploaded viewdef and send an empty update for them. This forces the frontend to re-request the variable state and re-render using the new view definition.
-
-**Returns:**
-- Confirmation message.
-
-### 5.4 `ui_open_browser`
+### 5.3 `ui_open_browser`
 **Purpose:** Opens the system's default web browser to the UI session.
 
 **Parameters:**
@@ -621,7 +603,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
         - **Action 3:** Triggers a **Desktop Notification** (via the Web Notifications API) to alert the user: "Session [ID] is already active in another tab."
     - If no other clients are active, the tab proceeds to load normally.
 
-### 5.5 `ui_status`
+### 5.4 `ui_status`
 **Purpose:** Returns the current status of the MCP server including browser connection status.
 
 **Parameters:** None.
@@ -648,7 +630,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 }
 ```
 
-### 5.6 `ui_install`
+### 5.5 `ui_install`
 **Purpose:** Installs bundled configuration files to enable full ui-mcp integration.
 
 **Parameters:**
@@ -712,7 +694,6 @@ linkapp
 status
 run
 display
-viewdef
 browser
 ```
 

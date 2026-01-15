@@ -26,7 +26,7 @@
 - reopenGoLogFile: Close current Go log file handle and reopen `{base_dir}/log/mcp.log`
 - openBrowser: Launch system browser with conserve mode (ui_open_browser)
 - listResources: Return available resources (ui://state, ui://variables)
-- listTools: Return available tools (ui_configure, ui_run, ui_upload_viewdef, ui_open_browser, ui_status, ui_install)
+- listTools: Return available tools (ui_configure, ui_run, ui_open_browser, ui_status, ui_install, ui_display)
 - handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
 - handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); after draining queue, calls SafeExecuteInSession with empty function to trigger browser update

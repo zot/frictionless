@@ -1,7 +1,7 @@
 # Test Design: MCP Integration
 
 **CRC Cards**: crc-MCPServer.md, crc-MCPTool.md
-**Sequences**: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-create-session.md, seq-mcp-create-presenter.md, seq-mcp-state-wait.md
+**Sequences**: seq-mcp-lifecycle.md, seq-mcp-run.md, seq-mcp-create-session.md, seq-mcp-state-wait.md
 
 ### Test: MCP Server Lifecycle
 **Purpose**: Verify the lifecycle behavior of the MCP server.
@@ -56,22 +56,6 @@
     - Return a function or userdata.
     - Expect `{"non-json": "..."}` wrapper.
 
-### Test: Tool - ui_upload_viewdef
-**Purpose**: Verify dynamic view definition.
-
-**Scenarios**:
-1.  **Upload Viewdef**:
-    - Call `ui_upload_viewdef` with valid HTML.
-    - Verify viewdef is added to store.
-2.  **Push Update**:
-    - Connect a mock frontend.
-    - Call `ui_upload_viewdef`.
-    - Verify mock frontend receives "viewdef" message.
-3.  **Variable Refresh**:
-    - Create a session with a variable of the viewdef's type.
-    - Call `ui_upload_viewdef`.
-    - Verify "update" message sent for that variable.
-
 ### Test: Tool - ui_status
 **Purpose**: Verify status reporting.
 
@@ -85,28 +69,30 @@
     - Expect `version` field with semver string.
 
 ### Test: MCP frictionless UI creation
-**Purpose**: Verify end-to-end workflow for on-the-fly UI creation. This represents the core value proposition of the MCP integration: allowing an AI agent to build tiny collaborative apps to facilitate two-way communication and collaboration with the user.
+**Purpose**: Verify end-to-end workflow for on-the-fly UI creation via hot-loading. This represents the core value proposition of the MCP integration: allowing an AI agent to build tiny collaborative apps to facilitate two-way communication and collaboration with the user.
 
 **Scenarios**:
 1.  **Define Presenter & View**:
-    - Call `ui_run` to define a new Lua presenter class (e.g., `MyApp`).
-    - Call `ui_upload_viewdef` to provide the HTML template for `MyApp`.
+    - Write Lua code to `{base_dir}/apps/myapp/app.lua` defining presenter class (e.g., `MyApp`).
+    - Write HTML template to `{base_dir}/apps/myapp/viewdefs/MyApp.DEFAULT.html`.
+    - Hot-loading picks up files automatically.
 2.  **Instantiate & Display**:
-    - Call `ui_run` to instantiate `MyApp` and attach it to the session root (e.g., `app.agent_display = MyApp()`).
-    - Verify via `ui_run` (inspection) that the app is attached.
+    - Call `ui_display("myapp")` to load and display the app.
+    - Verify via `ui_run` (inspection) that the app is displayed.
 3.  **Verify Rendering**:
-    - (Mock) Frontend receives update for `app`.
+    - (Mock) Frontend receives update for `mcp.value`.
     - (Mock) Frontend requests `MyApp` viewdef.
-    - (Mock) Frontend renders `MyApp` using the uploaded template.
+    - (Mock) Frontend renders `MyApp` using the hot-loaded template.
 4.  **User Interaction**:
     - Simulate user interaction on the frontend (e.g., user types "Hello" into a field and clicks a button).
     - Protocol message sent to backend to update variable state or call a method.
 5.  **State Inspection**:
-    - AI Agent calls `ui_run` to check the current state of `app.agent_display`.
-    - Verify that the Lua object reflects the user's input (e.g., `app.agent_display.userInput == "Hello"`).
+    - AI Agent calls `ui_run` to check the current state of the app.
+    - Verify that the Lua object reflects the user's input (e.g., `myApp.userInput == "Hello"`).
 6.  **Iterative Refinement**:
-    - AI Agent, seeing the user's input, calls `ui_upload_viewdef` with *modified* HTML to provide feedback or the next step in the workflow.
-    - Verify frontend receives immediate push update and re-renders.
+    - AI Agent edits viewdef file with *modified* HTML to provide feedback or the next step in the workflow.
+    - Hot-loading automatically pushes new viewdef to frontend.
+    - Verify frontend re-renders with updated template.
 
 ### Test: Installation Check (ui_configure)
 **Purpose**: Verify configuration checks for installation and returns hint.

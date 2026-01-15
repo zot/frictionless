@@ -297,7 +297,7 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 
 | Event | Handler |
 |-------|---------|
-| `chat` | See detailed handling below |
+| `chat` | See detailed handling below, possibly spawn a background ui-builder agent |
 | `build_request` | Spawn background ui-builder agent using `mcp_port` from event |
 | `test_request` | Spawn background agent to run `/ui-testing` on app in `target` |
 | `fix_request` | Spawn background agent to read TESTING.md and fix issues using `/ui-builder` |
@@ -307,7 +307,7 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 
 Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)`.
 
-If the chat involves modifying an app: Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, use the `/ui-builder` skill and follow its phased approach (requirements → design → code → viewdefs → linking → audit). Don't make ad-hoc changes without going through the proper phases.
+**If the chat involves modifying an app:** Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, follow the `build_request` instructions to spawn a background ui-builder agent, then send a response and listen for more events.
 
 **Background Agent Pattern (build_request):**
 
@@ -318,10 +318,11 @@ Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mc
 
 Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
-The ui-builder agent:
-- Uses HTTP API (curl) since background agents don't have MCP tool access
-- Reports progress via `curl POST /api/ui_run` calling `mcp:appProgress(name, progress, stage)`
-- Calls `mcp:appUpdated(name)` on completion (triggers rescan)
+Tell the ui-builder agent:
+- Use HTTP API (curl) since background agents don't have MCP tool access
+- Use fire-and-forget curl calls (no response parsing, no jq) to avoid permission issues
+- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
+- Call `mcp:appUpdated("{name}")` on completion (triggers rescan)
 
 Background agents allow Claude to continue handling chat while builds run.
 

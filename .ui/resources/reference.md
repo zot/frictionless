@@ -101,7 +101,6 @@ As you build apps, common patterns emerge. Store reusable patterns in:
 │                                                             │
 │  Lifecycle:          auto-starts, ui_configure (optional)   │
 │  Code execution:     ui_run(lua_code)                       │
-│  UI templates:       ui_upload_viewdef(type, ns, html)      │
 │  Browser:            ui_open_browser()                      │
 │                                                             │
 │  Resources:          ui://reference, ui://lua, ui://mcp     │
@@ -139,7 +138,6 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
 | `ui_run` | Execute Lua code in session context |
 | `ui_display` | Load and display an app by name |
 | `ui_open_browser` | Open browser to session (with conserve mode) |
-| `ui_upload_viewdef` | Upload HTML template for a type |
 | `ui_configure` | Reconfigure with different base directory (optional) |
 | `ui_install` | Install/update bundled skills and resources |
 

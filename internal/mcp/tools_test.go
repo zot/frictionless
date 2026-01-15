@@ -55,7 +55,6 @@ func createTestServerWithSession(t *testing.T) (*Server, func()) {
 			// Mock: return fake URL without actually starting HTTP server
 			return "http://127.0.0.1:12345", nil
 		},
-		nil, // onViewdefUploaded
 		func() int { return 0 }, // getSessionCount
 	)
 

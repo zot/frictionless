@@ -37,9 +37,8 @@ type Server struct {
 	cfg               *cli.Config
 	UiServer          *cli.Server // UI engine server for ExecuteInSession
 	viewdefs          *cli.ViewdefManager
-	startFunc         func(port int) (string, error) // Callback to start HTTP server
-	onViewdefUploaded func(typeName string)          // Callback when a viewdef is uploaded
-	getSessionCount   func() int                     // Callback to get active session count
+	startFunc       func(port int) (string, error) // Callback to start HTTP server
+	getSessionCount func() int                     // Callback to get active session count
 	onClearLogs       func()                         // Callback to reopen Go log file after clearing logs
 
 	mu              sync.RWMutex
@@ -60,19 +59,18 @@ type Server struct {
 }
 
 // NewServer creates a new MCP server.
-func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), onViewdefUploaded func(typeName string), getSessionCount func() int) *Server {
+func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManager, startFunc func(port int) (string, error), getSessionCount func() int) *Server {
 	s := server.NewMCPServer("ui-server", "0.1.0")
 	srv := &Server{
-		mcpServer:         s,
-		cfg:               cfg,
-		UiServer:          uiServer,
-		viewdefs:          viewdefs,
-		startFunc:         startFunc,
-		onViewdefUploaded: onViewdefUploaded,
-		getSessionCount:   getSessionCount,
-		state:             Configured, // Initial internal state before ui_configure is called
-		stateWaiters:      make(map[string][]chan struct{}),
-		stateQueue:        make(map[string][]interface{}),
+		mcpServer:       s,
+		cfg:             cfg,
+		UiServer:        uiServer,
+		viewdefs:        viewdefs,
+		startFunc:       startFunc,
+		getSessionCount: getSessionCount,
+		state:           Configured, // Initial internal state before ui_configure is called
+		stateWaiters:    make(map[string][]chan struct{}),
+		stateQueue:      make(map[string][]interface{}),
 	}
 	srv.registerTools()
 	srv.registerResources()
@@ -142,7 +140,6 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/api/ui_status", s.handleAPIStatus)
 	mux.HandleFunc("/api/ui_run", s.handleAPIRun)
 	mux.HandleFunc("/api/ui_display", s.handleAPIDisplay)
-	mux.HandleFunc("/api/ui_upload_viewdef", s.handleAPIUploadViewdef)
 	mux.HandleFunc("/api/ui_configure", s.handleAPIConfigure)
 	mux.HandleFunc("/api/ui_install", s.handleAPIInstall)
 	mux.HandleFunc("/api/ui_open_browser", s.handleAPIOpenBrowser)
