@@ -76,7 +76,8 @@ function mcp:scanAvailableApps()
     for _, name in ipairs(appDirs) do
         local appPath = appsPath .. "/" .. name
         -- Only include apps that are built (have app.lua)
-        if fileExists(appPath .. "/app.lua") then
+        -- Exclude "mcp" - it's the shell, not a user app
+        if name ~= "mcp" and fileExists(appPath .. "/app.lua") then
             table.insert(self._availableApps, AppMenuItem:new(name, self))
         end
     end
@@ -104,7 +105,7 @@ end
 
 -- Select an app from the menu
 function mcp:selectApp(name)
-    mcp.display(name)  -- Use dot notation since display is a Go function
+    mcp:display(name)
     self.menuOpen = false
 end
 

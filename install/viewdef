@@ -1,0 +1,11 @@
+#!/bin/bash
+# Upload a viewdef: viewdef MyType DEFAULT '<html>...</html>'
+dir=$(dirname "$(realpath "$0")")
+port=$(cat "$dir/mcp-port")
+type="${1:?Usage: viewdef <type> <namespace> <content>}"
+namespace="${2:?Usage: viewdef <type> <namespace> <content>}"
+content="${3:?Usage: viewdef <type> <namespace> <content>}"
+curl -s -X POST "http://127.0.0.1:$port/api/ui_upload_viewdef" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg t "$type" --arg n "$namespace" --arg c "$content" \
+    '{type: $t, namespace: $n, content: $c}')"

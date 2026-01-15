@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -421,10 +423,11 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
-		// mcp:display(appName) - load and display an app
-		// Checks for global (sanitized to camelCase), if not found loads from lua/appName.lua (symlink)
-		L.SetField(mcpTable, "display", L.NewFunction(func(L *lua.LState) int {
-			appName := L.CheckString(1)
+		// mcp:app(appName) - load an app without displaying it
+		// Returns the app global, or nil, errmsg
+		L.SetField(mcpTable, "app", L.NewFunction(func(L *lua.LState) int {
+			// Arg 1 is self (mcp table) when called with colon notation
+			appName := L.CheckString(2)
 			if appName == "" {
 				L.Push(lua.LNil)
 				L.Push(lua.LString("app name required"))
@@ -432,25 +435,59 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			}
 
 			// Sanitize app name to valid Lua identifier (camelCase)
-			// "claude-panel" -> "claudePanel"
 			globalName := sanitizeAppName(appName)
 
 			// Check if global exists for this app
 			appVal := L.GetGlobal(globalName)
 			if appVal == lua.LNil {
-				// Load the app file via RequireLuaFile (uses unified load tracker)
-				// Apps are symlinked: apps/<app>/app.lua -> lua/<app>.lua
+				// Load the app file via RequireLuaFile
 				luaFile := appName + ".lua"
 				if _, err := session.DirectRequireLuaFile(luaFile); err != nil {
 					L.Push(lua.LNil)
 					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
 					return 2
 				}
-				// Get the global after loading
 				appVal = L.GetGlobal(globalName)
 			}
 
-			// Assign to mcp.value
+			if appVal == lua.LNil {
+				L.Push(lua.LNil)
+				L.Push(lua.LString(fmt.Sprintf("app %s has no global '%s'", appName, globalName)))
+				return 2
+			}
+
+			L.Push(appVal)
+			return 1
+		}))
+
+		// mcp:display(appName) - load and display an app
+		// Returns true, or nil, errmsg
+		L.SetField(mcpTable, "display", L.NewFunction(func(L *lua.LState) int {
+			// Arg 1 is self (mcp table) when called with colon notation
+			appName := L.CheckString(2)
+			if appName == "" {
+				L.Push(lua.LNil)
+				L.Push(lua.LString("app name required"))
+				return 2
+			}
+
+			// Sanitize app name to valid Lua identifier (camelCase)
+			globalName := sanitizeAppName(appName)
+
+			// Check if global exists for this app
+			appVal := L.GetGlobal(globalName)
+			if appVal == lua.LNil {
+				// Load the app file via RequireLuaFile
+				luaFile := appName + ".lua"
+				if _, err := session.DirectRequireLuaFile(luaFile); err != nil {
+					L.Push(lua.LNil)
+					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
+					return 2
+				}
+				appVal = L.GetGlobal(globalName)
+			}
+
+			// Assign to mcp.value to display
 			if appVal != lua.LNil {
 				L.SetField(mcpTable, "value", appVal)
 			}
@@ -470,6 +507,7 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			state := s.state
 			url := s.url
 			baseDir := s.baseDir
+			mcpPort := s.mcpPort
 			s.mu.RUnlock()
 
 			L.SetField(result, "base_dir", lua.LString(baseDir))
@@ -492,6 +530,7 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			// Add running-only fields
 			if state == Running {
 				L.SetField(result, "url", lua.LString(url))
+				L.SetField(result, "mcp_port", lua.LNumber(mcpPort))
 				if s.getSessionCount != nil {
 					L.SetField(result, "sessions", lua.LNumber(s.getSessionCount()))
 				}
@@ -502,10 +541,11 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		}))
 
 		// Load mcp.lua if it exists to extend the mcp global
+		// Use DirectRequireLuaFile to register for hot-loading
 		// Spec: mcp.md Section 4.3 "Extension via mcp.lua"
-		mcpLuaPath := filepath.Join(s.baseDir, "lua", "mcp.lua")
-		if _, err := os.Stat(mcpLuaPath); err == nil {
-			if err := L.DoFile(mcpLuaPath); err != nil {
+		if _, err := session.DirectRequireLuaFile("mcp.lua"); err != nil {
+			// Ignore "not found" errors - mcp.lua is optional
+			if !os.IsNotExist(err) && !strings.Contains(err.Error(), "not found") {
 				return nil, fmt.Errorf("failed to load mcp.lua: %w", err)
 			}
 		}
@@ -797,6 +837,7 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 	state := s.state
 	url := s.url
 	baseDir := s.baseDir
+	mcpPort := s.mcpPort
 	s.mu.RUnlock()
 
 	result := map[string]interface{}{}
@@ -823,9 +864,10 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 		result["base_dir"] = baseDir
 	}
 
-	// Include url and sessions when running
+	// Include url, mcp_port, and sessions when running
 	if state == Running {
 		result["url"] = url
+		result["mcp_port"] = mcpPort
 		if s.getSessionCount != nil {
 			result["sessions"] = s.getSessionCount()
 		}
@@ -839,7 +881,7 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 	return mcp.NewToolResultText(string(jsonResult)), nil
 }
 
-// handleDisplay loads and displays an app by calling mcp.display(name) in Lua.
+// handleDisplay loads and displays an app by calling mcp:display(name) in Lua.
 func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.state != Running {
 		return mcp.NewToolResultError("server not running - call ui_configure first"), nil
@@ -869,7 +911,7 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
 	}
 
-	// Call mcp.display(name) in Lua - the common implementation
+	// Call mcp:display(name) in Lua - the common implementation
 	log := func(name, str string) {
 		f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -878,7 +920,7 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 		defer f.Close()
 		f.WriteString(str + "\n")
 	}
-	code := fmt.Sprintf("return mcp.display(%q)", name)
+	code := fmt.Sprintf("return mcp:display(%q)", name)
 	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
 		log("/tmp/bubba", "load code")
 		return session.LoadCodeDirect("ui_display", code)
@@ -904,3 +946,167 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 
+// HTTP Tool API handlers (Spec 2.5)
+// These wrap the MCP tool handlers for HTTP access by spawned agents.
+
+// apiResponse writes a JSON response for the Tool API.
+func apiResponse(w http.ResponseWriter, result interface{}, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"result": result})
+}
+
+// apiError writes an error response.
+func apiError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// parseJSONBody parses JSON from request body into a map.
+func parseJSONBody(r *http.Request) (map[string]interface{}, error) {
+	if r.Body == nil {
+		return make(map[string]interface{}), nil
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) == 0 {
+		return make(map[string]interface{}), nil
+	}
+	var args map[string]interface{}
+	if err := json.Unmarshal(body, &args); err != nil {
+		return nil, err
+	}
+	return args, nil
+}
+
+// callMCPHandler invokes an MCP handler and extracts the result.
+func (s *Server) callMCPHandler(
+	handler func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error),
+	args map[string]interface{},
+) (interface{}, error) {
+	req := mcp.CallToolRequest{}
+	req.Params.Arguments = args
+	result, err := handler(context.Background(), req)
+	if err != nil {
+		return nil, err
+	}
+	// Extract text content from result
+	if result != nil && len(result.Content) > 0 {
+		if textContent, ok := result.Content[0].(mcp.TextContent); ok {
+			// Try to parse as JSON first
+			var jsonResult interface{}
+			if err := json.Unmarshal([]byte(textContent.Text), &jsonResult); err == nil {
+				return jsonResult, nil
+			}
+			return textContent.Text, nil
+		}
+	}
+	return nil, nil
+}
+
+// handleAPIStatus handles GET /api/ui_status
+func (s *Server) handleAPIStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		apiError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+	result, err := s.callMCPHandler(s.handleStatus, nil)
+	apiResponse(w, result, err)
+}
+
+// handleAPIRun handles POST /api/ui_run
+func (s *Server) handleAPIRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleRun, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIDisplay handles POST /api/ui_display
+func (s *Server) handleAPIDisplay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleDisplay, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIUploadViewdef handles POST /api/ui_upload_viewdef
+func (s *Server) handleAPIUploadViewdef(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleUploadViewdef, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIConfigure handles POST /api/ui_configure
+func (s *Server) handleAPIConfigure(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleConfigure, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIInstall handles POST /api/ui_install
+func (s *Server) handleAPIInstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleInstall, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIOpenBrowser handles POST /api/ui_open_browser
+func (s *Server) handleAPIOpenBrowser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleOpenBrowser, args)
+	apiResponse(w, result, err)
+}

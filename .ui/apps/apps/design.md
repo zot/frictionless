@@ -6,6 +6,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 
 ## Layout
 
+### Normal View (app list + details)
 ```
 +------------------+-----------------------------+
 | Apps      [R][+] | contacts                    |
@@ -23,12 +24,33 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
 | ═══════════════ drag handle ════════════════  |
-| Chat                                           |
+| Chat with Claude                               |
 | Agent: Which app would you like to work on?    |
 | You: Test the contacts app                     |
 | [____________________________________] [Send]  |
 +------------------------------------------------+
 ```
+
+### Embedded App View (replaces top portion)
+```
++------------------------------------------------+
+|            [ Embedded App View ]               |
+|                                                |
+|           (displays embeddedValue)             |
+|                                                |
++------------------------------------------------+
+| ═══════════════ drag handle ════════════════  |
+| Chat with Claude                         [⬆]  |
+| Agent: Which app would you like to work on?    |
+| You: Test the contacts app                     |
+| [____________________________________] [Send]  |
++------------------------------------------------+
+```
+
+When "Open" is clicked, the selected app replaces the app list + details panel:
+- Embedded view displays `embeddedValue` directly (loaded via `mcp:app(appName)`)
+- Chat panel remains visible below
+- `[⬆]` restore button appears in chat header (far right) to close embedded view
 
 Legend:
 - `[R]` = Refresh button
@@ -47,7 +69,7 @@ Legend:
 
 **Action buttons** (based on app state):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
-- `[Open]` — shown when app has viewdefs (canOpen)
+- `[Open]` — shown when app has viewdefs (canOpen), disabled for "apps" itself
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
 
@@ -76,7 +98,7 @@ Legend:
 
 ## Data Model
 
-### AppsApp (main app)
+### Apps (main app)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -87,6 +109,8 @@ Legend:
 | newAppDesc | string | Description input for new app |
 | messages | ChatMessage[] | Chat history |
 | chatInput | string | Current chat input |
+| embeddedApp | string | Name of embedded app, or nil |
+| embeddedValue | object | App global loaded via mcp:app, or nil |
 
 ### AppInfo (app metadata)
 
@@ -144,7 +168,7 @@ Legend:
 
 ## Methods
 
-### AppsApp
+### Apps
 
 | Method | Description |
 |--------|-------------|
@@ -160,8 +184,12 @@ Legend:
 | addAgentMessage(text) | Add agent message to chat |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
+| openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
+| closeEmbedded() | Clear embeddedApp/embeddedValue, restore normal view |
+| hasEmbeddedApp() | Returns true if embeddedApp is set |
+| noEmbeddedApp() | Returns true if embeddedApp is nil |
 
-### AppInfo
+### Apps.AppInfo
 
 | Method | Description |
 |--------|-------------|
@@ -176,10 +204,12 @@ Legend:
 | needsBuild() | Returns true if not hasViewdefs |
 | toggleKnownIssues() | Toggle showKnownIssues |
 | toggleFixedIssues() | Toggle showFixedIssues |
-| requestBuild() | Send build_request event |
-| requestTest() | Send test_request event |
-| requestFix() | Send fix_request event |
-| openApp() | Switch to app using mcp.display(self.name) |
+| requestBuild() | Send build_request event with mcp_port |
+| requestTest() | Send test_request event with mcp_port |
+| requestFix() | Send fix_request event with mcp_port |
+| openApp() | Call apps:openEmbedded(self.name) to show in embedded view |
+| isSelf() | Returns true if this is the "apps" app itself |
+| canOpenApp() | Returns canOpen() and not isSelf() |
 
 ### TestItem
 
@@ -213,19 +243,35 @@ Legend:
 
 ```json
 {"app": "apps", "event": "chat", "text": "...", "context": "contacts"}
-{"app": "apps", "event": "build_request", "target": "my-app"}
-{"app": "apps", "event": "test_request", "target": "contacts"}
-{"app": "apps", "event": "fix_request", "target": "contacts"}
+{"app": "apps", "event": "build_request", "target": "my-app", "mcp_port": 37067}
+{"app": "apps", "event": "test_request", "target": "contacts", "mcp_port": 37067}
+{"app": "apps", "event": "fix_request", "target": "contacts", "mcp_port": 37067}
 ```
+
+Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly.
 
 ### Claude Event Handling
 
-| Event Types     | How Claude Should Handle                                                                   |
-|-----------------|--------------------------------------------------------------------------------------------|
-| `chat`          | Respond to user message about the app in `context`. Reply via `apps:addAgentMessage(text)` |
-| `build_request` | Use `/ui-builder` skill to build/complete/update the app named in `target`                 |
-| `test_request`  | Use `/ui-testing` skill to test the app named in `target`                                  |
-| `fix_request`   | Read TESTING.md for the app, fix known issues using `/ui-builder`                          |
+| Event | Handler |
+|-------|---------|
+| `chat` | Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)` |
+| `build_request` | Spawn background ui-builder agent using `mcp_port` from event |
+| `test_request` | Spawn background agent to run `/ui-testing` on app in `target` |
+| `fix_request` | Spawn background agent to read TESTING.md and fix issues using `/ui-builder` |
+
+**Background Agent Pattern (build_request):**
+
+Use `mcp_port` from the event payload:
+```
+Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+```
+
+The ui-builder agent:
+- Uses HTTP API (curl) since background agents don't have MCP tool access
+- Reports progress via `curl POST /api/ui_run` calling `mcp:appProgress(name, progress, stage)`
+- Calls `mcp:appUpdated(name)` on completion (triggers rescan)
+
+Background agents allow Claude to continue handling chat while builds run.
 
 ### From Claude to UI (via mcp methods)
 

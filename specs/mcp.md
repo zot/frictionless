@@ -90,6 +90,75 @@ Manually install bundled skills and resources without starting the MCP server.
   - Installs resources, viewdefs, and scripts to `{base_dir}/`
   - Uses version checking (skips if installed >= bundled unless `--force`)
 
+### 2.5 HTTP Tool API
+
+All MCP tools are accessible via HTTP on the MCP port at `/api/{tool_name}`. This enables spawned agents and scripts to interact with the UI server using curl instead of requiring MCP protocol access.
+
+**Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ui_status` | GET | Get server status |
+| `/api/ui_run` | POST | Execute Lua code |
+| `/api/ui_display` | POST | Load and display an app |
+| `/api/ui_upload_viewdef` | POST | Upload a view definition |
+| `/api/ui_configure` | POST | Reconfigure server |
+| `/api/ui_install` | POST | Install bundled files |
+| `/api/ui_open_browser` | POST | Open browser to UI |
+
+**Request Format (POST):**
+```json
+{"code": "return mcp:status()", "sessionId": "1"}
+```
+
+Parameters match the MCP tool parameters (see Section 5).
+
+**Response Format:**
+```json
+{"result": ...}
+```
+
+Or on error:
+```json
+{"error": "error message"}
+```
+
+**Example Usage:**
+```bash
+# Get status
+curl http://127.0.0.1:$PORT/api/ui_status
+
+# Execute Lua code
+curl -X POST http://127.0.0.1:$PORT/api/ui_run \
+  -H "Content-Type: application/json" \
+  -d '{"code": "return testApp:addResponse(\"Hello!\")"}'
+
+# Display an app
+curl -X POST http://127.0.0.1:$PORT/api/ui_display \
+  -H "Content-Type: application/json" \
+  -d '{"name": "contacts"}'
+```
+
+**Port Discovery:**
+The MCP port is written to `{base_dir}/mcp-port` on startup. Scripts can read this file to discover the port:
+```bash
+PORT=$(cat .ui/mcp-port)
+curl http://127.0.0.1:$PORT/api/ui_status
+```
+
+**Bundled Helper Scripts:**
+The following scripts are installed to `{base_dir}/` and wrap the HTTP Tool API for convenience:
+
+| Script | Usage | Description |
+|--------|-------|-------------|
+| `status` | `./status` | Get server status (JSON) |
+| `run` | `./run '<lua code>'` | Execute Lua code |
+| `display` | `./display <app>` | Display an app by name |
+| `viewdef` | `./viewdef <type> <ns> '<html>'` | Upload a view definition |
+| `browser` | `./browser` | Open browser to UI |
+
+Scripts auto-discover the port from `mcp-port` in the same directory.
+
 ## 3. Server Lifecycle
 
 ### 3.1 Startup Behavior
@@ -350,7 +419,8 @@ end
 |--------|-----------|-------------|
 | `pushState` | `mcp.pushState(event)` | Push an event table to the state queue. Signals waiting HTTP clients. See Section 8.1. |
 | `pollingEvents` | `mcp:pollingEvents()` | Returns `true` if an agent is connected to `/wait`. See Section 8.2. |
-| `display` | `mcp:display(appName)` | Load and display an app. Returns `true` on success, or `nil, error` on failure. |
+| `app` | `mcp:app(appName)` | Load an app without displaying it. Returns the app global, or `nil, errmsg`. |
+| `display` | `mcp:display(appName)` | Load and display an app. Returns `true`, or `nil, errmsg`. |
 | `status` | `mcp:status()` | Returns the current MCP server status as a table. See below. |
 
 #### `mcp:status()`
@@ -364,12 +434,14 @@ end
 | `version`  | `string` | Semver string (e.g., `"0.6.0"`)                  |
 | `base_dir` | `string` | Absolute or relative path (e.g., `".claude/ui"`) |
 | `url`      | `string` | Server URL (e.g., `"http://127.0.0.1:39482"`)    |
+| `mcp_port` | `number` | MCP server port (e.g., `8001`)                   |
 | `sessions` | `number` | Integer count of connected browsers              |
 
 **Example:**
 ```lua
 local status = mcp:status()
 print("Server running at " .. status.url)
+print("MCP port: " .. status.mcp_port)
 print("Connected browsers: " .. status.sessions)
 ```
 
@@ -498,6 +570,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
   - `version`: Bundled version from README.md
   - `base_dir`: Configured base directory
   - `url`: Server URL
+  - `mcp_port`: MCP server port number
   - `sessions`: Number of active browser sessions
 
 **Example Response:**
@@ -506,6 +579,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
   "version": "0.1.0",
   "base_dir": ".claude/ui",
   "url": "http://127.0.0.1:39482",
+  "mcp_port": 8001,
   "sessions": 1
 }
 ```
@@ -571,6 +645,11 @@ event
 state
 variables
 linkapp
+status
+run
+display
+viewdef
+browser
 ```
 
 Lua entry point installed to `{base_dir}/lua/`:

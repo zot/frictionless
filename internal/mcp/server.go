@@ -138,6 +138,15 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/state", s.handleState)
 	mux.HandleFunc("/wait", s.handleWait)
 
+	// Tool API endpoints (Spec 2.5)
+	mux.HandleFunc("/api/ui_status", s.handleAPIStatus)
+	mux.HandleFunc("/api/ui_run", s.handleAPIRun)
+	mux.HandleFunc("/api/ui_display", s.handleAPIDisplay)
+	mux.HandleFunc("/api/ui_upload_viewdef", s.handleAPIUploadViewdef)
+	mux.HandleFunc("/api/ui_configure", s.handleAPIConfigure)
+	mux.HandleFunc("/api/ui_install", s.handleAPIInstall)
+	mux.HandleFunc("/api/ui_open_browser", s.handleAPIOpenBrowser)
+
 	// Listen on random port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -157,7 +166,7 @@ func (s *Server) StartHTTPServer() (int, error) {
 		}
 	}()
 
-	s.cfg.Log(0, "HTTP server listening on port %d (/variables, /state, /wait)", port)
+	s.cfg.Log(0, "HTTP server listening on port %d (/variables, /state, /wait, /api/*)", port)
 
 	// Write mcp-port file
 	if err := s.WriteMCPPortFile(port); err != nil {

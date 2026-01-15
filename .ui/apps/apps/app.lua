@@ -10,7 +10,9 @@ Apps = session:prototype("Apps", {
     newAppName = "",
     newAppDesc = "",
     messages = EMPTY,
-    chatInput = ""
+    chatInput = "",
+    embeddedApp = EMPTY,  -- Name of embedded app, or nil
+    embeddedValue = EMPTY -- App global loaded via mcp:app, or nil
 })
 
 -- Nested prototype: Chat message model
@@ -222,7 +224,8 @@ function AppInfo:requestBuild()
    mcp.pushState({
          app = "apps",
          event = "build_request",
-         target = self.name
+         target = self.name,
+         mcp_port = mcp:status().mcp_port
    })
 end
 
@@ -230,7 +233,8 @@ function AppInfo:requestTest()
     mcp.pushState({
         app = "apps",
         event = "test_request",
-        target = self.name
+        target = self.name,
+        mcp_port = mcp:status().mcp_port
     })
 end
 
@@ -238,12 +242,26 @@ function AppInfo:requestFix()
     mcp.pushState({
         app = "apps",
         event = "fix_request",
-        target = self.name
+        target = self.name,
+        mcp_port = mcp:status().mcp_port
     })
 end
 
 function AppInfo:openApp()
-    mcp.display(self.name)
+    print("[DEBUG] openApp called, self.name type:", type(self.name), "value:", tostring(self.name))
+    if type(self.name) == "string" then
+        apps:openEmbedded(self.name)
+    else
+        print("[DEBUG] ERROR: self.name is not a string!")
+    end
+end
+
+function AppInfo:isSelf()
+    return self.name == "apps"
+end
+
+function AppInfo:canOpenApp()
+    return self:canOpen() and not self:isSelf()
 end
 
 -- Filesystem helpers for Lua-driven app discovery
@@ -690,6 +708,44 @@ end
 -- Check if new form should hide
 function Apps:hideNewForm()
     return not self.showNewForm
+end
+
+-- Open app in embedded view
+function Apps:openEmbedded(name)
+    -- Handle case where name might be an AppInfo object instead of string
+    if type(name) == "table" then
+        if type(name.name) == "string" then
+            name = name.name
+        else
+            print("Could not extract name from app to open")
+            -- Can't extract a string name, bail out
+            return
+        end
+    end
+    if type(name) ~= "string" or name == "" then
+        return  -- Invalid argument, bail out
+    end
+    local appValue = mcp:app(name)
+    if appValue then
+        self.embeddedValue = appValue
+        self.embeddedApp = name
+    end
+end
+
+-- Close embedded view and restore normal layout
+function Apps:closeEmbedded()
+    self.embeddedApp = nil
+    self.embeddedValue = nil
+end
+
+-- Check if an app is embedded
+function Apps:hasEmbeddedApp()
+    return self.embeddedApp ~= nil
+end
+
+-- Check if no app is embedded
+function Apps:noEmbeddedApp()
+    return self.embeddedApp == nil
 end
 
 -- Idempotent instance creation

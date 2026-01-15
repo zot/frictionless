@@ -28,12 +28,21 @@ When an app is selected, show:
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
   - Build (when no viewdefs) - sends build_request to Claude
-  - Open (when has viewdefs) - uses `mcp.display(appName)` directly to switch apps
+  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "apps" itself)
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
 - Fixed Issues section (collapsed by default)
+
+## Embedded App View
+
+When the "Open" button is clicked, the selected app replaces the top portion (app list + details panel) above the chat:
+- The embedded view displays `embeddedValue` directly (not an iframe)
+- The chat panel remains visible below
+- User can interact with the embedded app while still chatting with Claude
+
+**Restore button:** The "Chat with Claude" header shows a restore icon on the far right when an app is embedded. Clicking it closes the embedded view and restores the app list + details panel.
 
 ## New App Form
 
@@ -74,10 +83,33 @@ Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when 
 
 ## Events to Claude
 
-- `chat` - User message with selected app as context
-- `build_request` - Use `/ui-builder` skill to build, complete, or update the app
-- `test_request` - Run ui-testing on an app
-- `fix_request` - Fix known issues in an app
+Events are sent via `mcp.pushState()` and include `app` (the app name) and `event` (the event type).
+
+### `chat`
+User message with selected app as context. Respond conversationally.
+
+### `build_request`
+Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
+
+**Event payload:** `{app: "apps", event: "build_request", target: "my-app", mcp_port: 37067}`
+
+Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent directly:
+```
+Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+```
+
+The ui-builder agent:
+- Uses the HTTP API (curl) since background agents don't have MCP tool access
+- Reports progress via `curl POST /api/ui_run` calling `mcp:appProgress(name, progress, stage)`
+- Calls `mcp:appUpdated(name)` when done (triggers rescan)
+
+**Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
+
+### `test_request`
+Run ui-testing on an app. Can also use a background agent pattern.
+
+### `fix_request`
+Fix known issues in an app. Can also use a background agent pattern.
 
 ## Data Flow
 
@@ -96,6 +128,12 @@ Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when 
 2. Write `requirements.md` with `# {Name}` title and description
 3. Rescan to add app to list
 4. Select the new app (user can click Build to trigger build_request)
+
+**Embedded app view:**
+- Track `embeddedApp` state (name of currently embedded app, or nil)
+- Track `embeddedValue` state (the app global loaded via `mcp:app`)
+- `openEmbedded(name)` - call `mcp:app(name)`, if not nil store in `embeddedValue` and set `embeddedApp`
+- `closeEmbedded()` - clear `embeddedApp` and `embeddedValue`, restore app list + details view
 
 ### Claude Responsibilities (via mcp methods):
 - `mcp:appProgress(name, progress, stage)` - call during build to update progress

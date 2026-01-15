@@ -62,6 +62,8 @@ add(data): Item {
 ```
 Mark implemented: `[ ]`→`[x]` in Artifacts.
 
+Look out for language-specific "gotchas" like mixing functions an methods in Lua.
+
 **Upon completion always do the Gaps Phase.**
 
 4. Gaps Phase

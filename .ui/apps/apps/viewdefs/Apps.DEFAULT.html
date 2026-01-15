@@ -234,12 +234,7 @@
       min-height: 0;
       padding: var(--sl-spacing-small) var(--sl-spacing-medium) var(--sl-spacing-medium);
     }
-    .chat-panel h3 {
-      margin: 0 0 var(--sl-spacing-small) 0;
-      font-size: var(--sl-font-size-medium);
-      flex-shrink: 0;
-    }
-    .chat-messages {
+        .chat-messages {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
@@ -272,11 +267,43 @@
     .chat-message-text {
       white-space: pre-wrap;
     }
+    /* Embedded app view */
+    .embedded-view {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .embedded-view > div {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      overflow: auto;
+    }
+    /* Chat header with restore button */
+    .chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 var(--sl-spacing-small) 0;
+      flex-shrink: 0;
+    }
+    .chat-header h3 {
+      margin: 0;
+      font-size: var(--sl-font-size-medium);
+    }
     .hidden { display: none !important; }
   </style>
 
   <div class="apps-dashboard">
-    <div class="main-content">
+    <!-- Embedded App View (replaces main-content when app is opened) -->
+    <div class="embedded-view" ui-class-hidden="noEmbeddedApp()">
+      <div ui-view="embeddedValue"></div>
+    </div>
+
+    <!-- Normal View (app list + details) -->
+    <div class="main-content" ui-class-hidden="hasEmbeddedApp()">
       <!-- App List Panel -->
       <div class="app-list-panel">
         <div class="app-list-header">
@@ -308,7 +335,7 @@
               <sl-icon slot="prefix" name="hammer"></sl-icon>
               Build
             </sl-button>
-            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.openApp()">
+            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-attr-disabled="selected.isSelf()" ui-action="selected.openApp()">
               <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
               Open
             </sl-button>
@@ -371,7 +398,10 @@
     <div class="chat-panel" id="chat-panel">
       <div class="chat-resize-handle" id="chat-resize-handle"></div>
       <div class="chat-content">
-        <h3>Chat with Claude</h3>
+        <div class="chat-header">
+          <h3>Chat with Claude</h3>
+          <sl-icon-button name="arrows-angle-expand" label="Restore" ui-class-hidden="noEmbeddedApp()" ui-action="closeEmbedded()"></sl-icon-button>
+        </div>
         <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
         <div class="chat-input-row">
           <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>

@@ -61,6 +61,15 @@ Debug and inspect runtime state:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state JSON
 
+Tool API (Spec 2.5) - enables curl access for spawned agents:
+- `GET /api/ui_status`: Get server status
+- `POST /api/ui_run`: Execute Lua code
+- `POST /api/ui_display`: Load and display an app
+- `POST /api/ui_upload_viewdef`: Upload a view definition
+- `POST /api/ui_configure`: Reconfigure server
+- `POST /api/ui_install`: Install bundled files
+- `POST /api/ui_open_browser`: Open browser to UI
+
 ### Lua Loading Sequence (Spec 4.2)
 During startup, Go executes:
 1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
@@ -84,7 +93,8 @@ Registered by `setupMCPGlobal` in each session:
 |--------|-----------|---------|
 | `pushState` | `mcp.pushState(event: table)` | `nil` |
 | `pollingEvents` | `mcp:pollingEvents()` | `boolean` |
-| `display` | `mcp:display(appName: string)` | `true` or `nil, string` |
+| `app` | `mcp:app(appName: string)` | `app` or `nil, errmsg` |
+| `display` | `mcp:display(appName: string)` | `true` or `nil, errmsg` |
 | `status` | `mcp:status()` | `table` (see below) |
 
 **`mcp:status()` returns:**
@@ -93,6 +103,7 @@ Registered by `setupMCPGlobal` in each session:
 | `version` | `string` | Semver (e.g., `"0.6.0"`) |
 | `base_dir` | `string` | Path (e.g., `".claude/ui"`) |
 | `url` | `string` | Server URL |
+| `mcp_port` | `number` | MCP server port |
 | `sessions` | `number` | Browser count |
 
 ### Build & Release System

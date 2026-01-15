@@ -1,0 +1,7 @@
+#!/bin/bash
+# Open browser to UI
+dir=$(dirname "$(realpath "$0")")
+port=$(cat "$dir/mcp-port")
+curl -s -X POST "http://127.0.0.1:$port/api/ui_open_browser" \
+  -H "Content-Type: application/json" \
+  -d '{}'

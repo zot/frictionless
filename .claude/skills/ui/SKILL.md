@@ -29,11 +29,20 @@ To display an app (e.g., `claude-panel`):
 
    The UI will NOT respond to clicks until the event loop is running!
 
-4. When events arrive, handle via ui_run, then restart the loop:
+4. When events arrive, handle according to design.md, then restart the loop:
    - Parse JSON: [{"app":"apps","event":"select","name":"contacts"}]
-   - Respond: ui_run('contacts:doSomething()')
+   - Check design.md's "Events" section for how to handle each event type
+   - Some events use `ui_run` directly: `ui_run('contacts:doSomething()')`
+   - Some events require spawning a background agent (see below)
    - Restart: {base_dir}/event
 ```
+
+**Background Agent Events:**
+Some events require spawning a background Task agent. The design.md specifies this explicitly:
+```
+Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app")
+```
+Look for patterns like "spawn background agent" or `Task(...)` in the design.md's event handling section. Background agents allow the event loop to continue while long-running work (builds, tests) executes.
 
 **The event loop is NOT optional.** Without it, button clicks and form submissions are silently ignored.
 

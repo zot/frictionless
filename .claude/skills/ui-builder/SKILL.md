@@ -48,6 +48,20 @@ mcp:appProgress("app-name", progress, "stage")
 
 Call `mcp:appUpdated("app-name")` after all files are written so the dashboard rescans.
 
+## MCP Global Methods
+
+The `mcp` global provides methods for interacting with the MCP server:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `mcp:status()` | table | Get server status including `base_dir` |
+| `mcp:display(appName)` | string | Get URL for displaying an app (for iframes) |
+| `mcp:appProgress(name, progress, stage)` | nil | Report build progress to dashboard |
+| `mcp:appUpdated(name)` | nil | Trigger dashboard rescan after file changes |
+| `mcp.pushState(event)` | nil | Send event to Claude agent |
+
+**Important:** `mcp:display(appName)` expects a **string** app name, not an object. If you have an AppInfo object, pass `appInfo.name`.
+
 ## Workflow
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
