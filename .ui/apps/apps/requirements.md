@@ -205,3 +205,11 @@ A refresh button triggers Lua to rescan all apps and update the display. The ref
 - Status shows "passed/total" (e.g., "17/21")
 - `### N.` under "Known Issues" = open bugs
 - `### N.` under "Fixed Issues" = resolved bugs
+- `## Gaps` section with non-empty content = design/code mismatch indicator
+
+## Gaps Indicator
+
+When an app's TESTING.md has a non-empty `## Gaps` section, show a warning indicator. This signals that the design and code are out of sync (e.g., methods defined in design but not used, or vice versa).
+
+- In the app list: show a ⚠ icon next to apps with gaps
+- In app details: show a "Gaps" section header (similar to Known Issues) that expands to show the gaps content

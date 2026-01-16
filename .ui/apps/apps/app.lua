@@ -110,6 +110,8 @@ Apps.AppInfo = session:prototype("Apps.AppInfo", {
     tests = EMPTY,
     showKnownIssues = true,
     showFixedIssues = false,
+    gapsContent = "",
+    showGaps = false,
     buildProgress = EMPTY,
     buildStage = EMPTY
 })
@@ -215,6 +217,26 @@ end
 
 function AppInfo:fixedIssuesIcon()
     return self.showFixedIssues and "chevron-down" or "chevron-right"
+end
+
+function AppInfo:hasGaps()
+    return self.gapsContent ~= nil and self.gapsContent ~= ""
+end
+
+function AppInfo:noGaps()
+    return not self:hasGaps()
+end
+
+function AppInfo:toggleGaps()
+    self.showGaps = not self.showGaps
+end
+
+function AppInfo:gapsHidden()
+    return not self.showGaps
+end
+
+function AppInfo:gapsIcon()
+    return self.showGaps and "chevron-down" or "chevron-right"
 end
 
 function AppInfo:toggleRequirements()
@@ -339,12 +361,13 @@ local function parseRequirements(content)
     return firstPara or ""
 end
 
--- Parse TESTING.md: extract tests, known issues, fixed issues
+-- Parse TESTING.md: extract tests, known issues, fixed issues, gaps
 local function parseTesting(content)
     local result = {
         tests = {},
         knownIssues = {},
         fixedIssues = {},
+        gapsContent = "",
         testsPassing = 0,
         testsTotal = 0
     }
@@ -379,6 +402,17 @@ local function parseTesting(content)
     if fixedSection then
         for num, title in fixedSection:gmatch("### (%d+)%.%s*([^\n]+)") do
             table.insert(result.fixedIssues, { number = tonumber(num), title = title })
+        end
+    end
+
+    -- Parse Gaps section (design/code mismatch indicator)
+    local gapsSection = content:match("## Gaps.-\n(.-)\n## ")
+        or content:match("## Gaps.-\n(.*)$")
+    if gapsSection then
+        -- Trim whitespace and check if non-empty
+        local trimmed = gapsSection:gsub("^%s+", ""):gsub("%s+$", "")
+        if trimmed ~= "" then
+            result.gapsContent = trimmed
         end
     end
 
@@ -472,6 +506,9 @@ function Apps:scanAppsFromDisk()
                 table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
             end
 
+            -- Set gaps content
+            app.gapsContent = testData.gapsContent or ""
+
             table.insert(self._apps, app)
         end
     end
@@ -546,6 +583,9 @@ function Apps:rescanApp(name)
     for _, issue in ipairs(testData.fixedIssues) do
         table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
     end
+
+    -- Set gaps content
+    app.gapsContent = testData.gapsContent or ""
 end
 
 -- Handle app progress event from Claude

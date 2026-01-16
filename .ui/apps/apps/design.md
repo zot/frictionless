@@ -143,6 +143,8 @@ Legend:
 | fixedIssues | Issue[] | Resolved issues from TESTING.md |
 | showKnownIssues | boolean | Expand known issues section |
 | showFixedIssues | boolean | Expand fixed issues section (default false) |
+| gapsContent | string | Content of ## Gaps section from TESTING.md |
+| showGaps | boolean | Expand gaps section (default false) |
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
 
@@ -248,6 +250,11 @@ Legend:
 | noTests() | Returns true if testsTotal == 0 |
 | noIssues() | Returns true if knownIssues is empty |
 | noFixedIssues() | Returns true if fixedIssues is empty |
+| hasGaps() | Returns true if gapsContent is non-empty |
+| noGaps() | Returns true if gapsContent is empty |
+| toggleGaps() | Toggle showGaps |
+| gapsHidden() | Returns not showGaps |
+| gapsIcon() | Returns chevron icon based on showGaps |
 | isBuilding() | Returns true if buildProgress is not nil |
 | notBuilding() | Returns true if buildProgress is nil |
 | canOpen() | Returns true if hasViewdefs |
@@ -396,3 +403,4 @@ This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without ch
 - Count passed/total for status display
 - `### N.` under "Known Issues" = open bugs
 - `### N.` under "Fixed Issues" = resolved bugs
+- `## Gaps` section content = design/code mismatch (show ⚠ if non-empty)

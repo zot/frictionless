@@ -397,6 +397,25 @@
       gap: var(--sl-spacing-x-small);
     }
     .hidden { display: none !important; }
+    /* Gaps indicator */
+    .gaps-icon {
+      color: var(--sl-color-warning-600);
+      margin-right: var(--sl-spacing-x-small);
+    }
+    .gaps-content {
+      background: var(--sl-color-warning-50);
+      border: 1px solid var(--sl-color-warning-200);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-medium);
+      font-family: var(--sl-font-mono);
+      font-size: var(--sl-font-size-small);
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .section-header.gaps-header h3 {
+      color: var(--sl-color-warning-700);
+    }
   </style>
 
   <div class="apps-dashboard">
@@ -466,6 +485,15 @@
                 <sl-icon slot="prefix" name="tools"></sl-icon>
                 Fix Issues
               </sl-button>
+            </div>
+
+            <!-- Gaps Section (design/code mismatch) -->
+            <div class="detail-section" ui-class-hidden="selected.noGaps()">
+              <div class="section-header gaps-header" ui-event-click="selected.toggleGaps()">
+                <sl-icon ui-attr-name="selected.gapsIcon()"></sl-icon>
+                <h3>⚠ Gaps (design/code mismatch)</h3>
+              </div>
+              <div class="gaps-content" ui-class-hidden="selected.gapsHidden()" ui-value="selected.gapsContent"></div>
             </div>
 
             <!-- Tests Section -->

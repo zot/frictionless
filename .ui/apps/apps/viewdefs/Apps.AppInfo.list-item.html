@@ -1,6 +1,9 @@
 <template>
   <div class="app-item" ui-class-selected="isSelected()" ui-event-click="selectMe()">
-    <span class="app-item-name" ui-value="name"></span>
+    <span class="app-item-name">
+      <sl-icon name="exclamation-triangle" class="gaps-icon" ui-class-hidden="noGaps()"></sl-icon>
+      <span ui-value="name"></span>
+    </span>
     <div class="app-item-progress" ui-class-hidden="isBuilding()">
       <sl-badge ui-attr-variant="statusVariant()"><span ui-value="statusText()"></span></sl-badge>
     </div>
