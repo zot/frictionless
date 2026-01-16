@@ -11,6 +11,12 @@ Foundation for building and running ui-engine UIs with Lua apps connected to wid
 
 Always get `base_dir` and `url` from `ui_status` first. All paths below use `{base_dir}` as a placeholder. Use `{url}` exactly as returned (e.g., `http://127.0.0.1:34919`).
 
+## Simple Requests
+
+When the user says `show APP` as in Quick Start.
+
+When the user says `events` it means simply to start the event loop, but not use `ui_display` or `ui_open_browser` as in Quick Start
+
 ## Quick Start: Show an Existing App
 
 To display an app (e.g., `claude-panel`):

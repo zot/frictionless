@@ -18,18 +18,47 @@
       height: 100%;
       overflow: auto;
     }
-    .mcp-menu-button {
+    .mcp-menu-container {
       position: fixed;
       top: 8px;
       right: 8px;
       z-index: 10000;
+    }
+    .mcp-menu-button {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
       background: rgba(255, 255, 255, 0.9);
       border-radius: var(--sl-border-radius-medium);
       box-shadow: 0 0 8px 2px rgba(100, 149, 237, 0.6);
+      cursor: pointer;
       transition: box-shadow 0.2s;
     }
     .mcp-menu-button:hover {
       box-shadow: 0 0 12px 4px rgba(100, 149, 237, 0.8);
+    }
+    .mcp-menu-button .mcp-icon {
+      font-size: 1.5rem;
+      color: var(--sl-color-neutral-600);
+    }
+    .mcp-menu-button .mcp-spinner {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 1;
+      pointer-events: none;
+    }
+    .mcp-menu-button .mcp-spinner sl-spinner {
+      font-size: 1.3rem;
+      --track-width: 3px;
+      --indicator-color: #E07A47;
+      filter: drop-shadow(0 0 4px #E07A47) drop-shadow(0 0 8px #F5A97F);
     }
     .mcp-menu-dropdown {
       position: fixed;
@@ -60,12 +89,15 @@
     <div class="mcp-app-container" ui-view="value"></div>
 
     <!-- App switcher menu button (9-dot grid) - floats above all content -->
-    <sl-icon-button
-      class="mcp-menu-button"
-      name="grid-3x3-gap-fill"
-      label="App Menu"
-      ui-action="toggleMenu()">
-    </sl-icon-button>
+    <div class="mcp-menu-container">
+      <button class="mcp-menu-button" ui-action="toggleMenu()" title="App Menu">
+        <sl-icon class="mcp-icon" name="grid-3x3-gap-fill"></sl-icon>
+        <!-- Processing indicator - shows when agent is not connected to /wait -->
+        <span class="mcp-spinner" ui-class-hidden="pollingEvents()">
+          <sl-spinner></sl-spinner>
+        </span>
+      </button>
+    </div>
 
     <!-- Dropdown menu -->
     <div class="mcp-menu-dropdown" ui-class-hidden="menuHidden()">

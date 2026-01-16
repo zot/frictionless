@@ -168,6 +168,7 @@ Legend:
 |-------|------|-------------|
 | sender | string | "You" or "Agent" |
 | text | string | Message content |
+| style | string | "normal" (default) or "thinking" for interstitial progress |
 
 ### OutputLine
 
@@ -209,6 +210,7 @@ Legend:
 | createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
 | sendChat() | Send chat event with selected app context |
 | addAgentMessage(text) | Add agent message to chat (called by Claude) |
+| addAgentThinking(text) | Add thinking/progress message - styled differently (called by Claude) |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
@@ -291,6 +293,7 @@ Legend:
 | Method | Description |
 |--------|-------------|
 | isUser() | Returns true if sender == "You" |
+| isThinking() | Returns true if style == "thinking" |
 | prefix() | Returns "> " for user messages, "" for agent |
 
 ## ViewDefs
@@ -331,6 +334,13 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 **chat event handling:**
 
 Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)`.
+
+**Interstitial thinking messages:** While working on a request, send progress updates via `apps:addAgentThinking(text)`. These appear styled differently (italic, muted) so the user knows Claude is working. Use for:
+- "Let me look at the code..."
+- "Found the issue, fixing it now..."
+- "Reading the design spec..."
+
+Then send the final response via `apps:addAgentMessage(text)`.
 
 **If the chat involves modifying an app:** Check the `quality` field:
 

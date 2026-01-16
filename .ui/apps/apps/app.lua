@@ -16,22 +16,35 @@ Apps = session:prototype("Apps", {
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
     luaInput = "",
-    chatQuality = 0  -- 0=fast, 1=thorough, 2=background
+    chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
+    thinkingStatus = ""   -- Status shown in tab bar while Claude is working
 })
 
 -- Nested prototype: Chat message model
 Apps.ChatMessage = session:prototype("Apps.ChatMessage", {
     sender = "",
-    text = ""
+    text = "",
+    style = "normal"  -- "normal" or "thinking"
 })
 local ChatMessage = Apps.ChatMessage
 
-function ChatMessage:new(sender, text)
-    return session:create(ChatMessage, { sender = sender, text = text })
+function ChatMessage:new(sender, text, style)
+    return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
 end
 
 function ChatMessage:isUser()
     return self.sender == "You"
+end
+
+function ChatMessage:isThinking()
+    return self.style == "thinking"
+end
+
+function ChatMessage:mutate()
+    -- Initialize style for existing instances
+    if self.style == nil then
+        self.style = "normal"
+    end
 end
 
 function ChatMessage:prefix()
@@ -711,6 +724,19 @@ end
 -- Add agent message (called by Claude)
 function Apps:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
+    self.thinkingStatus = ""  -- Clear status when sending a real message
+end
+
+-- Add thinking/progress message (called by Claude while working)
+-- text: appears in chat log, status: appears in tab bar (optional, defaults to text)
+function Apps:addAgentThinking(text, status)
+    table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
+    self.thinkingStatus = status or text
+end
+
+-- Check if there's an active thinking status
+function Apps:hasThinkingStatus()
+    return self.thinkingStatus ~= ""
 end
 
 -- Check if detail panel should show

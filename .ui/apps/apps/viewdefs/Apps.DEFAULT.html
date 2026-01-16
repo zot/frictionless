@@ -290,6 +290,10 @@
       color: var(--sl-color-primary-600);
       font-weight: var(--sl-font-weight-bold);
     }
+    .chat-message.thinking-message {
+      font-style: italic;
+      color: var(--sl-color-neutral-500);
+    }
     .chat-message-text {
       white-space: pre-wrap;
     }
@@ -345,6 +349,12 @@
     .panel-tabs sl-button::part(base) {
       font-size: var(--sl-font-size-small);
       padding: 0 var(--sl-spacing-small);
+    }
+    .thinking-status {
+      font-size: var(--sl-font-size-small);
+      font-style: italic;
+      color: #E07A47;
+      margin-left: var(--sl-spacing-medium);
     }
     /* Lua console styles */
     .lua-panel {
@@ -548,6 +558,7 @@
           <div class="panel-tabs">
             <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
             <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+            <span class="thinking-status" ui-value="thinkingStatus"></span>
           </div>
         </div>
 

@@ -273,6 +273,48 @@ Lua code uses `mcp:pollingEvents()` to check if an agent is connected to `/wait`
      +-----------+        +---------+        +---------+
 ```
 
+## Scenario 7: Client Disconnect During Wait
+
+Agent disconnects (or script is killed) while waiting - waiter must be cleaned up
+so `pollingEvents()` returns accurate status.
+
+```
+     +------------+        +-----------+
+     | WaitScript |        | MCPServer |
+     +-----+------+        +-----+-----+
+           |                     |
+           | GET /wait?timeout=30|
+           |-------------------->|
+           |                     |
+           |                     | AddWaiter(chan)
+           |                     |-----+
+           |                     |     | (blocking)
+           |                     |<----+
+           |                     |
+           | (client disconnects)|
+           |-------X             |
+           |                     |
+           |                     | r.Context().Done()
+           |                     |-----+
+           |                     |     | (detected)
+           |                     |<----+
+           |                     |
+           |                     | RemoveWaiter(chan)
+           |                     |-----+
+           |                     |     | (cleanup via defer)
+           |                     |<----+
+           |                     |
+     +-----+------+        +-----+-----+
+     | WaitScript |        | MCPServer |
+     +------------+        +-----------+
+```
+
+**Critical:** Without cleanup, orphaned waiters cause `pollingEvents()` to return
+`true` permanently. The cleanup must use `defer` to ensure it runs in all exit paths:
+- Normal response (event received)
+- Timeout (no events)
+- Client disconnect
+
 ## Implementation Notes
 
 - Wait endpoint: `GET /wait?timeout=N` (max 120 seconds, default 30)

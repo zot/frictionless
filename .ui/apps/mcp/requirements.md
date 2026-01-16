@@ -26,10 +26,11 @@ The 9-dot button (grid icon) in the top-right corner:
 
 ## Processing Indicator
 
-Show a spinner covering the dots button when the agent event loop is not connected to the `/wait` endpoint:
+Show a spinner overlaying the 9-dot button when the agent event loop is not connected to the `/wait` endpoint:
 - Indicates that Claude is processing events
-- Spinner replaces/overlays the 9-dot icon
-- When connected to `/wait`, the normal dots icon is shown
+- Spinner overlays the 9-dot icon at 50% opacity (both visible)
+- The 9-dot button remains clickable underneath
+- When connected to `/wait`, the spinner is hidden
 
 ## Available Apps
 

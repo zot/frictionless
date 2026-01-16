@@ -8,7 +8,7 @@ Outer shell for all ui-mcp apps. Displays the current app full-viewport and prov
 
 ```
 +--------------------------------------------------+
-|                                        [:::] <- 9-dot menu (overlay, glow effect)
+|                                     [:::] or (o) <- 9-dot menu or spinner
 |                                                  |
 |              Current App (mcp.value)             |
 |                  (full viewport)                 |
@@ -17,6 +17,15 @@ Outer shell for all ui-mcp apps. Displays the current app full-viewport and prov
 +--------------------------------------------------+
 [hidden: ui-code element]
 ```
+
+### Processing Indicator
+
+When the agent event loop is not connected to `/wait` (Claude is processing):
+- A semi-transparent spinner overlays the 9-dot icon at 50% opacity
+- Both the spinner and 9-dot button remain visible
+- The 9-dot button stays clickable (spinner has pointer-events: none)
+- Uses `mcp:pollingEvents()` server method - returns false when processing
+- Spinner hidden via `ui-class-hidden="pollingEvents()"`
 
 ### Menu Open State
 
@@ -56,6 +65,7 @@ The global `mcp` object is provided by the server. This app adds:
 | menuHidden() | Returns not menuOpen (for ui-class-hidden) |
 | selectApp(name) | Call mcp:display(name), close menu |
 | scanAvailableApps() | Scan apps/ directory for available apps |
+| pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 
 ### AppMenuItem (wrapper for app name string)
 

@@ -805,6 +805,21 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	s.stateWaiters[sessionID] = append(s.stateWaiters[sessionID], waiterCh)
 	s.stateWaitersMu.Unlock()
 
+	// Ensure cleanup on all exit paths (timeout, event, client disconnect)
+	// Seq: seq-mcp-state-wait.md Scenario 7
+	defer func() {
+		s.stateWaitersMu.Lock()
+		if waiters, ok := s.stateWaiters[sessionID]; ok {
+			for i, ch := range waiters {
+				if ch == waiterCh {
+					s.stateWaiters[sessionID] = append(waiters[:i], waiters[i+1:]...)
+					break
+				}
+			}
+		}
+		s.stateWaitersMu.Unlock()
+	}()
+
 	// Trigger UI refresh so pollingEvents() status updates
 	s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
 	// Refresh again shortly after to catch any timing issues
@@ -837,19 +852,8 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 
 	case <-r.Context().Done():
-		// Client disconnected
+		// Client disconnected - defer handles cleanup
 		return
 	}
-
-	// Unregister this waiter (cleanup)
-	s.stateWaitersMu.Lock()
-	if waiters, ok := s.stateWaiters[sessionID]; ok {
-		for i, ch := range waiters {
-			if ch == waiterCh {
-				s.stateWaiters[sessionID] = append(waiters[:i], waiters[i+1:]...)
-				break
-			}
-		}
-	}
-	s.stateWaitersMu.Unlock()
+	// defer handles cleanup for all exit paths
 }
