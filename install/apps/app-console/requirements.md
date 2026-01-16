@@ -28,7 +28,7 @@ When an app is selected, show:
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
   - Build (when no viewdefs) - sends build_request to Claude
-  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "apps" itself)
+  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" itself)
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
@@ -118,7 +118,7 @@ User message with selected app as context. Respond conversationally.
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
 
-**Event payload:** `{app: "apps", event: "build_request", target: "my-app", mcp_port: 37067}`
+**Event payload:** `{app: "app-console", event: "build_request", target: "my-app", mcp_port: 37067}`
 
 Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent directly:
 ```
@@ -172,7 +172,7 @@ Claude uses `ui_run` to call these mcp methods.
 
 ### App Initialization (`init.lua`)
 
-The apps app provides `init.lua` which adds convenience methods to the `mcp` global:
+The app-console app provides `init.lua` which adds convenience methods to the `mcp` global:
 
 ```lua
 function mcp:appProgress(name, progress, stage)

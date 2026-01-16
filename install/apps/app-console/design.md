@@ -39,29 +39,26 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 +------------------------------------------------+
 ```
 
-### Embedded App View (in detail area)
+### Embedded App View (replaces top portion)
 ```
-+------------------+-----------------------------+
-| Apps      [R][+] |        [contacts]     [X]   |
-|------------------|-----------------------------+
-| > contacts 17/21 |                             |
-|   tasks    5/5   |   [ Embedded App View ]     |
-|   my-app   ████░ |                             |
-|   new-app  --    |   (displays embeddedValue)  |
-|                  |                             |
-|                  |                             |
-+------------------+-----------------------------+
++------------------------------------------------+
+|            [ Embedded App View ]               |
+|                                                |
+|           (displays embeddedValue)             |
+|                                                |
++------------------------------------------------+
 | ═══════════════ drag handle ════════════════  |
-| [Chat] [Lua]                                  |
-| ...                                           |
+| Chat with Claude                         [⬆]  |
+| Agent: Which app would you like to work on?    |
+| You: Test the contacts app                     |
+| [____________________________________] [Send]  |
 +------------------------------------------------+
 ```
 
-When "Open" is clicked, the embedded app replaces the detail panel:
-- App list remains visible on the left
-- Embedded view displays `embeddedValue` in the detail area
-- Header shows app name and close button `[X]`
+When "Open" is clicked, the selected app replaces the app list + details panel:
+- Embedded view displays `embeddedValue` directly (loaded via `mcp:app(appName)`)
 - Chat panel remains visible below
+- `[⬆]` restore button appears in chat header (far right) to close embedded view
 
 Legend:
 - `[R]` = Refresh button
@@ -80,7 +77,7 @@ Legend:
 
 **Action buttons** (based on app state):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
-- `[Open]` — shown when app has viewdefs (canOpen), disabled for "apps" and "mcp"
+- `[Open]` — shown when app has viewdefs (canOpen), disabled for "app-console" itself
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
 
@@ -143,8 +140,6 @@ Legend:
 | fixedIssues | Issue[] | Resolved issues from TESTING.md |
 | showKnownIssues | boolean | Expand known issues section |
 | showFixedIssues | boolean | Expand fixed issues section (default false) |
-| gapsContent | string | Content of ## Gaps section from TESTING.md |
-| showGaps | boolean | Expand gaps section (default false) |
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
 
@@ -168,7 +163,6 @@ Legend:
 |-------|------|-------------|
 | sender | string | "You" or "Agent" |
 | text | string | Message content |
-| style | string | "normal" (default) or "thinking" for interstitial progress |
 
 ### OutputLine
 
@@ -200,7 +194,6 @@ Legend:
 | Method | Description |
 |--------|-------------|
 | apps() | Returns _apps (for binding) |
-| findApp(name) | Find app by name in _apps |
 | scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/, parse each |
 | rescanApp(name) | Rescan single app from disk |
 | refresh() | Calls mcp:scanAvailableApps() then scanAppsFromDisk() |
@@ -209,22 +202,18 @@ Legend:
 | cancelNewForm() | Hide new app form |
 | createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
 | sendChat() | Send chat event with selected app context |
-| addAgentMessage(text) | Add agent message to chat (called by Claude) |
-| addAgentThinking(text) | Add thinking/progress message - styled differently (called by Claude) |
+| addAgentMessage(text) | Add agent message to chat |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
 | closeEmbedded() | Clear embeddedApp/embeddedValue, restore normal view |
 | hasEmbeddedApp() | Returns true if embeddedApp is set |
 | noEmbeddedApp() | Returns true if embeddedApp is nil |
-| showDetail() | Returns true if selected and not showNewForm |
-| hideDetail() | Returns not showDetail() |
-| showPlaceholder() | Returns true if no selection and not showNewForm |
-| hidePlaceholder() | Returns not showPlaceholder() |
-| hideNewForm() | Returns not showNewForm |
-| updateRequirements(name, content) | Update an app's requirementsContent (called by Claude) |
+| updateRequirements(name, content) | Update an app's requirementsContent and rescan it from disk |
 | showChatPanel() | Set panelMode to "chat" |
 | showLuaPanel() | Set panelMode to "lua" |
+| isChatPanel() | Returns panelMode == "chat" |
+| isLuaPanel() | Returns panelMode == "lua" |
 | notChatPanel() | Returns panelMode ~= "chat" |
 | notLuaPanel() | Returns panelMode ~= "lua" |
 | chatTabVariant() | Returns "primary" if chat, else "default" |
@@ -233,7 +222,7 @@ Legend:
 | clearLuaOutput() | Clear luaOutputLines |
 | qualityLabel() | Returns "Fast", "Thorough", or "Background" |
 | qualityValue() | Returns "fast", "thorough", or "background" |
-| setChatQuality() | Update quality from slider event |
+| setChatQuality(value) | Set quality from slider event (handles sl-input) |
 
 ### OutputLine
 
@@ -249,51 +238,38 @@ Legend:
 | isSelected() | Check if this app is selected |
 | statusText() | Returns "17/21", "not built", "--", or build stage |
 | statusVariant() | Returns "success", "warning", "neutral", "primary" |
-| noTests() | Returns true if testsTotal == 0 |
-| noIssues() | Returns true if knownIssues is empty |
-| noFixedIssues() | Returns true if fixedIssues is empty |
-| hasGaps() | Returns true if gapsContent is non-empty |
-| noGaps() | Returns true if gapsContent is empty |
-| toggleGaps() | Toggle showGaps |
-| gapsHidden() | Returns not showGaps |
-| gapsIcon() | Returns chevron icon based on showGaps |
+| hasTests() | Returns true if tests array not empty |
+| hasIssues() | Returns true if knownIssues not empty |
 | isBuilding() | Returns true if buildProgress is not nil |
-| notBuilding() | Returns true if buildProgress is nil |
 | canOpen() | Returns true if hasViewdefs |
 | needsBuild() | Returns true if not hasViewdefs |
 | toggleKnownIssues() | Toggle showKnownIssues |
 | toggleFixedIssues() | Toggle showFixedIssues |
 | toggleRequirements() | Toggle showRequirements |
-| knownIssuesHidden() | Returns not showKnownIssues |
-| fixedIssuesHidden() | Returns not showFixedIssues |
 | requirementsHidden() | Returns not showRequirements |
-| knownIssuesIcon() | Returns chevron icon based on showKnownIssues |
-| fixedIssuesIcon() | Returns chevron icon based on showFixedIssues |
 | requirementsIcon() | Returns chevron icon based on showRequirements |
-| knownIssueCount() | Returns #knownIssues |
-| fixedIssueCount() | Returns #fixedIssues |
 | pushEvent(eventType, extra) | Push event with common fields (app, mcp_port, note) plus custom fields |
 | requestBuild() | Call pushEvent("build_request", {target = self.name}) |
 | requestTest() | Call pushEvent("test_request", {target = self.name}) |
 | requestFix() | Call pushEvent("fix_request", {target = self.name}) |
 | openApp() | Call apps:openEmbedded(self.name) to show in embedded view |
-| isSelf() | Returns true if this is the "apps" app itself |
-| isMcp() | Returns true if this is the "mcp" app |
-| openButtonDisabled() | Returns true if Open button should be disabled (apps or mcp) |
+| isSelf() | Returns true if this is the "app-console" app itself |
+| canOpenApp() | Returns canOpen() and not isSelf() |
 
 ### TestItem
 
 | Method | Description |
 |--------|-------------|
+| isPassed() | Returns status == "passed" |
+| isFailed() | Returns status == "failed" |
+| isUntested() | Returns status == "untested" |
 | icon() | Returns "✓", "✗", or " " based on status |
-| iconClass() | Returns "passed", "failed", or "untested" for CSS styling |
 
 ### ChatMessage
 
 | Method | Description |
 |--------|-------------|
 | isUser() | Returns true if sender == "You" |
-| isThinking() | Returns true if style == "thinking" |
 | prefix() | Returns "> " for user messages, "" for agent |
 
 ## ViewDefs
@@ -312,11 +288,11 @@ Legend:
 ### From UI to Claude
 
 ```json
-{"app": "apps", "event": "chat", "text": "...", "context": "contacts", "quality": "fast", "note": "make sure you have understood the app at /path/apps/contacts"}
-{"app": "apps", "event": "build_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
-{"app": "apps", "event": "test_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
-{"app": "apps", "event": "fix_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
-{"app": "apps", "event": "app_created", "name": "my-app", "description": "A brief description", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "quality": "fast", "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "app-console", "event": "build_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "app-console", "event": "test_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "app-console", "event": "fix_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "app-console", "event": "app_created", "name": "my-app", "description": "A brief description", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 ```
 
 Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly. Each event also includes a `note` field with the full path to the app, reminding Claude to read the app's docs before acting.
@@ -334,13 +310,6 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 **chat event handling:**
 
 Respond to user message about app in `context`. Reply via `apps:addAgentMessage(text)`.
-
-**Interstitial thinking messages:** While working on a request, send progress updates via `apps:addAgentThinking(text)`. These appear styled differently (italic, muted) so the user knows Claude is working. Use for:
-- "Let me look at the code..."
-- "Found the issue, fixing it now..."
-- "Reading the design spec..."
-
-Then send the final response via `apps:addAgentMessage(text)`.
 
 **If the chat involves modifying an app:** Check the `quality` field:
 
@@ -386,7 +355,7 @@ mcp:appUpdated("contacts")
 
 ## App Initialization (`init.lua`)
 
-The apps app provides `init.lua` which adds convenience methods to the `mcp` global:
+The app-console app provides `init.lua` which adds convenience methods to the `mcp` global:
 
 ```lua
 function mcp:appProgress(name, progress, stage)
@@ -413,4 +382,3 @@ This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without ch
 - Count passed/total for status display
 - `### N.` under "Known Issues" = open bugs
 - `### N.` under "Fixed Issues" = resolved bugs
-- `## Gaps` section content = design/code mismatch (show ⚠ if non-empty)

@@ -36,7 +36,7 @@ To display an app (e.g., `claude-panel`):
    The UI will NOT respond to clicks until the event loop is running!
 
 4. When events arrive, handle according to design.md, then restart the loop:
-   - Parse JSON: [{"app":"apps","event":"select","name":"contacts"}]
+   - Parse JSON: [{"app":"app-console","event":"select","name":"contacts"}]
    - Check design.md's "Events" section for how to handle each event type
    - Some events use `ui_run` directly: `ui_run('contacts:doSomething()')`
    - Some events require spawning a background agent (see below)

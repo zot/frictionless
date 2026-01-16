@@ -1,4 +1,4 @@
-# Apps
+# App Console
 
 Dashboard for discovering, launching, and tracking quality of ui-mcp apps. Acts as a command center for UI development with Claude.
 
@@ -28,7 +28,7 @@ When an app is selected, show:
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
   - Build (when no viewdefs) - sends build_request to Claude
-  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "apps" and "mcp")
+  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
@@ -66,7 +66,7 @@ When Claude receives the `app_created` event, it should:
 1. Read the basic requirements.md that Lua created
 2. Flesh out the requirements with proper structure and detail based on the description
 3. Write the expanded requirements.md to disk
-4. Use `ui_run` to call `apps:updateRequirements(name, content)` to populate the requirements textbox in the UI
+4. Use `ui_run` to call `appConsole:updateRequirements(name, content)` to populate the requirements textbox in the UI
 
 ## Chat Panel
 
@@ -101,7 +101,7 @@ When Claude is building an app, Lua tracks progress state:
 - Progress bar (0-100%)
 - Stage label (designing, writing code, creating viewdefs, linking)
 
-Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when building.
+Claude pushes progress updates via `ui_run` calling `appConsole:onAppProgress()` when building.
 
 ## Events to Claude
 
@@ -113,14 +113,14 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 User message with selected app as context. Respond conversationally.
 
 **If the chat involves modifying an app:** Check the `quality` field:
-- `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `apps:addAgentMessage()`
+- `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
 - `thorough` — Use `/ui-builder` skill inline with full phases
 - `background` — Spawn background ui-builder agent (shows progress bar)
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
 
-**Event payload:** `{app: "apps", event: "build_request", target: "my-app", mcp_port: 37067}`
+**Event payload:** `{app: "app-console", event: "build_request", target: "my-app", mcp_port: 37067}`
 
 Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent directly:
 ```
@@ -174,20 +174,20 @@ Claude uses `ui_run` to call these mcp methods.
 
 ### App Initialization (`init.lua`)
 
-The apps app provides `init.lua` which adds convenience methods to the `mcp` global:
+The app-console app provides `init.lua` which adds convenience methods to the `mcp` global:
 
 ```lua
 function mcp:appProgress(name, progress, stage)
-    if apps then apps:onAppProgress(name, progress, stage) end
+    if appConsole then appConsole:onAppProgress(name, progress, stage) end
 end
 
 function mcp:appUpdated(name)
     mcp:scanAvailableApps()  -- rescan all apps from disk
-    if apps then apps:onAppUpdated(name) end
+    if appConsole then appConsole:onAppUpdated(name) end
 end
 ```
 
-This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps dashboard is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
+This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps-console is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
 
 ## Refresh
 

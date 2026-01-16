@@ -1,8 +1,8 @@
--- Apps Dashboard
+-- App Console
 -- Command center for UI development with Claude
 
 -- App prototype (serves as namespace)
-Apps = session:prototype("Apps", {
+AppConsole = session:prototype("AppConsole", {
     _apps = EMPTY,
     _baseDir = "",  -- Cached base_dir from mcp:status()
     selected = EMPTY,
@@ -21,12 +21,12 @@ Apps = session:prototype("Apps", {
 })
 
 -- Nested prototype: Chat message model
-Apps.ChatMessage = session:prototype("Apps.ChatMessage", {
+AppConsole.ChatMessage = session:prototype("AppConsole.ChatMessage", {
     sender = "",
     text = "",
     style = "normal"  -- "normal" or "thinking"
 })
-local ChatMessage = Apps.ChatMessage
+local ChatMessage = AppConsole.ChatMessage
 
 function ChatMessage:new(sender, text, style)
     return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
@@ -52,11 +52,11 @@ function ChatMessage:prefix()
 end
 
 -- Nested prototype: Output line model (for Lua console)
-Apps.OutputLine = session:prototype("Apps.OutputLine", {
+AppConsole.OutputLine = session:prototype("AppConsole.OutputLine", {
     text = "",
     panel = EMPTY
 })
-local OutputLine = Apps.OutputLine
+local OutputLine = AppConsole.OutputLine
 
 function OutputLine:copyToInput()
     -- Strip leading "> " from command lines when copying
@@ -68,22 +68,22 @@ function OutputLine:copyToInput()
 end
 
 -- Nested prototype: Issue model
-Apps.Issue = session:prototype("Apps.Issue", {
+AppConsole.Issue = session:prototype("AppConsole.Issue", {
     number = 0,
     title = ""
 })
-local Issue = Apps.Issue
+local Issue = AppConsole.Issue
 
 function Issue:new(num, title)
     return session:create(Issue, { number = num, title = title })
 end
 
 -- Nested prototype: Test item model
-Apps.TestItem = session:prototype("Apps.TestItem", {
+AppConsole.TestItem = session:prototype("AppConsole.TestItem", {
     text = "",
     status = "untested"  -- "passed", "failed", or "untested"
 })
-local TestItem = Apps.TestItem
+local TestItem = AppConsole.TestItem
 
 function TestItem:new(text, status)
     return session:create(TestItem, { text = text, status = status or "untested" })
@@ -110,7 +110,7 @@ function TestItem:iconClass()
 end
 
 -- Nested prototype: App info model
-Apps.AppInfo = session:prototype("Apps.AppInfo", {
+AppConsole.AppInfo = session:prototype("AppConsole.AppInfo", {
     name = "",
     description = "",
     requirementsContent = "",
@@ -128,7 +128,7 @@ Apps.AppInfo = session:prototype("Apps.AppInfo", {
     buildProgress = EMPTY,
     buildStage = EMPTY
 })
-local AppInfo = Apps.AppInfo
+local AppInfo = AppConsole.AppInfo
 
 function AppInfo:new(name)
     local app = session:create(AppInfo, { name = name })
@@ -139,7 +139,7 @@ function AppInfo:new(name)
 end
 
 function AppInfo:selectMe()
-    apps:select(self)
+    appConsole:select(self)
 end
 
 function AppInfo:isSelected()
@@ -268,7 +268,7 @@ end
 function AppInfo:pushEvent(eventType, extra)
     local status = mcp:status()
     local event = {
-        app = "apps",
+        app = "app-console",
         event = eventType,
         mcp_port = status.mcp_port,
         note = "make sure you have understood the app at " .. status.base_dir .. "/apps/" .. self.name
@@ -297,14 +297,14 @@ end
 function AppInfo:openApp()
     print("[DEBUG] openApp called, self.name type:", type(self.name), "value:", tostring(self.name))
     if type(self.name) == "string" then
-        apps:openEmbedded(self.name)
+        appConsole:openEmbedded(self.name)
     else
         print("[DEBUG] ERROR: self.name is not a string!")
     end
 end
 
 function AppInfo:isSelf()
-    return self.name == "apps"
+    return self.name == "app-console"
 end
 
 function AppInfo:isMcp()
@@ -433,7 +433,7 @@ local function parseTesting(content)
 end
 
 -- Main app methods
-function Apps:new(instance)
+function AppConsole:new(instance)
     instance = session:create(Apps, instance)
     instance._apps = instance._apps or {}
     instance.messages = instance.messages or {}
@@ -442,19 +442,19 @@ function Apps:new(instance)
 end
 
 -- Hot-load mutation: initialize new fields on existing instances
-function Apps:mutate()
+function AppConsole:mutate()
     if self.chatQuality == nil then
         self.chatQuality = 0
     end
 end
 
 -- Return apps list for binding
-function Apps:apps()
+function AppConsole:apps()
     return self._apps
 end
 
 -- Find app by name
-function Apps:findApp(name)
+function AppConsole:findApp(name)
     for _, app in ipairs(self._apps) do
         if app.name == name then
             return app
@@ -465,7 +465,7 @@ end
 
 -- Scan apps from disk (Lua-driven discovery)
 -- Uses mcp:status() to get base_dir, then scans apps/ directory
-function Apps:scanAppsFromDisk()
+function AppConsole:scanAppsFromDisk()
     -- Get base_dir from mcp:status()
     local status = mcp:status()
     if not status or not status.base_dir then
@@ -533,7 +533,7 @@ function Apps:scanAppsFromDisk()
 end
 
 -- Rescan a single app from disk
-function Apps:rescanApp(name)
+function AppConsole:rescanApp(name)
     if not self._baseDir or self._baseDir == "" then
         -- No base_dir cached, do full scan
         self:scanAppsFromDisk()
@@ -602,7 +602,7 @@ function Apps:rescanApp(name)
 end
 
 -- Handle app progress event from Claude
-function Apps:onAppProgress(name, progress, stage)
+function AppConsole:onAppProgress(name, progress, stage)
     local app = self:findApp(name)
     if app then
         app.buildProgress = progress
@@ -611,39 +611,39 @@ function Apps:onAppProgress(name, progress, stage)
 end
 
 -- Handle app updated event from Claude (re-parse single app)
-function Apps:onAppUpdated(name)
+function AppConsole:onAppUpdated(name)
     -- Rescan just this app from disk
     self:rescanApp(name)
 end
 
 -- Refresh: rescan all apps from disk (Lua-driven)
-function Apps:refresh()
+function AppConsole:refresh()
     mcp:scanAvailableApps()  -- sync MCP server's app list with disk
     self:scanAppsFromDisk()
 end
 
 -- Select an app
-function Apps:select(app)
+function AppConsole:select(app)
     self.selected = app
     self.showNewForm = false
 end
 
 -- Show new app form
-function Apps:openNewForm()
+function AppConsole:openNewForm()
     self.showNewForm = true
     self.newAppName = ""
     self.newAppDesc = ""
 end
 
 -- Cancel new app form
-function Apps:cancelNewForm()
+function AppConsole:cancelNewForm()
     self.showNewForm = false
     self.newAppName = ""
     self.newAppDesc = ""
 end
 
 -- Create new app (Lua creates directory and requirements.md)
-function Apps:createApp()
+function AppConsole:createApp()
     if self.newAppName == "" then return end
     if self._baseDir == "" then
         -- Need base_dir to create files
@@ -690,24 +690,24 @@ function Apps:createApp()
 end
 
 -- Quality setting methods
-function Apps:qualityLabel()
+function AppConsole:qualityLabel()
     local labels = {"Fast", "Thorough", "Background"}
     return labels[self.chatQuality + 1]
 end
 
-function Apps:qualityValue()
+function AppConsole:qualityValue()
     local values = {"fast", "thorough", "background"}
     return values[self.chatQuality + 1]
 end
 
 -- Set quality from slider (captures sl-input events)
-function Apps:setChatQuality()
+function AppConsole:setChatQuality()
    print("QUALITY: "..tostring(self.chatQuality))
     -- self.chatQuality = tonumber(value) or 0
 end
 
 -- Send chat message
-function Apps:sendChat()
+function AppConsole:sendChat()
     if self.chatInput == "" then return end
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
@@ -715,57 +715,57 @@ function Apps:sendChat()
     if self.selected then
         self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue() })
     else
-        mcp.pushState({ app = "apps", event = "chat", text = self.chatInput, quality = self:qualityValue() })
+        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue() })
     end
 
     self.chatInput = ""
 end
 
 -- Add agent message (called by Claude)
-function Apps:addAgentMessage(text)
+function AppConsole:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
     self.thinkingStatus = ""  -- Clear status when sending a real message
 end
 
 -- Add thinking/progress message (called by Claude while working)
 -- text: appears in chat log, status: appears in tab bar (optional, defaults to text)
-function Apps:addAgentThinking(text, status)
+function AppConsole:addAgentThinking(text, status)
     table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
     self.thinkingStatus = status or text
 end
 
 -- Check if there's an active thinking status
-function Apps:hasThinkingStatus()
+function AppConsole:hasThinkingStatus()
     return self.thinkingStatus ~= ""
 end
 
 -- Check if detail panel should show
-function Apps:showDetail()
+function AppConsole:showDetail()
     return self.selected ~= nil and not self.showNewForm
 end
 
 -- Check if detail panel should hide
-function Apps:hideDetail()
+function AppConsole:hideDetail()
     return not self:showDetail()
 end
 
 -- Check if placeholder should show
-function Apps:showPlaceholder()
+function AppConsole:showPlaceholder()
     return self.selected == nil and not self.showNewForm
 end
 
 -- Check if placeholder should hide
-function Apps:hidePlaceholder()
+function AppConsole:hidePlaceholder()
     return not self:showPlaceholder()
 end
 
 -- Check if new form should hide
-function Apps:hideNewForm()
+function AppConsole:hideNewForm()
     return not self.showNewForm
 end
 
 -- Open app in embedded view
-function Apps:openEmbedded(name)
+function AppConsole:openEmbedded(name)
     -- Handle case where name might be an AppInfo object instead of string
     if type(name) == "table" then
         if type(name.name) == "string" then
@@ -787,23 +787,23 @@ function Apps:openEmbedded(name)
 end
 
 -- Close embedded view and restore normal layout
-function Apps:closeEmbedded()
+function AppConsole:closeEmbedded()
     self.embeddedApp = nil
     self.embeddedValue = nil
 end
 
 -- Check if an app is embedded
-function Apps:hasEmbeddedApp()
+function AppConsole:hasEmbeddedApp()
     return self.embeddedApp ~= nil
 end
 
 -- Check if no app is embedded
-function Apps:noEmbeddedApp()
+function AppConsole:noEmbeddedApp()
     return self.embeddedApp == nil
 end
 
 -- Update an app's requirements content (called by Claude after fleshing out)
-function Apps:updateRequirements(name, content)
+function AppConsole:updateRequirements(name, content)
     local app = self:findApp(name)
     if app then
         app.requirementsContent = content
@@ -813,32 +813,32 @@ function Apps:updateRequirements(name, content)
 end
 
 -- Panel mode methods (Chat vs Lua)
-function Apps:showChatPanel()
+function AppConsole:showChatPanel()
     self.panelMode = "chat"
 end
 
-function Apps:showLuaPanel()
+function AppConsole:showLuaPanel()
     self.panelMode = "lua"
 end
 
-function Apps:notChatPanel()
+function AppConsole:notChatPanel()
     return self.panelMode ~= "chat"
 end
 
-function Apps:notLuaPanel()
+function AppConsole:notLuaPanel()
     return self.panelMode ~= "lua"
 end
 
-function Apps:chatTabVariant()
+function AppConsole:chatTabVariant()
     return self.panelMode == "chat" and "primary" or "default"
 end
 
-function Apps:luaTabVariant()
+function AppConsole:luaTabVariant()
     return self.panelMode == "lua" and "primary" or "default"
 end
 
 -- Lua console methods
-function Apps:runLua()
+function AppConsole:runLua()
     if self.luaInput == "" then return end
 
     -- Add command line to output
@@ -879,14 +879,14 @@ function Apps:runLua()
     end
 end
 
-function Apps:clearLuaOutput()
+function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
 end
 
 -- Idempotent instance creation
 if not session.reloading then
-    apps = Apps:new()
+    appConsole = AppConsole:new()
 
     -- Scan apps from disk (Lua-driven discovery)
-    apps:scanAppsFromDisk()
+    appConsole:scanAppsFromDisk()
 end
