@@ -28,7 +28,7 @@ When an app is selected, show:
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
   - Build (when no viewdefs) - sends build_request to Claude
-  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "apps" itself)
+  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "apps" and "mcp")
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
@@ -37,12 +37,14 @@ When an app is selected, show:
 
 ## Embedded App View
 
-When the "Open" button is clicked, the selected app replaces the top portion (app list + details panel) above the chat:
+When the "Open" button is clicked, the selected app replaces the detail panel (right side):
+- App list remains visible on the left
 - The embedded view displays `embeddedValue` directly (not an iframe)
+- Header shows app name and close button `[X]`
 - The chat panel remains visible below
 - User can interact with the embedded app while still chatting with Claude
 
-**Restore button:** The "Chat with Claude" header shows a restore icon on the far right when an app is embedded. Clicking it closes the embedded view and restores the app list + details panel.
+Clicking the close button `[X]` closes the embedded view and restores the normal detail panel.
 
 ## New App Form
 
@@ -81,6 +83,18 @@ Selected app provides context for the conversation.
 - Messages display in reverse order (newest at bottom, like Claude Code terminal)
 - User messages prefixed with `>` character
 
+**Quality Selector:**
+
+A 3-position slider next to the Send button controls how modification requests are handled:
+
+| Mode | Behavior |
+|------|----------|
+| Fast | Vibe code - just make the change directly, no skill, no phases |
+| Thorough | Use ui-builder skill with full phases (design, audit, etc.) |
+| Background | Spawn background agent (shows progress bar, non-blocking) |
+
+Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
+
 ## Build Progress
 
 When Claude is building an app, Lua tracks progress state:
@@ -98,7 +112,10 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 ### `chat`
 User message with selected app as context. Respond conversationally.
 
-**If the chat involves modifying an app:** Think carefully about what the user is asking. If it requires changes to requirements, design, code, or viewdefs, spawn a background ui-builder agent like with a build_request, then send a response and listen for more events.
+**If the chat involves modifying an app:** Check the `quality` field:
+- `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `apps:addAgentMessage()`
+- `thorough` — Use `/ui-builder` skill inline with full phases
+- `background` — Spawn background ui-builder agent (shows progress bar)
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
@@ -114,7 +131,6 @@ Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "t
 
 Tell the ui-builder agent:
 - Use the HTTP API (curl) since background agents don't have MCP tool access
-- Use fire-and-forget curl calls (no response parsing, no jq) to avoid permission issues
 - Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
 - Call `mcp:appUpdated("{name}")` when done (triggers rescan)
 

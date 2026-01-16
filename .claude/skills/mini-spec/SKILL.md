@@ -14,6 +14,14 @@ docs/     # user-manual.md, developer-guide.md
 src/      # Code with traceability comments
 ```
 
+## Task Tracking
+
+Use todos (TodoWrite) to track progress through phases and tasks:
+- Create a todo for each phase you'll work through
+- Break implementation into per-file or per-component todos
+- Mark phases complete as you finish them
+- Use the Quality Checklist items as todos before finalizing
+
 ## Core Principles
 - use SOLID principles, comprehensive unit tests
 - when adding code, verify whether it needs to be factored

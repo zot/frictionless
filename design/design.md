@@ -12,6 +12,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-MCPServer.md → `internal/mcp/server.go`
 - [x] crc-MCPResource.md → `internal/mcp/resources.go`
 - [x] crc-MCPTool.md → `internal/mcp/tools.go`
+- [x] crc-Auditor.md → `internal/mcp/audit.go`
 
 ### Sequences
 - [x] seq-mcp-lifecycle.md → `internal/mcp/server.go`, `internal/mcp/tools.go`
@@ -20,6 +21,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-mcp-run.md → `internal/mcp/tools.go`
 - [x] seq-mcp-get-state.md → `internal/mcp/resources.go`
 - [x] seq-mcp-state-wait.md → `internal/mcp/server.go` (handleWait, pushStateEvent, drainStateQueue, hasPollingClients)
+- [x] seq-audit.md → `internal/mcp/audit.go`, `internal/mcp/tools.go`
 
 ### Test Designs
 - [ ] test-MCP.md → `tools_test.go`
@@ -67,6 +69,7 @@ Tool API (Spec 2.5) - enables curl access for spawned agents:
 - `POST /api/ui_configure`: Reconfigure server
 - `POST /api/ui_install`: Install bundled files
 - `POST /api/ui_open_browser`: Open browser to UI
+- `POST /api/ui_audit`: Audit app for code quality violations
 
 ### Lua Loading Sequence (Spec 4.2)
 During startup, Go executes:

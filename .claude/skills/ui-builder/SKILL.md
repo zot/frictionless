@@ -22,6 +22,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 **Both Lua code and viewdefs hot-load automatically from disk.** When you edit files:
 - Lua files in `apps/<app>/app.lua` → re-executed, preserving app state
 - Viewdef files in `apps/<app>/viewdefs/` → browser updates automatically
+- `session.reloading` is `true` during reload, `false` otherwise — use to detect hot-reloads
 
 **Write order matters:** Write code changes FIRST, then viewdefs. Viewdefs may reference new types/methods that must exist before the viewdef loads.
 
@@ -102,6 +103,27 @@ The `mcp` global provides methods for interacting with the MCP server:
    ```
 
 6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
+
+   **Automated checks first** (use `ui_audit` MCP tool):
+   ```
+   ui_audit(name: "app-name")
+   ```
+
+   The tool checks Lua code AND viewdefs for:
+   - Dead methods (defined but never called)
+   - Missing `session.reloading` guard on instance creation
+   - Global variable name doesn't match app directory
+   - `<style>` blocks in list-item viewdefs
+   - `item.` prefix in list-item viewdefs
+   - `ui-action` on non-buttons
+   - `ui-class="hidden:..."` (should use `ui-class-hidden`)
+   - `ui-value` on checkboxes/switches
+   - Operators in binding paths
+   - HTML parse errors in viewdefs
+
+   **Do not manually check viewdefs** — the tool handles all viewdef validation.
+
+   **AI-based checks** (require reading comprehension):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
    - Compare implementation against requirements.md — **every principle must be followed**
@@ -111,18 +133,17 @@ The `mcp` global provides methods for interacting with the MCP server:
      - For each stated Claude responsibility, verify Lua does NOT implement it (Claude handles via events)
      - If requirements say "Lua-driven" or "all X happens in Lua", verify Lua actually does the work
      - Example violation: Requirements say "Lua scans directories" but code sends `refresh_request` event (Claude does scanning)
-   - Read all generated files and check for violations:
-     - Global variable name doesn't match app directory (e.g., `tasks` dir → `tasks` global, not `tasksApp`)
-     - `<style>` blocks in list-item viewdefs (must be in top-level only)
-     - `item.` prefix in list-item viewdefs (item IS the context)
-     - `ui-action` on non-buttons (use `ui-event-click`)
-     - `ui-class="hidden:..."` (use `ui-class-hidden="..."`)
-     - `ui-value` on checkboxes/switches (use `ui-attr-checked`)
-     - Operators in paths (negation, equality, logical, arithmetic) — use methods instead
-     - Missing `min-height: 0` on scrollable flex children
-     - Missing `session.reloading` guard on instance creation
-     - Cancel buttons that don't revert changes (see Edit/Cancel Pattern)
-   - Fix any violations found before considering the task complete
+   - Check for missing `min-height: 0` on scrollable flex children
+   - Check that Cancel buttons revert changes (see Edit/Cancel Pattern)
+
+   **Fix violations** before the task is complete:
+
+   1. **Dead methods NOT in design.md** → Delete them from `app.lua` now
+   2. **Dead methods IN design.md** → Record in `TESTING.md` under `## Gaps` (design/code mismatch)
+   3. **Other violations** (viewdef issues, missing guards) → Fix them in the code
+   4. **Warnings** (external methods) → OK to ignore, these are called by Claude
+
+   After fixing, **report any recorded gaps** to the user.
 
 7. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
    - Report completion so progress bar shows 100%
@@ -219,8 +240,9 @@ The spec is the **source of truth**. If it says a close button exists, don't rem
 
 ```lua
 -- 1. Declare app prototype (serves as namespace)
+-- init declares instance fields — only these are tracked for mutation
 MaLuba = session:prototype("MaLuba", {
-    items = EMPTY,  -- EMPTY = nil but tracked
+    items = EMPTY,  -- EMPTY: starts nil, but tracked for mutation
     name = ""
 })
 
@@ -248,6 +270,9 @@ end
 - `session.reloading` is true during hot-reload, false on initial load
 - Instance creation only runs on first load → idempotent
 - `session:create()` tracks instances for hot-reload migrations
+
+**EMPTY pattern:**
+Use `EMPTY` to declare optional fields that start nil but are tracked for mutation. When you remove a field from init, it's nil'd out on all instances.
 
 **Key points**:
 - The `type` field is set automatically by `session:prototype()` from the name argument
@@ -346,6 +371,10 @@ end
 
 **Prefer Lua.** Lua methods execute instantly when users click buttons or type.
 
+**JavaScript is available via:**
+- `<script>` elements in viewdefs — static "library" code loaded once
+- `ui-code` attribute — dynamic injection as-needed (see ui-code binding below)
+
 **When JS is needed:**
 - **App-local JS** (resize handlers, DOM tricks): Use `<script>` tags in the viewdef (after root element, before `</template>`)
 - **Claude-triggered JS** (remote execution): The MCP shell provides `mcp.code` via `ui-code="code"` binding. Claude sets `mcp.code = "window.close()"` to execute JS remotely. Don't add `ui-code` bindings in apps — use the existing MCP shell capability.
@@ -394,6 +423,22 @@ app.closeWindow = "window.close()"  -- or set a trigger value
 
 Use cases: auto-close window, trigger downloads, custom DOM manipulation, browser APIs.
 
+**Namespace resolution (3-tier):**
+
+When resolving which viewdef to use for a type:
+
+1. Variable's `namespace` property → `Type.{namespace}`
+2. Variable's `fallbackNamespace` property → `Type.{fallbackNamespace}`
+3. Default → `Type.DEFAULT`
+
+```html
+<!-- Explicit namespace via ui-namespace -->
+<div ui-view="contact" ui-namespace="COMPACT"/>
+
+<!-- ViewList sets fallbackNamespace="list-item" automatically -->
+<div ui-view="contacts?wrapper=lua.ViewList"/>
+```
+
 ## Variable Paths
 
 **Path syntax:**
@@ -421,6 +466,25 @@ Path traversal uses nullish coalescing (like JavaScript's `?.`). If any segment 
 
 This allows bindings like `ui-value="selectedContact.firstName"` to work when `selectedContact` is nil (e.g., nothing selected).
 
+### Read/Write Method Paths
+
+Methods can act as read/write properties by ending the path in `()` with `access=rw`:
+
+```html
+<input ui-value="value()?access=rw">
+```
+
+On read, the method is called with no arguments. On write, the value is passed as an argument. In Lua, use varargs:
+
+```lua
+function MyPresenter:value(...)
+    if select('#', ...) > 0 then
+        self._value = select(1, ...)  -- write
+    end
+    return self._value  -- read
+end
+```
+
 ## Variable Properties
 
 `<sl-input ui-value="name?prop1=val1&prop2=val2"></sl-input>`
@@ -433,7 +497,14 @@ This allows bindings like `ui-value="selectedContact.firstName"` to work when `s
 | `wrapper` | Type name (e.g., `lua.ViewList`)         | Wrap with this type                                                   |
 | `keypress`| (flag)                                   | Live update on every keystroke                                        |
 | `scrollOnOutput` | (flag)                            | Auto-scroll to bottom when content changes                            |
-| `item` | wrapper type                                | specify wrapper type for ViewList items                               |
+| `item` | wrapper type                                | Specify wrapper type for ViewList items                               |
+| `create` | Type name (e.g., `Contact`)              | Create instance of this type as variable value                        |
+
+**Default ui-value access by element type:**
+- Native inputs (`input`, `textarea`, `select`): `rw`
+- Interactive Shoelace (`sl-input`, `sl-textarea`, `sl-select`, `sl-checkbox`, `sl-radio`, `sl-radio-group`, `sl-radio-button`, `sl-switch`, `sl-range`, `sl-color-picker`, `sl-rating`): `rw`
+- Read-only Shoelace (`sl-progress-bar`, `sl-progress-ring`, `sl-qr-code`, `sl-option`, `sl-copy-button`): `r`
+- Non-interactive elements (`div`, `span`, etc.): `r`
 
 Custom wrappers may define additional properties, but only use them when the design explicitly specifies a wrapper that documents those properties.
 
@@ -450,8 +521,12 @@ Custom wrappers may define additional properties, but only use them when the des
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
 <!-- Hide --> <div ui-class-hidden="isHidden()">Content</div>
 <!-- Alert --> <sl-alert ui-attr-open="err" variant="danger"><span ui-value="msg"></span></sl-alert>
+<!-- Badge --> <sl-badge variant="success"><span ui-value="count"></span></sl-badge>
 <!-- Child --> <div ui-view="selectedItem"></div>
 ```
+
+**Shoelace Tips:**
+- `sl-badge` has no `value` attribute — it displays its child element. Use `<sl-badge><span ui-value="count"></span></sl-badge>`
 
 ## Lists
 

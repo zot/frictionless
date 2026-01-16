@@ -22,6 +22,7 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 **Both Lua code and viewdefs hot-load automatically from disk.** When you edit files:
 - Lua files in `apps/<app>/app.lua` → re-executed, preserving app state
 - Viewdef files in `apps/<app>/viewdefs/` → browser updates automatically
+- `session.reloading` is `true` during reload, `false` otherwise — use to detect hot-reloads
 
 **Write order matters:** Write code changes FIRST, then viewdefs. Viewdefs may reference new types/methods that must exist before the viewdef loads.
 
@@ -102,6 +103,8 @@ The `mcp` global provides methods for interacting with the MCP server:
    ```
 
 6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
+
+   **AI-based checks** (require reading comprehension):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
    - Compare implementation against requirements.md — **every principle must be followed**
@@ -111,18 +114,34 @@ The `mcp` global provides methods for interacting with the MCP server:
      - For each stated Claude responsibility, verify Lua does NOT implement it (Claude handles via events)
      - If requirements say "Lua-driven" or "all X happens in Lua", verify Lua actually does the work
      - Example violation: Requirements say "Lua scans directories" but code sends `refresh_request` event (Claude does scanning)
-   - Read all generated files and check for violations:
-     - Global variable name doesn't match app directory (e.g., `tasks` dir → `tasks` global, not `tasksApp`)
-     - `<style>` blocks in list-item viewdefs (must be in top-level only)
-     - `item.` prefix in list-item viewdefs (item IS the context)
-     - `ui-action` on non-buttons (use `ui-event-click`)
-     - `ui-class="hidden:..."` (use `ui-class-hidden="..."`)
-     - `ui-value` on checkboxes/switches (use `ui-attr-checked`)
-     - Operators in paths (negation, equality, logical, arithmetic) — use methods instead
-     - Missing `min-height: 0` on scrollable flex children
-     - Missing `session.reloading` guard on instance creation
-     - Cancel buttons that don't revert changes (see Edit/Cancel Pattern)
-   - Fix any violations found before considering the task complete
+   - Check for missing `min-height: 0` on scrollable flex children
+   - Check that Cancel buttons revert changes (see Edit/Cancel Pattern)
+
+   **Automated checks** (use `ui_audit` tool):
+   ```bash
+   curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_audit \
+     -H "Content-Type: application/json" \
+     -d '{"name": "app-name"}' | jq
+   ```
+
+   The tool checks for:
+   - Dead methods (defined but never called)
+   - Missing `session.reloading` guard on instance creation
+   - Global variable name doesn't match app directory
+   - `<style>` blocks in list-item viewdefs
+   - `item.` prefix in list-item viewdefs
+   - `ui-action` on non-buttons
+   - `ui-class="hidden:..."` (should use `ui-class-hidden`)
+   - `ui-value` on checkboxes/switches
+   - Operators in binding paths
+   - HTML parse errors in viewdefs
+
+   **Violations must be fixed** before the task is complete:
+   - **Dead methods in design.md** are gaps — unclear if code is wrong (should call it) or design is wrong (shouldn't exist). Record in the app's `TESTING.md` under `## Gaps` (first level-2 section) — this counts as "fixed" for audit purposes.
+   - **Dead methods not in design.md** can simply be removed.
+   - **Warnings** (external methods called by Claude) can be reported but don't block completion.
+
+   After auditing, **report any gaps to the user** so they can decide how to proceed.
 
 7. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
    - Report completion so progress bar shows 100%
@@ -219,8 +238,9 @@ The spec is the **source of truth**. If it says a close button exists, don't rem
 
 ```lua
 -- 1. Declare app prototype (serves as namespace)
+-- init declares instance fields — only these are tracked for mutation
 MaLuba = session:prototype("MaLuba", {
-    items = EMPTY,  -- EMPTY = nil but tracked
+    items = EMPTY,  -- EMPTY: starts nil, but tracked for mutation
     name = ""
 })
 
@@ -249,6 +269,9 @@ end
 - Instance creation only runs on first load → idempotent
 - `session:create()` tracks instances for hot-reload migrations
 
+**EMPTY pattern:**
+Use `EMPTY` to declare optional fields that start nil but are tracked for mutation. When you remove a field from init, it's nil'd out on all instances.
+
 **Key points**:
 - The `type` field is set automatically by `session:prototype()` from the name argument
 - Viewdefs must exist for that type (e.g., `MaLuba.DEFAULT.html`, `MaLuba.Item.list-item.html`)
@@ -259,6 +282,83 @@ end
 - Events queue up and agent reads them via `/wait` endpoint
 - Example: `mcp.pushState({ app = "myapp", event = "chat", text = userInput })`
 
+## Hot-Loading Mutations (Critical Timing)
+
+When adding new fields to a prototype, existing instances need initialization. Use the `mutate()` method:
+
+```lua
+MaLuba = session:prototype("MaLuba", {
+    items = EMPTY,
+    name = "",
+    newField = EMPTY  -- NEW: added in this change
+})
+
+function MaLuba:mutate()
+    -- Initialize newField for existing instances
+    if self.newField == nil then
+        self.newField = {}
+    end
+end
+```
+
+**CRITICAL: All field additions and their `mutate()` methods must arrive in a SINGLE hot-load.**
+
+If they arrive in separate hot-loads, it fails silently:
+
+| Hot-load | What Happens | Result |
+|----------|--------------|--------|
+| 1st: Add field | Calls `mutate()` | `mutate()` doesn't exist yet → field stays nil |
+| 2nd: Add `mutate()` | Checks for init changes | Prototype init unchanged → `mutate()` not called |
+
+**Why this happens:** Hot-reload only calls `mutate()` when the prototype's init table changes. Adding a method doesn't change the init table, so the second hot-load doesn't trigger mutation.
+
+**Solution: Use atomic writes via temp file**
+
+Hot-loading only watches files that are already loaded. Write to a temp copy, make all your changes, then `mv` to trigger exactly one hot-load:
+
+```bash
+# 1. Copy to temp file (not watched)
+cp {base_dir}/apps/myapp/app.lua {base_dir}/apps/myapp/app.lua.tmp
+
+# 2. Make ALL changes to the temp file
+#    - Add new fields to prototype init
+#    - Add/update mutate() method
+#    - Add new methods
+#    (multiple edits here don't trigger hot-loads)
+
+# 3. Audit the temp file (see below)
+
+# 4. Atomic replace triggers single hot-load
+mv {base_dir}/apps/myapp/app.lua.tmp {base_dir}/apps/myapp/app.lua
+```
+
+**Audit the finished temp file before mv:**
+
+1. **Identify new fields**: Compare temp file's prototype init against original
+2. **Check for table/array fields**: Look for fields with `EMPTY` or `{}` defaults
+3. **Verify mutate() coverage**: For each new table/array field, confirm `mutate()` initializes it
+4. **Fix if needed**: Edit the temp file again (still no hot-load), then mv
+
+If you're adding `outputLines = EMPTY`, your mutate() must have:
+```lua
+function App:mutate()
+    if self.outputLines == nil then
+        self.outputLines = {}
+    end
+end
+```
+
+**When mutate() is needed:**
+- Adding array/table fields (need `{}` initialization)
+- Adding fields that other code expects to be non-nil
+- Removing fields (set to `nil` to clear from existing instances)
+- Not needed for simple values with sensible nil defaults
+
+**mutate() rules:**
+- **Idempotent**: Must be safe to run multiple times (use `if self.field == nil then`)
+- **Replaceable**: Contents can be completely rewritten each hot-load — no need to preserve old mutation code
+- **Runs on all instances**: Called after hotload for every tracked instance whose prototype init changed
+
 ## Behavior
 
 | Location       | Use For                                           | Trade-offs                             |
@@ -268,6 +368,10 @@ end
 | **JavaScript** | Extending presentation (browser APIs, DOM tricks) | Last resort, harder to maintain        |
 
 **Prefer Lua.** Lua methods execute instantly when users click buttons or type.
+
+**JavaScript is available via:**
+- `<script>` elements in viewdefs — static "library" code loaded once
+- `ui-code` attribute — dynamic injection as-needed (see ui-code binding below)
 
 **When JS is needed:**
 - **App-local JS** (resize handlers, DOM tricks): Use `<script>` tags in the viewdef (after root element, before `</template>`)
@@ -317,6 +421,22 @@ app.closeWindow = "window.close()"  -- or set a trigger value
 
 Use cases: auto-close window, trigger downloads, custom DOM manipulation, browser APIs.
 
+**Namespace resolution (3-tier):**
+
+When resolving which viewdef to use for a type:
+
+1. Variable's `namespace` property → `Type.{namespace}`
+2. Variable's `fallbackNamespace` property → `Type.{fallbackNamespace}`
+3. Default → `Type.DEFAULT`
+
+```html
+<!-- Explicit namespace via ui-namespace -->
+<div ui-view="contact" ui-namespace="COMPACT"/>
+
+<!-- ViewList sets fallbackNamespace="list-item" automatically -->
+<div ui-view="contacts?wrapper=lua.ViewList"/>
+```
+
 ## Variable Paths
 
 **Path syntax:**
@@ -344,6 +464,25 @@ Path traversal uses nullish coalescing (like JavaScript's `?.`). If any segment 
 
 This allows bindings like `ui-value="selectedContact.firstName"` to work when `selectedContact` is nil (e.g., nothing selected).
 
+### Read/Write Method Paths
+
+Methods can act as read/write properties by ending the path in `()` with `access=rw`:
+
+```html
+<input ui-value="value()?access=rw">
+```
+
+On read, the method is called with no arguments. On write, the value is passed as an argument. In Lua, use varargs:
+
+```lua
+function MyPresenter:value(...)
+    if select('#', ...) > 0 then
+        self._value = select(1, ...)  -- write
+    end
+    return self._value  -- read
+end
+```
+
 ## Variable Properties
 
 `<sl-input ui-value="name?prop1=val1&prop2=val2"></sl-input>`
@@ -356,7 +495,14 @@ This allows bindings like `ui-value="selectedContact.firstName"` to work when `s
 | `wrapper` | Type name (e.g., `lua.ViewList`)         | Wrap with this type                                                   |
 | `keypress`| (flag)                                   | Live update on every keystroke                                        |
 | `scrollOnOutput` | (flag)                            | Auto-scroll to bottom when content changes                            |
-| `item` | wrapper type                                | specify wrapper type for ViewList items                               |
+| `item` | wrapper type                                | Specify wrapper type for ViewList items                               |
+| `create` | Type name (e.g., `Contact`)              | Create instance of this type as variable value                        |
+
+**Default ui-value access by element type:**
+- Native inputs (`input`, `textarea`, `select`): `rw`
+- Interactive Shoelace (`sl-input`, `sl-textarea`, `sl-select`, `sl-checkbox`, `sl-radio`, `sl-radio-group`, `sl-radio-button`, `sl-switch`, `sl-range`, `sl-color-picker`, `sl-rating`): `rw`
+- Read-only Shoelace (`sl-progress-bar`, `sl-progress-ring`, `sl-qr-code`, `sl-option`, `sl-copy-button`): `r`
+- Non-interactive elements (`div`, `span`, etc.): `r`
 
 Custom wrappers may define additional properties, but only use them when the design explicitly specifies a wrapper that documents those properties.
 
@@ -373,8 +519,12 @@ Custom wrappers may define additional properties, but only use them when the des
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
 <!-- Hide --> <div ui-class-hidden="isHidden()">Content</div>
 <!-- Alert --> <sl-alert ui-attr-open="err" variant="danger"><span ui-value="msg"></span></sl-alert>
+<!-- Badge --> <sl-badge variant="success"><span ui-value="count"></span></sl-badge>
 <!-- Child --> <div ui-view="selectedItem"></div>
 ```
+
+**Shoelace Tips:**
+- `sl-badge` has no `value` attribute — it displays its child element. Use `<sl-badge><span ui-value="count"></span></sl-badge>`
 
 ## Lists
 

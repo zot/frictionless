@@ -44,6 +44,9 @@ Create `{base_dir}/apps/<app>/TESTING.md` based on requirements.md:
 ```markdown
 # <App Name> Testing Checklist
 
+## Gaps
+(Design/code mismatches from ui_audit - investigate before testing)
+
 ## <Feature Category 1>
 - [ ] Requirement from requirements.md
 - [ ] Another requirement
@@ -52,8 +55,10 @@ Create `{base_dir}/apps/<app>/TESTING.md` based on requirements.md:
 - [ ] More requirements...
 
 ## Known Issues
-(Document bugs found during testing)
+(Bugs found during testing)
 ```
+
+**Section order:** `## Gaps` must be first (from ui-builder audit), then feature categories, then `## Known Issues` last.
 
 **Checkbox conventions:**
 - `[ ]` — untested

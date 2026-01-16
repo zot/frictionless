@@ -16,3 +16,7 @@ node_modules
 /.claude/ui/mcp-port
 /.claude/ui/ui-port
 /install/html/
+/.ui/mcp-port
+/.ui/ui-port
+/.ui/log/
+/.scratch/

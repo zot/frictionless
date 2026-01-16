@@ -15,7 +15,8 @@ Apps = session:prototype("Apps", {
     embeddedValue = EMPTY, -- App global loaded via mcp:app, or nil
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
-    luaInput = ""
+    luaInput = "",
+    chatQuality = 0  -- 0=fast, 1=thorough, 2=background
 })
 
 -- Nested prototype: Chat message model
@@ -73,18 +74,6 @@ local TestItem = Apps.TestItem
 
 function TestItem:new(text, status)
     return session:create(TestItem, { text = text, status = status or "untested" })
-end
-
-function TestItem:isPassed()
-    return self.status == "passed"
-end
-
-function TestItem:isFailed()
-    return self.status == "failed"
-end
-
-function TestItem:isUntested()
-    return self.status == "untested"
 end
 
 function TestItem:icon()
@@ -168,10 +157,6 @@ function AppInfo:statusVariant()
     end
 end
 
-function AppInfo:hasIssues()
-    return #self.knownIssues > 0
-end
-
 function AppInfo:noIssues()
     return #self.knownIssues == 0
 end
@@ -192,16 +177,8 @@ function AppInfo:fixedIssueCount()
     return #self.fixedIssues
 end
 
-function AppInfo:hasFixedIssues()
-    return #self.fixedIssues > 0
-end
-
 function AppInfo:noFixedIssues()
     return #self.fixedIssues == 0
-end
-
-function AppInfo:hasTests()
-    return self.testsTotal > 0
 end
 
 function AppInfo:noTests()
@@ -295,8 +272,12 @@ function AppInfo:isSelf()
     return self.name == "apps"
 end
 
-function AppInfo:canOpenApp()
-    return self:canOpen() and not self:isSelf()
+function AppInfo:isMcp()
+    return self.name == "mcp"
+end
+
+function AppInfo:openButtonDisabled()
+    return self:isSelf() or self:isMcp()
 end
 
 -- Filesystem helpers for Lua-driven app discovery
@@ -411,6 +392,13 @@ function Apps:new(instance)
     instance.messages = instance.messages or {}
     instance.luaOutputLines = instance.luaOutputLines or {}
     return instance
+end
+
+-- Hot-load mutation: initialize new fields on existing instances
+function Apps:mutate()
+    if self.chatQuality == nil then
+        self.chatQuality = 0
+    end
 end
 
 -- Return apps list for binding
@@ -560,65 +548,6 @@ function Apps:rescanApp(name)
     end
 end
 
--- Set entire apps list (deprecated: use scanAppsFromDisk instead)
--- Kept for backwards compatibility if Claude pushes data
-function Apps:setApps(appDataList)
-    self._apps = {}
-    for _, data in ipairs(appDataList) do
-        local app = AppInfo:new(data.name)
-        app.description = data.description or ""
-        app.hasViewdefs = data.hasViewdefs or false
-        app.testsPassing = data.testsPassing or 0
-        app.testsTotal = data.testsTotal or 0
-
-        -- Populate tests with status
-        app.tests = {}
-        if data.tests then
-            for _, t in ipairs(data.tests) do
-                table.insert(app.tests, TestItem:new(t.text, t.status))
-            end
-        end
-
-        -- Populate issues
-        app.knownIssues = {}
-        if data.knownIssues then
-            for _, issue in ipairs(data.knownIssues) do
-                table.insert(app.knownIssues, Issue:new(issue.number, issue.title))
-            end
-        end
-
-        app.fixedIssues = {}
-        if data.fixedIssues then
-            for _, issue in ipairs(data.fixedIssues) do
-                table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
-            end
-        end
-
-        table.insert(self._apps, app)
-    end
-
-    -- Update selected if it was pointing to an app
-    if self.selected then
-        self.selected = self:findApp(self.selected.name)
-    end
-end
-
--- Add a single app (used during create flow)
-function Apps:addApp(name)
-    local app = AppInfo:new(name)
-    table.insert(self._apps, app)
-    return app
-end
-
--- Set build progress for an app (legacy, use onAppProgress)
-function Apps:setBuildProgress(name, progress, stage)
-    local app = self:findApp(name)
-    if app then
-        app.buildProgress = progress
-        app.buildStage = stage
-    end
-end
-
 -- Handle app progress event from Claude
 function Apps:onAppProgress(name, progress, stage)
     local app = self:findApp(name)
@@ -707,6 +636,23 @@ function Apps:createApp()
     self.newAppDesc = ""
 end
 
+-- Quality setting methods
+function Apps:qualityLabel()
+    local labels = {"Fast", "Thorough", "Background"}
+    return labels[self.chatQuality + 1]
+end
+
+function Apps:qualityValue()
+    local values = {"fast", "thorough", "background"}
+    return values[self.chatQuality + 1]
+end
+
+-- Set quality from slider (captures sl-input events)
+function Apps:setChatQuality()
+   print("QUALITY: "..tostring(self.chatQuality))
+    -- self.chatQuality = tonumber(value) or 0
+end
+
 -- Send chat message
 function Apps:sendChat()
     if self.chatInput == "" then return end
@@ -714,9 +660,9 @@ function Apps:sendChat()
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
     if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name })
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue() })
     else
-        mcp.pushState({ app = "apps", event = "chat", text = self.chatInput })
+        mcp.pushState({ app = "apps", event = "chat", text = self.chatInput, quality = self:qualityValue() })
     end
 
     self.chatInput = ""
@@ -807,14 +753,6 @@ end
 
 function Apps:showLuaPanel()
     self.panelMode = "lua"
-end
-
-function Apps:isChatPanel()
-    return self.panelMode == "chat"
-end
-
-function Apps:isLuaPanel()
-    return self.panelMode == "lua"
 end
 
 function Apps:notChatPanel()

@@ -11,41 +11,44 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 ## Critical Rules (MUST follow)
 
-1. **FIRST: Send progress update** — Before any other action:
+1. **FIRST: Define helpers and send progress update** — Before any other action:
    ```bash
-   curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" \
-     -d '{"code": "mcp:appProgress(\"APP_NAME\", 10, \"starting\")"}'
+   PORT=37067  # Use the port from your prompt
+   ui_run() { curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" -d "{\"code\": \"$1\"}"; }
+   ui_run 'mcp:appProgress("APP_NAME", 10, "starting")'
    ```
 2. **Use Edit tool for viewdefs** — Hot-load handles updates automatically.
 3. **Send completion update** — After edits are done:
    ```bash
-   curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" \
-     -d '{"code": "mcp:appProgress(\"APP_NAME\", 100, \"complete\"); mcp:appUpdated(\"APP_NAME\")"}'
+   ui_run 'mcp:appProgress("APP_NAME", 100, "complete"); mcp:appUpdated("APP_NAME")'
    ```
 
 ## HTTP Tool API
 
 When spawned as a background agent, you don't have MCP tool access. Use curl instead.
 
-**The MCP port will be provided in your prompt** (e.g., "MCP port is 37067"). Use it directly:
+**The MCP port will be provided in your prompt** (e.g., "MCP port is 37067"). Define these helpers first:
+
+```bash
+PORT=37067  # Use the port from your prompt
+ui_run() { curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" -d "{\"code\": \"$1\"}"; }
+ui_display() { curl -s -X POST http://127.0.0.1:$PORT/api/ui_display -H "Content-Type: application/json" -d "{\"name\": \"$1\"}"; }
+ui_status() { curl -s http://127.0.0.1:$PORT/api/ui_status; }
+```
 
 ### Get Server Status
 ```bash
-curl -s http://127.0.0.1:$PORT/api/ui_status
+ui_status
 ```
 
 ### Execute Lua Code
 ```bash
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_run \
-  -H "Content-Type: application/json" \
-  -d '{"code": "return myApp:getData()"}'
+ui_run 'return myApp:getData()'
 ```
 
 ### Display an App
 ```bash
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_display \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-app"}'
+ui_display my-app
 ```
 
 ### Viewdefs
@@ -56,23 +59,24 @@ Report build progress so the dashboard shows status. **Signature: `mcp:appProgre
 
 ```bash
 # Progress: 0-100, stage is a short description
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_run \
-  -H "Content-Type: application/json" \
-  -d '{"code": "mcp:appProgress(\"my-app\", 40, \"writing code\")"}'
+ui_run 'mcp:appProgress("my-app", 40, "writing code")'
 
 # When done, trigger dashboard rescan:
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_run \
-  -H "Content-Type: application/json" \
-  -d '{"code": "mcp:appProgress(\"my-app\", 100, \"complete\"); mcp:appUpdated(\"my-app\")"}'
+ui_run 'mcp:appProgress("my-app", 100, "complete"); mcp:appUpdated("my-app")'
 ```
 
 ### Example Workflow
 ```bash
-# PORT is provided in your prompt, e.g., "MCP port is 37067"
+# Define helpers with the port from your prompt
 PORT=37067
-curl -s http://127.0.0.1:$PORT/api/ui_status
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_display -H "Content-Type: application/json" -d '{"name": "contacts"}'
-curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" -d '{"code": "return contacts:addContact(\"Alice\", \"alice@example.com\")"}'
+ui_run() { curl -s -X POST http://127.0.0.1:$PORT/api/ui_run -H "Content-Type: application/json" -d "{\"code\": \"$1\"}"; }
+ui_display() { curl -s -X POST http://127.0.0.1:$PORT/api/ui_display -H "Content-Type: application/json" -d "{\"name\": \"$1\"}"; }
+ui_status() { curl -s http://127.0.0.1:$PORT/api/ui_status; }
+
+# Then use them
+ui_status
+ui_display contacts
+ui_run 'return contacts:addContact("Alice", "alice@example.com")'
 ```
 
 ## Instructions

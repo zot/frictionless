@@ -63,6 +63,13 @@ func (s *Server) registerTools() {
 		mcp.WithString("name", mcp.Required(), mcp.Description("App name (e.g., 'claude-panel')")),
 		mcp.WithString("sessionId", mcp.Description("Session ID (defaults to current session)")),
 	), s.handleDisplay)
+
+	// ui_audit
+	// Spec: specs/ui-audit.md
+	s.mcpServer.AddTool(mcp.NewTool("ui_audit",
+		mcp.WithDescription("Analyze an app for code quality violations (dead methods, viewdef issues)"),
+		mcp.WithString("name", mcp.Required(), mcp.Description("App name to audit")),
+	), s.handleAudit)
 }
 
 // Spec: mcp.md section 5.1
@@ -906,6 +913,41 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 
+// handleAudit analyzes an app for code quality violations.
+// CRC: crc-Auditor.md
+// Seq: seq-audit.md
+func (s *Server) handleAudit(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.mu.RLock()
+	baseDir := s.baseDir
+	s.mu.RUnlock()
+
+	if baseDir == "" {
+		return mcp.NewToolResultError("server not configured - call ui_configure first"), nil
+	}
+
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if !ok {
+		return mcp.NewToolResultError("arguments must be a map"), nil
+	}
+
+	name, ok := args["name"].(string)
+	if !ok || name == "" {
+		return mcp.NewToolResultError("name must be a non-empty string"), nil
+	}
+
+	result, err := AuditApp(baseDir, name)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("audit failed: %v", err)), nil
+	}
+
+	jsonResult, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to marshal result: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(string(jsonResult)), nil
+}
+
 // HTTP Tool API handlers (Spec 2.5)
 // These wrap the MCP tool handlers for HTTP access by spawned agents.
 
@@ -1053,5 +1095,20 @@ func (s *Server) handleAPIOpenBrowser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.callMCPHandler(s.handleOpenBrowser, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPIAudit handles POST /api/ui_audit
+func (s *Server) handleAPIAudit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleAudit, args)
 	apiResponse(w, result, err)
 }
