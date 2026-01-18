@@ -13,6 +13,7 @@ The outer shell for all ui-mcp apps. Displays the current app and provides navig
 The shell is minimal chrome around the current app:
 - Full viewport display of `mcp.value` (the current app)
 - A 9-dot menu button in the top-right corner for app switching
+- A status bar at the bottom showing `mcp.statusLine` in `mcp.statusColor`
 - A hidden element with `ui-code="code"` for JavaScript execution
 
 ## App Switcher Menu
@@ -47,8 +48,17 @@ A hidden element binds to `mcp.code` via `ui-code`:
 
 This app does not send events to Claude. App switching is handled entirely in Lua via `mcp:display()`.
 
+## Status Bar
+
+A status bar at the bottom of the viewport:
+- Always visible
+- Displays `mcp.statusLine` text with `mcp.statusClass` CSS class
+- The `.thinking` class styles text as orange bold-italic
+- Maintains consistent height even when empty
+
 ## Styling
 
 - No padding or margins around the app content
 - The menu button should have subtle styling (semi-transparent, hover effect)
 - Menu button should not interfere with app content interaction
+- Status bar has subtle styling (light background, border-top)

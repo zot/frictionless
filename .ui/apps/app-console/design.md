@@ -209,8 +209,8 @@ Legend:
 | cancelNewForm() | Hide new app form |
 | createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
 | sendChat() | Send chat event with selected app context |
-| addAgentMessage(text) | Add agent message to chat (called by Claude) |
-| addAgentThinking(text) | Add thinking/progress message - styled differently (called by Claude) |
+| addAgentMessage(text) | Add agent message to chat + clear mcp.statusLine (called by Claude) |
+| addAgentThinking(text) | Add thinking message to chat + update mcp.statusLine (called by Claude) |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
@@ -335,12 +335,18 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 
 Respond to user message about app in `context`. Reply via `appConsole:addAgentMessage(text)`.
 
-**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These appear styled differently (italic, muted) so the user knows Claude is working. Use for:
+**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
+- Appear in chat log styled differently (italic, muted)
+- Update `mcp.statusLine` and set `mcp.statusClass = "thinking"` (orange bold-italic in MCP status bar)
+
+**Before sending a thinking message:** Check for new events first. If there's an event, handle it immediately and save the thinking message as a todo to send after. This prevents missing user events while sending status updates.
+
+Use for:
 - "Let me look at the code..."
 - "Found the issue, fixing it now..."
 - "Reading the design spec..."
 
-Then send the final response via `appConsole:addAgentMessage(text)`.
+Then send the final response via `appConsole:addAgentMessage(text)` (which clears `mcp.statusLine`).
 
 **If the chat involves modifying an app:** Check the `quality` field:
 

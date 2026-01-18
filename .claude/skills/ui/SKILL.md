@@ -13,7 +13,9 @@ Always get `base_dir` and `url` from `ui_status` first. All paths below use `{ba
 
 ## Simple Requests
 
-When the user says `show APP` as in Quick Start.
+When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright if connected.
+
+When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
 
 When the user says `events` it means simply to start the event loop, but not use `ui_display` or `ui_open_browser` as in Quick Start
 
@@ -27,8 +29,15 @@ To display an app (e.g., `claude-panel`):
    - Event types and how to respond
 
 2. Display and open:
-   - ui_display("app-name")
-   - ui_open_browser (or navigate to {url}/?conserve=true with Playwright)
+   - use ui_run to see if `mcp.value.type == AppName` (PascalCase version of app-name)
+     - if it's not already in mcp.value, use ui_display("app-name")
+   - If Playwright is connected:
+     - use browser_evaluate with `function: "() => window.location.href"` to get current URL
+     - if URL does NOT start with {url}/, then browser_navigate to {url}/?conserve=true
+     - do not wait for playwright page to display
+     - do not check the current state or take a snapshot
+   - Otherwise, call ui_open_browser()
+   - ui_status() to verify sessions > 0 (confirms browser connected)
 
 3. IMMEDIATELY start the event loop:
    {base_dir}/event
@@ -76,6 +85,8 @@ end
 The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
 
 **URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. The server binds the root URL to the MCP session automatically via a cookie - no session ID needed in the URL.
+
+**Verifying connection:** After navigating with Playwright, call `ui_status()` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 
 If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
 

@@ -11,12 +11,32 @@
       left: 0;
       right: 0;
       bottom: 0;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
     }
     .mcp-app-container {
+      flex: 1;
+      min-height: 0;
       width: 100%;
-      height: 100%;
       overflow: auto;
+    }
+    .mcp-status-bar {
+      flex-shrink: 0;
+      line-height: 1.4;
+      padding: 4px 12px;
+      background: var(--sl-color-neutral-100);
+      border-top: 1px solid var(--sl-color-neutral-200);
+      font-family: var(--sl-font-sans);
+      font-size: var(--sl-font-size-small);
+    }
+    .mcp-status-bar::after {
+      content: '\00a0';  /* non-breaking space to maintain height when empty */
+    }
+    .mcp-status-bar .thinking {
+      color: #E07A47;
+      font-weight: bold;
+      font-style: italic;
     }
     .mcp-menu-container {
       position: fixed;
@@ -87,6 +107,11 @@
   <div class="mcp-shell">
     <!-- Current app content -->
     <div class="mcp-app-container" ui-view="value"></div>
+
+    <!-- Status bar -->
+    <div class="mcp-status-bar">
+      <span ui-attr-class="statusClass" ui-value="statusLine"></span>
+    </div>
 
     <!-- App switcher menu button (9-dot grid) - floats above all content -->
     <div class="mcp-menu-container">

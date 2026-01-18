@@ -15,8 +15,14 @@ Outer shell for all ui-mcp apps. Displays the current app full-viewport and prov
 |                                                  |
 |                                                  |
 +--------------------------------------------------+
+| Status: mcp.statusLine (with mcp.statusClass)    | <- status bar (always visible)
++--------------------------------------------------+
 [hidden: ui-code element]
 ```
+
+### Status Bar
+
+Fixed at the bottom of the viewport, always visible. Displays `mcp.statusLine` text with `mcp.statusClass` CSS class applied. The `.thinking` class styles text as orange bold-italic.
 
 ### Processing Indicator
 
@@ -52,6 +58,8 @@ The global `mcp` object is provided by the server. This app adds:
 | code | string | JavaScript to execute via ui-code |
 | _availableApps | string[] | List of discovered app names |
 | menuOpen | boolean | Whether app menu is visible |
+| statusLine | string | Status text to display (server-provided) |
+| statusClass | string | CSS class for status bar styling (e.g., "thinking") |
 
 ## Methods
 
@@ -67,19 +75,19 @@ The global `mcp` object is provided by the server. This app adds:
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 
-### AppMenuItem (wrapper for app name string)
+### MCP.AppMenuItem (wrapper for app name string)
 
 | Method | Description |
 |--------|-------------|
 | name() | Returns the app name |
-| select() | Calls mcp:selectApp(self.name) |
+| select() | Calls mcp:selectApp(self._name) |
 
 ## ViewDefs
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, menu button, menu dropdown |
-| AppMenuItem.list-item.html | AppMenuItem | Menu item row |
+| MCP.DEFAULT.html | MCP | Shell with app view, menu button, menu dropdown, status bar |
+| MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Menu item row |
 
 ## Events
 

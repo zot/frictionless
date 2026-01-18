@@ -95,6 +95,17 @@ A 3-position slider next to the Send button controls how modification requests a
 
 Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
 
+## Lua Console
+
+The bottom panel has Chat/Lua tabs. The Lua tab provides a REPL for executing Lua code:
+- Output area shows command history and results
+- Input textarea for multi-line Lua code
+- Run button (or Ctrl+Enter) executes the code
+- Clear button clears output history
+- Clicking an output line copies it to the input area
+
+Useful for debugging, inspecting app state, and testing Lua expressions.
+
 ## Build Progress
 
 When Claude is building an app, Lua tracks progress state:
@@ -111,6 +122,14 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 
 ### `chat`
 User message with selected app as context. Respond conversationally.
+
+**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
+- Appear in chat log styled differently (italic, muted)
+- Update `mcp.statusLine` and set `mcp.statusClass = "thinking"` (orange bold-italic in MCP shell status bar)
+
+Before sending a thinking message, check for new events first. If there's an event, handle it immediately and save the thinking message as a todo.
+
+Use `appConsole:addAgentMessage(text)` for the final response (clears status bar).
 
 **If the chat involves modifying an app:** Check the `quality` field:
 - `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`

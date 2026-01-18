@@ -8,7 +8,7 @@
     .apps-dashboard {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
       font-family: var(--sl-font-sans);
     }
@@ -350,12 +350,6 @@
       font-size: var(--sl-font-size-small);
       padding: 0 var(--sl-spacing-small);
     }
-    .thinking-status {
-      font-size: var(--sl-font-size-small);
-      font-style: italic;
-      color: #E07A47;
-      margin-left: var(--sl-spacing-medium);
-    }
     /* Lua console styles */
     .lua-panel {
       display: flex;
@@ -558,7 +552,6 @@
           <div class="panel-tabs">
             <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
             <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
-            <span class="thinking-status" ui-value="thinkingStatus"></span>
           </div>
         </div>
 

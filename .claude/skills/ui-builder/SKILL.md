@@ -65,7 +65,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 **Important:** do not display the app after building it unless the user specifically requests it.
 
-## Workflow
+## Workflow (show todos for the flow)
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 

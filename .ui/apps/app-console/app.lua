@@ -16,8 +16,7 @@ AppConsole = session:prototype("AppConsole", {
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
     luaInput = "",
-    chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
-    thinkingStatus = ""   -- Status shown in tab bar while Claude is working
+    chatQuality = 0  -- 0=fast, 1=thorough, 2=background
 })
 
 -- Nested prototype: Chat message model
@@ -434,7 +433,7 @@ end
 
 -- Main app methods
 function AppConsole:new(instance)
-    instance = session:create(Apps, instance)
+    instance = session:create(AppConsole, instance)
     instance._apps = instance._apps or {}
     instance.messages = instance.messages or {}
     instance.luaOutputLines = instance.luaOutputLines or {}
@@ -724,19 +723,16 @@ end
 -- Add agent message (called by Claude)
 function AppConsole:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
-    self.thinkingStatus = ""  -- Clear status when sending a real message
+    mcp.statusLine = ""  -- Clear status bar when sending a real message
+    mcp.statusClass = ""
 end
 
 -- Add thinking/progress message (called by Claude while working)
--- text: appears in chat log, status: appears in tab bar (optional, defaults to text)
-function AppConsole:addAgentThinking(text, status)
+-- text: appears in chat log, status: appears in MCP status bar (orange bold-italic)
+function AppConsole:addAgentThinking(text)
     table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
-    self.thinkingStatus = status or text
-end
-
--- Check if there's an active thinking status
-function AppConsole:hasThinkingStatus()
-    return self.thinkingStatus ~= ""
+    mcp.statusLine = text
+    mcp.statusClass = "thinking"
 end
 
 -- Check if detail panel should show
