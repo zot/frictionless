@@ -1,4 +1,4 @@
-# Design: ui-mcp
+# Design: frictionless
 
 **Source Spec:** specs/mcp.md
 

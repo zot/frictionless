@@ -1,6 +1,6 @@
 ---
 name: ui
-description: use when **running ui-mcp UIs** or needing to understand UI structure (before modifying one)
+description: use when **running Frictionless UIs** or needing to understand UI structure (before modifying one)
 ---
 
 # UI MCP

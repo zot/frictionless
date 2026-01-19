@@ -1,4 +1,4 @@
-module github.com/zot/ui-mcp
+module github.com/zot/frictionless
 
 go 1.25.3
 

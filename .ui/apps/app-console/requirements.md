@@ -1,6 +1,6 @@
 # App Console
 
-Dashboard for discovering, launching, and tracking quality of ui-mcp apps. Acts as a command center for UI development with Claude.
+Dashboard for discovering, launching, and tracking quality of frictionless apps. Acts as a command center for UI development with Claude.
 
 ## Architecture
 

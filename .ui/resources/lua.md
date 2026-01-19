@@ -11,7 +11,7 @@ Use `session:prototype()` to define classes that support hot-loading.
 The `session:prototype(name, init)` function accepts arbitrary prototype names and does not consult global variables. The `name` becomes the prototype's `type` field, which is used for viewdef resolution (e.g., `MyForm` → `MyForm.DEFAULT.html`). Each app creates two globals with minimal namespace pollution:
 
 - **Name** (PascalCase) — The app prototype, which also serves as a namespace for related prototypes
-- **name** (camelCase) — The instance that ui-mcp uses to display the app
+- **name** (camelCase) — The instance that frictionless uses to display the app
 
 | App Directory | Prototype/Namespace | Instance Variable |
 |---------------|---------------------|-------------------|

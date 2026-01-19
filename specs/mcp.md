@@ -9,11 +9,11 @@ The Makefile provides a `release` target that builds binaries for all supported 
 
 | Platform       | Architecture | Output File                          |
 |----------------|--------------|--------------------------------------|
-| Linux          | amd64        | `release/ui-mcp-linux-amd64`         |
-| Linux          | arm64        | `release/ui-mcp-linux-arm64`         |
-| macOS          | amd64        | `release/ui-mcp-darwin-amd64`        |
-| macOS          | arm64        | `release/ui-mcp-darwin-arm64`        |
-| Windows        | amd64        | `release/ui-mcp-windows-amd64.exe`   |
+| Linux          | amd64        | `release/frictionless-linux-amd64`         |
+| Linux          | arm64        | `release/frictionless-linux-arm64`         |
+| macOS          | amd64        | `release/frictionless-darwin-amd64`        |
+| macOS          | arm64        | `release/frictionless-darwin-arm64`        |
+| Windows        | amd64        | `release/frictionless-windows-amd64.exe`   |
 
 All binaries are built with `CGO_ENABLED=0` for static linking and include bundled assets.
 
@@ -24,7 +24,7 @@ All binaries are built with `CGO_ENABLED=0` for static linking and include bundl
 **CLI Version (`--version` flag or `version` subcommand):**
 - Reports the version injected at build time via ldflags (`-X main.Version=$(VERSION)`)
 - Falls back to "dev" if not set
-- Format: `ui-mcp vX.Y.Z` (e.g., `ui-mcp v0.4.0`)
+- Format: `frictionless vX.Y.Z` (e.g., `frictionless v0.4.0`)
 
 **MCP Version (`ui_status` tool):**
 - Returns version from bundled `README.md` (see Section 5.5)
@@ -43,8 +43,8 @@ The MCP server supports two transport modes:
 
 | Mode      | Command        | MCP Transport                  | Use Case                           |
 |-----------|----------------|--------------------------------|------------------------------------|
-| **Stdio** | `ui-mcp mcp`   | JSON-RPC 2.0 over stdin/stdout | AI agent integration (Claude Code) |
-| **SSE**   | `ui-mcp serve` | Server-Sent Events over HTTP   | Standalone development/debugging   |
+| **Stdio** | `frictionless mcp`   | JSON-RPC 2.0 over stdin/stdout | AI agent integration (Claude Code) |
+| **SSE**   | `frictionless serve` | Server-Sent Events over HTTP   | Standalone development/debugging   |
 
 Both modes start an HTTP server with debug and API endpoints.
 
@@ -52,7 +52,7 @@ Both modes start an HTTP server with debug and API endpoints.
 
 - **MCP Protocol:** JSON-RPC 2.0 over Standard Input (stdin) and Standard Output (stdout).
 - **Encoding:** UTF-8.
-- **Activation:** `ui-mcp mcp --dir <base_dir>` (default: `{project}/.ui`)
+- **Activation:** `frictionless mcp --dir <base_dir>` (default: `{project}/.ui`)
 
 **Output Hygiene:**
 - **STDOUT:** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
@@ -67,7 +67,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 ### 2.3 SSE Mode (`serve` command)
 
 - **MCP Protocol:** JSON-RPC 2.0 over Server-Sent Events (HTTP).
-- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>` (default: `{project}/.ui`)
+- **Activation:** `frictionless serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>` (default: `{project}/.ui`)
 - **Two-Port Design:**
   - UI Server port (default 8000): Serves HTML/JS and WebSocket connections
   - MCP Server port (default 8001): SSE transport plus debug endpoints
@@ -83,7 +83,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 
 Manually install bundled skills and resources without starting the MCP server.
 
-- **Activation:** `ui-mcp install [--dir <base_dir>] [--force]`
+- **Activation:** `frictionless install [--dir <base_dir>] [--force]`
 - **Default base_dir:** `{project}/.ui`
 - **Behavior:** Same as `ui_install` MCP tool (see Section 5.7):
   - Installs Claude skills to `{project}/.claude/skills/`
@@ -187,7 +187,7 @@ Calling `ui_configure` while running triggers a full reconfigure:
 
 **Problem:** ui-engine's default behavior creates a new session when a browser navigates to `/`. This is incorrect for MCP mode where a session with the `mcp` global already exists.
 
-**Solution:** ui-mcp registers a root session provider that returns the current MCP session ID:
+**Solution:** frictionless registers a root session provider that returns the current MCP session ID:
 
 *   **Trigger:** Browser navigates to `http://127.0.0.1:PORT/`
 *   **Behavior:** Server sets a `ui-session` cookie with the current session ID and serves index.html (no redirect)
@@ -199,7 +199,7 @@ Calling `ui_configure` while running triggers a full reconfigure:
 - Allows URL to stay clean (`/`) while maintaining correct session binding
 
 **Implementation Notes:**
-- ui-mcp calls `SetRootSessionProvider` on the ui-engine server with a callback that returns the current session's internal ID
+- frictionless calls `SetRootSessionProvider` on the ui-engine server with a callback that returns the current session's internal ID
 - The cookie is set with `HttpOnly: false` (JS needs to read it), `SameSite: Lax`, `Path: /`
 - If no session exists (server not started), falls back to ui-engine's default behavior (create new session and redirect)
 
@@ -241,7 +241,7 @@ The `session:prototype(name, init)` function accepts arbitrary prototype names a
 
 Each app creates two globals:
 - **Name** (PascalCase) — The app prototype, which also serves as a namespace for related prototypes
-- **name** (camelCase) — The instance that ui-mcp uses to display the app
+- **name** (camelCase) — The instance that frictionless uses to display the app
 
 | App Directory | Prototype/Namespace | Instance Variable |
 |---------------|---------------------|-------------------|
@@ -631,7 +631,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 ```
 
 ### 5.5 `ui_install`
-**Purpose:** Installs bundled configuration files to enable full ui-mcp integration.
+**Purpose:** Installs bundled configuration files to enable full frictionless integration.
 
 **Parameters:**
 - `force` (boolean, optional): If true, overwrites existing files regardless of version. Defaults to `false`.
@@ -640,7 +640,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 
 The README.md contains a semantic version near the top:
 ```markdown
-# ui-mcp
+# frictionless
 
 **Version: 0.1.0**
 ```

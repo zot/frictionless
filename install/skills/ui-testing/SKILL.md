@@ -1,11 +1,11 @@
 ---
 name: ui-testing
-description: use when **testing ui-mcp apps** in Playwright against requirements
+description: use when **testing frictionless apps** in Playwright against requirements
 ---
 
 # UI Testing Skill
 
-Test ui-mcp apps in Playwright browser against their requirements.md.
+Test frictionless apps in Playwright browser against their requirements.md.
 
 **Goal:** Test and record results only. Do NOT fix bugs during testing — document them in TESTING.md for later resolution.
 

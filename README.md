@@ -1,4 +1,4 @@
-# ui-mcp
+# frictionless
 
 **Version: 0.6.0**
 
@@ -24,7 +24,7 @@ Claude writes your app logic and skips everything else. See [Architecture](doc/O
 
 ## Usage
 
-Once installed, Claude Code automatically starts ui-mcp when needed. The server uses `.ui` as the default working directory.
+Once installed, Claude Code automatically starts frictionless when needed. The server uses `.ui` as the default working directory.
 
 ### Building UIs
 
@@ -42,11 +42,11 @@ Or display an existing app:
 
 ### Standalone Mode
 
-Run ui-mcp independently for development or testing:
+Run frictionless independently for development or testing:
 
 ```bash
-ui-mcp serve --port 8000
-ui-mcp serve --port 8000 --dir /path/to/ui-dir
+frictionless serve --port 8000
+frictionless serve --port 8000 --dir /path/to/ui-dir
 ```
 
 The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.ui`.
@@ -56,11 +56,11 @@ The `--dir` option specifies the working directory for Lua scripts, viewdefs, an
 Create custom binaries with your site embedded:
 
 ```bash
-ui-mcp bundle site/ -o my-ui-dir   # Create bundled binary
-ui-mcp ls                          # List bundled files
-ui-mcp cat index.html              # Show file contents
-ui-mcp cp '*.lua' scripts/         # Copy matching files
-ui-mcp extract output/             # Extract all bundled files to current directory
+frictionless bundle site/ -o my-ui-dir   # Create bundled binary
+frictionless ls                          # List bundled files
+frictionless cat index.html              # Show file contents
+frictionless cp '*.lua' scripts/         # Copy matching files
+frictionless extract output/             # Extract all bundled files to current directory
 ```
 
 ## Documentation (in .ui by default)
@@ -75,7 +75,7 @@ ui-mcp extract output/             # Extract all bundled files to current direct
 Paste this into Claude Code to install:
 
 ```
-Install using github zot/ui-mcp readme
+Install using github zot/frictionless readme
 ```
 
 To install manually:
@@ -83,14 +83,14 @@ To install manually:
 ```bash
 # Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
 mkdir -p {home}/.claude/bin
-curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd64 -o {home}/.claude/bin/ui-mcp
-chmod +x {home}/.claude/bin/ui-mcp
+curl -L https://github.com/zot/frictionless/releases/latest/download/frictionless-linux-amd64 -o {home}/.claude/bin/frictionless
+chmod +x {home}/.claude/bin/frictionless
 
 # Add to Claude Code
-claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
+claude mcp add frictionless -- {home}/.claude/bin/frictionless} mcp
 
 # Initialize the project
-{home}/.claude/bin/ui-mcp} install
+{home}/.claude/bin/frictionless} install
 ```
 
 ## Future Directions

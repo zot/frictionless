@@ -1,7 +1,7 @@
 # Apps Dashboard - Planning
 
 ## Purpose
-Dashboard for discovering, launching, and tracking quality of ui-mcp apps.
+Dashboard for discovering, launching, and tracking quality of frictionless apps.
 
 ## User Stories
 

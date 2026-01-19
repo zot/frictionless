@@ -1,7 +1,7 @@
 # Project Instructions
 
-Use the `/ui` skill to run ui-mcp UIs.
-Use the `/ui-builder` skill whenever you need to explore, change, or audit specs, design, or code for **ui-mcp UIs**.
+Use the `/ui` skill to run frictionless UIs.
+Use the `/ui-builder` skill whenever you need to explore, change, or audit specs, design, or code for **frictionless UIs**.
 ### mini-spec
 Whenever you need to explore specs, design, or code, use `design/design.md` with mini-spec.
 Use mini-spec and it's phased approach when creating or altering specs, design, or code.
@@ -11,13 +11,13 @@ Use mini-spec and it's phased approach when creating or altering specs, design, 
 Always use `make build` before testing features that depend on bundled files (install, skills, agents, resources). The unbundled binary (`go build`) won't find these files.
 
 ```bash
-make build                    # Creates build/ui-mcp with bundled files
-./build/ui-mcp install        # Test install command
-./build/ui-mcp mcp -vvvv      # Run MCP server
+make build                    # Creates build/frictionless with bundled files
+./build/frictionless install        # Test install command
+./build/frictionless mcp -vvvv      # Run MCP server
 ```
 
 ### Running the demo
-From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .ui -vvvv`
+From the project directory, this command runs the mcp `./build/frictionless mcp --port 8000 --dir .ui -vvvv`
 You can use the playwright browser to connect to it.
 
 ## When committing

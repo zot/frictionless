@@ -1,6 +1,6 @@
 # ViewList - Internal Component
 
-ViewLists are **internal to ui-mcp** - there is no Lua code for them. The ViewList and ViewListItem types are implemented in the ui-engine backend and provide automatic list rendering.
+ViewLists are **internal to frictionless** - there is no Lua code for them. The ViewList and ViewListItem types are implemented in the ui-engine backend and provide automatic list rendering.
 
 ## How ViewLists Work
 

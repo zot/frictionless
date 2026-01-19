@@ -2,7 +2,7 @@
 
 ## Intent
 
-Outer shell for all ui-mcp apps. Displays the current app full-viewport and provides a floating app switcher menu in the top-right corner.
+Outer shell for all frictionless apps. Displays the current app full-viewport and provides a floating app switcher menu in the top-right corner.
 
 ## Layout
 

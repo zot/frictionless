@@ -1,11 +1,11 @@
 # ui_audit Tool Specification
 
 **Language:** Go
-**Environment:** ui-mcp MCP server
+**Environment:** frictionless MCP server
 
 ## Purpose
 
-Provide an automated code quality checker that agents can use to audit ui-mcp apps for common violations. Background agents access it via HTTP API (curl), foreground agents via MCP tool.
+Provide an automated code quality checker that agents can use to audit frictionless apps for common violations. Background agents access it via HTTP API (curl), foreground agents via MCP tool.
 
 ## Motivation
 

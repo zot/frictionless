@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zot/frictionless/internal/mcp"
 	"github.com/zot/ui-engine/cli"
-	"github.com/zot/ui-mcp/internal/mcp"
 )
 
 // Version is set at build time via ldflags
@@ -50,13 +50,13 @@ Commands:
   install         Install skills and resources (without starting server)
 
 Examples:
-  ui-mcp mcp                                        Start MCP server (default: --dir .ui)
-  ui-mcp serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
-  ui-mcp install                                    Install skills and resources
-  ui-mcp install --force                            Force reinstall even if up to date`
+  frictionless mcp                                        Start MCP server (default: --dir .ui)
+  frictionless serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
+  frictionless install                                    Install skills and resources
+  frictionless install --force                            Force reinstall even if up to date`
 		},
 		CustomVersion: func() string {
-			return "ui-mcp " + Version
+			return "frictionless " + Version
 		},
 	}
 

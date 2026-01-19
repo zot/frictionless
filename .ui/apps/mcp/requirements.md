@@ -1,6 +1,6 @@
 # MCP
 
-The outer shell for all ui-mcp apps. Displays the current app and provides navigation between apps.
+The outer shell for all frictionless apps. Displays the current app and provides navigation between apps.
 
 ## Architecture
 

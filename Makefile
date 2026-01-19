@@ -2,7 +2,7 @@
 # Spec: mcp.md
 
 # Build configuration
-BINARY_NAME := ui-mcp
+BINARY_NAME := frictionless
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
@@ -28,7 +28,7 @@ all: deps cache build
 build:
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ui-mcp
+	CGO_ENABLED=0 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -o $(BUILD_DIR)/$(BINARY_NAME).bundled install
 	@mv $(BUILD_DIR)/$(BINARY_NAME).bundled $(BUILD_DIR)/$(BINARY_NAME)
 
@@ -49,15 +49,15 @@ $(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'html/*' $(CACHE_DIR)/html/
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'viewdefs/*' $(CACHE_DIR)/viewdefs/ 2>/dev/null || true
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'lua/*' $(CACHE_DIR)/lua/ 2>/dev/null || true
-	@# Copy ui-mcp specific viewdefs (e.g., Prompt.DEFAULT.html)
+	@# Copy frictionless specific viewdefs (e.g., Prompt.DEFAULT.html)
 	@if [ -d "web/viewdefs" ]; then \
 		cp -r web/viewdefs/* $(CACHE_DIR)/viewdefs/ 2>/dev/null || true; \
-		echo "Copied ui-mcp viewdefs"; \
+		echo "Copied frictionless viewdefs"; \
 	fi
-	@# Copy ui-mcp specific lua files
+	@# Copy frictionless specific lua files
 	@if [ -d "web/lua" ]; then \
 		cp -r web/lua/* $(CACHE_DIR)/lua/ 2>/dev/null || true; \
-		echo "Copied ui-mcp lua files"; \
+		echo "Copied frictionless lua files"; \
 	fi
 	@# Copy agents for bundling
 	@if [ -d "agents" ]; then \
@@ -134,27 +134,27 @@ release: build
 	@mkdir -p $(RELEASE_DIR)
 	@# Linux AMD64
 	@echo "  Building linux/amd64..."
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/ui-mcp
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64 -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64.bundled install
 	@mv $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-linux-amd64
 	@# Linux ARM64
 	@echo "  Building linux/arm64..."
-	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/ui-mcp
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64 -o $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64.bundled install
 	@mv $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-linux-arm64
 	@# macOS AMD64
 	@echo "  Building darwin/amd64..."
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/ui-mcp
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64 -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64.bundled install
 	@mv $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-darwin-amd64
 	@# macOS ARM64 (Apple Silicon)
 	@echo "  Building darwin/arm64..."
-	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/ui-mcp
+	@CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64 -o $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64.bundled install
 	@mv $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64.bundled $(RELEASE_DIR)/$(BINARY_NAME)-darwin-arm64
 	@# Windows AMD64
 	@echo "  Building windows/amd64..."
-	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/ui-mcp
+	@CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO) build $(GOFLAGS) $(LDFLAGS) -o $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/frictionless
 	@$(BUILD_DIR)/$(BINARY_NAME) bundle -src $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe -o $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.bundled.exe install
 	@mv $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.bundled.exe $(RELEASE_DIR)/$(BINARY_NAME)-windows-amd64.exe
 	@echo "Release binaries in $(RELEASE_DIR)/"
@@ -183,7 +183,7 @@ run: build
 # Install to GOPATH/bin
 install:
 	@echo "Installing $(BINARY_NAME)..."
-	CGO_ENABLED=0 $(GO) install $(GOFLAGS) $(LDFLAGS) ./cmd/ui-mcp
+	CGO_ENABLED=0 $(GO) install $(GOFLAGS) $(LDFLAGS) ./cmd/frictionless
 
 # Check build requirements
 check:

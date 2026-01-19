@@ -2,7 +2,7 @@
 
 **Source Spec:** specs/ui-audit.md
 
-Analyzes ui-mcp apps for code quality violations.
+Analyzes frictionless apps for code quality violations.
 
 ## Knows
 
