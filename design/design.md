@@ -39,10 +39,10 @@ Support multiple MCP transport modes:
 - **Stdio** (`mcp` command): JSON-RPC 2.0 over stdin/stdout
 - **SSE** (`serve` command): Server-Sent Events over HTTP
 - **Install** (`install` command): Manual installation without MCP server
-- **Default base_dir:** `{project}/.claude/ui` for all commands
+- **Default base_dir:** `{project}/.ui` for all commands
 
 ### Startup Behavior
-- Server uses `--dir` (defaults to `.claude/ui`)
+- Server uses `--dir` (defaults to `.ui`)
 - Auto-install if `{base_dir}` or `{base_dir}/README.md` missing:
   - Claude skills (`/ui`, `/ui-builder`) to `{project}/.claude/skills/`
   - Claude agents to `{project}/.claude/agents/`
@@ -102,7 +102,7 @@ Registered by `setupMCPGlobal` in each session:
 | Field | Type | Description |
 |-------|------|-------------|
 | `version` | `string` | Semver (e.g., `"0.6.0"`) |
-| `base_dir` | `string` | Path (e.g., `".claude/ui"`) |
+| `base_dir` | `string` | Path (e.g., `".ui"`) |
 | `url` | `string` | Server URL |
 | `mcp_port` | `number` | MCP server port |
 | `sessions` | `number` | Browser count |
@@ -158,6 +158,7 @@ Cross-platform binary builds via Makefile:
   - [x] ui_run (6 tests: execute code, session access, JSON marshalling, non-JSON result, mcp global, no session)
   - [ ] Frictionless UI Creation (6 scenarios)
   - [x] ClearLogs (5 tests: clears files, calls callback, handles missing dir, skips subdirs, no callback)
+  - [ ] ui_audit (findMissingMethods: missing method detected, builtin function skipped, all methods exist)
 - [ ] O3: Document frontend conserve mode SharedWorker requirements (spec 6.1)
 - [ ] O4: Install tests fail without bundled binary (`make build`)
   - [ ] TestInstallSkillFilesFreshInstall

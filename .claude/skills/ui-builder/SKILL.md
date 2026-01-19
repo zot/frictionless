@@ -75,6 +75,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 3. **Design** → `mcp:appProgress(app, 20, "designing")`
    - Check `{base_dir}/patterns/` for reusable patterns
+   - Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element representing the app
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
       - **Layout**: ASCII wireframe showing structure

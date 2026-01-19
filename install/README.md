@@ -40,7 +40,7 @@ claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
 
 ## Usage
 
-Once installed, Claude Code automatically starts ui-mcp when needed. The server uses `.claude/ui` as the default working directory.
+Once installed, Claude Code automatically starts ui-mcp when needed. The server uses `.ui` as the default working directory.
 
 ### Building UIs
 
@@ -65,7 +65,7 @@ ui-mcp serve --port 8000
 ui-mcp serve --port 8000 --dir /path/to/ui-dir
 ```
 
-The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.claude/ui`.
+The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.ui`.
 
 ### Bundling
 
@@ -79,7 +79,7 @@ ui-mcp cp '*.lua' scripts/         # Copy matching files
 ui-mcp extract output/             # Extract all bundled files to current directory
 ```
 
-## Documentation (in .claude/ui by default)
+## Documentation (in .ui by default)
 
 - **[Platform Reference](resources/reference.md)** — Architecture, tools, and quick start guide
 - **[Viewdef Syntax](resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)

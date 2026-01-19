@@ -17,7 +17,7 @@ make build                    # Creates build/ui-mcp with bundled files
 ```
 
 ### Running the demo
-From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .claude/ui -vvvv`
+From the project directory, this command runs the mcp `./build/ui-mcp mcp --port 8000 --dir .ui -vvvv`
 You can use the playwright browser to connect to it.
 
 ## When committing

@@ -236,7 +236,7 @@ func TestInstallSkillFilesPathResolution(t *testing.T) {
 	// Create temp directories simulating real structure
 	tempDir := t.TempDir()
 
-	// Simulate: /project/.claude/ui as base_dir
+	// Simulate: /project/.ui as base_dir
 	// Skill should install to: /project/.claude/skills/ui-builder/
 	projectRoot := filepath.Join(tempDir, "project")
 	baseDir := filepath.Join(projectRoot, ".claude", "ui")

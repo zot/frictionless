@@ -21,9 +21,17 @@ The shell is minimal chrome around the current app:
 The 9-dot button (grid icon) in the top-right corner:
 - Overlays the app content (always visible on top)
 - Has a glow for easy visibility
-- Opens a dropdown/popover menu listing available apps
-- Clicking an app name calls `mcp:display(appName)` to switch
+- Opens a dropdown/popover menu with app icons
+- Clicking an app calls `mcp:display(appName)` to switch
 - Menu closes after selection
+
+### Icon Grid Layout
+
+Apps display as icons with names underneath:
+- Each app's icon comes from its `icon.html` file (contains emoji, `<sl-icon>`, or `<img>`)
+- App name displayed below each icon
+- Icons arranged in rows of 3, Z formation (left-to-right, then next row)
+- Clickable icon cards with hover effect
 
 ## Processing Indicator
 

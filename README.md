@@ -2,48 +2,29 @@
 
 **Version: 0.6.0**
 
-An MCP server that enables AI agents to build interactive UIs for rich two-way communication with users.
+**An app ecosystem for Claude.** Build your own Claude apps or download them:
 
-## Benefits
+- **Dashboards** — surface information at a glance
+- **Command frontends** — tame complex UNIX tools with forms and buttons
+- **Workflow tools** — common Claude usage patterns as clickable actions
+- **Life beyond code** — expense tracking, habit building, project planning
+- **Prototype production apps** — build functional wireframes at a fraction of the tokens
 
-- **Prototyping** — Agent and user collaborate on UI wireframes for production apps
-- **Testing** — Create mock UIs for testing workflows
-- **Stateful interaction** — Go beyond text-only conversations:
-  - Collect structured input (forms, selections, ratings, file picks)
-  - Present data with layout (lists, tables, comparisons)
-  - Multi-step workflows (wizards, confirmations, progress tracking)
-  - Real-time feedback loops (editing, previewing, validation)
-- **Claude Apps** — Persistent UIs for interacting with Claude:
-  - Launch panels with buttons for design, implement, analyze gaps
-  - Project dashboards showing available commands, agents, skills
-  - Status displays for background tasks and build progress
+Build and modify apps while they run. No restarts, no rebuilds, no wait.
 
-## Installation
+## How It Works
 
-Paste this into Claude Code to install:
+UI-MCP uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
 
-```
-Install using github zot/ui-mcp readme
-```
+- **No API layer** — no endpoints, no serialization, no DTOs
+- **No frontend code** — just HTML templates with declarative bindings
+- **No sync wiring** — change backend data, UI updates automatically—no code to detect or push changes
 
-To install manually:
-
-```bash
-# Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
-mkdir -p {home}/.claude/bin
-curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd64 -o {home}/.claude/bin/ui-mcp
-chmod +x {home}/.claude/bin/ui-mcp
-
-# Add to Claude Code
-claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
-
-# Initialize the project
-{home}/.claude/bin/ui-mcp} install
-```
+Claude writes your app logic and skips everything else. See [Architecture](doc/OVERVIEW.md) for details.
 
 ## Usage
 
-Once installed, Claude Code automatically starts ui-mcp when needed. The server uses `.claude/ui` as the default working directory.
+Once installed, Claude Code automatically starts ui-mcp when needed. The server uses `.ui` as the default working directory.
 
 ### Building UIs
 
@@ -68,7 +49,7 @@ ui-mcp serve --port 8000
 ui-mcp serve --port 8000 --dir /path/to/ui-dir
 ```
 
-The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.claude/ui`.
+The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.ui`.
 
 ### Bundling
 
@@ -82,12 +63,35 @@ ui-mcp cp '*.lua' scripts/         # Copy matching files
 ui-mcp extract output/             # Extract all bundled files to current directory
 ```
 
-## Documentation (in .claude/ui by default)
+## Documentation (in .ui by default)
 
 - **[Platform Reference](resources/reference.md)** — Architecture, tools, and quick start guide
 - **[Viewdef Syntax](resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
 - **[Lua API](resources/lua.md)** — Class patterns and globals
 - **[Agent Workflow](resources/mcp.md)** — Best practices for AI agents
+
+## Installation
+
+Paste this into Claude Code to install:
+
+```
+Install using github zot/ui-mcp readme
+```
+
+To install manually:
+
+```bash
+# Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
+mkdir -p {home}/.claude/bin
+curl -L https://github.com/zot/ui-mcp/releases/latest/download/ui-mcp-linux-amd64 -o {home}/.claude/bin/ui-mcp
+chmod +x {home}/.claude/bin/ui-mcp
+
+# Add to Claude Code
+claude mcp add ui-mcp -- {home}/.claude/bin/ui-mcp} mcp
+
+# Initialize the project
+{home}/.claude/bin/ui-mcp} install
+```
 
 ## Future Directions
 

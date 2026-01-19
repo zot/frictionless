@@ -27,7 +27,7 @@ func (s *Server) registerTools() {
 	// Spec: mcp.md section 5.1
 	s.mcpServer.AddTool(mcp.NewTool("ui_configure",
 		mcp.WithDescription("Prepare the server environment and file system. Must be the first tool called."),
-		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the UI working directory. Use {project}/.claude/ui unless user specifies otherwise.")),
+		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the UI working directory. Use {project}/.ui unless user specifies otherwise.")),
 	), s.handleConfigure)
 
 	// ui_open_browser
@@ -186,7 +186,7 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		return nil, fmt.Errorf("install requires a bundled binary (use 'make build')")
 	}
 
-	// Project root is the grandparent of baseDir (e.g., .claude/ui -> .)
+	// Project root is the grandparent of baseDir (e.g., .ui -> .)
 	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
 
 	// Version checking: compare bundled README version with installed version
@@ -878,18 +878,9 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
 	}
 
-	// Call mcp:display(name) in Lua - the common implementation
-	log := func(name, str string) {
-		f, err := os.OpenFile(name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			panic(err) // i'm simplifying it here. you can do whatever you want.
-		}
-		defer f.Close()
-		f.WriteString(str + "\n")
-	}
+	// Call mcp:display(name) in Lua
 	code := fmt.Sprintf("return mcp:display(%q)", name)
 	result, err := s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
-		log("/tmp/bubba", "load code")
 		return session.LoadCodeDirect("ui_display", code)
 	})
 
@@ -901,15 +892,15 @@ func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest)
 	if result == nil {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to display app: %s", name)), nil
 	}
-	log("/tmp/bubba", "after load code, before sync")
-	c := make(chan bool)
+
+	// Wait for the display to complete by executing a no-op in the session
+	done := make(chan struct{})
 	s.SafeExecuteInSession(sessionID, func() (interface{}, error) {
-		log("/tmp/bubba", "sync")
-		close(c)
+		close(done)
 		return nil, nil
 	})
-	<-c
-	log("/tmp/bubba", "finished displaying")
+	<-done
+
 	return mcp.NewToolResultText(fmt.Sprintf("Displayed app: %s", name)), nil
 }
 

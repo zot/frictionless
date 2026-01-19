@@ -95,6 +95,36 @@ A 3-position slider next to the Send button controls how modification requests a
 
 Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
 
+## Claude Code Todo List
+
+The bottom panel displays Claude's current todo list alongside the Chat/Lua panel:
+
+**Layout:**
+- Bottom resizable section has two columns: Todo List (left) | Chat/Lua (right)
+- Todo list is a narrow column (200px) showing current task status
+- Todo items don't wrap; column scrolls horizontally if text overflows
+- Collapse button hides the column horizontally (shrinks to icon-only 32px width)
+
+**Display:**
+- Show todo items with status indicators:
+  - ⏳ pending (gray)
+  - 🔄 in_progress (blue, highlighted)
+  - ✓ completed (green, muted)
+- The in_progress item is shown prominently at the top
+- Completed items can be collapsed/hidden
+
+**Data Flow:**
+- Claude pushes todo updates via `ui_run` calling `mcp:setTodos(todos)`
+- Each todo has: `{content: string, status: string, activeForm: string}`
+- Display `activeForm` for in_progress items, `content` for others
+
+**MCP Methods (in init.lua):**
+```lua
+function mcp:setTodos(todos)
+    if appConsole then appConsole:setTodos(todos) end
+end
+```
+
 ## Lua Console
 
 The bottom panel has Chat/Lua tabs. The Lua tab provides a REPL for executing Lua code:
@@ -122,6 +152,15 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 
 ### `chat`
 User message with selected app as context. Respond conversationally.
+
+**Payload:**
+| Field | Description |
+|-------|-------------|
+| `text` | The user's message |
+| `quality` | Quality level: "fast", "thorough", or "background" |
+| `context` | Selected app name (if any) |
+| `reminder` | Brief reminder to show todos and thinking messages |
+| `note` | Path to app files for context |
 
 **Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
 - Appear in chat log styled differently (italic, muted)

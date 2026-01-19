@@ -101,13 +101,13 @@
 **Scenarios**:
 1.  **Install Needed (Files Missing)**:
     - Start with empty project root (no `.claude/skills/` directory).
-    - Call `ui_configure` with `base_dir=".claude/ui"`.
+    - Call `ui_configure` with `base_dir=".ui"`.
     - Verify response includes `install_needed: true`.
     - Verify response includes hint about running `ui_install`.
 
 2.  **Install Not Needed (Files Present)**:
     - Pre-create `.claude/skills/ui-builder/SKILL.md`.
-    - Call `ui_configure` with `base_dir=".claude/ui"`.
+    - Call `ui_configure` with `base_dir=".ui"`.
     - Verify response does NOT include `install_needed: true`.
 
 ### Test: Bundled File Installation (ui_install)
@@ -139,10 +139,10 @@
     - Verify response lists files as installed.
 
 4.  **Path Resolution**:
-    - Set `base_dir="/project/.claude/ui"`.
+    - Set `base_dir="/project/.ui"`.
     - Call `ui_install`.
     - Verify project files installed to `/project/.claude/`.
-    - Verify base_dir files installed to `/project/.claude/ui/`.
+    - Verify base_dir files installed to `/project/.ui/`.
 
 ### Test: MCP initialization
 **Purpose**: Verify MCP server setup

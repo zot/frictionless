@@ -52,7 +52,7 @@ Both modes start an HTTP server with debug and API endpoints.
 
 - **MCP Protocol:** JSON-RPC 2.0 over Standard Input (stdin) and Standard Output (stdout).
 - **Encoding:** UTF-8.
-- **Activation:** `ui-mcp mcp --dir <base_dir>` (default: `{project}/.claude/ui`)
+- **Activation:** `ui-mcp mcp --dir <base_dir>` (default: `{project}/.ui`)
 
 **Output Hygiene:**
 - **STDOUT:** Reserved EXCLUSIVELY for MCP JSON-RPC messages.
@@ -67,7 +67,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 ### 2.3 SSE Mode (`serve` command)
 
 - **MCP Protocol:** JSON-RPC 2.0 over Server-Sent Events (HTTP).
-- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>` (default: `{project}/.claude/ui`)
+- **Activation:** `ui-mcp serve --port <ui_port> --mcp-port <mcp_port> --dir <base_dir>` (default: `{project}/.ui`)
 - **Two-Port Design:**
   - UI Server port (default 8000): Serves HTML/JS and WebSocket connections
   - MCP Server port (default 8001): SSE transport plus debug endpoints
@@ -84,7 +84,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 Manually install bundled skills and resources without starting the MCP server.
 
 - **Activation:** `ui-mcp install [--dir <base_dir>] [--force]`
-- **Default base_dir:** `{project}/.claude/ui`
+- **Default base_dir:** `{project}/.ui`
 - **Behavior:** Same as `ui_install` MCP tool (see Section 5.7):
   - Installs Claude skills to `{project}/.claude/skills/`
   - Installs resources, viewdefs, and scripts to `{base_dir}/`
@@ -161,7 +161,7 @@ Scripts auto-discover the port from `mcp-port` in the same directory.
 
 ### 3.1 Startup Behavior
 
-On startup, the server uses `--dir` (defaults to `.claude/ui`) and automatically configures and starts:
+On startup, the server uses `--dir` (defaults to `.ui`) and automatically configures and starts:
 
 1. **Auto-Install:** If `{base_dir}` does not exist OR `{base_dir}/README.md` does not exist, run `ui_install` automatically. This installs:
    - **Claude skills** (`/ui` and `/ui-builder`) to `{project}/.claude/skills/`
@@ -494,7 +494,7 @@ end
 | Field      | Lua Type | Description                                      |
 |------------|----------|--------------------------------------------------|
 | `version`  | `string` | Semver string (e.g., `"0.6.0"`)                  |
-| `base_dir` | `string` | Absolute or relative path (e.g., `".claude/ui"`) |
+| `base_dir` | `string` | Absolute or relative path (e.g., `".ui"`) |
 | `url`      | `string` | Server URL (e.g., `"http://127.0.0.1:39482"`)    |
 | `mcp_port` | `number` | MCP server port (e.g., `8001`)                   |
 | `sessions` | `number` | Integer count of connected browsers              |
@@ -510,10 +510,10 @@ print("Connected browsers: " .. status.sessions)
 ## 5. Tools
 
 ### 5.1 `ui_configure`
-**Purpose:** Configure and start the UI server. Optional—server auto-configures at startup using `--dir` (defaults to `.claude/ui`).
+**Purpose:** Configure and start the UI server. Optional—server auto-configures at startup using `--dir` (defaults to `.ui`).
 
 **Parameters:**
-- `base_dir` (string, required): Absolute path to the UI working directory. **Use `{project}/.claude/ui` unless the user explicitly requests a different location.**
+- `base_dir` (string, required): Absolute path to the UI working directory. **Use `{project}/.ui` unless the user explicitly requests a different location.**
 
 **Behavior:**
 1.  **Stop Existing Server:** If already running, stops current HTTP server and destroys session.
@@ -539,7 +539,7 @@ print("Connected browsers: " .. status.sessions)
 - JSON object with configuration details including the server URL:
 ```json
 {
-  "base_dir": "/path/to/.claude/ui",
+  "base_dir": "/path/to/.ui",
   "url": "http://127.0.0.1:39482",
   "install_needed": false
 }
@@ -623,7 +623,7 @@ To prevent cluttering the user's workspace with multiple tabs for the same sessi
 ```json
 {
   "version": "0.1.0",
-  "base_dir": ".claude/ui",
+  "base_dir": ".ui",
   "url": "http://127.0.0.1:39482",
   "mcp_port": 8001,
   "sessions": 1
@@ -715,7 +715,7 @@ README.md
 ```
 
 **Path Resolution:**
-- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
+- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui`, project is `.`)
 - Creates `.claude/`, `.claude/skills/`, and `.claude/agents/` directories if they don't exist
 
 **Behavior:**
@@ -729,7 +729,7 @@ README.md
 - JSON object listing installed files:
 ```json
 {
-  "installed": [".claude/skills/ui-builder/SKILL.md", ".claude/ui/resources/reference.md"],
+  "installed": [".claude/skills/ui-builder/SKILL.md", ".ui/resources/reference.md"],
   "skipped": [],
   "appended": []
 }

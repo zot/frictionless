@@ -33,18 +33,21 @@ When the agent event loop is not connected to `/wait` (Claude is processing):
 - Uses `mcp:pollingEvents()` server method - returns false when processing
 - Spinner hidden via `ui-class-hidden="pollingEvents()"`
 
-### Menu Open State
+### Menu Open State (Icon Grid)
 
 ```
 +--------------------------------------------------+
 |                                        [:::] <- 9-dot menu
-|                                     +----------+ |
-|              Current App            | contacts | |
-|                                     | tasks    | |
-|                                     | apps     | |
-|                                     +----------+ |
+|                            +-------------------+ |
+|              Current App   | [icon] [icon] [icon]|
+|                            |  app1   app2   app3 |
+|                            | [icon] [icon] [icon]|
+|                            |  app4   app5   app6 |
+|                            +-------------------+ |
 +--------------------------------------------------+
 ```
+
+Icons arranged in rows of 3 (Z formation: left-to-right, then next row). Each cell shows the app's icon (from icon.html) with the app name below it.
 
 ## Data Model
 
@@ -75,19 +78,26 @@ The global `mcp` object is provided by the server. This app adds:
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 
-### MCP.AppMenuItem (wrapper for app name string)
+### MCP.AppMenuItem (wrapper for app info)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| _name | string | App directory name |
+| _iconHtml | string | HTML content from icon.html |
+| _mcp | ref | Reference to mcp for callbacks |
 
 | Method | Description |
 |--------|-------------|
 | name() | Returns the app name |
+| iconHtml() | Returns the icon HTML content |
 | select() | Calls mcp:selectApp(self._name) |
 
 ## ViewDefs
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, menu button, menu dropdown, status bar |
-| MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Menu item row |
+| MCP.DEFAULT.html | MCP | Shell with app view, menu button, icon grid dropdown, status bar |
+| MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 
 ## Events
 

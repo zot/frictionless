@@ -72,9 +72,14 @@ Mark implemented: `[ ]`→`[x]` in Artifacts.
 
 Look out for language-specific "gotchas" like mixing functions an methods in Lua.
 
-**Upon completion always do the Gaps Phase.**
+**Upon completion**, run the Simplification Phase.
 
-4. Gaps Phase
+4. Simplification Phase
+Invoke the `code-simplifier` agent on the recently modified code. This refines code for clarity, consistency, and maintainability while preserving functionality.
+
+**Upon completion**, proceed to Gaps Phase.
+
+5. Gaps Phase
 
 `design.md` Gaps section tracks (use S1/D1/C1/O1 numbering):
 - **Spec→Design (Sn):** Spec features without design artifacts
@@ -91,7 +96,7 @@ Nest related items with checkboxes:
 
 **Upon completion**, offer to update Documentation (Documentation Phase).
 
-5. Documentation Phase, Optional -- offer to user after Gaps
+6. Documentation Phase, Optional -- offer to user after Gaps
 Create `docs/user-manual.md` and `docs/developer-guide.md` with traceability links.
 
 ## CRC Card Format

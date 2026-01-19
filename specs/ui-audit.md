@@ -48,6 +48,8 @@ Background agents POST to `/api/ui_audit` with JSON body `{"name": "app-name"}`.
 
 **Operators in paths**: Binding paths contain operators (`!`, `==`, `&&`, `||`, `+`, `-`). Paths don't support operators - use Lua methods instead.
 
+**Missing Lua method**: A viewdef binding references a method that doesn't exist in app.lua. For example, `ui-action="doSomething()"` where `doSomething` is not defined on any prototype. This catches typos and forgotten implementations.
+
 ## Output
 
 JSON response with:

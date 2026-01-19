@@ -20,6 +20,7 @@ Analyzes ui-mcp apps for code quality violations.
 - **extractLuaCalls(content)**: Regex extracts `:method(` call patterns
 - **extractViewdefCalls(attrs)**: Extracts `method()` from ui-* attribute values
 - **findDeadMethods(defs, luaCalls, viewdefCalls)**: Cross-references to find unused methods
+- **findMissingMethods(defs, viewdefCalls)**: Finds viewdef calls that don't match any Lua method definition
 - **checkReloadingGuard(content)**: Verifies instance creation is guarded
 - **checkGlobalName(content, appName)**: Verifies global matches directory name
 - **walkDOM(node, isListItem, violations)**: Recursively checks each node for violations

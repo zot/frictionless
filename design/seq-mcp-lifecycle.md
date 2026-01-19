@@ -11,7 +11,7 @@
 - OS: Operating system services (filesystem, browser launch)
 
 ## Scenario 1: Startup (Auto-Configure and Start)
-Server configures and auto-starts using `--dir` (defaults to `.claude/ui`).
+Server configures and auto-starts using `--dir` (defaults to `.ui`).
 
 ```
      ┌─────────┐             ┌───────┐             ┌──────────┐           ┌────┐
@@ -131,7 +131,7 @@ Shows the installation of bundled files when agent calls `ui_install`.
 | `event`, `state`, `variables`, `linkapp` | `{base_dir}`                       | Scripts for easy MCP endpoint access   |
 
 **Notes:**
-- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.claude/ui`, project is `.`)
+- `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui`, project is `.`)
 - Skills are self-describing (no CLAUDE.md augmentation needed)
 - `force=true` overwrites existing files
 

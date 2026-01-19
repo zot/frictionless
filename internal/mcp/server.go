@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net"
 	"net/http"
 	"os"
@@ -378,7 +379,7 @@ func (s *Server) StartAndCreateSession() (string, error) {
 }
 
 // GetCurrentSessionID returns the internal session ID for the current MCP session.
-// This is used by the root session provider to serve "/" without creating a new session.
+// Used by the root session provider to serve "/" without creating a new session.
 // Spec: mcp.md Section 3.3 - Root URL Session Binding
 func (s *Server) GetCurrentSessionID() string {
 	s.mu.RLock()
@@ -389,9 +390,7 @@ func (s *Server) GetCurrentSessionID() string {
 		return ""
 	}
 
-	// Convert vended ID to internal session ID (the UUID used in URLs)
-	internalID := s.UiServer.GetSessions().GetInternalID(vendedID)
-	return internalID
+	return s.UiServer.GetSessions().GetInternalID(vendedID)
 }
 
 // Start transitions the server to the Running state and starts the HTTP server.
@@ -457,16 +456,7 @@ func (s *Server) Stop() error {
 // Called by Lua runtime when mcp.notify(method, params) is invoked.
 func (s *Server) SendNotification(method string, params interface{}) {
 	// Convert params to map[string]any for the MCP library
-	var paramsMap map[string]any
-	if params != nil {
-		if m, ok := params.(map[string]interface{}); ok {
-			paramsMap = make(map[string]any, len(m))
-			for k, v := range m {
-				paramsMap[k] = v
-			}
-		}
-	}
-
+	paramsMap, _ := params.(map[string]interface{})
 	s.cfg.Log(2, "Sending notification: method=%s params=%v", method, paramsMap)
 	s.mcpServer.SendNotificationToAllClients(method, paramsMap)
 }
@@ -680,31 +670,27 @@ func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.De
 }
 
 // parsePortFromURL extracts the port number from a URL like "http://localhost:8080".
-func parsePortFromURL(url string) (int, error) {
-	// Find the last colon (port separator)
-	lastColon := strings.LastIndex(url, ":")
+func parsePortFromURL(urlStr string) (int, error) {
+	lastColon := strings.LastIndex(urlStr, ":")
 	if lastColon == -1 {
-		return 0, fmt.Errorf("no port in URL: %s", url)
+		return 0, fmt.Errorf("no port in URL: %s", urlStr)
 	}
-	portStr := url[lastColon+1:]
-	// Remove any path after the port
+
+	portStr := urlStr[lastColon+1:]
 	if slashIdx := strings.Index(portStr, "/"); slashIdx >= 0 {
 		portStr = portStr[:slashIdx]
 	}
+
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return 0, fmt.Errorf("invalid port in URL %s: %w", url, err)
+		return 0, fmt.Errorf("invalid port in URL %s: %w", urlStr, err)
 	}
 	return port, nil
 }
 
-// escapeHTML escapes special HTML characters.
+// escapeHTML escapes special HTML characters using the standard library.
 func escapeHTML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	return s
+	return html.EscapeString(s)
 }
 
 // pushStateEvent adds an event to the queue and signals waiting clients.
@@ -757,20 +743,27 @@ func (s *Server) hasPollingClients(sessionID string) bool {
 	return len(s.stateWaiters[sessionID]) > 0
 }
 
+// writeEventsJSON writes events as JSON or returns false if no events.
+func writeEventsJSON(w http.ResponseWriter, events []interface{}) bool {
+	if len(events) == 0 {
+		return false
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
+	return true
+}
+
 // handleWait handles GET /wait - long-poll for state changes on the current session.
 // Spec: mcp.md Section 8.3
 // CRC: crc-MCPServer.md
 func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
-	// Use the distinguished session (currentVendedID)
 	sessionID := s.currentVendedID
 	if sessionID == "" {
 		http.Error(w, "No active session", http.StatusNotFound)
 		return
 	}
 
-	// Check session exists
-	session := s.UiServer.GetLuaSession(sessionID)
-	if session == nil {
+	if s.UiServer.GetLuaSession(sessionID) == nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -784,28 +777,22 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	}
 	if timeout < 1 {
 		timeout = 1
-	}
-	if timeout > 120 {
+	} else if timeout > 120 {
 		timeout = 120
 	}
 
 	// Check if there are already events queued
-	events := s.drainStateQueue(sessionID)
-	if len(events) > 0 {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(events)
+	if writeEventsJSON(w, s.drainStateQueue(sessionID)) {
 		return
 	}
 
-	// Create a channel for this waiter
+	// Create and register a channel for this waiter
 	waiterCh := make(chan struct{}, 1)
-
-	// Register the waiter
 	s.stateWaitersMu.Lock()
 	s.stateWaiters[sessionID] = append(s.stateWaiters[sessionID], waiterCh)
 	s.stateWaitersMu.Unlock()
 
-	// Ensure cleanup on all exit paths (timeout, event, client disconnect)
+	// Ensure cleanup on all exit paths
 	// Seq: seq-mcp-state-wait.md Scenario 7
 	defer func() {
 		s.stateWaitersMu.Lock()
@@ -822,7 +809,6 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 
 	// Trigger UI refresh so pollingEvents() status updates
 	s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
-	// Refresh again shortly after to catch any timing issues
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
@@ -831,29 +817,16 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	// Wait for signal or timeout
 	select {
 	case <-waiterCh:
-		// Signaled - drain and return events
-		events := s.drainStateQueue(sessionID)
-		if len(events) > 0 {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(events)
-			return
+		if !writeEventsJSON(w, s.drainStateQueue(sessionID)) {
+			w.WriteHeader(http.StatusNoContent)
 		}
-		// No events (shouldn't happen, but handle gracefully)
-		w.WriteHeader(http.StatusNoContent)
 
 	case <-time.After(time.Duration(timeout) * time.Second):
-		// Timeout - check one more time for events
-		events := s.drainStateQueue(sessionID)
-		if len(events) > 0 {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(events)
-			return
+		if !writeEventsJSON(w, s.drainStateQueue(sessionID)) {
+			w.WriteHeader(http.StatusNoContent)
 		}
-		w.WriteHeader(http.StatusNoContent)
 
 	case <-r.Context().Done():
 		// Client disconnected - defer handles cleanup
-		return
 	}
-	// defer handles cleanup for all exit paths
 }

@@ -34,7 +34,11 @@ Agent                    Server                   Auditor                  FS
   |                        |                        |   (check violations)  |
   |                        |                        |                       |
   |                        |                        |-- findDeadMethods() ->|
-  |                        |                        |   (cross-reference)   |
+  |                        |                        |   (lua defs unused)   |
+  |                        |                        |                       |
+  |                        |                        |-- findMissingMethods()|
+  |                        |                        |   (viewdef calls w/o  |
+  |                        |                        |    matching lua def)  |
   |                        |                        |                       |
   |                        |<-- AuditResult --------|                       |
   |<-- JSON response ------|                        |                       |

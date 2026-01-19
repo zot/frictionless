@@ -56,6 +56,11 @@ var (
 		"sl-button":      true,
 		"sl-icon-button": true,
 	}
+
+	// Built-in viewdef functions that don't need Lua definitions
+	builtinViewdefFunctions = map[string]bool{
+		"wrapper": true, // ViewList wrapper parameter
+	}
 )
 
 // Regex patterns for Lua analysis
@@ -168,6 +173,9 @@ func AuditApp(baseDir, appName string) (*AuditResult, error) {
 
 	// Find dead methods
 	findDeadMethods(methodDefs, luaCalls, viewdefCalls, result)
+
+	// Find missing methods (viewdef calls that don't exist in Lua)
+	findMissingMethods(methodDefs, viewdefCalls, result)
 
 	// Calculate summary
 	result.Summary.TotalMethods = len(methodDefs)
@@ -432,5 +440,22 @@ func findDeadMethods(defs map[string]string, luaCalls, viewdefCalls map[string]b
 			Location: "app.lua",
 			Detail:   fullName,
 		})
+	}
+}
+
+// findMissingMethods identifies viewdef calls that don't match any Lua method definition
+// CRC: crc-Auditor.md#findMissingMethods
+func findMissingMethods(defs map[string]string, viewdefCalls map[string]bool, result *AuditResult) {
+	for callName := range viewdefCalls {
+		if builtinViewdefFunctions[callName] {
+			continue
+		}
+		if _, exists := defs[callName]; !exists {
+			result.Violations = append(result.Violations, Violation{
+				Type:     "missing_method",
+				Location: "viewdefs",
+				Detail:   fmt.Sprintf("Method '%s()' called in viewdef but not defined in Lua", callName),
+			})
+		}
 	}
 }

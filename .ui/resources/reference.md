@@ -20,10 +20,10 @@ The core concept is building **tiny apps** — small, purpose-built UIs for spec
 
 ### App Structure
 
-Each app lives in `.claude/ui/apps/<app>/`:
+Each app lives in `.ui/apps/<app>/`:
 
 ```
-.claude/ui/apps/contacts/
+.ui/apps/contacts/
 ├── app.lua              # Lua classes and logic
 ├── viewdefs/            # HTML templates
 │   ├── ContactApp.DEFAULT.html
@@ -80,9 +80,9 @@ curl "http://127.0.0.1:PORT/wait?timeout=30"
 ### Pattern Library
 
 As you build apps, common patterns emerge. Store reusable patterns in:
-- `.claude/ui/patterns/` — UI patterns (forms, lists, master-detail)
-- `.claude/ui/conventions/` — Layout rules, terminology, preferences
-- `.claude/ui/library/` — Proven implementations to copy from
+- `.ui/patterns/` — UI patterns (forms, lists, master-detail)
+- `.ui/conventions/` — Layout rules, terminology, preferences
+- `.ui/library/` — Proven implementations to copy from
 
 ## Architecture
 
@@ -127,7 +127,7 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
                                   (reconfigure)
 ```
 
-- **Auto-start:** Server uses `--dir` flag (defaults to `.claude/ui`) and starts automatically
+- **Auto-start:** Server uses `--dir` flag (defaults to `.ui`) and starts automatically
 - **Reconfigure:** Call `ui_configure(base_dir)` to restart with a different directory
 
 ## MCP Tools
@@ -167,8 +167,8 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
 ## Two-Phase Workflow
 
 **Phase 1: Design** — Before writing code:
-- Read `.claude/ui/patterns/` for established UI patterns
-- Read `.claude/ui/conventions/` for layout and terminology rules
+- Read `.ui/patterns/` for established UI patterns
+- Read `.ui/conventions/` for layout and terminology rules
 - Create/update `apps/<app>/design.md` layout spec
 
 **Phase 2: Build** — Implement the design:
@@ -250,7 +250,7 @@ Edit files in your IDE and see changes instantly — no server restart or manual
 - **Viewdef files** (`.html`) — Templates reload, components re-render
 
 **How it works:**
-1. Save a file in `.claude/ui/apps/<app>/`
+1. Save a file in `.ui/apps/<app>/`
 2. ui-engine detects the change
 3. Lua is re-executed or viewdef is reloaded
 4. Browser automatically reflects changes
@@ -289,7 +289,7 @@ The agent polls for events via the `/wait` HTTP endpoint. Events are returned as
 ## Directory Structure
 
 ```
-.claude/ui/
+.ui/
 ├── apps/           # App source of truth
 │   └── <app>/          # Each app has its own directory
 │       ├── app.lua

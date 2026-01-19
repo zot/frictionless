@@ -16,7 +16,9 @@ AppConsole = session:prototype("AppConsole", {
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
     luaInput = "",
-    chatQuality = 0  -- 0=fast, 1=thorough, 2=background
+    chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
+    todos = EMPTY,           -- Claude Code todo list items
+    todosCollapsed = false   -- Whether todo column is collapsed
 })
 
 -- Nested prototype: Chat message model
@@ -48,6 +50,43 @@ end
 
 function ChatMessage:prefix()
     return self.sender == "You" and "> " or ""
+end
+
+-- Nested prototype: TodoItem model (Claude Code task)
+AppConsole.TodoItem = session:prototype("AppConsole.TodoItem", {
+    content = "",
+    status = "pending",  -- "pending", "in_progress", or "completed"
+    activeForm = ""
+})
+local TodoItem = AppConsole.TodoItem
+
+function TodoItem:displayText()
+    if self.status == "in_progress" then
+        return self.activeForm ~= "" and self.activeForm or self.content
+    end
+    return self.content
+end
+
+function TodoItem:isPending()
+    return self.status == "pending"
+end
+
+function TodoItem:isInProgress()
+    return self.status == "in_progress"
+end
+
+function TodoItem:isCompleted()
+    return self.status == "completed"
+end
+
+function TodoItem:statusIcon()
+    if self.status == "in_progress" then
+        return "🔄"
+    elseif self.status == "completed" then
+        return "✓"
+    else
+        return "⏳"
+    end
 end
 
 -- Nested prototype: Output line model (for Lua console)
@@ -142,7 +181,7 @@ function AppInfo:selectMe()
 end
 
 function AppInfo:isSelected()
-    return apps.selected == self
+    return appConsole.selected == self
 end
 
 function AppInfo:statusText()
@@ -445,6 +484,12 @@ function AppConsole:mutate()
     if self.chatQuality == nil then
         self.chatQuality = 0
     end
+    if self.todos == nil then
+        self.todos = {}
+    end
+    if self.todosCollapsed == nil then
+        self.todosCollapsed = false
+    end
 end
 
 -- Return apps list for binding
@@ -711,10 +756,11 @@ function AppConsole:sendChat()
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
+    local reminder = "Show todos and thinking messages while working"
     if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue() })
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue(), reminder = reminder })
     else
-        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue() })
+        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue(), reminder = reminder })
     end
 
     self.chatInput = ""
@@ -877,6 +923,23 @@ end
 
 function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
+end
+
+-- Todo list methods
+function AppConsole:setTodos(todos)
+    self.todos = {}
+    for _, t in ipairs(todos or {}) do
+        local item = session:create(TodoItem, {
+            content = t.content or "",
+            status = t.status or "pending",
+            activeForm = t.activeForm or ""
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+function AppConsole:toggleTodos()
+    self.todosCollapsed = not self.todosCollapsed
 end
 
 -- Idempotent instance creation

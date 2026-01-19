@@ -31,7 +31,7 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
                                   (reconfigure)
 ```
 
-- **Auto-start:** Server uses `--dir` flag (defaults to `.claude/ui`) and starts automatically
+- **Auto-start:** Server uses `--dir` flag (defaults to `.ui`) and starts automatically
 - **Reconfigure:** Call `ui_configure(base_dir)` to restart with a different directory
 - **All tools available:** `ui_status`, `ui_run`, `ui_display`, `ui_open_browser`, etc.
 
@@ -41,8 +41,8 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
 
 Before writing code, understand and plan:
 
-1. **Read existing patterns** — Check `.claude/ui/patterns/` for established UI patterns
-2. **Read conventions** — Check `.claude/ui/conventions/` for layout and terminology rules
+1. **Read existing patterns** — Check `.ui/patterns/` for established UI patterns
+2. **Read conventions** — Check `.ui/conventions/` for layout and terminology rules
 3. **Check for similar UIs** — Look in `apps/*/design.md` for existing layout specs
 4. **Create/update design spec** — Write `apps/<app>/design.md` with:
    - Intent (what this UI accomplishes)
@@ -62,10 +62,10 @@ Implement the design:
 
 ## Directory Structure
 
-Use `.claude/ui/` as your base directory:
+Use `.ui/` as your base directory:
 
 ```
-.claude/ui/
+.ui/
 ├── apps/           # App source of truth
 │   └── <app>/          # Each app has its own directory
 │       ├── app.lua         # Lua classes and logic
@@ -187,6 +187,6 @@ The agent then calls `ui_display("feedback")` to show it in the browser.
 - **Atomic viewdefs** — One type per viewdef, keep them focused
 - **Informative events** — Include enough context in `mcp.pushState()` params
 - **Use hot-loading** — Edit files directly; changes auto-refresh in browser
-- **Check logs** — Read `.claude/ui/log/lua.log` when debugging
-- **Follow conventions** — Read `.claude/ui/conventions/` before creating UI
+- **Check logs** — Read `.ui/log/lua.log` when debugging
+- **Follow conventions** — Read `.ui/conventions/` before creating UI
 - **Update specs** — Keep `apps/<app>/design.md` in sync with implementation

@@ -9,3 +9,7 @@ function mcp:appUpdated(name)
     mcp:scanAvailableApps()  -- rescan all apps from disk
     if appConsole then appConsole:onAppUpdated(name) end
 end
+
+function mcp:setTodos(todos)
+    if appConsole then appConsole:setTodos(todos) end
+end

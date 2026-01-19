@@ -19,7 +19,12 @@
       flex: 1;
       min-height: 0;
       width: 100%;
-      overflow: auto;
+      overflow: hidden;  /* Let embedded apps handle their own scrolling */
+    }
+    /* Override 100vh in embedded apps - they should fill this container, not viewport */
+    .mcp-app-container > div {
+      height: 100% !important;
+      max-height: 100% !important;
     }
     .mcp-status-bar {
       flex-shrink: 0;
@@ -82,24 +87,46 @@
     }
     .mcp-menu-dropdown {
       position: fixed;
-      top: 44px;
+      top: 56px;
       right: 8px;
       z-index: 10000;
       background: var(--sl-color-neutral-0);
       border: 1px solid var(--sl-color-neutral-200);
       border-radius: var(--sl-border-radius-medium);
       box-shadow: var(--sl-shadow-large);
-      min-width: 150px;
-      padding: var(--sl-spacing-x-small) 0;
+      padding: var(--sl-spacing-small);
+    }
+    .mcp-icon-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sl-spacing-small);
     }
     .mcp-menu-item {
-      padding: var(--sl-spacing-small) var(--sl-spacing-medium);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sl-spacing-small);
       cursor: pointer;
       font-family: var(--sl-font-sans);
-      font-size: var(--sl-font-size-medium);
+      border-radius: var(--sl-border-radius-medium);
+      min-width: 72px;
     }
     .mcp-menu-item:hover {
       background: var(--sl-color-primary-50);
+    }
+    .mcp-menu-item-icon {
+      font-size: 1.5rem;
+      margin-bottom: var(--sl-spacing-x-small);
+    }
+    .mcp-menu-item-icon sl-icon {
+      font-size: 1.5rem;
+    }
+    .mcp-menu-item-name {
+      font-size: var(--sl-font-size-small);
+      color: var(--sl-color-neutral-700);
+      text-align: center;
+      word-break: break-word;
     }
     .hidden { display: none !important; }
   </style>
@@ -124,9 +151,11 @@
       </button>
     </div>
 
-    <!-- Dropdown menu -->
+    <!-- Dropdown menu with icon grid -->
     <div class="mcp-menu-dropdown" ui-class-hidden="menuHidden()">
-      <div ui-view="availableApps()?wrapper=lua.ViewList"></div>
+      <div class="mcp-icon-grid" ui-viewlist="availableApps()" ui-namespace="list-item">
+        <div></div>
+      </div>
     </div>
 
     <!-- Hidden element for JavaScript execution -->

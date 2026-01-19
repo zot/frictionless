@@ -24,18 +24,13 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
 | ═══════════════ drag handle ════════════════  |
-| [Chat] [Lua]                             [⬆]  |
-|------------------------------------------------|
-| (Chat Panel - when Chat tab selected)          |
-| Agent: Which app would you like to work on?    |
-| You: Test the contacts app                     |
-| [____________________________________] [Send]  |
-|------------------------------------------------|
-| (Lua Panel - when Lua tab selected)            |
-| > print("hello")                               |
-| hello                                          |
-| [                                    ] [Run]   |
-| [Clear]                                        |
+| Todos [▼]    | [Chat] [Lua]              [⬆]  |
+|--------------|----------------------------------|
+| 🔄 Reading   | (Chat Panel - when Chat tab)    |
+| ⏳ Update    | Agent: Which app would you like |
+| ⏳ Test      | You: Test the contacts app      |
+| ✓ Design     | [____________________________]  |
+|              |                          [Send] |
 +------------------------------------------------+
 ```
 
@@ -52,8 +47,8 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  |                             |
 +------------------+-----------------------------+
 | ═══════════════ drag handle ════════════════  |
-| [Chat] [Lua]                                  |
-| ...                                           |
+| Todos [▼]    | [Chat] [Lua]                   |
+| ...          | ...                             |
 +------------------------------------------------+
 ```
 
@@ -72,6 +67,8 @@ Legend:
 - `17/21` = Tests passing/total (green if all pass, yellow if partial)
 - `v` = Expanded section, `>` = Collapsed section
 - `[✓]` = Test passed, `[ ]` = Untested, `[✗]` = Test failed
+- Todo: `🔄` = in_progress (blue), `⏳` = pending (gray), `✓` = completed (green/muted)
+- `[▼]` = Collapse todos button
 
 **Build progress** (when app is building):
 - Progress bar showing 0-100%
@@ -126,6 +123,16 @@ Legend:
 | luaOutputLines | OutputLine[] | Lua console output history |
 | luaInput | string | Current Lua code input |
 | chatQuality | number | 0=fast, 1=thorough, 2=background |
+| todos | TodoItem[] | Claude Code todo list items |
+| todosCollapsed | boolean | Whether todo column is collapsed |
+
+### TodoItem (Claude Code task)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| content | string | Task description (shown for pending/completed) |
+| status | string | "pending", "in_progress", or "completed" |
+| activeForm | string | Present tense form (shown for in_progress) |
 
 ### AppInfo (app metadata)
 
@@ -209,8 +216,6 @@ Legend:
 | cancelNewForm() | Hide new app form |
 | createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
 | sendChat() | Send chat event with selected app context |
-| addAgentMessage(text) | Add agent message to chat + clear mcp.statusLine (called by Claude) |
-| addAgentThinking(text) | Add thinking message to chat + update mcp.statusLine (called by Claude) |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
@@ -222,7 +227,6 @@ Legend:
 | showPlaceholder() | Returns true if no selection and not showNewForm |
 | hidePlaceholder() | Returns not showPlaceholder() |
 | hideNewForm() | Returns not showNewForm |
-| updateRequirements(name, content) | Update an app's requirementsContent (called by Claude) |
 | showChatPanel() | Set panelMode to "chat" |
 | showLuaPanel() | Set panelMode to "lua" |
 | notChatPanel() | Returns panelMode ~= "chat" |
@@ -234,6 +238,26 @@ Legend:
 | qualityLabel() | Returns "Fast", "Thorough", or "Background" |
 | qualityValue() | Returns "fast", "thorough", or "background" |
 | setChatQuality() | Update quality from slider event |
+| toggleTodos() | Toggle todosCollapsed state |
+
+**External methods (called by Claude via ui_run/mcp methods):**
+
+| Method | Description |
+|--------|-------------|
+| addAgentMessage(text) | Add agent message to chat, clear mcp.statusLine |
+| addAgentThinking(text) | Add thinking message to chat, update mcp.statusLine |
+| updateRequirements(name, content) | Update an app's requirementsContent |
+| setTodos(todos) | Replace todo list with new items |
+
+### TodoItem
+
+| Method | Description |
+|--------|-------------|
+| displayText() | Returns activeForm if in_progress, else content |
+| isPending() | Returns status == "pending" |
+| isInProgress() | Returns status == "in_progress" |
+| isCompleted() | Returns status == "completed" |
+| statusIcon() | Returns "🔄" for in_progress, "⏳" for pending, "✓" for completed |
 
 ### OutputLine
 
@@ -306,6 +330,7 @@ Legend:
 | AppConsole.Issue.list-item.html | AppConsole.Issue | Issue row |
 | AppConsole.ChatMessage.list-item.html | AppConsole.ChatMessage | Chat message bubble |
 | AppConsole.OutputLine.list-item.html | AppConsole.OutputLine | Clickable Lua output line |
+| AppConsole.TodoItem.list-item.html | AppConsole.TodoItem | Todo item with status icon |
 
 ## Events
 
@@ -330,6 +355,16 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 | `test_request` | Spawn background agent to run `/ui-testing` on app in `target` |
 | `fix_request` | Spawn background agent to read TESTING.md and fix issues using `/ui-builder` |
 | `app_created` | Flesh out requirements.md for the new app based on `description`, write to disk, then call `appConsole:updateRequirements(name, content)` to populate the UI |
+
+**chat event payload:**
+
+| Field | Description |
+|-------|-------------|
+| `text` | The user's message |
+| `quality` | Quality level: "fast", "thorough", or "background" |
+| `context` | Selected app name (if any) |
+| `reminder` | Brief reminder to show todos and thinking messages |
+| `note` | Path to app files for context |
 
 **chat event handling:**
 
@@ -403,9 +438,13 @@ function mcp:appUpdated(name)
     mcp:scanAvailableApps()  -- rescan all apps from disk
     if appConsole then appConsole:onAppUpdated(name) end
 end
+
+function mcp:setTodos(todos)
+    if appConsole then appConsole:setTodos(todos) end
+end
 ```
 
-This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without checking if apps is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
+This allows Claude to call `mcp:appProgress()`, `mcp:appUpdated()`, and `mcp:setTodos()` without checking if app-console is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
 
 ## File Parsing (Lua)
 

@@ -50,7 +50,7 @@ Commands:
   install         Install skills and resources (without starting server)
 
 Examples:
-  ui-mcp mcp                                        Start MCP server (default: --dir .claude/ui)
+  ui-mcp mcp                                        Start MCP server (default: --dir .ui)
   ui-mcp serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
   ui-mcp install                                    Install skills and resources
   ui-mcp install --force                            Force reinstall even if up to date`
@@ -76,10 +76,10 @@ func runMCP(args []string) int {
 	// Spec: mcp.md Section 4.0
 	cfg.Lua.Hotload = true
 
-	// Default dir to .claude/ui if not specified
+	// Default dir to .ui if not specified
 	// Spec: mcp.md Section 2.2
 	if cfg.Server.Dir == "" {
-		cfg.Server.Dir = ".claude/ui"
+		cfg.Server.Dir = ".ui"
 	}
 
 	// Track the current log file for reopening after log clearing
@@ -251,9 +251,9 @@ func runInstall(args []string) int {
 		return 1
 	}
 
-	// Default dir to .claude/ui if not specified
+	// Default dir to .ui if not specified
 	if cfg.Server.Dir == "" {
-		cfg.Server.Dir = ".claude/ui"
+		cfg.Server.Dir = ".ui"
 	}
 
 	// Create a minimal MCP server just for installation
@@ -332,10 +332,10 @@ func runServe(args []string) int {
 	// Spec: mcp.md Section 4.0
 	cfg.Lua.Hotload = true
 
-	// Default dir to .claude/ui if not specified
+	// Default dir to .ui if not specified
 	// Spec: mcp.md Section 2.3
 	if cfg.Server.Dir == "" {
-		cfg.Server.Dir = ".claude/ui"
+		cfg.Server.Dir = ".ui"
 	}
 	// Default port to 8000 if not specified
 	if cfg.Server.Port == 0 {

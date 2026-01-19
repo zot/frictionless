@@ -420,6 +420,91 @@
     .section-header.gaps-header h3 {
       color: var(--sl-color-warning-700);
     }
+    /* Bottom panel layout (todos + chat/lua) */
+    .bottom-panel-content {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+    /* Todo column */
+    .todo-column {
+      width: 200px;
+      border-right: 1px solid var(--sl-color-neutral-200);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .todo-column.collapsed {
+      width: 32px;
+    }
+    .todo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--sl-spacing-x-small) var(--sl-spacing-small);
+      border-bottom: 1px solid var(--sl-color-neutral-200);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .todo-header:hover {
+      background: var(--sl-color-neutral-50);
+    }
+    .todo-header h4 {
+      margin: 0;
+      font-size: var(--sl-font-size-small);
+      font-weight: var(--sl-font-weight-semibold);
+    }
+    .todo-column.collapsed .todo-header h4 {
+      display: none;
+    }
+    .todo-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: var(--sl-spacing-x-small);
+    }
+    .todo-column.collapsed .todo-list {
+      display: none;
+    }
+    /* Todo item styles */
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sl-spacing-x-small);
+      padding: var(--sl-spacing-x-small) 0;
+      font-size: var(--sl-font-size-small);
+      line-height: 1.3;
+    }
+    .todo-icon {
+      flex-shrink: 0;
+      width: 1.2em;
+      text-align: center;
+    }
+    .todo-item.pending {
+      color: var(--sl-color-neutral-500);
+    }
+    .todo-item.in-progress {
+      color: var(--sl-color-primary-700);
+      font-weight: var(--sl-font-weight-medium);
+    }
+    .todo-item.completed {
+      color: var(--sl-color-success-600);
+      opacity: 0.7;
+    }
+    .todo-text {
+      white-space: nowrap;
+    }
+    /* Chat/Lua column */
+    .chat-lua-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: var(--sl-spacing-small) var(--sl-spacing-medium) var(--sl-spacing-medium);
+    }
   </style>
 
   <div class="apps-dashboard">
@@ -547,33 +632,45 @@
     <!-- Chat/Lua Panel -->
     <div class="chat-panel" id="chat-panel">
       <div class="chat-resize-handle" id="chat-resize-handle"></div>
-      <div class="chat-content">
-        <div class="panel-header">
-          <div class="panel-tabs">
-            <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
-            <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+      <div class="bottom-panel-content">
+        <!-- Todo Column -->
+        <div class="todo-column" ui-class-collapsed="todosCollapsed">
+          <div class="todo-header" ui-event-click="toggleTodos()">
+            <h4>Todos</h4>
+            <sl-icon-button name="chevron-left" label="Collapse"></sl-icon-button>
           </div>
+          <div class="todo-list" ui-view="todos?wrapper=lua.ViewList"></div>
         </div>
 
-        <!-- Chat Panel Content -->
-        <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
-        <div class="chat-input-row" ui-class-hidden="notChatPanel()">
-          <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-          <div class="quality-control">
-            <span class="quality-label" ui-value="qualityLabel()"></span>
-            <sl-range min="0" max="2" step="1" ui-value="chatQuality" ui-event-sl-input="setChatQuality()" style="width: 60px; --thumb-size: 14px;"></sl-range>
+        <!-- Chat/Lua Column -->
+        <div class="chat-lua-column">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
+              <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+            </div>
           </div>
-          <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
-        </div>
 
-        <!-- Lua Panel Content -->
-        <div class="lua-panel" ui-class-hidden="notLuaPanel()">
-          <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
-          <div class="lua-input-area">
-            <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
-            <div class="lua-buttons">
-              <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
-              <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+          <!-- Chat Panel Content -->
+          <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          <div class="chat-input-row" ui-class-hidden="notChatPanel()">
+            <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
+            <div class="quality-control">
+              <span class="quality-label" ui-value="qualityLabel()"></span>
+              <sl-range min="0" max="2" step="1" ui-value="chatQuality" ui-event-sl-input="setChatQuality()" style="width: 60px; --thumb-size: 14px;"></sl-range>
+            </div>
+            <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+          </div>
+
+          <!-- Lua Panel Content -->
+          <div class="lua-panel" ui-class-hidden="notLuaPanel()">
+            <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
+            <div class="lua-input-area">
+              <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+              <div class="lua-buttons">
+                <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
+                <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+              </div>
             </div>
           </div>
         </div>
