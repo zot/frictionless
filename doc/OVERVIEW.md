@@ -1,6 +1,6 @@
-# UI-MCP Project Overview
+# Frictionless Project Overview
 
-## What is UI-MCP?
+## What is Frictionless?
 
 **An app ecosystem for Claude.** Build your own Claude apps or download them:
 
@@ -12,7 +12,7 @@
 
 Build and modify apps while they run. No restarts, no rebuilds, no wait.
 
-## Why UI-MCP?
+## Why Frictionless?
 
 ### The Problem with Traditional Web Development
 
@@ -29,7 +29,7 @@ Your actual domain logic becomes a fraction of the codebase. This is especially 
 
 **Claude writes app logic and skips the rest.**
 
-UI-MCP uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
+Frictionless uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
 
 - **No API layer** — no endpoints, no serialization, no DTOs
 - **No frontend code** — just HTML templates with declarative bindings
@@ -65,7 +65,7 @@ File permissions work better outside the `.claude` directory. The `.claude` dire
 
 ## Desktop UIs Without the Complexity
 
-UI-MCP targets desktop/local UIs via stateful WebSocket connections. The presentation model lives on the backend, which enables automatic change detection without observer pattern boilerplate.
+Frictionless targets desktop/local UIs via stateful WebSocket connections. The presentation model lives on the backend, which enables automatic change detection without observer pattern boilerplate.
 
 Traditional desktop UI approaches (Electron + React/Vue) require:
 - Full frontend framework setup and bundling
@@ -75,7 +75,7 @@ Traditional desktop UI approaches (Electron + React/Vue) require:
 
 This complexity exists even in Electron apps where the JS engine is directly connected to the DOM—developers still reach for React/Vue and all their associated boilerplate.
 
-UI-MCP eliminates all of this. The backend mutates objects directly; the framework handles synchronization automatically.
+Frictionless eliminates all of this. The backend mutates objects directly; the framework handles synchronization automatically.
 
 ## Best For
 

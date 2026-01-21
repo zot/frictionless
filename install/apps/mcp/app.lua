@@ -1,5 +1,5 @@
 -- MCP Shell
--- Outer shell for all ui-mcp apps with app switcher menu
+-- Outer shell for all Frictionless apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
 -- Filesystem helpers (same pattern as apps app)

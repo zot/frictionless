@@ -14,7 +14,7 @@ Build and modify apps while they run. No restarts, no rebuilds, no wait.
 
 ## How It Works
 
-UI-MCP uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
+Frictionless uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
 
 - **No API layer** — no endpoints, no serialization, no DTOs
 - **No frontend code** — just HTML templates with declarative bindings

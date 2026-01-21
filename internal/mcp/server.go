@@ -805,6 +805,9 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.stateWaitersMu.Unlock()
+
+		// Trigger UI refresh so pollingEvents() status updates after disconnect
+		s.SafeExecuteInSession(sessionID, func() (interface{}, error) { return nil, nil })
 	}()
 
 	// Trigger UI refresh so pollingEvents() status updates
