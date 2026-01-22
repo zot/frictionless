@@ -19,7 +19,7 @@
 - ui_run: Execute Lua code in session context
 - ui_open_browser: Open system browser to session URL (defaults to ?conserve=true)
 - ui_status: Get server state, version, base_dir, URL, mcp_port, and session count
-- ui_install: Install bundled files with version checking (skills, resources, viewdefs, scripts)
+- ui_install: Install bundled files with version checking (skills, resources, viewdefs, scripts). Checks for optional external dependencies (e.g., code-simplifier agent) and includes suggestions in response.
 
 ## Collaborators
 

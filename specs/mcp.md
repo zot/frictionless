@@ -85,10 +85,11 @@ Manually install bundled skills and resources without starting the MCP server.
 
 - **Activation:** `frictionless install [--dir <base_dir>] [--force]`
 - **Default base_dir:** `{project}/.ui`
-- **Behavior:** Same as `ui_install` MCP tool (see Section 5.7):
+- **Behavior:** Same as `ui_install` MCP tool (see Section 5.5):
   - Installs Claude skills to `{project}/.claude/skills/`
   - Installs resources, viewdefs, and scripts to `{base_dir}/`
   - Uses version checking (skips if installed >= bundled unless `--force`)
+  - Checks for optional dependencies and outputs suggestions (e.g., `code-simplifier` agent)
 
 ### 2.5 HTTP Tool API
 
@@ -731,9 +732,20 @@ README.md
 {
   "installed": [".claude/skills/ui-builder/SKILL.md", ".ui/resources/reference.md"],
   "skipped": [],
-  "appended": []
+  "appended": [],
+  "suggestions": ["Run `claude plugin install code-simplifier` to enable code simplification"]
 }
 ```
+
+**External Dependency Checks:**
+
+After installation, `ui_install` checks for optional external dependencies and includes suggestions in the response:
+
+| Dependency | Check | Suggestion |
+|------------|-------|------------|
+| `code-simplifier` agent | `{project}/.claude/agents/code-simplifier.md` exists | `Run 'claude plugin install code-simplifier' to enable code simplification` |
+
+Suggestions are informational only and do not affect the success of installation.
 
 **Design Rationale:**
 - Separates installation from configuration (user controls when files are added)

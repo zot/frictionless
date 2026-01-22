@@ -2,15 +2,16 @@
 
 ## What is Frictionless?
 
-**An app ecosystem for Claude.** Build your own Claude apps or download them:
+**A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
 
-- **Dashboards** — surface information at a glance
-- **Command frontends** — tame complex UNIX tools with forms and buttons
-- **Workflow tools** — common Claude usage patterns as clickable actions
+Build and modify apps while they run. No restarts. No recompiles. No restarts.
+
+- **Quality of life** — tame complex tasks with forms and buttons
+  - **Claude life** — UIs for common Claude tasks
+  - **UNIX life** — UIs for UNIX tools
 - **Life beyond code** — expense tracking, habit building, project planning
+- **Dashboards** — surface information at a glance
 - **Prototype production apps** — build functional wireframes at a fraction of the tokens
-
-Build and modify apps while they run. No restarts, no rebuilds, no wait.
 
 ## Why Frictionless?
 

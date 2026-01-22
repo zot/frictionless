@@ -45,6 +45,7 @@ mcp:appProgress("app-name", progress, "stage")
 | Writing viewdefs | 60 | "writing viewdefs" |
 | Linking | 80 | "linking" |
 | Auditing | 90 | "auditing" |
+| Simplifying | 95 | "simplifying" |
 | Complete | 100 | "complete" |
 
 Call `mcp:appUpdated("app-name")` after all files are written so the dashboard rescans.
@@ -65,7 +66,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 **Important:** do not display the app after building it unless the user specifically requests it.
 
-## Workflow
+## Workflow (show todos for the flow)
 
 1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 
@@ -75,6 +76,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 3. **Design** → `mcp:appProgress(app, 20, "designing")`
    - Check `{base_dir}/patterns/` for reusable patterns
+   - Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element representing the app
    - Write the design in `{base_dir}/apps/<app>/design.md`:
       - **Intent**: What the UI accomplishes
       - **Layout**: ASCII wireframe showing structure
@@ -104,6 +106,25 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
 
+   **Automated checks first** (use `ui_audit` MCP tool):
+   ```
+   ui_audit(name: "app-name")
+   ```
+
+   The tool checks Lua code AND viewdefs for:
+   - Dead methods (defined but never called)
+   - Missing `session.reloading` guard on instance creation
+   - Global variable name doesn't match app directory
+   - `<style>` blocks in list-item viewdefs
+   - `item.` prefix in list-item viewdefs
+   - `ui-action` on non-buttons
+   - `ui-class="hidden:..."` (should use `ui-class-hidden`)
+   - `ui-value` on checkboxes/switches
+   - Operators in binding paths
+   - HTML parse errors in viewdefs
+
+   **Do not manually check viewdefs** — the tool handles all viewdef validation.
+
    **AI-based checks** (require reading comprehension):
    - Compare design.md against requirements.md — **every required feature must be represented**
    - Compare implementation against design.md — **every designed feature must be implemented**
@@ -117,33 +138,27 @@ The `mcp` global provides methods for interacting with the MCP server:
    - Check for missing `min-height: 0` on scrollable flex children
    - Check that Cancel buttons revert changes (see Edit/Cancel Pattern)
 
-   **Automated checks** (use `ui_audit` tool):
-   ```bash
-   curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_audit \
-     -H "Content-Type: application/json" \
-     -d '{"name": "app-name"}' | jq
+   **Fix violations** before the task is complete:
+
+   1. **Dead methods NOT in design.md** → Delete them from `app.lua` now
+   2. **Dead methods IN design.md** → Record in `TESTING.md` under `## Gaps` (design/code mismatch)
+   3. **Other violations** (viewdef issues, missing guards) → Fix them in the code
+   4. **Warnings** (external methods) → OK to ignore, these are called by Claude
+
+   After fixing, **report any recorded gaps** to the user.
+
+7. **Simplify** → `mcp:appProgress(app, 95, "simplifying")`
+
+   Use the `code-simplifier` agent to refine the app code for clarity, consistency, and maintainability:
+
+   ```
+   Task tool with subagent_type="code-simplifier"
+   prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
    ```
 
-   The tool checks for:
-   - Dead methods (defined but never called)
-   - Missing `session.reloading` guard on instance creation
-   - Global variable name doesn't match app directory
-   - `<style>` blocks in list-item viewdefs
-   - `item.` prefix in list-item viewdefs
-   - `ui-action` on non-buttons
-   - `ui-class="hidden:..."` (should use `ui-class-hidden`)
-   - `ui-value` on checkboxes/switches
-   - Operators in binding paths
-   - HTML parse errors in viewdefs
+   The agent will analyze and refine the Lua code while preserving functionality.
 
-   **Violations must be fixed** before the task is complete:
-   - **Dead methods in design.md** are gaps — unclear if code is wrong (should call it) or design is wrong (shouldn't exist). Record in the app's `TESTING.md` under `## Gaps` (first level-2 section) — this counts as "fixed" for audit purposes.
-   - **Dead methods not in design.md** can simply be removed.
-   - **Warnings** (external methods called by Claude) can be reported but don't block completion.
-
-   After auditing, **report any gaps to the user** so they can decide how to proceed.
-
-7. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
+8. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
    - Report completion so progress bar shows 100%
    - Trigger dashboard rescan so app status updates
 

@@ -1,16 +1,17 @@
-# frictionless
+# Frictionless
 
 **Version: 0.6.0**
 
-**An app ecosystem for Claude.** Build your own Claude apps or download them:
+**A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
 
-- **Dashboards** — surface information at a glance
-- **Command frontends** — tame complex UNIX tools with forms and buttons
-- **Workflow tools** — common Claude usage patterns as clickable actions
+Build and modify apps while they run. No recompiles. No restarts.
+
+- **Quality of life** — tame complex tasks with forms and buttons
+  - **Claude life** — UIs for common Claude tasks
+  - **UNIX life** — UIs for UNIX tools
 - **Life beyond code** — expense tracking, habit building, project planning
+- **Dashboards** — surface information at a glance
 - **Prototype production apps** — build functional wireframes at a fraction of the tokens
-
-Build and modify apps while they run. No restarts, no rebuilds, no wait.
 
 ## How It Works
 
@@ -20,7 +21,7 @@ Frictionless uses [ui-engine](https://github.com/zot/ui-engine) to eliminate com
 - **No frontend code** — just HTML templates with declarative bindings
 - **No sync wiring** — change backend data, UI updates automatically—no code to detect or push changes
 
-Claude writes your app logic and skips everything else. See [Architecture](doc/OVERVIEW.md) for details.
+Claude writes your app logic and skips everything else. See [overview](doc/OVERVIEW.md) for details.
 
 ## Usage
 

@@ -744,6 +744,11 @@ function AppConsole:qualityValue()
     return values[self.chatQuality + 1]
 end
 
+function AppConsole:qualityHandler()
+    local handlers = {nil, "/ui-builder", "background-ui-builder"}
+    return handlers[self.chatQuality + 1]
+end
+
 -- Set quality from slider (captures sl-input events)
 function AppConsole:setChatQuality()
    print("QUALITY: "..tostring(self.chatQuality))
@@ -757,10 +762,11 @@ function AppConsole:sendChat()
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
     local reminder = "Show todos and thinking messages while working"
+    local handler = self:qualityHandler()
     if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue(), reminder = reminder })
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue(), handler = handler, reminder = reminder })
     else
-        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue(), reminder = reminder })
+        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue(), handler = handler, reminder = reminder })
     end
 
     self.chatInput = ""

@@ -17,7 +17,54 @@ When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright 
 
 When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
 
-When the user says `events` it means simply to start the event loop, but not use `ui_display` or `ui_open_browser` as in Quick Start
+When the user says `events` it means to start the event loop, but not use `ui_display` or `ui_open_browser` as in Quick Start.
+
+## How to Process Events
+
+The event script waits for user interactions and returns JSON:
+
+```bash
+{base_dir}/event
+```
+
+Returns one JSON array per line containing one or more events:
+```json
+[{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
+```
+
+Make sure you have read the design file for the event.
+
+### Which Design File to Read
+
+**Example event:**
+```json
+{"app":"app-console", "context":"contacts", "note":"...contacts", "event":"chat", "text":"hello"}
+```
+
+**Read:** `{base_dir}/apps/app-console/design.md` (from `app` field)
+**NOT:** `{base_dir}/apps/contacts/design.md` (ignore `context` and `note`)
+
+The `app` field identifies which app's design.md to read. Other fields like `context` or `note` provide data for event handling but do NOT change which design file you read.
+
+You must not skip reading that app's design unless you have already read it in this conversation.
+
+### Running in Foreground or Background
+
+**Foreground event loop (recommended):**
+1. Run `{base_dir}/event` with Bash (blocking, ~2 min timeout)
+2. When it returns, parse JSON array. If non-empty, handle each event
+   - use `ui_run` to alter app state and reflect changes to the user
+3. Restart the event loop
+
+This is the most responsive approach - events are handled immediately.
+
+**Background event loop (alternative):**
+Run `{base_dir}/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
+
+**Exit codes:**
+- 0 + empty output = timeout, no events (just restart)
+- 0 + JSON output = events received
+- 52 = server restarted (restart both server and event loop)
 
 ## Quick Start: Show an Existing App
 
@@ -89,35 +136,6 @@ The server auto-starts when the MCP connection is established. Use `ui_status` t
 **Verifying connection:** After navigating with Playwright, call `ui_status()` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 
 If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
-
-## Event Loop
-
-The event script waits for user interactions and returns JSON:
-
-```bash
-{base_dir}/event
-```
-
-Returns one JSON array per line containing one or more events:
-```json
-[{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
-```
-
-**Foreground event loop (recommended):**
-1. Run `{base_dir}/event` with Bash (blocking, ~2 min timeout)
-2. When it returns, parse JSON array. If non-empty, handle each event
-   - use `ui_run` to alter app state and reflect changes to the user
-3. Restart the event loop
-
-This is the most responsive approach - events are handled immediately.
-
-**Background event loop (alternative):**
-Run `{base_dir}/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
-
-**Exit codes:**
-- 0 + empty output = timeout, no events (just restart)
-- 0 + JSON output = events received
-- 52 = server restarted (restart both server and event loop)
 
 ## Building or modifying UIs
 

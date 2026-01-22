@@ -95,6 +95,8 @@ A 3-position slider next to the Send button controls how modification requests a
 
 Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
 
+**IMPORTANT:** Claude MUST always respect the quality field. When `quality` is "thorough", Claude MUST invoke the `/ui-builder` skill and follow its full workflow (update design.md, audit, etc.). When `quality` is "fast", Claude can make direct edits without the skill. This is not optional - the quality setting is the user's explicit choice about how they want changes handled.
+
 ## Claude Code Todo List
 
 The bottom panel displays Claude's current todo list alongside the Chat/Lua panel:
@@ -158,6 +160,7 @@ User message with selected app as context. Respond conversationally.
 |-------|-------------|
 | `text` | The user's message |
 | `quality` | Quality level: "fast", "thorough", or "background" |
+| `handler` | Skill to invoke: `null` (direct edit), `"/ui-builder"`, or `"background-ui-builder"` |
 | `context` | Selected app name (if any) |
 | `reminder` | Brief reminder to show todos and thinking messages |
 | `note` | Path to app files for context |
@@ -170,10 +173,12 @@ Before sending a thinking message, check for new events first. If there's an eve
 
 Use `appConsole:addAgentMessage(text)` for the final response (clears status bar).
 
-**If the chat involves modifying an app:** Check the `quality` field:
-- `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
-- `thorough` — Use `/ui-builder` skill inline with full phases
-- `background` — Spawn background ui-builder agent (shows progress bar)
+**If the chat involves modifying an app:** Check the `handler` field and follow it exactly:
+- `null` (fast quality) — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
+- `"/ui-builder"` (thorough quality) — **MUST invoke `/ui-builder` skill** with full phases (design update, code, viewdefs, audit, simplify). Do NOT skip phases or make direct edits.
+- `"background-ui-builder"` (background quality) — Spawn background ui-builder agent (shows progress bar)
+
+**The handler field reflects the user's quality choice and must be respected.** If handler is `/ui-builder`, Claude must use the skill even for "simple" changes.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.

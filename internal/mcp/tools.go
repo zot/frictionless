@@ -137,6 +137,7 @@ type InstallResult struct {
 	Installed        []string `json:"installed"`
 	Skipped          []string `json:"skipped"`
 	Appended         []string `json:"appended"`
+	Suggestions      []string `json:"suggestions,omitempty"`
 	VersionSkipped   bool     `json:"version_skipped,omitempty"`
 	BundledVersion   string   `json:"bundled_version,omitempty"`
 	InstalledVersion string   `json:"installed_version,omitempty"`
@@ -297,9 +298,17 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 	track("README.md", status)
 
+	// 7. Check for optional external dependencies and add suggestions
+	var suggestions []string
+	codeSimplifierPath := filepath.Join(projectRoot, ".claude", "agents", "code-simplifier.md")
+	if _, err := os.Stat(codeSimplifierPath); os.IsNotExist(err) {
+		suggestions = append(suggestions, "Run `claude plugin install code-simplifier` to enable code simplification")
+	}
+
 	return &InstallResult{
-		Installed: installed,
-		Skipped:   skipped,
+		Installed:   installed,
+		Skipped:     skipped,
+		Suggestions: suggestions,
 	}, nil
 }
 

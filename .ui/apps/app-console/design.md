@@ -337,7 +337,7 @@ Legend:
 ### From UI to Claude
 
 ```json
-{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "quality": "fast", "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "quality": "fast", "handler": null, "note": "make sure you have understood the app at /path/apps/contacts"}
 {"app": "app-console", "event": "build_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 {"app": "app-console", "event": "test_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
 {"app": "app-console", "event": "fix_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
@@ -348,78 +348,64 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 
 ### Claude Event Handling
 
-| Event | Handler |
-|-------|---------|
-| `chat` | Handle based on `quality` field - see below |
-| `build_request` | Spawn background ui-builder agent using `mcp_port` from event |
-| `test_request` | Spawn background agent to run `/ui-testing` on app in `target` |
-| `fix_request` | Spawn background agent to read TESTING.md and fix issues using `/ui-builder` |
-| `app_created` | Flesh out requirements.md for the new app based on `description`, write to disk, then call `appConsole:updateRequirements(name, content)` to populate the UI |
+| Event | Action |
+|-------|--------|
+| `chat` | Dispatch based on `handler` field (see Chat Events below) |
+| `build_request` | Spawn background ui-builder agent |
+| `test_request` | Spawn background agent for `/ui-testing` |
+| `fix_request` | Spawn background agent to fix issues via `/ui-builder` |
+| `app_created` | Write requirements.md, call `appConsole:updateRequirements(name, content)` |
 
-**chat event payload:**
+### Chat Events
 
-| Field | Description |
-|-------|-------------|
-| `text` | The user's message |
-| `quality` | Quality level: "fast", "thorough", or "background" |
-| `context` | Selected app name (if any) |
-| `reminder` | Brief reminder to show todos and thinking messages |
-| `note` | Path to app files for context |
+**Payload:** `text`, `handler`, `context`, `quality`, `reminder`, `note`
 
-**chat event handling:**
+**Handler dispatch (check FIRST):**
 
-Respond to user message about app in `context`. Reply via `appConsole:addAgentMessage(text)`.
+| Handler | Action |
+|---------|--------|
+| `null` | Fast: read app files, make direct edits |
+| `"/ui-builder"` | Invoke `/ui-builder` skill - do NOT read app files directly |
+| `"background-ui-builder"` | Spawn background ui-builder agent |
 
-**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
-- Appear in chat log styled differently (italic, muted)
-- Update `mcp.statusLine` and set `mcp.statusClass = "thinking"` (orange bold-italic in MCP status bar)
+The `handler` field reflects user's quality choice. Always respect it - use `/ui-builder` even for "simple" changes when specified.
 
-**Before sending a thinking message:** Check for new events first. If there's an event, handle it immediately and save the thinking message as a todo to send after. This prevents missing user events while sending status updates.
+**Reply:** `appConsole:addAgentMessage(text)` when done.
 
-Use for:
-- "Let me look at the code..."
-- "Found the issue, fixing it now..."
-- "Reading the design spec..."
+### Progress Feedback
 
-Then send the final response via `appConsole:addAgentMessage(text)` (which clears `mcp.statusLine`).
+Send thinking updates via `appConsole:addAgentThinking(text)`:
+- Appears in chat (italic, muted)
+- Updates `mcp.statusLine` with `mcp.statusClass = "thinking"` (orange bold-italic)
 
-**If the chat involves modifying an app:** Check the `quality` field:
+Examples: "Reading the design...", "Found the issue, fixing...", "Running tests..."
 
-| Quality | Behavior |
-|---------|----------|
-| `fast` | Direct edit - see below |
-| `thorough` | Use `/ui-builder` skill inline with full phases |
-| `background` | Spawn background ui-builder agent (shows progress bar) |
+**Before sending:** Check for new events first. Handle events immediately; save thinking message for after.
 
-**Fast quality (direct edit):**
+Final response via `appConsole:addAgentMessage(text)` clears `mcp.statusLine`.
+
+### Fast Quality (handler=null)
 
 1. Set progress: `ui_run('mcp:appProgress("{context}", 0, "editing")')`
-2. Read the target app at `{base_dir}/apps/{context}/`:
-   - `design.md` - understand app structure and data model
-   - `app.lua` - for Lua code changes
-   - `viewdefs/*.html` - for UI/styling changes
-3. Make the requested change using Edit tool
-4. Clear progress and reply: `ui_run('mcp:appUpdated("{context}"); appConsole:addAgentMessage("Done - {brief description}")')`
+2. Read target app files: `design.md`, `app.lua`, `viewdefs/*.html`
+3. Make changes using Edit tool
+4. Clear and reply: `ui_run('mcp:appUpdated("{context}"); appConsole:addAgentMessage("Done - {description}")')`
 
-**Background Agent Pattern (build_request):**
+### Background Agents
 
-Use `mcp_port` from the event payload:
+Use `mcp_port` from event payload:
 ```
 Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
 ```
 
-Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
+Before spawning: `ui_run('mcp:appProgress("{target}", 0, "thinking...")')`
 
-Tell the ui-builder agent:
-- Use HTTP API (curl) since background agents don't have MCP tool access
-- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
-- Call `mcp:appUpdated("{name}")` on completion (triggers rescan)
+Background agents use HTTP API (no MCP tools):
+- Progress: `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {pct}, "{stage}")'`
+- Completion: `mcp:appUpdated("{name}")` (triggers rescan)
 
-Background agents allow Claude to continue handling chat while builds run.
+### MCP Convenience Methods
 
-### From Claude to UI (via mcp methods)
-
-Claude uses `ui_run` to call mcp convenience methods:
 ```lua
 mcp:appProgress("my-app", 40, "writing code")
 mcp:appUpdated("contacts")
