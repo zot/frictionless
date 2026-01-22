@@ -38,7 +38,7 @@ Ask Claude to build a UI:
 Or display an existing app:
 
 ```
-/ui show contacts
+/ui show app-console
 ```
 
 ### Standalone Mode
@@ -46,11 +46,12 @@ Or display an existing app:
 Run frictionless independently for development or testing:
 
 ```bash
-frictionless serve --port 8000
-frictionless serve --port 8000 --dir /path/to/ui-dir
+frictionless serve --port 8000 --mcp-port 8001
+frictionless serve --port 8000 --mcp-port 8001 --dir /path/to/ui-dir
 ```
 
 The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.ui`.
+The `--mcp-port` is only needed if you want to connect it to Claude.
 
 ### Bundling
 
