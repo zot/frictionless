@@ -1,4 +1,4 @@
-# Apps
+# App Console
 
 Dashboard for discovering, launching, and tracking quality of frictionless apps. Acts as a command center for UI development with Claude.
 
@@ -27,8 +27,8 @@ When an app is selected, show:
 - Description (first paragraph from requirements.md, parsed by Lua)
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
-  - Build (when no viewdefs) - sends build_request to Claude
-  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" itself)
+  - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
+  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
@@ -37,12 +37,14 @@ When an app is selected, show:
 
 ## Embedded App View
 
-When the "Open" button is clicked, the selected app replaces the top portion (app list + details panel) above the chat:
+When the "Open" button is clicked, the selected app replaces the detail panel (right side):
+- App list remains visible on the left
 - The embedded view displays `embeddedValue` directly (not an iframe)
+- Header shows app name and close button `[X]`
 - The chat panel remains visible below
 - User can interact with the embedded app while still chatting with Claude
 
-**Restore button:** The "Chat with Claude" header shows a restore icon on the far right when an app is embedded. Clicking it closes the embedded view and restores the app list + details panel.
+Clicking the close button `[X]` closes the embedded view and restores the normal detail panel.
 
 ## New App Form
 
@@ -57,14 +59,19 @@ When "+" is clicked, show a form instead of details:
 2. Write `requirements.md` with title and description
 3. Rescan to add app to list
 4. Select the new app (shows Build button since no viewdefs)
-5. Send `app_created` event to Claude with the app name and description
+5. Start progress at "pondering, 0%" via `mcp:appProgress(name, 0, "pondering")`
+6. Send `app_created` event to Claude with the app name and description
 
 **On Create (Claude):**
-When Claude receives the `app_created` event, it should:
-1. Read the basic requirements.md that Lua created
-2. Flesh out the requirements with proper structure and detail based on the description
-3. Write the expanded requirements.md to disk
-4. Use `ui_run` to call `apps:updateRequirements(name, content)` to populate the requirements textbox in the UI
+When Claude receives the `app_created` event, it should show both progress (in the app list) and thinking messages (in the chat panel) while processing:
+
+| Step | Progress | Thinking Message                  | Action                                                                        |
+|------|----------|-----------------------------------|-------------------------------------------------------------------------------|
+| 1    | 33%       | "Reading initial requirements..." | Read the basic requirements.md that Lua created                               |
+| 2    | 66%      | "Fleshing out requirements..."    | Expand requirements with proper structure and detail based on the description |
+| 3    | (clear)  | (final message)                   | Write the expanded requirements.md to disk, clear progress                    |
+
+Use `mcp:appProgress(name, percent, stage)` for the progress bar, `appConsole:addAgentThinking(text)` for chat panel updates, then `appConsole:addAgentMessage(text)` for the final response. Call `appConsole:updateRequirements(name, content)` to populate the requirements in the UI, then `mcp:appProgress(name, nil, nil)` to clear the progress bar.
 
 ## Chat Panel
 
@@ -93,13 +100,56 @@ A 3-position slider next to the Send button controls how modification requests a
 
 Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
 
+**IMPORTANT:** Claude MUST always respect the quality field. When `quality` is "thorough", Claude MUST invoke the `/ui-builder` skill and follow its full workflow (update design.md, audit, etc.). When `quality` is "fast", Claude can make direct edits without the skill. This is not optional - the quality setting is the user's explicit choice about how they want changes handled.
+
+## Claude Code Todo List
+
+The bottom panel displays Claude's current todo list alongside the Chat/Lua panel:
+
+**Layout:**
+- Bottom resizable section has two columns: Todo List (left) | Chat/Lua (right)
+- Todo list is a narrow column (200px) showing current task status
+- Todo items don't wrap; column scrolls horizontally if text overflows
+- Collapse button hides the column horizontally (shrinks to icon-only 32px width)
+
+**Display:**
+- Show todo items with status indicators:
+  - ⏳ pending (gray)
+  - 🔄 in_progress (blue, highlighted)
+  - ✓ completed (green, muted)
+- The in_progress item is shown prominently at the top
+- Completed items can be collapsed/hidden
+
+**Data Flow:**
+- Claude pushes todo updates via `ui_run` calling `mcp:setTodos(todos)`
+- Each todo has: `{content: string, status: string, activeForm: string}`
+- Display `activeForm` for in_progress items, `content` for others
+
+**MCP Methods (in init.lua):**
+```lua
+function mcp:setTodos(todos)
+    if appConsole then appConsole:setTodos(todos) end
+end
+```
+
+## Lua Console
+
+The bottom panel has Chat/Lua tabs. The Lua tab provides a REPL for executing Lua code:
+- Output area shows command history and results
+- Input textarea for multi-line Lua code
+- Run button (or Ctrl+Enter) executes the code
+- Clear button clears output history
+- Clicking an output line copies it to the input area
+
+Useful for debugging, inspecting app state, and testing Lua expressions.
+
 ## Build Progress
 
 When Claude is building an app, Lua tracks progress state:
 - Progress bar (0-100%)
 - Stage label (designing, writing code, creating viewdefs, linking)
 
-Claude pushes progress updates via `ui_run` calling `apps:onAppProgress()` when building.
+Claude pushes progress updates via `ui_run` calling `appConsole:onAppProgress()` when building.
 
 ## Events to Claude
 
@@ -110,25 +160,76 @@ Events are sent via `mcp.pushState()` and include `app` (the app name) and `even
 ### `chat`
 User message with selected app as context. Respond conversationally.
 
-**If the chat involves modifying an app:** Check the `quality` field:
-- `fast` — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `apps:addAgentMessage()`
-- `thorough` — Use `/ui-builder` skill inline with full phases
-- `background` — Spawn background ui-builder agent (shows progress bar)
+**Payload:**
+| Field | Description |
+|-------|-------------|
+| `text` | The user's message |
+| `quality` | Quality level: "fast", "thorough", or "background" |
+| `handler` | Skill to invoke: `null` (direct edit), `"/ui-builder"`, or `"background-ui-builder"` |
+| `context` | Selected app name (if any) |
+| `reminder` | Brief reminder to show todos and thinking messages |
+| `note` | Path to app files for context |
+
+**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
+- Appear in chat log styled differently (italic, muted)
+- Update `mcp.statusLine` and set `mcp.statusClass = "thinking"` (orange bold-italic in MCP shell status bar)
+
+Before sending a thinking message, check for new events first. If there's an event, handle it immediately and save the thinking message as a todo.
+
+Use `appConsole:addAgentMessage(text)` for the final response (clears status bar).
+
+**If the chat involves modifying an app:** Check the `handler` field and follow it exactly:
+- `null` (fast quality) — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
+- `"/ui-builder"` (thorough quality) — **MUST invoke `/ui-builder` skill** with full phases (design update, code, viewdefs, audit, simplify). Do NOT skip phases or make direct edits.
+- `"background-ui-builder"` (background quality) — Spawn background ui-builder agent using the **same prompt template as `build_request`** (see below). Include the user's `text` in the prompt so the agent knows what to do.
+
+**The handler field reflects the user's quality choice and must be respected.** If handler is `/ui-builder`, Claude must use the skill even for "simple" changes.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
 
 **Event payload:** `{app: "app-console", event: "build_request", target: "my-app"}`
 
-Spawn a background ui-builder agent:
+**Note:** Lua already sets progress to `0, "pondering"` before sending this event, so the user sees immediate feedback when clicking Build.
+
+**Prompt template for background build agent:**
 ```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app at .ui/apps/{target}/")
+Build the app "{target}" at .ui/apps/{target}/
+
+## Progress Reporting
+
+Use the `.ui/mcp` script for all MCP operations:
+
+```bash
+.ui/mcp progress {target} <percent> "<stage>"   # Report progress
+.ui/mcp run "<lua code>"                        # Execute Lua
+.ui/mcp audit {target}                          # Audit app
 ```
 
-Tell the ui-builder agent:
-- Use `.ui/` scripts for MCP operations (they read the port from `.ui/mcp-port`)
-- Report progress via `.ui/progress {target} {percent} "{stage}"`
-- Call `.ui/run "mcp:appUpdated('{target}')"` when done (triggers rescan)
+**Report progress at EACH phase of the /ui-builder skill:**
+
+| Phase | Command |
+|-------|---------|
+| Starting | `.ui/mcp progress {target} 0 "starting..."` |
+| Reading requirements | `.ui/mcp progress {target} 10 "reading requirements..."` |
+| Designing | `.ui/mcp progress {target} 20 "designing..."` |
+| Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
+| Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
+| Linking | `.ui/mcp progress {target} 80 "linking..."` |
+| Auditing | `.ui/mcp progress {target} 90 "auditing..."` |
+| Simplifying | `.ui/mcp progress {target} 95 "simplifying..."` |
+| Complete | `.ui/mcp progress {target} 100 "complete"` then `.ui/mcp run "mcp:appUpdated('{target}')"` |
+
+## Instructions
+
+**Run the /ui-builder skill and follow its full workflow.** The skill defines the phases, design spec format, auditing checks, and simplification steps. Do NOT skip phases.
+
+The progress commands above correspond to the skill's phases. Send each progress update BEFORE starting that phase.
+
+The user is watching the progress bar in the UI. Missing progress updates make it look frozen.
+```
+
+Then spawn: `Task(subagent_type="ui-builder", run_in_background=true, prompt=<above>)`
 
 **Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
 
@@ -174,16 +275,16 @@ The app-console app provides `init.lua` which adds convenience methods to the `m
 
 ```lua
 function mcp:appProgress(name, progress, stage)
-    if apps then apps:onAppProgress(name, progress, stage) end
+    if appConsole then appConsole:onAppProgress(name, progress, stage) end
 end
 
 function mcp:appUpdated(name)
     mcp:scanAvailableApps()  -- rescan all apps from disk
-    if apps then apps:onAppUpdated(name) end
+    if appConsole then appConsole:onAppUpdated(name) end
 end
 ```
 
-This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps dashboard is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
+This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps-console is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
 
 ## Refresh
 
@@ -201,3 +302,11 @@ A refresh button triggers Lua to rescan all apps and update the display. The ref
 - Status shows "passed/total" (e.g., "17/21")
 - `### N.` under "Known Issues" = open bugs
 - `### N.` under "Fixed Issues" = resolved bugs
+- `## Gaps` section with non-empty content = design/code mismatch indicator
+
+## Gaps Indicator
+
+When an app's TESTING.md has a non-empty `## Gaps` section, show a warning indicator. This signals that the design and code are out of sync (e.g., methods defined in design but not used, or vice versa).
+
+- In the app list: show a ⚠ icon next to apps with gaps
+- In app details: show a "Gaps" section header (similar to Known Issues) that expands to show the gaps content

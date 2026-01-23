@@ -1,4 +1,4 @@
--- Apps Dashboard
+-- App Console
 -- Command center for UI development with Claude
 
 -- App prototype (serves as namespace)
@@ -15,26 +15,78 @@ AppConsole = session:prototype("AppConsole", {
     embeddedValue = EMPTY, -- App global loaded via mcp:app, or nil
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
-    luaInput = ""
+    luaInput = "",
+    chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
+    todos = EMPTY,           -- Claude Code todo list items
+    todosCollapsed = false   -- Whether todo column is collapsed
 })
 
 -- Nested prototype: Chat message model
 AppConsole.ChatMessage = session:prototype("AppConsole.ChatMessage", {
     sender = "",
-    text = ""
+    text = "",
+    style = "normal"  -- "normal" or "thinking"
 })
 local ChatMessage = AppConsole.ChatMessage
 
-function ChatMessage:new(sender, text)
-    return session:create(ChatMessage, { sender = sender, text = text })
+function ChatMessage:new(sender, text, style)
+    return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
 end
 
 function ChatMessage:isUser()
     return self.sender == "You"
 end
 
+function ChatMessage:isThinking()
+    return self.style == "thinking"
+end
+
+function ChatMessage:mutate()
+    -- Initialize style for existing instances
+    if self.style == nil then
+        self.style = "normal"
+    end
+end
+
 function ChatMessage:prefix()
     return self.sender == "You" and "> " or ""
+end
+
+-- Nested prototype: TodoItem model (Claude Code task)
+AppConsole.TodoItem = session:prototype("AppConsole.TodoItem", {
+    content = "",
+    status = "pending",  -- "pending", "in_progress", or "completed"
+    activeForm = ""
+})
+local TodoItem = AppConsole.TodoItem
+
+function TodoItem:displayText()
+    if self.status == "in_progress" then
+        return self.activeForm ~= "" and self.activeForm or self.content
+    end
+    return self.content
+end
+
+function TodoItem:isPending()
+    return self.status == "pending"
+end
+
+function TodoItem:isInProgress()
+    return self.status == "in_progress"
+end
+
+function TodoItem:isCompleted()
+    return self.status == "completed"
+end
+
+function TodoItem:statusIcon()
+    if self.status == "in_progress" then
+        return "🔄"
+    elseif self.status == "completed" then
+        return "✓"
+    else
+        return "⏳"
+    end
 end
 
 -- Nested prototype: Output line model (for Lua console)
@@ -75,18 +127,6 @@ function TestItem:new(text, status)
     return session:create(TestItem, { text = text, status = status or "untested" })
 end
 
-function TestItem:isPassed()
-    return self.status == "passed"
-end
-
-function TestItem:isFailed()
-    return self.status == "failed"
-end
-
-function TestItem:isUntested()
-    return self.status == "untested"
-end
-
 function TestItem:icon()
     if self.status == "passed" then
         return "✓"
@@ -121,6 +161,8 @@ AppConsole.AppInfo = session:prototype("AppConsole.AppInfo", {
     tests = EMPTY,
     showKnownIssues = true,
     showFixedIssues = false,
+    gapsContent = "",
+    showGaps = false,
     buildProgress = EMPTY,
     buildStage = EMPTY
 })
@@ -139,7 +181,7 @@ function AppInfo:selectMe()
 end
 
 function AppInfo:isSelected()
-    return apps.selected == self
+    return appConsole.selected == self
 end
 
 function AppInfo:statusText()
@@ -168,10 +210,6 @@ function AppInfo:statusVariant()
     end
 end
 
-function AppInfo:hasIssues()
-    return #self.knownIssues > 0
-end
-
 function AppInfo:noIssues()
     return #self.knownIssues == 0
 end
@@ -192,16 +230,8 @@ function AppInfo:fixedIssueCount()
     return #self.fixedIssues
 end
 
-function AppInfo:hasFixedIssues()
-    return #self.fixedIssues > 0
-end
-
 function AppInfo:noFixedIssues()
     return #self.fixedIssues == 0
-end
-
-function AppInfo:hasTests()
-    return self.testsTotal > 0
 end
 
 function AppInfo:noTests()
@@ -240,6 +270,26 @@ function AppInfo:fixedIssuesIcon()
     return self.showFixedIssues and "chevron-down" or "chevron-right"
 end
 
+function AppInfo:hasGaps()
+    return self.gapsContent ~= nil and self.gapsContent ~= ""
+end
+
+function AppInfo:noGaps()
+    return not self:hasGaps()
+end
+
+function AppInfo:toggleGaps()
+    self.showGaps = not self.showGaps
+end
+
+function AppInfo:gapsHidden()
+    return not self.showGaps
+end
+
+function AppInfo:gapsIcon()
+    return self.showGaps and "chevron-down" or "chevron-right"
+end
+
 function AppInfo:toggleRequirements()
     self.showRequirements = not self.showRequirements
 end
@@ -270,7 +320,8 @@ function AppInfo:pushEvent(eventType, extra)
 end
 
 function AppInfo:requestBuild()
-   self.buildStage = "starting..."
+   self.buildProgress = 0
+   self.buildStage = "pondering"
    self:pushEvent("build_request", { target = self.name })
 end
 
@@ -295,8 +346,12 @@ function AppInfo:isSelf()
     return self.name == "app-console"
 end
 
-function AppInfo:canOpenApp()
-    return self:canOpen() and not self:isSelf()
+function AppInfo:isMcp()
+    return self.name == "mcp"
+end
+
+function AppInfo:openButtonDisabled()
+    return self:isSelf() or self:isMcp()
 end
 
 -- Filesystem helpers for Lua-driven app discovery
@@ -358,12 +413,13 @@ local function parseRequirements(content)
     return firstPara or ""
 end
 
--- Parse TESTING.md: extract tests, known issues, fixed issues
+-- Parse TESTING.md: extract tests, known issues, fixed issues, gaps
 local function parseTesting(content)
     local result = {
         tests = {},
         knownIssues = {},
         fixedIssues = {},
+        gapsContent = "",
         testsPassing = 0,
         testsTotal = 0
     }
@@ -401,16 +457,40 @@ local function parseTesting(content)
         end
     end
 
+    -- Parse Gaps section (design/code mismatch indicator)
+    local gapsSection = content:match("## Gaps.-\n(.-)\n## ")
+        or content:match("## Gaps.-\n(.*)$")
+    if gapsSection then
+        -- Trim whitespace and check if non-empty
+        local trimmed = gapsSection:gsub("^%s+", ""):gsub("%s+$", "")
+        if trimmed ~= "" then
+            result.gapsContent = trimmed
+        end
+    end
+
     return result
 end
 
 -- Main app methods
 function AppConsole:new(instance)
-    instance = session:create(Apps, instance)
+    instance = session:create(AppConsole, instance)
     instance._apps = instance._apps or {}
     instance.messages = instance.messages or {}
     instance.luaOutputLines = instance.luaOutputLines or {}
     return instance
+end
+
+-- Hot-load mutation: initialize new fields on existing instances
+function AppConsole:mutate()
+    if self.chatQuality == nil then
+        self.chatQuality = 0
+    end
+    if self.todos == nil then
+        self.todos = {}
+    end
+    if self.todosCollapsed == nil then
+        self.todosCollapsed = false
+    end
 end
 
 -- Return apps list for binding
@@ -483,6 +563,9 @@ function AppConsole:scanAppsFromDisk()
             for _, issue in ipairs(testData.fixedIssues) do
                 table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
             end
+
+            -- Set gaps content
+            app.gapsContent = testData.gapsContent or ""
 
             table.insert(self._apps, app)
         end
@@ -558,65 +641,9 @@ function AppConsole:rescanApp(name)
     for _, issue in ipairs(testData.fixedIssues) do
         table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
     end
-end
 
--- Set entire apps list (deprecated: use scanAppsFromDisk instead)
--- Kept for backwards compatibility if Claude pushes data
-function AppConsole:setApps(appDataList)
-    self._apps = {}
-    for _, data in ipairs(appDataList) do
-        local app = AppInfo:new(data.name)
-        app.description = data.description or ""
-        app.hasViewdefs = data.hasViewdefs or false
-        app.testsPassing = data.testsPassing or 0
-        app.testsTotal = data.testsTotal or 0
-
-        -- Populate tests with status
-        app.tests = {}
-        if data.tests then
-            for _, t in ipairs(data.tests) do
-                table.insert(app.tests, TestItem:new(t.text, t.status))
-            end
-        end
-
-        -- Populate issues
-        app.knownIssues = {}
-        if data.knownIssues then
-            for _, issue in ipairs(data.knownIssues) do
-                table.insert(app.knownIssues, Issue:new(issue.number, issue.title))
-            end
-        end
-
-        app.fixedIssues = {}
-        if data.fixedIssues then
-            for _, issue in ipairs(data.fixedIssues) do
-                table.insert(app.fixedIssues, Issue:new(issue.number, issue.title))
-            end
-        end
-
-        table.insert(self._apps, app)
-    end
-
-    -- Update selected if it was pointing to an app
-    if self.selected then
-        self.selected = self:findApp(self.selected.name)
-    end
-end
-
--- Add a single app (used during create flow)
-function AppConsole:addApp(name)
-    local app = AppInfo:new(name)
-    table.insert(self._apps, app)
-    return app
-end
-
--- Set build progress for an app (legacy, use onAppProgress)
-function AppConsole:setBuildProgress(name, progress, stage)
-    local app = self:findApp(name)
-    if app then
-        app.buildProgress = progress
-        app.buildStage = stage
-    end
+    -- Set gaps content
+    app.gapsContent = testData.gapsContent or ""
 end
 
 -- Handle app progress event from Claude
@@ -700,11 +727,36 @@ function AppConsole:createApp()
 
     self.showNewForm = false
 
-    -- 5. Send app_created event to Claude for requirements fleshing out
+    -- 5. Start progress at "pondering, 0%"
+    mcp:appProgress(name, 0, "pondering")
+
+    -- 6. Send app_created event to Claude for requirements fleshing out
     app:pushEvent("app_created", { name = name, description = desc })
 
     self.newAppName = ""
     self.newAppDesc = ""
+end
+
+-- Quality setting methods
+function AppConsole:qualityLabel()
+    local labels = {"Fast", "Thorough", "Background"}
+    return labels[self.chatQuality + 1]
+end
+
+function AppConsole:qualityValue()
+    local values = {"fast", "thorough", "background"}
+    return values[self.chatQuality + 1]
+end
+
+function AppConsole:qualityHandler()
+    local handlers = {nil, "/ui-builder", "background-ui-builder"}
+    return handlers[self.chatQuality + 1]
+end
+
+-- Set quality from slider (captures sl-input events)
+function AppConsole:setChatQuality()
+   print("QUALITY: "..tostring(self.chatQuality))
+    -- self.chatQuality = tonumber(value) or 0
 end
 
 -- Send chat message
@@ -713,10 +765,12 @@ function AppConsole:sendChat()
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
+    local reminder = "Show todos and thinking messages while working"
+    local handler = self:qualityHandler()
     if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name })
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue(), handler = handler, reminder = reminder })
     else
-        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput })
+        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue(), handler = handler, reminder = reminder })
     end
 
     self.chatInput = ""
@@ -725,6 +779,16 @@ end
 -- Add agent message (called by Claude)
 function AppConsole:addAgentMessage(text)
     table.insert(self.messages, ChatMessage:new("Agent", text))
+    mcp.statusLine = ""  -- Clear status bar when sending a real message
+    mcp.statusClass = ""
+end
+
+-- Add thinking/progress message (called by Claude while working)
+-- text: appears in chat log, status: appears in MCP status bar (orange bold-italic)
+function AppConsole:addAgentThinking(text)
+    table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
+    mcp.statusLine = text
+    mcp.statusClass = "thinking"
 end
 
 -- Check if detail panel should show
@@ -809,14 +873,6 @@ function AppConsole:showLuaPanel()
     self.panelMode = "lua"
 end
 
-function AppConsole:isChatPanel()
-    return self.panelMode == "chat"
-end
-
-function AppConsole:isLuaPanel()
-    return self.panelMode == "lua"
-end
-
 function AppConsole:notChatPanel()
     return self.panelMode ~= "chat"
 end
@@ -877,6 +933,23 @@ end
 
 function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
+end
+
+-- Todo list methods
+function AppConsole:setTodos(todos)
+    self.todos = {}
+    for _, t in ipairs(todos or {}) do
+        local item = session:create(TodoItem, {
+            content = t.content or "",
+            status = t.status or "pending",
+            activeForm = t.activeForm or ""
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+function AppConsole:toggleTodos()
+    self.todosCollapsed = not self.todosCollapsed
 end
 
 -- Idempotent instance creation

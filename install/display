@@ -1,8 +1,0 @@
-#!/bin/bash
-# Display an app: display contacts
-dir=$(dirname "$(realpath "$0")")
-port=$(cat "$dir/mcp-port")
-name="${1:?Usage: display <app-name>}"
-curl -s -X POST "http://127.0.0.1:$port/api/ui_display" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg name "$name" '{name: $name}')"

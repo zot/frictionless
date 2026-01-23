@@ -8,7 +8,7 @@
     .apps-dashboard {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
       font-family: var(--sl-font-sans);
     }
@@ -265,6 +265,18 @@
     .chat-input-row sl-input {
       flex: 1;
     }
+    .quality-control {
+      display: flex;
+      align-items: center;
+      gap: var(--sl-spacing-x-small);
+      min-width: 130px;
+    }
+    .quality-label {
+      font-size: var(--sl-font-size-small);
+      color: var(--sl-color-neutral-600);
+      min-width: 70px;
+      text-align: right;
+    }
     /* Chat message styles */
     .chat-message {
       margin-bottom: var(--sl-spacing-small);
@@ -278,10 +290,14 @@
       color: var(--sl-color-primary-600);
       font-weight: var(--sl-font-weight-bold);
     }
+    .chat-message.thinking-message {
+      font-style: italic;
+      color: var(--sl-color-neutral-500);
+    }
     .chat-message-text {
       white-space: pre-wrap;
     }
-    /* Embedded app view */
+    /* Embedded app view (in detail area) */
     .embedded-view {
       flex: 1;
       min-height: 0;
@@ -289,11 +305,34 @@
       flex-direction: column;
       overflow: hidden;
     }
-    .embedded-view > div {
+    .embedded-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--sl-spacing-small) var(--sl-spacing-x-large) var(--sl-spacing-small) var(--sl-spacing-medium);
+      background: var(--sl-color-neutral-100);
+      border-bottom: 1px solid var(--sl-color-neutral-200);
+      flex-shrink: 0;
+    }
+    .embedded-title {
+      font-weight: var(--sl-font-weight-semibold);
+      font-size: var(--sl-font-size-medium);
+    }
+    .embedded-content {
       flex: 1;
-      width: 100%;
       min-height: 0;
       overflow: auto;
+    }
+    .embedded-content > div {
+      height: 100%;
+    }
+    /* Normal detail container */
+    .normal-detail {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
     }
     /* Chat/Lua panel header with tabs */
     .panel-header {
@@ -362,20 +401,119 @@
       gap: var(--sl-spacing-x-small);
     }
     .hidden { display: none !important; }
+    /* Gaps indicator */
+    .gaps-icon {
+      color: var(--sl-color-warning-600);
+      margin-right: var(--sl-spacing-x-small);
+    }
+    .gaps-content {
+      background: var(--sl-color-warning-50);
+      border: 1px solid var(--sl-color-warning-200);
+      border-radius: var(--sl-border-radius-medium);
+      padding: var(--sl-spacing-medium);
+      font-family: var(--sl-font-mono);
+      font-size: var(--sl-font-size-small);
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .section-header.gaps-header h3 {
+      color: var(--sl-color-warning-700);
+    }
+    /* Bottom panel layout (todos + chat/lua) */
+    .bottom-panel-content {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+    /* Todo column */
+    .todo-column {
+      width: 200px;
+      border-right: 1px solid var(--sl-color-neutral-200);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .todo-column.collapsed {
+      width: 32px;
+    }
+    .todo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--sl-spacing-x-small) var(--sl-spacing-small);
+      border-bottom: 1px solid var(--sl-color-neutral-200);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .todo-header:hover {
+      background: var(--sl-color-neutral-50);
+    }
+    .todo-header h4 {
+      margin: 0;
+      font-size: var(--sl-font-size-small);
+      font-weight: var(--sl-font-weight-semibold);
+    }
+    .todo-column.collapsed .todo-header h4 {
+      display: none;
+    }
+    .todo-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: var(--sl-spacing-x-small);
+    }
+    .todo-column.collapsed .todo-list {
+      display: none;
+    }
+    /* Todo item styles */
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sl-spacing-x-small);
+      padding: var(--sl-spacing-x-small) 0;
+      font-size: var(--sl-font-size-small);
+      line-height: 1.3;
+    }
+    .todo-icon {
+      flex-shrink: 0;
+      width: 1.2em;
+      text-align: center;
+    }
+    .todo-item.pending {
+      color: var(--sl-color-neutral-500);
+    }
+    .todo-item.in-progress {
+      color: var(--sl-color-primary-700);
+      font-weight: var(--sl-font-weight-medium);
+    }
+    .todo-item.completed {
+      color: var(--sl-color-success-600);
+      opacity: 0.7;
+    }
+    .todo-text {
+      white-space: nowrap;
+    }
+    /* Chat/Lua column */
+    .chat-lua-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: var(--sl-spacing-small) var(--sl-spacing-medium) var(--sl-spacing-medium);
+    }
   </style>
 
   <div class="apps-dashboard">
-    <!-- Embedded App View (replaces main-content when app is opened) -->
-    <div class="embedded-view" ui-class-hidden="noEmbeddedApp()">
-      <div ui-view="embeddedValue"></div>
-    </div>
-
-    <!-- Normal View (app list + details) -->
-    <div class="main-content" ui-class-hidden="hasEmbeddedApp()">
+    <!-- Main content area (always visible) -->
+    <div class="main-content">
       <!-- App List Panel -->
       <div class="app-list-panel">
         <div class="app-list-header">
-          <h2>Apps</h2>
+          <h2>Frictionless</h2>
           <div>
             <sl-icon-button name="arrow-clockwise" label="Refresh" ui-action="refresh()"></sl-icon-button>
             <sl-icon-button name="plus-lg" label="New App" ui-action="openNewForm()"></sl-icon-button>
@@ -385,86 +523,107 @@
       </div>
 
       <!-- Detail Panel -->
-      <div class="detail-panel" ui-class-hidden="showNewForm">
-        <!-- App Details -->
-        <div class="detail-content" ui-class-hidden="showPlaceholder()">
-          <div class="detail-header">
-            <h2 ui-value="selected.name"></h2>
-            <div class="detail-description" ui-value="selected.description"></div>
+      <div class="detail-panel">
+        <!-- Embedded App View (when an app is opened) -->
+        <div class="embedded-view" ui-class-hidden="noEmbeddedApp()">
+          <div class="embedded-header">
+            <span class="embedded-title" ui-value="embeddedApp"></span>
+            <sl-icon-button name="x-lg" label="Close" ui-action="closeEmbedded()"></sl-icon-button>
           </div>
-          <!-- Requirements Section (expandable) -->
-          <div class="requirements-section">
-            <div class="section-header" ui-event-click="selected.toggleRequirements()">
-              <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
-              <h3>Requirements</h3>
-            </div>
-            <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
-          </div>
-          <!-- Build Progress (when building) -->
-          <div class="build-progress" ui-class-hidden="selected.notBuilding()">
-            <sl-progress-bar ui-attr-value="selected.buildProgress"></sl-progress-bar>
-            <span class="build-stage" ui-value="selected.buildStage"></span>
-          </div>
-
-          <div class="detail-actions">
-            <sl-button variant="primary" ui-class-hidden="selected.canOpen()" ui-action="selected.requestBuild()">
-              <sl-icon slot="prefix" name="hammer"></sl-icon>
-              Build
-            </sl-button>
-            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-attr-disabled="selected.isSelf()" ui-action="selected.openApp()">
-              <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
-              Open
-            </sl-button>
-            <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestTest()">
-              <sl-icon slot="prefix" name="check2-square"></sl-icon>
-              Test
-            </sl-button>
-            <sl-button variant="warning" ui-class-hidden="selected.noIssues()" ui-action="selected.requestFix()">
-              <sl-icon slot="prefix" name="tools"></sl-icon>
-              Fix Issues
-            </sl-button>
-          </div>
-
-          <!-- Tests Section -->
-          <div class="detail-section" ui-class-hidden="selected.noTests()">
-            <h3>Tests (<span ui-value="selected.testsPassing"></span>/<span ui-value="selected.testsTotal"></span>)</h3>
-            <div class="test-list" ui-view="selected.tests?wrapper=lua.ViewList"></div>
-          </div>
-
-          <!-- Known Issues Section (expandable) -->
-          <div class="detail-section" ui-class-hidden="selected.noIssues()">
-            <div class="section-header" ui-event-click="selected.toggleKnownIssues()">
-              <sl-icon ui-attr-name="selected.knownIssuesIcon()"></sl-icon>
-              <h3>Known Issues (<span ui-value="selected.knownIssueCount()"></span>)</h3>
-            </div>
-            <div class="issue-list" ui-class-hidden="selected.knownIssuesHidden()" ui-view="selected.knownIssues?wrapper=lua.ViewList"></div>
-          </div>
-
-          <!-- Fixed Issues Section (collapsed by default) -->
-          <div class="detail-section" ui-class-hidden="selected.noFixedIssues()">
-            <div class="section-header" ui-event-click="selected.toggleFixedIssues()">
-              <sl-icon ui-attr-name="selected.fixedIssuesIcon()"></sl-icon>
-              <h3>Fixed Issues (<span ui-value="selected.fixedIssueCount()"></span>)</h3>
-            </div>
-            <div class="issue-list" ui-class-hidden="selected.fixedIssuesHidden()" ui-view="selected.fixedIssues?wrapper=lua.ViewList"></div>
+          <div class="embedded-content">
+            <div ui-view="embeddedValue"></div>
           </div>
         </div>
 
-        <!-- Placeholder when nothing selected -->
-        <div class="placeholder" ui-class-hidden="hidePlaceholder()">
-          Select an app to view details
-        </div>
-      </div>
+        <!-- Normal detail view (hidden when embedded) -->
+        <div class="normal-detail" ui-class-hidden="hasEmbeddedApp()">
+          <!-- App Details (hidden when showing new form or placeholder) -->
+          <div class="detail-content" ui-class-hidden="hideDetail()">
+            <div class="detail-header">
+              <h2 ui-value="selected.name"></h2>
+              <div class="detail-description" ui-value="selected.description"></div>
+            </div>
+            <!-- Requirements Section (expandable) -->
+            <div class="requirements-section">
+              <div class="section-header" ui-event-click="selected.toggleRequirements()">
+                <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
+                <h3>Requirements</h3>
+              </div>
+              <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
+            </div>
+            <!-- Build Progress (when building) -->
+            <div class="build-progress" ui-class-hidden="selected.notBuilding()">
+              <sl-progress-bar ui-attr-value="selected.buildProgress"></sl-progress-bar>
+              <span class="build-stage" ui-value="selected.buildStage"></span>
+            </div>
 
-      <!-- New App Form -->
-      <div class="detail-panel" ui-class-hidden="hideNewForm()">
-        <div class="new-app-form">
-          <h2>New App</h2>
-          <sl-input label="Name" placeholder="my-app" ui-value="newAppName"></sl-input>
-          <sl-textarea label="Description" placeholder="What should this app do?" rows="4" ui-value="newAppDesc"></sl-textarea>
-          <div class="actions">
-            <sl-button ui-action="cancelNewForm()">Cancel</sl-button>
-            <sl-button variant="primary" ui-action="createApp()">Create</sl-button>
+            <div class="detail-actions">
+              <sl-button variant="primary" ui-class-hidden="selected.canOpen()" ui-action="selected.requestBuild()">
+                <sl-icon slot="prefix" name="hammer"></sl-icon>
+                Build
+              </sl-button>
+              <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-attr-disabled="selected.openButtonDisabled()" ui-action="selected.openApp()">
+                <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
+                Open
+              </sl-button>
+              <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestTest()">
+                <sl-icon slot="prefix" name="check2-square"></sl-icon>
+                Test
+              </sl-button>
+              <sl-button variant="warning" ui-class-hidden="selected.noIssues()" ui-action="selected.requestFix()">
+                <sl-icon slot="prefix" name="tools"></sl-icon>
+                Fix Issues
+              </sl-button>
+            </div>
+
+            <!-- Gaps Section (design/code mismatch) -->
+            <div class="detail-section" ui-class-hidden="selected.noGaps()">
+              <div class="section-header gaps-header" ui-event-click="selected.toggleGaps()">
+                <sl-icon ui-attr-name="selected.gapsIcon()"></sl-icon>
+                <h3>⚠ Gaps (design/code mismatch)</h3>
+              </div>
+              <div class="gaps-content" ui-class-hidden="selected.gapsHidden()" ui-value="selected.gapsContent"></div>
+            </div>
+
+            <!-- Tests Section -->
+            <div class="detail-section" ui-class-hidden="selected.noTests()">
+              <h3>Tests (<span ui-value="selected.testsPassing"></span>/<span ui-value="selected.testsTotal"></span>)</h3>
+              <div class="test-list" ui-view="selected.tests?wrapper=lua.ViewList"></div>
+            </div>
+
+            <!-- Known Issues Section (expandable) -->
+            <div class="detail-section" ui-class-hidden="selected.noIssues()">
+              <div class="section-header" ui-event-click="selected.toggleKnownIssues()">
+                <sl-icon ui-attr-name="selected.knownIssuesIcon()"></sl-icon>
+                <h3>Known Issues (<span ui-value="selected.knownIssueCount()"></span>)</h3>
+              </div>
+              <div class="issue-list" ui-class-hidden="selected.knownIssuesHidden()" ui-view="selected.knownIssues?wrapper=lua.ViewList"></div>
+            </div>
+
+            <!-- Fixed Issues Section (collapsed by default) -->
+            <div class="detail-section" ui-class-hidden="selected.noFixedIssues()">
+              <div class="section-header" ui-event-click="selected.toggleFixedIssues()">
+                <sl-icon ui-attr-name="selected.fixedIssuesIcon()"></sl-icon>
+                <h3>Fixed Issues (<span ui-value="selected.fixedIssueCount()"></span>)</h3>
+              </div>
+              <div class="issue-list" ui-class-hidden="selected.fixedIssuesHidden()" ui-view="selected.fixedIssues?wrapper=lua.ViewList"></div>
+            </div>
+          </div>
+
+          <!-- Placeholder when nothing selected -->
+          <div class="placeholder" ui-class-hidden="hidePlaceholder()">
+            Select an app to view details
+          </div>
+
+          <!-- New App Form -->
+          <div class="new-app-form" ui-class-hidden="hideNewForm()">
+            <h2>New App</h2>
+            <sl-input label="Name" placeholder="my-app" ui-value="newAppName"></sl-input>
+            <sl-textarea label="Description" placeholder="What should this app do?" rows="4" ui-value="newAppDesc"></sl-textarea>
+            <div class="actions">
+              <sl-button ui-action="cancelNewForm()">Cancel</sl-button>
+              <sl-button variant="primary" ui-action="createApp()">Create</sl-button>
+            </div>
           </div>
         </div>
       </div>
@@ -473,30 +632,45 @@
     <!-- Chat/Lua Panel -->
     <div class="chat-panel" id="chat-panel">
       <div class="chat-resize-handle" id="chat-resize-handle"></div>
-      <div class="chat-content">
-        <div class="panel-header">
-          <div class="panel-tabs">
-            <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
-            <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+      <div class="bottom-panel-content">
+        <!-- Todo Column -->
+        <div class="todo-column" ui-class-collapsed="todosCollapsed">
+          <div class="todo-header" ui-event-click="toggleTodos()">
+            <h4>Todos</h4>
+            <sl-icon-button name="chevron-left" label="Collapse"></sl-icon-button>
           </div>
-          <sl-icon-button name="arrows-angle-expand" label="Restore" ui-class-hidden="noEmbeddedApp()" ui-action="closeEmbedded()"></sl-icon-button>
+          <div class="todo-list" ui-view="todos?wrapper=lua.ViewList"></div>
         </div>
 
-        <!-- Chat Panel Content -->
-        <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
-        <div class="chat-input-row" ui-class-hidden="notChatPanel()">
-          <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-          <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
-        </div>
+        <!-- Chat/Lua Column -->
+        <div class="chat-lua-column">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
+              <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+            </div>
+          </div>
 
-        <!-- Lua Panel Content -->
-        <div class="lua-panel" ui-class-hidden="notLuaPanel()">
-          <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
-          <div class="lua-input-area">
-            <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
-            <div class="lua-buttons">
-              <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
-              <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+          <!-- Chat Panel Content -->
+          <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          <div class="chat-input-row" ui-class-hidden="notChatPanel()">
+            <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
+            <div class="quality-control">
+              <span class="quality-label" ui-value="qualityLabel()"></span>
+              <sl-range min="0" max="2" step="1" ui-value="chatQuality" ui-event-sl-input="setChatQuality()" style="width: 60px; --thumb-size: 14px;"></sl-range>
+            </div>
+            <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+          </div>
+
+          <!-- Lua Panel Content -->
+          <div class="lua-panel" ui-class-hidden="notLuaPanel()">
+            <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
+            <div class="lua-input-area">
+              <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+              <div class="lua-buttons">
+                <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
+                <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+              </div>
             </div>
           </div>
         </div>

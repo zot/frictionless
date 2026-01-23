@@ -1,0 +1,89 @@
+#!/bin/sh
+dir=$(dirname "$(realpath "$0")")
+port=$(cat "$dir/mcp-port")
+prog="$1"
+shift
+
+help() {
+    cat 1>&2 <<here
+usage: mcp [--help | PROG [options]]
+
+mcp --help                      this message
+mcp audit APP                   run code quality audit on APP
+mcp browser                     open browser to UI session
+mcp display APP                 display APP in the browser
+mcp event                       wait for next UI event (120s timeout)
+mcp linkapp add|remove APP      manage app symlinks
+mcp progress APP PERCENT STAGE  report build progress
+mcp run 'lua code'              execute Lua code in session
+mcp state                       get current session state
+mcp status                      get server status
+mcp variables                   get current variable values
+here
+}
+
+case "$prog" in
+    --help)
+        help
+        ;;
+    audit)
+        app="$1"
+        if [ -z "$app" ]; then
+            echo "Usage: ./audit <appname>"
+            exit 1
+        fi
+        exec curl -s -X POST "http://127.0.0.1:$port/api/ui_audit" \
+             -H "Content-Type: application/json" \
+             -d "{\"name\": \"$app\"}"
+        ;;
+    browser)
+        exec curl -s -X POST "http://127.0.0.1:$port/api/ui_open_browser" \
+             -H "Content-Type: application/json" \
+             -d '{}'
+        ;;
+    display)
+        name="${1:?Usage: display <app-name>}"
+        exec curl -s -X POST "http://127.0.0.1:$port/api/ui_display" \
+             -H "Content-Type: application/json" \
+             -d "$(jq -n --arg name "$name" '{name: $name}')"
+        ;;
+    event)
+        while true; do
+            out=$(curl -s "http://127.0.0.1:$port/wait?timeout=120")
+            status=$?
+            if [ -n "$out" ]; then
+                echo "$out"
+                break
+            elif [ $status != 0 ]; then
+                break
+            fi
+        done
+        ;;
+    linkapp)
+        exec "$dir/linkapp" "$@"
+        ;;
+    progress)
+        app="${1:?Usage: progress <app> <percent> <stage>}"
+        percent="${2:?Usage: progress <app> <percent> <stage>}"
+        stage="${3:?Usage: progress <app> <percent> <stage>}"
+        code="mcp:appProgress('$app', $percent, '$stage'); if appConsole then appConsole:addAgentThinking('$stage') end"
+        exec curl -s -X POST "http://127.0.0.1:$port/api/ui_run" \
+             -H "Content-Type: application/json" \
+             -d "$(jq -n --arg code "$code" '{code: $code}')"
+        ;;
+    run)
+        code="${1:?Usage: run '<lua code>'}"
+        exec curl -s -X POST "http://127.0.0.1:$port/api/ui_run" \
+             -H "Content-Type: application/json" \
+             -d "$(jq -n --arg code "$code" '{code: $code}')"
+        ;;
+    state)
+        exec curl -s "http://127.0.0.1:$port/state"
+        ;;
+    status)
+        exec curl -s "http://127.0.0.1:$port/api/ui_status"
+        ;;
+    variables)
+        exec curl -s "http://127.0.0.1:$port/variables"
+        ;;
+esac

@@ -10,10 +10,7 @@ ClaudePanel = session:prototype("ClaudePanel", {
     sections = EMPTY,
     messages = EMPTY,
     chatInput = "",
-    jsCode = "",
-    consoleExpanded = false,
-    luaOutputLines = EMPTY,
-    luaInput = ""
+    jsCode = ""
 })
 
 -- Nested prototype: Chat message model
@@ -22,22 +19,6 @@ ClaudePanel.ChatMessage = session:prototype("ClaudePanel.ChatMessage", {
     text = ""
 })
 local ChatMessage = ClaudePanel.ChatMessage
-
--- Nested prototype: Output line model (for Lua console)
-ClaudePanel.OutputLine = session:prototype("ClaudePanel.OutputLine", {
-    text = "",
-    panel = EMPTY
-})
-local OutputLine = ClaudePanel.OutputLine
-
-function OutputLine:copyToInput()
-    -- Strip leading "> " from command lines when copying
-    local text = self.text
-    if text:match("^> ") then
-        text = text:sub(3)
-    end
-    self.panel.luaInput = text
-end
 
 -- Nested prototype: Tree item model
 ClaudePanel.TreeItem = session:prototype("ClaudePanel.TreeItem", {
@@ -92,7 +73,6 @@ function ClaudePanel:new(instance)
     instance = session:create(ClaudePanel, instance)
     instance.sections = instance.sections or {}
     instance.messages = instance.messages or {}
-    instance.luaOutputLines = instance.luaOutputLines or {}
 
     -- Create sections if new instance
     if #instance.sections == 0 then
@@ -274,63 +254,11 @@ function ClaudePanel:pollingIndicator()
     return mcp.pollingEvents() and "" or "*"
 end
 
--- Lua console
-function ClaudePanel:toggleConsole()
-    self.consoleExpanded = not self.consoleExpanded
-end
-
-function ClaudePanel:isConsoleCollapsed()
-    return not self.consoleExpanded
-end
-
-function ClaudePanel:runLua()
-    if self.luaInput == "" then return end
-
-    -- Add command line to output
-    local cmdLine = session:create(OutputLine, { text = "> " .. self.luaInput, panel = self })
-    table.insert(self.luaOutputLines, cmdLine)
-
-    local code = self.luaInput
-    local fn, err
-
-    -- If input doesn't start with "return", try prepending it (for expressions)
-    if not code:match("^%s*return%s") then
-        fn, err = loadstring("return " .. code)
-    end
-
-    -- If that failed or wasn't tried, use original code
-    if not fn then
-        fn, err = loadstring(code)
-    end
-
-    if fn then
-        local ok, result = pcall(fn)
-        if ok then
-            if result ~= nil then
-                local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
-                table.insert(self.luaOutputLines, resultLine)
-            end
-            -- Clear input on success
-            self.luaInput = ""
-        else
-            -- Runtime error - keep input for correction
-            local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
-            table.insert(self.luaOutputLines, errLine)
-        end
-    else
-        -- Syntax error - keep input for correction
-        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
-        table.insert(self.luaOutputLines, errLine)
-    end
-end
-
-function ClaudePanel:appendOutput(text)
-    local line = session:create(OutputLine, { text = text, panel = self })
-    table.insert(self.luaOutputLines, line)
-end
-
-function ClaudePanel:clearOutput()
-    self.luaOutputLines = {}
+-- Hot-load mutation: clear removed fields from existing instances
+function ClaudePanel:mutate()
+    self.consoleExpanded = nil
+    self.luaOutputLines = nil
+    self.luaInput = nil
 end
 
 -- Idempotent instance creation

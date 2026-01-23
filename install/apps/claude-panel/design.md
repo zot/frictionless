@@ -23,16 +23,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | > Commands (12)                  | +--------------------------------+ |
 | > Skills (3)                     |                                    |
 +----------------------------------+------------------------------------+
-| v Lua Console                                                         |
-+-----------------------------------------------------------------------+
-| Output:                                                               |
-| > print("hello")                                                      |
-| hello                                                                 |
-+-----------------------------------------------------------------------+
-| local x = 1                                                           |
-| print(x)                                                              |
-|                                                          [Run] [Clear]|
-+-----------------------------------------------------------------------+
 ```
 
 ## Data Model
@@ -47,9 +37,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | messages        | ChatMessage[] | Chat message history             |
 | chatInput       | string        | Current chat input text          |
 | jsCode          | string        | JavaScript to execute in browser |
-| consoleExpanded | boolean       | Whether Lua console is expanded  |
-| luaOutputLines  | OutputLine[]  | Console output as clickable lines|
-| luaInput        | string        | Current code in input textarea   |
 
 ### TreeSection
 | Field    | Type       | Description                        |
@@ -71,12 +58,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | sender | string | "Agent" or "You"     |
 | text   | string | Message content      |
 
-### OutputLine
-| Field  | Type   | Description                    |
-|--------|--------|--------------------------------|
-| text   | string | Line content                   |
-| panel  | ref    | Reference to ClaudePanel       |
-
 ## Methods
 
 ### ClaudePanel
@@ -89,17 +70,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | addAgentMessage(t)   | Add agent response to messages                    |
 | loadGitStatus()      | Load branch and changed file count                |
 | discoverItems()      | Scan filesystem for agents/commands/skills        |
-| toggleConsole()      | Toggle consoleExpanded state                      |
-| runLua()             | Try "return " + input first, fallback to original, append result, clear input on success only |
-| clearOutput()        | Clear luaOutput                                   |
-| isConsoleCollapsed() | Return not consoleExpanded                        |
-| copyToInput(line)    | Copy an output line to input for re-running       |
 | pollingIndicator()   | Return "" if connected, "*" if disconnected       |
-
-### OutputLine
-| Method      | Description                              |
-|-------------|------------------------------------------|
-| copyToInput() | Copy this line's text to panel's luaInput |
 
 ### TreeSection
 | Method          | Description                    |
@@ -121,7 +92,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | TreeSection.list-item.html | Collapsible section header |
 | TreeItem.list-item.html    | Clickable tree item        |
 | ChatMessage.list-item.html | Chat message display       |
-| OutputLine.list-item.html  | Clickable output line      |
 
 ## Events
 
@@ -143,8 +113,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 ```json
 {"app":"claude-panel","event":"chat","text":"Hello agent"}
 ```
-
-**Note:** Lua console executes code locally via `load()` - no event pushed to parent.
 
 ## Parent Response Patterns
 
@@ -170,9 +138,5 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 - Tree items: indented, hover highlight
 - Chat messages: fixed height container (calc to fit viewport), vertical scroll overflow, auto-scroll on new messages
 - Chat input: Enter key sends message (same as clicking Send button)
-- Lua console: full width, collapsible, collapsed by default
-- Lua output: monospace font, scrollable, max height ~150px, auto-scroll on new output, lines clickable to copy to input
-- Lua input: monospace font, 4 lines, resizable textarea, clears on successful execution (retained on error)
-- Ctrl+Enter in Lua input triggers Run
 - Shoelace components for buttons, inputs, icons
 - `ui-code="jsCode"` on container for dynamic JS execution

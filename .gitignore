@@ -20,3 +20,6 @@ node_modules
 /.ui/ui-port
 /.ui/log/
 /.scratch/
+/.ui/listening
+/obsolete/
+/old-apps/

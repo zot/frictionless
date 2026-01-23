@@ -7,9 +7,33 @@ description: **Use proactively** Use for any **UI** design, building, modifying,
 
 Expert at building ui-engine UIs with Lua apps connected to widgets.
 
-## Prerequisite
+## Prerequisites
 
-**Run `/ui` skill first** if you haven't already. It covers directory structure and how to run UIs after building.
+1. **Run `/ui` skill first** if you haven't already. It covers directory structure and how to run UIs after building.
+
+## Helper Script
+
+Use the `.ui/mcp` script for all MCP operations:
+
+```bash
+.ui/mcp status                      # Get server status
+.ui/mcp run '<lua code>'            # Execute Lua code
+.ui/mcp progress app % msg          # Report build progress
+.ui/mcp linkapp add myapp           # Create symlinks
+.ui/mcp audit myapp                 # Run code quality audit
+.ui/mcp browser                     # Open browser to UI session
+.ui/mcp display myapp               # Display app in browser
+.ui/mcp event                       # Wait for next UI event
+```
+
+The script reads the MCP port automatically from `.ui/mcp-port` file.
+
+## File Operations
+
+**ALWAYS use the Write tool to create/update files.** Do NOT use Bash heredocs (`cat > file << 'EOF'`).
+
+- Write tool works in background agents and allows user approval
+- Bash heredocs are denied in background agents
 
 ## Core Principles
 - use SOLID principles, comprehensive unit tests
@@ -30,25 +54,37 @@ Expert at building ui-engine UIs with Lua apps connected to widgets.
 
 ## Progress Reporting
 
-Report build progress via `ui_run` so the apps dashboard can show status:
+Report build progress so the apps dashboard shows status:
 
-```lua
-mcp:appProgress("app-name", progress, "stage")
+```bash
+.ui/mcp progress <app> <percent> <stage>
 ```
 
-| Phase | Progress | Stage |
-|-------|----------|-------|
-| Starting | 0 | "starting" |
-| Reading requirements | 10 | "reading requirements" |
-| Designing | 20 | "designing" |
-| Writing code | 40 | "writing code" |
-| Writing viewdefs | 60 | "writing viewdefs" |
-| Linking | 80 | "linking" |
-| Auditing | 90 | "auditing" |
-| Simplifying | 95 | "simplifying" |
-| Complete | 100 | "complete" |
+**Call progress at each phase:**
 
-Call `mcp:appUpdated("app-name")` after all files are written so the dashboard rescans.
+| Phase | Command |
+|-------|---------|
+| Starting | `.ui/mcp progress myapp 0 "starting..."` |
+| Reading requirements | `.ui/mcp progress myapp 10 "reading requirements..."` |
+| Designing | `.ui/mcp progress myapp 20 "designing..."` |
+| Writing code | `.ui/mcp progress myapp 40 "writing code..."` |
+| Writing viewdefs | `.ui/mcp progress myapp 60 "writing viewdefs..."` |
+| Linking | `.ui/mcp progress myapp 80 "linking..."` |
+| Auditing | `.ui/mcp progress myapp 90 "auditing..."` |
+| Simplifying | `.ui/mcp progress myapp 95 "simplifying..."` |
+| Complete | `.ui/mcp progress myapp 100 "complete"` |
+
+**After all files are written**, trigger dashboard rescan:
+
+```bash
+.ui/mcp run "mcp:appUpdated('myapp')"
+```
+
+**When done**, send a final message (clears thinking status):
+
+```bash
+.ui/mcp run "if appConsole then appConsole:addAgentMessage('Done - brief description') end"
+```
 
 ## MCP Global Methods
 
@@ -66,15 +102,15 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 **Important:** do not display the app after building it unless the user specifically requests it.
 
-## Workflow (show todos for the flow)
+## Workflow: **show todos for the flow**
 
-1. **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
+1. → {report progress and thinking: 0, "starting"} **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
 
-2. **Read requirements** → `mcp:appProgress(app, 10, "reading requirements")`
+2. → {report progress and thinking: 10, "reading requirements"}, **Read requirements**
    - Check `{base_dir}/apps/<app>/requirements.md` first
    - If it does not exist, create it with human-readable prose (no ASCII art or tables)
 
-3. **Design** → `mcp:appProgress(app, 20, "designing")`
+3. → {report progress and thinking: 20, "designing"}, **Design**
    - Check `{base_dir}/patterns/` for reusable patterns
    - Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element representing the app
    - Write the design in `{base_dir}/apps/<app>/design.md`:
@@ -88,27 +124,24 @@ The `mcp` global provides methods for interacting with the MCP server:
         - Include: event name, JSON payload example, and exactly what Claude should do (spawn agent, call ui_run, respond via method, etc.)
         - If requirements.md has a "Claude Event Handling" or similar section, transfer all that information to design.md
 
-4. **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
-   - → `mcp:appProgress(app, 40, "writing code")`
+4. → {report progress and thinking: 40, "writing code"}, **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
    - `design.md` — design spec (first, for reference)
    - `app.lua` — Lua classes and logic (**write this before viewdefs**)
-   - → `mcp:appProgress(app, 60, "writing viewdefs")`
+   - → `progress 60 "writing viewdefs..."`
    - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-5. **Create symlinks** → `mcp:appProgress(app, 80, "linking")`
-
-   Use linkapp in base_dir (reported by `ui_status`, as in `/ui` skill)
+5. → {report progress and thinking: 80, "linking"}, **Create symlinks**
 
    ```bash
-   {base_dir}/linkapp add <app>
+   .ui/mcp linkapp add <app>
    ```
 
-6. **Audit** → `mcp:appProgress(app, 90, "auditing")` (after any design or modification):
+6. → {report progress and thinking: 90, "auditing"}, **Audit** (after any design or modification):
 
-   **Automated checks first** (use `ui_audit` MCP tool):
-   ```
-   ui_audit(name: "app-name")
+   **Automated checks first** (via HTTP API):
+   ```bash
+   .ui/mcp audit $APP
    ```
 
    The tool checks Lua code AND viewdefs for:
@@ -147,7 +180,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
    After fixing, **report any recorded gaps** to the user.
 
-7. **Simplify** → `mcp:appProgress(app, 95, "simplifying")`
+7. → {report progress and thinking: 95, "simplifying"}, **Simplify**
 
    Use the `code-simplifier` agent to refine the app code for clarity, consistency, and maintainability:
 
@@ -158,9 +191,12 @@ The `mcp` global provides methods for interacting with the MCP server:
 
    The agent will analyze and refine the Lua code while preserving functionality.
 
-8. **Complete** → `mcp:appProgress(app, 100, "complete")` then `mcp:appUpdated(app)`
-   - Report completion so progress bar shows 100%
-   - Trigger dashboard rescan so app status updates
+8. → {report progress and thinking: 100, "complete"}, **Complete**
+   - `.ui/mcp progress $APP 100 "complete"`
+   - Trigger dashboard rescan:
+     ```bash
+     .ui/mcp run "mcp:appUpdated('$APP')"
+     ```
 
 ## Common Binding Mistakes
 
@@ -552,6 +588,8 @@ Custom wrappers may define additional properties, but only use them when the des
 
 **IMPORTANT:** Always use `ui-view` with `wrapper=lua.ViewList` for lists, which wrap their items in with ui-view attributes.
 
+**Selectable lists:** For lists where clicking an item selects it, bind `ui-event-mousedown` (not `ui-event-click`) unless the user states otherwise. This provides immediate visual feedback before the click completes.
+
 **Item viewdef (`lua.ViewListItem.list-item.html`):**
 
 ```html
@@ -568,7 +606,7 @@ Custom wrappers may define additional properties, but only use them when the des
 
 ```html
 <!-- TreeItem.list-item.html -->
-<div class="tree-item" ui-action="invoke()">
+<div class="tree-item" ui-event-mousedown="invoke()">
   <span ui-value="name"></span>
 </div>
 ```
@@ -577,7 +615,7 @@ Custom wrappers may define additional properties, but only use them when the des
 
 ```html
 <!-- TreeItem.list-item.html - BROKEN -->
-<div class="tree-item" ui-action="item.invoke()">
+<div class="tree-item" ui-event-mousedown="item.invoke()">
   <span ui-value="item.name"></span>
 </div>
 ```

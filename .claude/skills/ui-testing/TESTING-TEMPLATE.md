@@ -1,5 +1,8 @@
 # [App Name] Testing Checklist
 
+## Gaps
+<!-- Design/code mismatches from ui_audit - investigate before testing -->
+
 ## [Feature Category 1]
 - [ ] Requirement 1
 - [ ] Requirement 2

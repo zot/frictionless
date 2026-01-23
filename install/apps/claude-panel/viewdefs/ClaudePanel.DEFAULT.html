@@ -117,81 +117,6 @@
     .chat-input-area sl-input {
       flex: 1;
     }
-    /* Lua Console */
-    .lua-console {
-      border-top: 1px solid var(--sl-color-neutral-200);
-      background: var(--sl-color-neutral-50);
-    }
-    .console-header {
-      display: flex;
-      align-items: center;
-      gap: var(--sl-spacing-small);
-      padding: var(--sl-spacing-small) var(--sl-spacing-medium);
-      cursor: pointer;
-      user-select: none;
-      background: var(--sl-color-neutral-100);
-      border-bottom: 1px solid var(--sl-color-neutral-200);
-    }
-    .console-header:hover {
-      background: var(--sl-color-neutral-200);
-    }
-    .console-header h3 {
-      margin: 0;
-      font-size: var(--sl-font-size-medium);
-      color: var(--sl-color-neutral-700);
-    }
-    .console-body {
-      padding: var(--sl-spacing-medium);
-    }
-    .lua-output {
-      font-family: var(--sl-font-mono);
-      font-size: var(--sl-font-size-small);
-      background: var(--sl-color-neutral-900);
-      color: var(--sl-color-neutral-100);
-      padding: var(--sl-spacing-small);
-      border-radius: var(--sl-border-radius-medium);
-      max-height: 150px;
-      overflow-y: auto;
-      margin-bottom: var(--sl-spacing-small);
-      min-height: 60px;
-    }
-    .lua-output .view-list,
-    .lua-output .view-list > div,
-    .lua-output .view-list > div > div,
-    .lua-output .view-list > div > div > div {
-      display: contents;
-    }
-    .lua-output-line {
-      padding: 1px var(--sl-spacing-x-small);
-      cursor: pointer;
-    }
-    .lua-output-line span {
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-    .lua-output-line:hover {
-      background: var(--sl-color-neutral-700);
-    }
-    .lua-input {
-      width: 100%;
-      font-family: var(--sl-font-mono);
-      font-size: var(--sl-font-size-small);
-      padding: var(--sl-spacing-small);
-      border: 1px solid var(--sl-color-neutral-300);
-      border-radius: var(--sl-border-radius-medium);
-      resize: vertical;
-      min-height: 80px;
-    }
-    .lua-input:focus {
-      outline: none;
-      border-color: var(--sl-color-primary-500);
-    }
-    .console-buttons {
-      display: flex;
-      justify-content: flex-end;
-      gap: var(--sl-spacing-small);
-      margin-top: var(--sl-spacing-small);
-    }
     .hidden { display: none !important; }
     /* Polling status indicator - Claude-style sparkle when disconnected */
     .status-indicator {
@@ -248,20 +173,6 @@
         <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
         <div class="chat-input-area">
           <sl-input ui-value="chatInput" ui-event-keypress-enter="sendChat()" placeholder="Type a message..."></sl-input>
-        </div>
-      </div>
-    </div>
-    <div class="lua-console">
-      <div class="console-header" ui-event-click="toggleConsole()">
-        <sl-icon ui-value="consoleExpanded ? 'chevron-down' : 'chevron-right'"></sl-icon>
-        <h3>Lua Console</h3>
-      </div>
-      <div class="console-body" ui-class-hidden="isConsoleCollapsed()">
-        <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
-        <textarea class="lua-input" ui-value="luaInput" ui-event-keypress-ctrl-enter="runLua()" placeholder="Enter Lua code..." rows="4"></textarea>
-        <div class="console-buttons">
-          <sl-button size="small" variant="default" ui-action="clearOutput()">Clear</sl-button>
-          <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
         </div>
       </div>
     </div>

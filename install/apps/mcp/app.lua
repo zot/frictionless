@@ -1,5 +1,5 @@
 -- MCP Shell
--- Outer shell for all Frictionless apps with app switcher menu
+-- Outer shell for all ui-mcp apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
 -- Filesystem helpers (same pattern as apps app)
@@ -11,6 +11,16 @@ local function fileExists(path)
         return true
     end
     return false
+end
+
+local function readFile(path)
+    local handle = io.open(path, "r")
+    if handle then
+        local content = handle:read("*a")
+        handle:close()
+        return content and content:match("^%s*(.-)%s*$") or ""  -- trim whitespace
+    end
+    return ""
 end
 
 local function listDirs(path)
@@ -28,21 +38,30 @@ local function listDirs(path)
     return dirs
 end
 
--- Nested prototype: App menu item (wraps app name for list binding)
+-- Nested prototype: App menu item (wraps app info for list binding)
 -- Namespace under MCP since mcp is the global instance of type MCP
 MCP.AppMenuItem = session:prototype("MCP.AppMenuItem", {
     _name = "",
+    _iconHtml = "",
     _mcp = EMPTY
 })
 local AppMenuItem = MCP.AppMenuItem
 
-function AppMenuItem:new(name, mcpRef)
-    local item = session:create(AppMenuItem, { _name = name, _mcp = mcpRef })
+function AppMenuItem:new(name, iconHtml, mcpRef)
+    local item = session:create(AppMenuItem, {
+        _name = name,
+        _iconHtml = iconHtml or "",
+        _mcp = mcpRef
+    })
     return item
 end
 
 function AppMenuItem:name()
     return self._name
+end
+
+function AppMenuItem:iconHtml()
+    return self._iconHtml
 end
 
 function AppMenuItem:select()
@@ -78,7 +97,8 @@ function mcp:scanAvailableApps()
         -- Only include apps that are built (have app.lua)
         -- Exclude "mcp" - it's the shell, not a user app
         if name ~= "mcp" and fileExists(appPath .. "/app.lua") then
-            table.insert(self._availableApps, AppMenuItem:new(name, self))
+            local iconHtml = readFile(appPath .. "/icon.html")
+            table.insert(self._availableApps, AppMenuItem:new(name, iconHtml, self))
         end
     end
 end
