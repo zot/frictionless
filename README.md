@@ -38,7 +38,7 @@ Ask Claude to build a UI:
 Or display an existing app:
 
 ```
-/ui show app-console
+/ui show
 ```
 
 ### Standalone Mode

@@ -320,7 +320,8 @@ function AppInfo:pushEvent(eventType, extra)
 end
 
 function AppInfo:requestBuild()
-   self.buildStage = "starting..."
+   self.buildProgress = 0
+   self.buildStage = "pondering"
    self:pushEvent("build_request", { target = self.name })
 end
 
@@ -726,7 +727,10 @@ function AppConsole:createApp()
 
     self.showNewForm = false
 
-    -- 5. Send app_created event to Claude for requirements fleshing out
+    -- 5. Start progress at "pondering, 0%"
+    mcp:appProgress(name, 0, "pondering")
+
+    -- 6. Send app_created event to Claude for requirements fleshing out
     app:pushEvent("app_created", { name = name, description = desc })
 
     self.newAppName = ""

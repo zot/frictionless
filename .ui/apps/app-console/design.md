@@ -9,7 +9,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 ### Normal View (app list + details)
 ```
 +------------------+-----------------------------+
-| Apps      [R][+] | contacts                    |
+| Frictionless [R][+] | contacts                    |
 |------------------|  A contact manager with...  |
 | > contacts 17/21 | [Open] [Test] [Fix Issues]  |
 |   tasks    5/5   |-----------------------------|
@@ -37,7 +37,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 ### Embedded App View (in detail area)
 ```
 +------------------+-----------------------------+
-| Apps      [R][+] |        [contacts]     [X]   |
+| Frictionless [R][+] |        [contacts]     [X]   |
 |------------------|-----------------------------+
 | > contacts 17/21 |                             |
 |   tasks    5/5   |   [ Embedded App View ]     |
@@ -84,7 +84,7 @@ Legend:
 ### New App Form (replaces details)
 ```
 +------------------+-----------------------------+
-| Apps      [R][+] | New App                     |
+| Frictionless [R][+] | New App                     |
 |------------------|                             |
 |   contacts 17/21 | Name: [_______________]     |
 |   tasks    5/5   |                             |
@@ -106,7 +106,7 @@ Legend:
 
 ## Data Model
 
-### Apps (main app)
+### AppConsole (main app)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -182,7 +182,7 @@ Legend:
 | Field | Type | Description |
 |-------|------|-------------|
 | text | string | Line content |
-| panel | ref | Reference to Apps for copyToInput |
+| panel | ref | Reference to AppConsole for copyToInput |
 
 ## Chat Panel Features
 
@@ -202,7 +202,7 @@ Legend:
 
 ## Methods
 
-### Apps
+### AppConsole
 
 | Method | Description |
 |--------|-------------|
@@ -214,7 +214,7 @@ Legend:
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
-| createApp() | Create app dir, write requirements.md, rescan, select new app, send app_created event |
+| createApp() | Create app dir, write requirements.md, rescan, select new app, start progress at "pondering, 0%", send app_created event |
 | sendChat() | Send chat event with selected app context |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
@@ -297,7 +297,7 @@ Legend:
 | knownIssueCount() | Returns #knownIssues |
 | fixedIssueCount() | Returns #fixedIssues |
 | pushEvent(eventType, extra) | Push event with common fields (app, mcp_port, note) plus custom fields |
-| requestBuild() | Call pushEvent("build_request", {target = self.name}) |
+| requestBuild() | Set progress to 0/"pondering", then call pushEvent("build_request", {target = self.name}) |
 | requestTest() | Call pushEvent("test_request", {target = self.name}) |
 | requestFix() | Call pushEvent("fix_request", {target = self.name}) |
 | openApp() | Call appConsole:openEmbedded(self.name) to show in embedded view |
@@ -354,7 +354,35 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 | `build_request` | Spawn background ui-builder agent |
 | `test_request` | Spawn background agent for `/ui-testing` |
 | `fix_request` | Spawn background agent to fix issues via `/ui-builder` |
-| `app_created` | Write requirements.md, call `appConsole:updateRequirements(name, content)` |
+| `app_created` | Show progress while fleshing out requirements (see app_created Handling below) |
+
+### app_created Handling
+
+Show both progress (in app list) and thinking messages (in chat panel) while processing the new app's requirements:
+
+| Step | Progress | Thinking | Action |
+|------|----------|----------|--------|
+| 1 | 33 | "Reading initial requirements..." | Read the basic requirements.md that Lua created |
+| 2 | 66 | "Fleshing out requirements..." | Expand requirements with proper structure and detail |
+| 3 | (clear) | (final message) | Write expanded requirements.md, update UI, clear progress |
+
+```lua
+-- Step 1: Show progress and thinking, then read
+mcp:appProgress("{name}", 0, "reading initial requirements")
+appConsole:addAgentThinking("Reading initial requirements...")
+-- Read {base_dir}/apps/{name}/requirements.md
+
+-- Step 2: Show progress and thinking, then expand
+mcp:appProgress("{name}", 50, "fleshing out requirements")
+appConsole:addAgentThinking("Fleshing out requirements...")
+-- Expand the brief description into full requirements
+
+-- Step 3: Complete and clear progress
+-- Write expanded requirements.md to disk
+appConsole:updateRequirements("{name}", expandedContent)
+mcp:appProgress("{name}", nil, nil)  -- Clear progress bar
+appConsole:addAgentMessage("Created requirements for {name}. Click Build to generate the app.")
+```
 
 ### Chat Events
 
@@ -364,9 +392,9 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 
 | Handler | Action |
 |---------|--------|
-| `null` | Fast: read app files, make direct edits |
-| `"/ui-builder"` | Invoke `/ui-builder` skill - do NOT read app files directly |
-| `"background-ui-builder"` | Spawn background ui-builder agent |
+| `null` | Fast: read app files, make direct edits (see Fast Quality below) |
+| `"/ui-builder"` | Thorough: invoke `/ui-builder` skill with progress feedback (see Thorough Quality below) |
+| `"background-ui-builder"` | Background: spawn background ui-builder agent (see Background Agents below) |
 
 The `handler` field reflects user's quality choice. Always respect it - use `/ui-builder` even for "simple" changes when specified.
 
@@ -391,18 +419,74 @@ Final response via `appConsole:addAgentMessage(text)` clears `mcp.statusLine`.
 3. Make changes using Edit tool
 4. Clear and reply: `ui_run('mcp:appUpdated("{context}"); appConsole:addAgentMessage("Done - {description}")')`
 
+### Thorough Quality (handler="/ui-builder")
+
+Invoke the `/ui-builder` skill with thinking messages at each phase. The skill defines progress percentages; pair them with `addAgentThinking()` for user feedback:
+
+| Phase | Progress | Thinking |
+|-------|----------|----------|
+| Starting | 0 | "Starting ui-builder..." |
+| Reading requirements | 10 | "Reading requirements..." |
+| Designing | 20 | "Designing changes..." |
+| Writing code | 40 | "Writing code..." |
+| Writing viewdefs | 60 | "Writing viewdefs..." |
+| Linking | 80 | "Linking app..." |
+| Auditing | 90 | "Auditing..." |
+| Simplifying | 95 | "Simplifying..." |
+| Complete | 100 | (final message via addAgentMessage) |
+
+**Call both** `mcp:appProgress()` AND `appConsole:addAgentThinking()` at each phase:
+```lua
+mcp:appProgress("{context}", 20, "designing")
+appConsole:addAgentThinking("Designing changes...")
+```
+
+This ensures users see progress in both the app list (progress bar) and chat panel (thinking message).
+
 ### Background Agents
 
-Use `mcp_port` from event payload:
+**Note:** For `build_request`, Lua already sets progress to `0, "pondering"` before sending the event, providing immediate feedback to the user.
+
+Background agents use the `.ui/mcp` script (not MCP tools or curl). The script reads the MCP port from `.ui/mcp-port` automatically.
+
+**Prompt template for background build agent:**
 ```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+Build the app "{target}" at .ui/apps/{target}/
+
+## Progress Reporting
+
+Use the `.ui/mcp` script for all MCP operations:
+
+```bash
+.ui/mcp progress {target} <percent> "<stage>"   # Report progress
+.ui/mcp run "<lua code>"                        # Execute Lua
+.ui/mcp audit {target}                          # Audit app
 ```
 
-Before spawning: `ui_run('mcp:appProgress("{target}", 0, "thinking...")')`
+**Report progress at EACH phase of the /ui-builder skill:**
 
-Background agents use HTTP API (no MCP tools):
-- Progress: `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {pct}, "{stage}")'`
-- Completion: `mcp:appUpdated("{name}")` (triggers rescan)
+| Phase | Command |
+|-------|---------|
+| Starting | `.ui/mcp progress {target} 0 "starting..."` |
+| Reading requirements | `.ui/mcp progress {target} 10 "reading requirements..."` |
+| Designing | `.ui/mcp progress {target} 20 "designing..."` |
+| Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
+| Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
+| Linking | `.ui/mcp progress {target} 80 "linking..."` |
+| Auditing | `.ui/mcp progress {target} 90 "auditing..."` |
+| Simplifying | `.ui/mcp progress {target} 95 "simplifying..."` |
+| Complete | `.ui/mcp progress {target} 100 "complete"` then `.ui/mcp run "mcp:appUpdated('{target}')"` |
+
+## Instructions
+
+**Run the /ui-builder skill and follow its full workflow.** The skill defines the phases, design spec format, auditing checks, and simplification steps. Do NOT skip phases.
+
+The progress commands above correspond to the skill's phases. Send each progress update BEFORE starting that phase.
+
+The user is watching the progress bar in the UI. Missing progress updates make it look frozen.
+```
+
+Then spawn: `Task(subagent_type="ui-builder", run_in_background=true, prompt=<above>)`
 
 ### MCP Convenience Methods
 

@@ -1,8 +1,0 @@
-#!/bin/bash
-# Execute Lua code: run 'return mcp:status()'
-dir=$(dirname "$(realpath "$0")")
-port=$(cat "$dir/mcp-port")
-code="${1:?Usage: run '<lua code>'}"
-curl -s -X POST "http://127.0.0.1:$port/api/ui_run" \
-  -H "Content-Type: application/json" \
-  -d "$(jq -n --arg code "$code" '{code: $code}')"

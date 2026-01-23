@@ -24,7 +24,7 @@ When the user says `events` it means to start the event loop, but not use `ui_di
 The event script waits for user interactions and returns JSON:
 
 ```bash
-{base_dir}/event
+.ui/mcp event
 ```
 
 Returns one JSON array per line containing one or more events:
@@ -51,7 +51,7 @@ You must not skip reading that app's design unless you have already read it in t
 ### Running in Foreground or Background
 
 **Foreground event loop (recommended):**
-1. Run `{base_dir}/event` with Bash (blocking, ~2 min timeout)
+1. Run `.ui/mcp event` with Bash (blocking, ~2 min timeout)
 2. When it returns, parse JSON array. If non-empty, handle each event
    - use `ui_run` to alter app state and reflect changes to the user
 3. Restart the event loop
@@ -59,7 +59,7 @@ You must not skip reading that app's design unless you have already read it in t
 This is the most responsive approach - events are handled immediately.
 
 **Background event loop (alternative):**
-Run `{base_dir}/event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
+Run `.ui/mcp event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
 
 **Exit codes:**
 - 0 + empty output = timeout, no events (just restart)
@@ -87,7 +87,7 @@ To display an app (e.g., `claude-panel`):
    - ui_status() to verify sessions > 0 (confirms browser connected)
 
 3. IMMEDIATELY start the event loop:
-   {base_dir}/event
+   .ui/mcp event
 
    The UI will NOT respond to clicks until the event loop is running!
 
@@ -96,7 +96,7 @@ To display an app (e.g., `claude-panel`):
    - Check design.md's "Events" section for how to handle each event type
    - Some events use `ui_run` directly: `ui_run('contacts:doSomething()')`
    - Some events require spawning a background agent (see below)
-   - Restart: {base_dir}/event
+   - Restart: `.ui/mcp event`
 ```
 
 **Background Agent Events:**

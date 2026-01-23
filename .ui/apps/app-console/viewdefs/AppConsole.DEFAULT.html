@@ -36,6 +36,9 @@
     .app-list-header h2 {
       margin: 0;
       font-size: var(--sl-font-size-large);
+      background: cyan;
+      padding: var(--sl-spacing-x-small) var(--sl-spacing-small);
+      border-radius: var(--sl-border-radius-medium);
     }
     .app-list {
       flex: 1;
@@ -513,7 +516,7 @@
       <!-- App List Panel -->
       <div class="app-list-panel">
         <div class="app-list-header">
-          <h2>Apps</h2>
+          <h2>Frictionless</h2>
           <div>
             <sl-icon-button name="arrow-clockwise" label="Refresh" ui-action="refresh()"></sl-icon-button>
             <sl-icon-button name="plus-lg" label="New App" ui-action="openNewForm()"></sl-icon-button>

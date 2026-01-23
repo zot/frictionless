@@ -331,17 +331,15 @@ Respond to user message about app in `context`. Reply via `apps:addAgentMessage(
 
 **Background Agent Pattern (build_request):**
 
-Use `mcp_port` from the event payload:
+Spawn a background ui-builder agent:
 ```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app at .ui/apps/{target}/")
 ```
-
-Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
 Tell the ui-builder agent:
-- Use HTTP API (curl) since background agents don't have MCP tool access
-- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
-- Call `mcp:appUpdated("{name}")` on completion (triggers rescan)
+- Use `.ui/` scripts for MCP operations (they read the port from `.ui/mcp-port`)
+- Report progress via `.ui/progress {target} {percent} "{stage}"`
+- Call `.ui/run "mcp:appUpdated('{target}')"` on completion (triggers rescan)
 
 Background agents allow Claude to continue handling chat while builds run.
 

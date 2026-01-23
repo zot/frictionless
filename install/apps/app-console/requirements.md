@@ -118,19 +118,17 @@ User message with selected app as context. Respond conversationally.
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
 
-**Event payload:** `{app: "app-console", event: "build_request", target: "my-app", mcp_port: 37067}`
+**Event payload:** `{app: "app-console", event: "build_request", target: "my-app"}`
 
-Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent directly:
+Spawn a background ui-builder agent:
 ```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app at .ui/apps/{target}/")
 ```
-
-Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
 
 Tell the ui-builder agent:
-- Use the HTTP API (curl) since background agents don't have MCP tool access
-- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
-- Call `mcp:appUpdated("{name}")` when done (triggers rescan)
+- Use `.ui/` scripts for MCP operations (they read the port from `.ui/mcp-port`)
+- Report progress via `.ui/progress {target} {percent} "{stage}"`
+- Call `.ui/run "mcp:appUpdated('{target}')"` when done (triggers rescan)
 
 **Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
 

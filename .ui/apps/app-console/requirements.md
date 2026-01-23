@@ -27,7 +27,7 @@ When an app is selected, show:
 - Description (first paragraph from requirements.md, parsed by Lua)
 - Build progress and phase (when app is building) - shows progress bar and stage label
 - Action buttons based on state:
-  - Build (when no viewdefs) - sends build_request to Claude
+  - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
   - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
@@ -59,14 +59,19 @@ When "+" is clicked, show a form instead of details:
 2. Write `requirements.md` with title and description
 3. Rescan to add app to list
 4. Select the new app (shows Build button since no viewdefs)
-5. Send `app_created` event to Claude with the app name and description
+5. Start progress at "pondering, 0%" via `mcp:appProgress(name, 0, "pondering")`
+6. Send `app_created` event to Claude with the app name and description
 
 **On Create (Claude):**
-When Claude receives the `app_created` event, it should:
-1. Read the basic requirements.md that Lua created
-2. Flesh out the requirements with proper structure and detail based on the description
-3. Write the expanded requirements.md to disk
-4. Use `ui_run` to call `appConsole:updateRequirements(name, content)` to populate the requirements textbox in the UI
+When Claude receives the `app_created` event, it should show both progress (in the app list) and thinking messages (in the chat panel) while processing:
+
+| Step | Progress | Thinking Message                  | Action                                                                        |
+|------|----------|-----------------------------------|-------------------------------------------------------------------------------|
+| 1    | 33%       | "Reading initial requirements..." | Read the basic requirements.md that Lua created                               |
+| 2    | 66%      | "Fleshing out requirements..."    | Expand requirements with proper structure and detail based on the description |
+| 3    | (clear)  | (final message)                   | Write the expanded requirements.md to disk, clear progress                    |
+
+Use `mcp:appProgress(name, percent, stage)` for the progress bar, `appConsole:addAgentThinking(text)` for chat panel updates, then `appConsole:addAgentMessage(text)` for the final response. Call `appConsole:updateRequirements(name, content)` to populate the requirements in the UI, then `mcp:appProgress(name, nil, nil)` to clear the progress bar.
 
 ## Chat Panel
 
@@ -176,26 +181,55 @@ Use `appConsole:addAgentMessage(text)` for the final response (clears status bar
 **If the chat involves modifying an app:** Check the `handler` field and follow it exactly:
 - `null` (fast quality) — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
 - `"/ui-builder"` (thorough quality) — **MUST invoke `/ui-builder` skill** with full phases (design update, code, viewdefs, audit, simplify). Do NOT skip phases or make direct edits.
-- `"background-ui-builder"` (background quality) — Spawn background ui-builder agent (shows progress bar)
+- `"background-ui-builder"` (background quality) — Spawn background ui-builder agent using the **same prompt template as `build_request`** (see below). Include the user's `text` in the prompt so the agent knows what to do.
 
 **The handler field reflects the user's quality choice and must be respected.** If handler is `/ui-builder`, Claude must use the skill even for "simple" changes.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
 
-**Event payload:** `{app: "app-console", event: "build_request", target: "my-app", mcp_port: 37067}`
+**Event payload:** `{app: "app-console", event: "build_request", target: "my-app"}`
 
-Lua includes `mcp_port` from `mcp:status()` so Claude can spawn the agent directly:
+**Note:** Lua already sets progress to `0, "pondering"` before sending this event, so the user sees immediate feedback when clicking Build.
+
+**Prompt template for background build agent:**
 ```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="MCP port is {mcp_port}. Build the {target} app at .ui/apps/{target}/")
+Build the app "{target}" at .ui/apps/{target}/
+
+## Progress Reporting
+
+Use the `.ui/mcp` script for all MCP operations:
+
+```bash
+.ui/mcp progress {target} <percent> "<stage>"   # Report progress
+.ui/mcp run "<lua code>"                        # Execute Lua
+.ui/mcp audit {target}                          # Audit app
 ```
 
-Before spawning the agent, use `ui_run` to update app progress with (APP, 0%, "thinking...")
+**Report progress at EACH phase of the /ui-builder skill:**
 
-Tell the ui-builder agent:
-- Use the HTTP API (curl) since background agents don't have MCP tool access
-- Report progress via `curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_run -d 'mcp:appProgress("{name}", {progress}, "{stage}")'`
-- Call `mcp:appUpdated("{name}")` when done (triggers rescan)
+| Phase | Command |
+|-------|---------|
+| Starting | `.ui/mcp progress {target} 0 "starting..."` |
+| Reading requirements | `.ui/mcp progress {target} 10 "reading requirements..."` |
+| Designing | `.ui/mcp progress {target} 20 "designing..."` |
+| Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
+| Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
+| Linking | `.ui/mcp progress {target} 80 "linking..."` |
+| Auditing | `.ui/mcp progress {target} 90 "auditing..."` |
+| Simplifying | `.ui/mcp progress {target} 95 "simplifying..."` |
+| Complete | `.ui/mcp progress {target} 100 "complete"` then `.ui/mcp run "mcp:appUpdated('{target}')"` |
+
+## Instructions
+
+**Run the /ui-builder skill and follow its full workflow.** The skill defines the phases, design spec format, auditing checks, and simplification steps. Do NOT skip phases.
+
+The progress commands above correspond to the skill's phases. Send each progress update BEFORE starting that phase.
+
+The user is watching the progress bar in the UI. Missing progress updates make it look frozen.
+```
+
+Then spawn: `Task(subagent_type="ui-builder", run_in_background=true, prompt=<above>)`
 
 **Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
 
