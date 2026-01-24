@@ -120,17 +120,40 @@ The bottom panel displays Claude's current todo list alongside the Chat/Lua pane
 - The in_progress item is shown prominently at the top
 - Completed items can be collapsed/hidden
 
-**Data Flow:**
-- Claude pushes todo updates via `ui_run` calling `mcp:setTodos(todos)`
-- Each todo has: `{content: string, status: string, activeForm: string}`
-- Display `activeForm` for in_progress items, `content` for others
+**MCP Todo API (in init.lua):**
 
-**MCP Methods (in init.lua):**
+Two methods simplify todo management for background agents:
+
 ```lua
-function mcp:setTodos(todos)
-    if appConsole then appConsole:setTodos(todos) end
-end
+-- Create todo list at the start of a build
+mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'})
+
+-- Advance to step n (completes previous step, starts step n)
+mcp:startTodoStep(2)  -- starts "Requirements", completes "Read requirements"
 ```
+
+**`mcp:createTodos(steps)`** - Creates todo items from an array of step labels. Uses hardcoded progress percentages for ui-builder workflow:
+
+| Step | Label | Progress | Thinking |
+|------|-------|----------|----------|
+| 1 | Read requirements | 5% | "Reading requirements..." |
+| 2 | Requirements | 10% | "Updating requirements..." |
+| 3 | Design | 20% | "Designing..." |
+| 4 | Write code | 40% | "Writing code..." |
+| 5 | Write viewdefs | 60% | "Writing viewdefs..." |
+| 6 | Link and audit | 90% | "Auditing..." |
+| 7 | Simplify | 95% | "Simplifying..." |
+
+**`mcp:startTodoStep(n)`** - Advances to step n:
+- Marks the previous in_progress step as completed
+- Marks step n as in_progress
+- Updates progress bar via `mcp:appProgress(currentApp, step.progress, step.label)`
+- Updates statusLine with thinking message
+- Requires `mcp:createTodos()` to have been called first
+
+**`mcp:completeTodos()`** - Marks all steps complete and clears progress (call at end of build).
+
+**Legacy API:** `mcp:setTodos(todos)` still works for full control over todo state.
 
 ## Lua Console
 
@@ -149,7 +172,7 @@ When Claude is building an app, Lua tracks progress state:
 - Progress bar (0-100%)
 - Stage label (designing, writing code, creating viewdefs, linking)
 
-Claude pushes progress updates via `ui_run` calling `appConsole:onAppProgress()` when building.
+Claude pushes progress updates via `.ui/mcp run` calling `appConsole:onAppProgress()` when building.
 
 ## Events to Claude
 
@@ -211,7 +234,8 @@ Use the `.ui/mcp` script for all MCP operations:
 | Phase | Command |
 |-------|---------|
 | Starting | `.ui/mcp progress {target} 0 "starting..."` |
-| Reading requirements | `.ui/mcp progress {target} 10 "reading requirements..."` |
+| Reading requirements | `.ui/mcp progress {target} 5 "reading requirements..."` |
+| Updating requirements | `.ui/mcp progress {target} 10 "updating requirements..."` |
 | Designing | `.ui/mcp progress {target} 20 "designing..."` |
 | Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
 | Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
@@ -267,7 +291,7 @@ Fix known issues in an app. Can also use a background agent pattern.
 - `mcp:appProgress(name, progress, stage)` - call during build to update progress
 - `mcp:appUpdated(name)` - call after modifying app files to trigger rescan
 
-Claude uses `ui_run` to call these mcp methods.
+Claude uses `.ui/mcp run` to call these mcp methods.
 
 ### App Initialization (`init.lua`)
 

@@ -128,6 +128,19 @@
       text-align: center;
       word-break: break-word;
     }
+    .mcp-notifications {
+      position: fixed;
+      top: 56px;
+      right: 8px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sl-spacing-small);
+      max-width: 400px;
+    }
+    .mcp-notification sl-alert {
+      box-shadow: var(--sl-shadow-large);
+    }
     .hidden { display: none !important; }
   </style>
 
@@ -157,6 +170,9 @@
         <div></div>
       </div>
     </div>
+
+    <!-- Notifications container -->
+    <div class="mcp-notifications" ui-view="notifications()?wrapper=lua.ViewList"></div>
 
     <!-- Hidden element for JavaScript execution -->
     <div style="display:none;" ui-code="code"></div>

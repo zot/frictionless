@@ -34,7 +34,7 @@ Each app lives in `.ui/apps/<app>/`:
 
 ### Multiple Apps
 
-You can have multiple apps. The agent uses `ui_display("appName")` to show them:
+You can have multiple apps. The agent uses `.ui/mcp display("appName")` to show them:
 
 ```lua
 -- Define app prototypes (each serves as its own namespace)
@@ -48,7 +48,7 @@ if not session.reloading then
 end
 ```
 
-The agent calls `ui_display("contacts")` or `ui_display("tasks")` to show the desired app.
+The agent calls `.ui/mcp display("contacts")` or `.ui/mcp display("tasks")` to show the desired app.
 
 ### Event-Driven Communication
 
@@ -158,8 +158,8 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
 2. Design    → Plan UI in apps/<app>/design.md
 3. Code      → Write Lua in apps/<app>/app.lua (hot-loaded)
 4. Template  → Write viewdefs to apps/<app>/viewdefs/ (hot-loaded)
-5. Display   → ui_display("app-name") → load and show the app
-6. Browser   → ui_open_browser() or navigate to {url}/?conserve=true
+5. Display   → `.ui/mcp display "app-name"` → load and show the app
+6. Browser   → `.ui/mcp open_browser URL` or navigate to {url}/?conserve=true
 7. Listen    → Poll /wait endpoint for mcp.pushState() events
 8. Iterate   → Edit files, changes appear instantly (hot-loading)
 ```
@@ -180,7 +180,7 @@ See [AI Interaction Guide](ui://mcp) for details.
 
 ### Displaying Objects
 
-The agent uses `ui_display("appName")` to show a Lua variable in the browser:
+The agent uses `.ui/mcp display("appName")` to show a Lua variable in the browser:
 
 ```lua
 -- Define app prototype (serves as namespace)
@@ -195,7 +195,7 @@ if not session.reloading then
 end
 ```
 
-The agent then calls `ui_display("my-form")` to show it.
+The agent then calls `.ui/mcp display("my-form")` to show it.
 
 **Key points**:
 - The `type` field is set automatically by `session:prototype()` from the name argument

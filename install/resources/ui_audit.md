@@ -11,9 +11,7 @@ ui_audit(name: "app-name")
 
 **HTTP API:**
 ```bash
-curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_audit \
-  -H "Content-Type: application/json" \
-  -d '{"name": "app-name"}'
+.ui/mcp audit APP-NAME
 ```
 
 ## Parameters
@@ -72,8 +70,6 @@ curl -s -X POST http://127.0.0.1:{mcp_port}/api/ui_audit \
 ## Example
 
 ```bash
-# Audit the "apps" app
-curl -s -X POST http://127.0.0.1:8000/api/ui_audit \
-  -H "Content-Type: application/json" \
-  -d '{"name": "apps"}' | jq
+# Audit the "app-console" app
+.ui/mcp audit app-console
 ```

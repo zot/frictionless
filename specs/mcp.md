@@ -3,6 +3,10 @@
 ## 1. Overview
 The UI platform provides a Model Context Protocol (MCP) server integration to allow AI assistants (like Claude) to control the application lifecycle, inspect state, and manipulate the runtime environment.
 
+## .ui/mcp notation equivalent to {basedir}/mcp
+In rare circumstances, the `ui_status` tool will return a directory other than `.ui` for `{basedir}`. In those cases, use `{basedir}` instead of `.ui` in the below instructions.
+
+
 ## 1.1 Build & Release
 
 The Makefile provides a `release` target that builds binaries for all supported platforms:
@@ -93,25 +97,22 @@ Manually install bundled skills and resources without starting the MCP server.
 
 ### 2.5 HTTP Tool API
 
-All MCP tools are accessible via HTTP on the MCP port at `/api/{tool_name}`. This enables spawned agents and scripts to interact with the UI server using curl instead of requiring MCP protocol access.
+All MCP tools are accessible via HTTP through the `.ui/mcp TOOL_NAME` command. This enables spawned agents and scripts to interact with the UI server using curl instead of requiring MCP protocol access.
 
-**Endpoints:**
+**Commands:**
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/ui_status` | GET | Get server status |
-| `/api/ui_run` | POST | Execute Lua code |
-| `/api/ui_display` | POST | Load and display an app |
-| `/api/ui_configure` | POST | Reconfigure server |
-| `/api/ui_install` | POST | Install bundled files |
-| `/api/ui_open_browser` | POST | Open browser to UI |
-
-**Request Format (POST):**
-```json
-{"code": "return mcp:status()", "sessionId": "1"}
-```
-
-Parameters match the MCP tool parameters (see Section 5).
+| command                              | Description                           |
+|--------------------------------------|---------------------------------------|
+| `.ui/mcp audit APP`                  | run code quality audit on APP         |
+| `.ui/mcp browser`                    | open browser to UI session            |
+| `.ui/mcp display APP`                | display APP in the browser            |
+| `.ui/mcp event`                      | wait for next UI event (120s timeout) |
+| `.ui/mcp linkapp add|remove APP`     | manage app symlinks                   |
+| `.ui/mcp progress APP PERCENT STAGE` | report build progress                 |
+| `.ui/mcp run 'lua code'`             | execute Lua code in session           |
+| `.ui/mcp state`                      | get current session state             |
+| `.ui/mcp status`                     | get server status                     |
+| `.ui/mcp variables`                  | get current variable values           |
 
 **Response Format:**
 ```json
@@ -126,37 +127,14 @@ Or on error:
 **Example Usage:**
 ```bash
 # Get status
-curl http://127.0.0.1:$PORT/api/ui_status
+.ui/mcp status
 
 # Execute Lua code
-curl -X POST http://127.0.0.1:$PORT/api/ui_run \
-  -H "Content-Type: application/json" \
-  -d '{"code": "return testApp:addResponse(\"Hello!\")"}'
+.ui/mcp run 'return testApp:addResponse(\"Hello!\")'
 
 # Display an app
-curl -X POST http://127.0.0.1:$PORT/api/ui_display \
-  -H "Content-Type: application/json" \
-  -d '{"name": "contacts"}'
+.ui/mcp display 'contacts'
 ```
-
-**Port Discovery:**
-The MCP port is written to `{base_dir}/mcp-port` on startup. Scripts can read this file to discover the port:
-```bash
-PORT=$(cat .ui/mcp-port)
-curl http://127.0.0.1:$PORT/api/ui_status
-```
-
-**Bundled Helper Scripts:**
-The following scripts are installed to `{base_dir}/` and wrap the HTTP Tool API for convenience:
-
-| Script | Usage | Description |
-|--------|-------|-------------|
-| `status` | `./status` | Get server status (JSON) |
-| `run` | `./run '<lua code>'` | Execute Lua code |
-| `display` | `./display <app>` | Display an app by name |
-| `browser` | `./browser` | Open browser to UI |
-
-Scripts auto-discover the port from `mcp-port` in the same directory.
 
 ## 3. Server Lifecycle
 

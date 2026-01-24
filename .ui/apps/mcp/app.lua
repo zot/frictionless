@@ -38,6 +38,28 @@ local function listDirs(path)
     return dirs
 end
 
+-- Nested prototype: Notification toast
+MCP.Notification = session:prototype("MCP.Notification", {
+    message = "",
+    variant = "danger",
+    _mcp = EMPTY
+})
+local Notification = MCP.Notification
+
+function Notification:new(message, variant, mcpRef)
+    return session:create(Notification, {
+        message = message,
+        variant = variant or "danger",
+        _mcp = mcpRef
+    })
+end
+
+function Notification:dismiss()
+    if self._mcp then
+        self._mcp:dismissNotification(self)
+    end
+end
+
 -- Nested prototype: App menu item (wraps app info for list binding)
 -- Namespace under MCP since mcp is the global instance of type MCP
 MCP.AppMenuItem = session:prototype("MCP.AppMenuItem", {
@@ -73,12 +95,15 @@ end
 -- Extend the global mcp object with shell functionality
 -- Note: mcp is created by the server, we just add methods and properties
 
--- Add properties for menu state
+-- Add properties for menu state and notifications
 if not mcp._availableApps then
     mcp._availableApps = {}
 end
 if mcp.menuOpen == nil then
     mcp.menuOpen = false
+end
+if not mcp._notifications then
+    mcp._notifications = {}
 end
 
 -- Scan for available apps (built apps with app.lua)
@@ -127,6 +152,30 @@ end
 function mcp:selectApp(name)
     mcp:display(name)
     self.menuOpen = false
+end
+
+-- Show a notification toast
+function mcp:notify(message, variant)
+    local n = Notification:new(message, variant, self)
+    table.insert(self._notifications, n)
+    -- Auto-dismiss after 5 seconds
+    -- Note: We can't use setTimeout in Lua, so notifications stay until dismissed
+    -- The viewdef will use Shoelace's auto-dismiss via duration attribute
+end
+
+-- Return notifications for binding
+function mcp:notifications()
+    return self._notifications
+end
+
+-- Dismiss a notification
+function mcp:dismissNotification(notification)
+    for i, n in ipairs(self._notifications) do
+        if n == notification then
+            table.remove(self._notifications, i)
+            break
+        end
+    end
 end
 
 -- Scan apps on initial load

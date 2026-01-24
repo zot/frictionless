@@ -63,6 +63,7 @@ The global `mcp` object is provided by the server. This app adds:
 | menuOpen | boolean | Whether app menu is visible |
 | statusLine | string | Status text to display (server-provided) |
 | statusClass | string | CSS class for status bar styling (e.g., "thinking") |
+| _notifications | Notification[] | Active notification toasts |
 
 ## Methods
 
@@ -77,6 +78,21 @@ The global `mcp` object is provided by the server. This app adds:
 | selectApp(name) | Call mcp:display(name), close menu |
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
+| notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
+| notifications() | Returns _notifications for binding |
+| dismissNotification(n) | Remove notification from list |
+
+### MCP.Notification (notification toast)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| message | string | Notification text |
+| variant | string | Shoelace alert variant (danger, warning, success, primary, neutral) |
+| _mcp | ref | Reference to mcp for dismiss callback |
+
+| Method | Description |
+|--------|-------------|
+| dismiss() | Calls mcp:dismissNotification(self) |
 
 ### MCP.AppMenuItem (wrapper for app info)
 
@@ -96,8 +112,9 @@ The global `mcp` object is provided by the server. This app adds:
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, menu button, icon grid dropdown, status bar |
+| MCP.DEFAULT.html | MCP | Shell with app view, menu button, icon grid dropdown, notifications, status bar |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
+| MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
 
 ## Events
 

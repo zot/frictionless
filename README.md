@@ -25,7 +25,7 @@ Claude writes your app logic and skips everything else. See [overview](doc/OVERV
 
 ## Usage
 
-Once installed, Claude Code automatically starts frictionless when needed. The server uses `.ui` as the default working directory.
+Once installed, use `/ui` to start the frictionless server. The server uses `.ui` as the default working directory.
 
 ### Building UIs
 

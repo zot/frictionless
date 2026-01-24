@@ -62,7 +62,7 @@ if not session.reloading then
 end
 ```
 
-The agent then calls `ui_display("my-form")` to show it in the browser.
+The agent then calls `.ui/mcp display("my-form")` to show it in the browser.
 
 **Key points:**
 - `session:prototype(name, init)` — accepts arbitrary names, preserves identity on reload
@@ -123,7 +123,7 @@ print(tostring(contact)) -- "a Contact"
 Provides display and communication for AI Agents.
 - `mcp.pushState(event)`: Queue an event for the agent (polled via `/wait` endpoint)
 
-The agent uses the `ui_display("varName")` tool to show objects in the browser.
+The agent uses the `.ui/mcp display("varName")` tool to show objects in the browser.
 
 ## Schema Migrations
 
@@ -169,5 +169,5 @@ end
 ## Tips for AI Agents
 
 - **Modules:** Use `require` to load standard libraries or other files.
-- **Error Handling:** Errors in Lua code will be reported back through the `ui_run` tool.
+- **Error Handling:** Errors in Lua code will be reported back through the `.ui/mcp run` tool.
 - **Persistence:** Use `mcp:status().base_dir` to get the base directory for reading/writing local files.

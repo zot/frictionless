@@ -17,7 +17,7 @@ When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright 
 
 When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
 
-When the user says `events` it means to start the event loop, but not use `ui_display` or `ui_open_browser` as in Quick Start.
+When the user says `events` it means to start the event loop in the foreground, but not use `.ui/mcp display` or `.ui/mcp open_browser` as in Quick Start.
 
 ## How to Process Events
 
@@ -53,7 +53,7 @@ You must not skip reading that app's design unless you have already read it in t
 **Foreground event loop (recommended):**
 1. Run `.ui/mcp event` with Bash (blocking, ~2 min timeout)
 2. When it returns, parse JSON array. If non-empty, handle each event
-   - use `ui_run` to alter app state and reflect changes to the user
+   - use `.ui/mcp run` to alter app state and reflect changes to the user
 3. Restart the event loop
 
 This is the most responsive approach - events are handled immediately.
@@ -76,15 +76,15 @@ To display an app (e.g., `claude-panel`):
    - Event types and how to respond
 
 2. Display and open:
-   - use ui_run to see if `mcp.value.type == AppName` (PascalCase version of app-name)
-     - if it's not already in mcp.value, use ui_display("app-name")
+   - use `.ui/mcp run` to see if `mcp.value.type == AppName` (PascalCase version of app-name)
+     - if it's not already in mcp.value, use `.ui/mcp display app-name`
    - If Playwright is connected:
      - use browser_evaluate with `function: "() => window.location.href"` to get current URL
      - if URL does NOT start with {url}/, then browser_navigate to {url}/?conserve=true
      - do not wait for playwright page to display
      - do not check the current state or take a snapshot
-   - Otherwise, call ui_open_browser()
-   - ui_status() to verify sessions > 0 (confirms browser connected)
+   - Otherwise, run `.ui/mcp open_browser`
+   - `.ui/mcp status` to verify sessions > 0 (confirms browser connected)
 
 3. IMMEDIATELY start the event loop:
    .ui/mcp event
@@ -94,7 +94,7 @@ To display an app (e.g., `claude-panel`):
 4. When events arrive, handle according to design.md, then restart the loop:
    - Parse JSON: [{"app":"app-console","event":"select","name":"contacts"}]
    - Check design.md's "Events" section for how to handle each event type
-   - Some events use `ui_run` directly: `ui_run('contacts:doSomething()')`
+   - Some events use `.ui/mcp run` directly: `.ui/mcp run 'contacts:doSomething()'`
    - Some events require spawning a background agent (see below)
    - Restart: `.ui/mcp event`
 ```
@@ -110,7 +110,7 @@ Look for patterns like "spawn background agent" or `Task(...)` in the design.md'
 
 ## App Variable Convention
 
-Each app defines a **global variable** for interacting with it via `ui_run`:
+Each app defines a **global variable** for interacting with it via `.ui/mcp run`:
 
 | App Name       | Global Variable | Example Call                        |
 |----------------|-----------------|-------------------------------------|
@@ -133,9 +133,9 @@ The server auto-starts when the MCP connection is established. Use `ui_status` t
 
 **URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. The server binds the root URL to the MCP session automatically via a cookie - no session ID needed in the URL.
 
-**Verifying connection:** After navigating with Playwright, call `ui_status()` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
+**Verifying connection:** After navigating with Playwright, call `.ui/mcp status` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 
-If you need to reconfigure (different base_dir), call `ui_configure({base_dir})` - this stops the current server and restarts with the new directory.
+If you need to reconfigure (different base_dir), run `.ui/mcp configure {base_dir}` - this stops the current server and restarts with the new directory.
 
 ## Building or modifying UIs
 
@@ -183,7 +183,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 
 - Check `{base_dir}/log/lua.log` for Lua errors
 - `ui://variables` resource shows full variable tree with IDs, parents, types, values
-- `ui_run` returns error messages
+- `.ui/mcp run` returns error messages
 - `ui://state` resource shows live state JSON
 - `window.uiApp` contains the app object in the browser
   - `window.uiApp.store` shows all variables

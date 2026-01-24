@@ -18,8 +18,22 @@ AppConsole = session:prototype("AppConsole", {
     luaInput = "",
     chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
     todos = EMPTY,           -- Claude Code todo list items
-    todosCollapsed = false   -- Whether todo column is collapsed
+    todosCollapsed = false,  -- Whether todo column is collapsed
+    _todoSteps = EMPTY,      -- Step definitions for createTodos/startTodoStep
+    _currentStep = 0,        -- Current in_progress step (1-based), 0 if none
+    _todoApp = EMPTY         -- App name for progress reporting
 })
+
+-- Hardcoded ui-builder step definitions
+local UI_BUILDER_STEPS = {
+    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
+    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
+    {label = "Design", progress = 20, thinking = "Designing..."},
+    {label = "Write code", progress = 40, thinking = "Writing code..."},
+    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Link and audit", progress = 90, thinking = "Auditing..."},
+    {label = "Simplify", progress = 95, thinking = "Simplifying..."},
+}
 
 -- Nested prototype: Chat message model
 AppConsole.ChatMessage = session:prototype("AppConsole.ChatMessage", {
@@ -491,6 +505,12 @@ function AppConsole:mutate()
     if self.todosCollapsed == nil then
         self.todosCollapsed = false
     end
+    if self._todoSteps == nil then
+        self._todoSteps = {}
+    end
+    if self._currentStep == nil then
+        self._currentStep = 0
+    end
 end
 
 -- Return apps list for binding
@@ -935,6 +955,18 @@ function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
 end
 
+function AppConsole:clearChat()
+    self.messages = {}
+end
+
+function AppConsole:clearPanel()
+    if self.panelMode == "chat" then
+        self:clearChat()
+    else
+        self:clearLuaOutput()
+    end
+end
+
 -- Todo list methods
 function AppConsole:setTodos(todos)
     self.todos = {}
@@ -950,6 +982,85 @@ end
 
 function AppConsole:toggleTodos()
     self.todosCollapsed = not self.todosCollapsed
+end
+
+-- Create todos from step labels (simplified API)
+function AppConsole:createTodos(steps, appName)
+    self._todoApp = appName
+    self._currentStep = 0
+    self._todoSteps = {}
+    self.todos = {}
+
+    for _, label in ipairs(steps or {}) do
+        -- Look up step definition from UI_BUILDER_STEPS by label
+        local stepDef = nil
+        for _, def in ipairs(UI_BUILDER_STEPS) do
+            if def.label == label then
+                stepDef = def
+                break
+            end
+        end
+        -- Default if not found in predefined steps
+        if not stepDef then
+            stepDef = {label = label, progress = #self._todoSteps * 15 + 10, thinking = label .. "..."}
+        end
+        table.insert(self._todoSteps, stepDef)
+
+        -- Create TodoItem (all pending initially)
+        local item = session:create(TodoItem, {
+            content = stepDef.label,
+            status = "pending",
+            activeForm = stepDef.thinking
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+-- Advance to step n (completes previous, starts n)
+function AppConsole:startTodoStep(n)
+    if n < 1 or n > #self._todoSteps then return end
+
+    -- Complete previous step
+    if self._currentStep > 0 and self._currentStep <= #self.todos then
+        self.todos[self._currentStep].status = "completed"
+    end
+
+    -- Start new step
+    self._currentStep = n
+    local step = self._todoSteps[n]
+
+    if n <= #self.todos then
+        self.todos[n].status = "in_progress"
+    end
+
+    -- Update progress bar
+    if self._todoApp then
+        self:onAppProgress(self._todoApp, step.progress, step.thinking:gsub("%.%.%.$", ""))
+    end
+
+    -- Update thinking message
+    self:addAgentThinking(step.thinking)
+end
+
+-- Mark all steps complete, clear progress
+function AppConsole:completeTodos()
+    -- Mark all steps completed
+    for _, todo in ipairs(self.todos or {}) do
+        todo.status = "completed"
+    end
+    -- Clear progress bar
+    if self._todoApp then
+        self:onAppProgress(self._todoApp, nil, nil)
+    end
+    self._currentStep = 0
+end
+
+-- Clear all todos and reset step state
+function AppConsole:clearTodos()
+    self.todos = {}
+    self._todoSteps = {}
+    self._currentStep = 0
+    self._todoApp = nil
 end
 
 -- Idempotent instance creation

@@ -455,8 +455,19 @@
       margin: 0;
       font-size: var(--sl-font-size-small);
       font-weight: var(--sl-font-weight-semibold);
+      cursor: pointer;
+    }
+    .todo-header h4:hover {
+      color: var(--sl-color-primary-600);
     }
     .todo-column.collapsed .todo-header h4 {
+      display: none;
+    }
+    .todo-header-buttons {
+      display: flex;
+      gap: var(--sl-spacing-2x-small);
+    }
+    .todo-column.collapsed .todo-header-buttons sl-icon-button:first-child {
       display: none;
     }
     .todo-list {
@@ -635,9 +646,12 @@
       <div class="bottom-panel-content">
         <!-- Todo Column -->
         <div class="todo-column" ui-class-collapsed="todosCollapsed">
-          <div class="todo-header" ui-event-click="toggleTodos()">
-            <h4>Todos</h4>
-            <sl-icon-button name="chevron-left" label="Collapse"></sl-icon-button>
+          <div class="todo-header">
+            <h4 ui-event-click="toggleTodos()">Todos</h4>
+            <div class="todo-header-buttons">
+              <sl-icon-button name="trash" label="Clear" ui-action="clearTodos()"></sl-icon-button>
+              <sl-icon-button name="chevron-left" label="Collapse" ui-event-click="toggleTodos()"></sl-icon-button>
+            </div>
           </div>
           <div class="todo-list" ui-view="todos?wrapper=lua.ViewList"></div>
         </div>
@@ -649,6 +663,7 @@
               <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
               <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
             </div>
+            <sl-button size="small" ui-action="clearPanel()">Clear</sl-button>
           </div>
 
           <!-- Chat Panel Content -->

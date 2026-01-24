@@ -9,26 +9,34 @@ model: opus
 
 Expert at building ui-engine UIs with Lua apps connected to widgets.
 
-## MCP Operations
+## Permissions Check (MUST DO FIRST)
 
-Use `.ui/` scripts for all MCP operations (they read the port from `.ui/mcp-port`):
+Background agents require auto-accept mode to write files. **Before doing anything else**, test write permissions:
 
-```bash
-.ui/progress <app> <percent> <stage>   # Report build progress
-.ui/run "<lua code>"                   # Execute Lua code
-.ui/audit <app>                        # Audit app for issues
-.ui/linkapp add <app>                  # Create symlinks
-```
+1. Create a temp file path: `.ui/.write-test-{timestamp}`
+2. Use the Write tool to write "test" to it
+3. Delete it with Bash: `rm .ui/.write-test-*`
 
-Example: `.ui/progress contacts 20 "designing..."`
+**If the Write fails:**
+1. Send a notification to the UI:
+   ```bash
+   .ui/mcp run "mcp:notify('Build failed: Write permission denied. Press Shift+Tab to enable Accept Edits mode, then retry.', 'danger')"
+   ```
+2. Output this error and stop immediately:
+   ```
+   ERROR: Write permission denied. Background agents cannot prompt for approval.
+   Press Shift+Tab to enable "Accept Edits" mode, then retry the build.
+   ```
 
-Report progress at each phase so the user sees real-time status in the UI.
+Do NOT proceed with any other work if the permissions check fails.
 
 ## File Operations
 
 **Use Write tool for all file creation/updates.** Never use Bash heredocs.
 
 ## Instructions
+
+**Ensure the above Permissions Check has succeeded before proceeding**
 
 **Run the `/ui-builder` skill and follow its COMPLETE workflow.** The skill has:
 - Progress reporting at each phase

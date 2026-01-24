@@ -33,7 +33,7 @@ STARTUP ──auto-configure──► RUNNING ◄──ui_configure──┐
 
 - **Auto-start:** Server uses `--dir` flag (defaults to `.ui`) and starts automatically
 - **Reconfigure:** Call `ui_configure(base_dir)` to restart with a different directory
-- **All tools available:** `ui_status`, `ui_run`, `ui_display`, `ui_open_browser`, etc.
+- **All tools available:** `.ui/mcp status`, `.ui/mcp run`, `.ui/mcp display`, `.ui/mcp open_browser`, etc.
 
 ## Two-Phase Workflow
 
@@ -54,11 +54,11 @@ Before writing code, understand and plan:
 
 Implement the design:
 
-1. `ui_status()` — Get base_dir and url (server auto-started)
+1. `.ui/mcp status()` — Get base_dir and url (server auto-started)
 2. Write Lua code in `apps/<app>/app.lua` — Classes with `session:prototype()`
 3. Write viewdefs to `apps/<app>/viewdefs/` — Templates are hot-loaded
-4. `ui_display("app-name")` — Load and display the app
-5. `ui_open_browser()` — Open browser to user
+4. `.ui/mcp display("app-name")` — Load and display the app
+5. `.ui/mcp open_browser()` — Open browser to user
 
 ## Directory Structure
 
@@ -162,7 +162,7 @@ if not session.reloading then
 end
 ```
 
-The agent then calls `ui_display("feedback")` to show it in the browser.
+The agent then calls `.ui/mcp display("feedback")` to show it in the browser.
 
 ### Viewdef
 

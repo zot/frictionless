@@ -55,4 +55,4 @@ Manage contacts with list/detail view. Search and filter. Chat with agent for as
 - Cancel → discards temp, hides detail panel (original unchanged)
 - Delete → removes original from list, clears detail
 - No selection → hide detail panel (ui-class-hidden)
-- Send chat → mcp.pushState({app="contacts", event="chat", text=...}) → parent responds via ui_run
+- Send chat → mcp.pushState({app="contacts", event="chat", text=...}) → parent responds via `.ui/mcp run`

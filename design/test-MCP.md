@@ -15,7 +15,7 @@
     - Verify port files contain valid port numbers.
     - Check filesystem: `log/` directory created.
     - Check Lua I/O: `print()` output goes to `log/lua.log`.
-    - Call `ui_run` -> Expect execution success.
+    - Call `.ui/mcp run` -> Expect execution success.
 
 2.  **Reconfiguration (ui_configure while Running)**:
     - Start server with active session.
@@ -23,14 +23,14 @@
     - Verify old session destroyed, HTTP server stopped.
     - Verify new server started with new base_dir.
     - Verify server running with new URL.
-    - Call `ui_run` -> Expect execution success (new session).
+    - Call `.ui/mcp run` -> Expect execution success (new session).
 
 ### Test: Tool - ui_open_browser
 **Purpose**: Verify browser launch logic.
 
 **Scenarios**:
 1.  **Standard Launch (Default)**:
-    - Call `ui_open_browser` (no args or minimal args).
+    - Call `.ui/mcp open_browser` (no args or minimal args).
     - Verify OS "open" command invoked with correct URL containing `?conserve=true`.
 2.  **Specific Path**:
     - Call with `path="/my/view"`.
@@ -44,10 +44,10 @@
 
 **Scenarios**:
 1.  **Execute Code**:
-    - Call `ui_run` with `return 1 + 1`.
+    - Call `.ui/mcp run` with `return 1 + 1`.
     - Expect result `2`.
 2.  **Session Access**:
-    - Call `ui_run` accessing `session` global.
+    - Call `.ui/mcp run` accessing `session` global.
     - Expect valid access to session variables.
 3.  **JSON Marshalling**:
     - Return a table `{a=1, b="text"}`.
@@ -77,8 +77,8 @@
     - Write HTML template to `{base_dir}/apps/myapp/viewdefs/MyApp.DEFAULT.html`.
     - Hot-loading picks up files automatically.
 2.  **Instantiate & Display**:
-    - Call `ui_display("myapp")` to load and display the app.
-    - Verify via `ui_run` (inspection) that the app is displayed.
+    - Call `.ui/mcp display("myapp")` to load and display the app.
+    - Verify via `.ui/mcp run` (inspection) that the app is displayed.
 3.  **Verify Rendering**:
     - (Mock) Frontend receives update for `mcp.value`.
     - (Mock) Frontend requests `MyApp` viewdef.
@@ -87,7 +87,7 @@
     - Simulate user interaction on the frontend (e.g., user types "Hello" into a field and clicks a button).
     - Protocol message sent to backend to update variable state or call a method.
 5.  **State Inspection**:
-    - AI Agent calls `ui_run` to check the current state of the app.
+    - AI Agent calls `.ui/mcp run` to check the current state of the app.
     - Verify that the Lua object reflects the user's input (e.g., `myApp.userInput == "Hello"`).
 6.  **Iterative Refinement**:
     - AI Agent edits viewdef file with *modified* HTML to provide feedback or the next step in the workflow.
@@ -103,7 +103,7 @@
     - Start with empty project root (no `.claude/skills/` directory).
     - Call `ui_configure` with `base_dir=".ui"`.
     - Verify response includes `install_needed: true`.
-    - Verify response includes hint about running `ui_install`.
+    - Verify response includes hint about running `.ui/mcp install`.
 
 2.  **Install Not Needed (Files Present)**:
     - Pre-create `.claude/skills/ui-builder/SKILL.md`.
@@ -118,7 +118,7 @@
 1.  **Fresh Install (Files Missing)**:
     - Start with empty project root.
     - Server auto-starts (auto-install if README.md missing).
-    - Call `ui_install` explicitly if needed.
+    - Call `.ui/mcp install` explicitly if needed.
     - Verify all bundled files created:
       - `{project}/.claude/skills/*`
       - `{base_dir}/resources/*`
@@ -128,19 +128,19 @@
 
 2.  **No-Op (Files Exist, force=false)**:
     - Pre-create bundled files with custom content.
-    - Call `ui_install` without force.
+    - Call `.ui/mcp install` without force.
     - Verify file content unchanged.
     - Verify response lists files as skipped.
 
 3.  **Force Overwrite (force=true)**:
     - Pre-create bundled files with custom content.
-    - Call `ui_install` with `force=true`.
+    - Call `.ui/mcp install` with `force=true`.
     - Verify files overwritten with bundled content.
     - Verify response lists files as installed.
 
 4.  **Path Resolution**:
     - Set `base_dir="/project/.ui"`.
-    - Call `ui_install`.
+    - Call `.ui/mcp install`.
     - Verify project files installed to `/project/.claude/`.
     - Verify base_dir files installed to `/project/.ui/`.
 

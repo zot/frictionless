@@ -64,6 +64,18 @@ A status bar at the bottom of the viewport:
 - The `.thinking` class styles text as orange bold-italic
 - Maintains consistent height even when empty
 
+## Notifications
+
+Agents can display notifications to alert users of important events (errors, warnings, info):
+
+- `mcp:notify(message, variant)` - Show a notification toast
+- `variant` can be: "danger" (red), "warning" (yellow), "success" (green), "primary" (blue), "neutral" (gray)
+- Default variant is "danger" (most notifications are errors)
+- Notifications appear as Shoelace alerts, auto-dismiss after 5 seconds
+- Multiple notifications stack vertically
+- Each notification has a close button for manual dismissal
+- Notifications appear in top-right corner, below the menu button
+
 ## Styling
 
 - No padding or margins around the app content

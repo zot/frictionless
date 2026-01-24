@@ -102,15 +102,32 @@ The `mcp` global provides methods for interacting with the MCP server:
 
 **Important:** do not display the app after building it unless the user specifically requests it.
 
-## Workflow: **show todos for the flow**
+## Workflow
 
-1. → {report progress and thinking: 0, "starting"} **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
+**At the start**, create tasks for Claude Code and the UI todo panel:
 
-2. → {report progress and thinking: 10, "reading requirements"}, **Read requirements**
+```
+-- Claude Code tasks
+TaskCreate: "Read requirements" (activeForm: "Reading requirements...")
+TaskCreate: "Design changes" (activeForm: "Designing...")
+TaskCreate: "Write code" (activeForm: "Writing code...")
+TaskCreate: "Write viewdefs" (activeForm: "Writing viewdefs...")
+TaskCreate: "Link and audit" (activeForm: "Auditing...")
+TaskCreate: "Simplify code" (activeForm: "Simplifying...")
+
+-- MCP todo panel (syncs progress bar + thinking messages)
+.ui/mcp run "mcp:createTodos({'Read requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'}, '<app>')"
+```
+
+Then work through each step, updating both TaskUpdate AND mcp:startTodoStep.
+
+1. → TaskUpdate(status: in_progress), `.ui/mcp run "mcp:startTodoStep(1)"`, **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
+
+2. → **Read requirements** (step 1 already started above)
    - Check `{base_dir}/apps/<app>/requirements.md` first
    - If it does not exist, create it with human-readable prose (no ASCII art or tables)
 
-3. → {report progress and thinking: 20, "designing"}, **Design**
+3. → TaskUpdate("Read requirements": completed), TaskUpdate("Design changes": in_progress), `.ui/mcp run "mcp:startTodoStep(2)"`, **Design**
    - Check `{base_dir}/patterns/` for reusable patterns
    - Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element representing the app
    - Write the design in `{base_dir}/apps/<app>/design.md`:
@@ -121,23 +138,23 @@ The `mcp` global provides methods for interacting with the MCP server:
       - **ViewDefs**: Template files needed
       - **Events**: JSON examples of user interactions with **complete handling instructions**
         - Claude reads design.md to understand how to handle events — requirements.md may have detailed event handling that must be copied to design.md
-        - Include: event name, JSON payload example, and exactly what Claude should do (spawn agent, call ui_run, respond via method, etc.)
+        - Include: event name, JSON payload example, and exactly what Claude should do (spawn agent, call `.ui/mcp run`, respond via method, etc.)
         - If requirements.md has a "Claude Event Handling" or similar section, transfer all that information to design.md
 
-4. → {report progress and thinking: 40, "writing code"}, **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+4. → TaskUpdate("Design changes": completed), TaskUpdate("Write code": in_progress), `.ui/mcp run "mcp:startTodoStep(3)"`, **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
    - `design.md` — design spec (first, for reference)
    - `app.lua` — Lua classes and logic (**write this before viewdefs**)
-   - → `progress 60 "writing viewdefs..."`
+   - → TaskUpdate("Write code": completed), TaskUpdate("Write viewdefs": in_progress), `.ui/mcp run "mcp:startTodoStep(4)"`
    - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
    - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
 
-5. → {report progress and thinking: 80, "linking"}, **Create symlinks**
+5. → TaskUpdate("Write viewdefs": completed), TaskUpdate("Link and audit": in_progress), `.ui/mcp run "mcp:startTodoStep(5)"`, **Create symlinks**
 
    ```bash
    .ui/mcp linkapp add <app>
    ```
 
-6. → {report progress and thinking: 90, "auditing"}, **Audit** (after any design or modification):
+6. → **Audit** (part of step 5, no new todo step):
 
    **Automated checks first** (via HTTP API):
    ```bash
@@ -180,7 +197,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
    After fixing, **report any recorded gaps** to the user.
 
-7. → {report progress and thinking: 95, "simplifying"}, **Simplify**
+7. → TaskUpdate("Link and audit": completed), TaskUpdate("Simplify code": in_progress), `.ui/mcp run "mcp:startTodoStep(6)"`, **Simplify**
 
    Use the `code-simplifier` agent to refine the app code for clarity, consistency, and maintainability:
 
@@ -191,8 +208,7 @@ The `mcp` global provides methods for interacting with the MCP server:
 
    The agent will analyze and refine the Lua code while preserving functionality.
 
-8. → {report progress and thinking: 100, "complete"}, **Complete**
-   - `.ui/mcp progress $APP 100 "complete"`
+8. → TaskUpdate("Simplify code": completed), `.ui/mcp run "mcp:completeTodos()"`, **Complete**
    - Trigger dashboard rescan:
      ```bash
      .ui/mcp run "mcp:appUpdated('$APP')"

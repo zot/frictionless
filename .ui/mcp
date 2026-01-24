@@ -55,7 +55,7 @@ case "$prog" in
                 echo "$out"
                 break
             elif [ $status != 0 ]; then
-                break
+                exit $status
             fi
         done
         ;;

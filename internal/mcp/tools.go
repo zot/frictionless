@@ -559,14 +559,18 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		}
 
 		// Load init.lua from each app directory if it exists
+		// Use DirectRequireLuaFile to register for hot-loading
+		// Path is relative to baseDir (e.g., "apps/myapp/init.lua")
 		// Spec: mcp.md Section 4.3 "App Initialization (init.lua)"
 		appsDir := filepath.Join(s.baseDir, "apps")
 		if entries, err := os.ReadDir(appsDir); err == nil {
 			for _, entry := range entries {
 				if entry.IsDir() {
-					initPath := filepath.Join(appsDir, entry.Name(), "init.lua")
-					if _, err := os.Stat(initPath); err == nil {
-						if err := L.DoFile(initPath); err != nil {
+					initAbsPath := filepath.Join(appsDir, entry.Name(), "init.lua")
+					if _, err := os.Stat(initAbsPath); err == nil {
+						// Path relative to baseDir for tracking
+						initRelPath := filepath.Join("apps", entry.Name(), "init.lua")
+						if _, err := session.DirectRequireLuaFile(initRelPath); err != nil {
 							return nil, fmt.Errorf("failed to load %s/init.lua: %w", entry.Name(), err)
 						}
 					}
