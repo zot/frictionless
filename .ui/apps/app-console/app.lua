@@ -16,6 +16,7 @@ AppConsole = session:prototype("AppConsole", {
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
     luaInput = "",
+    _luaInputFocusTrigger = 0,  -- Incremented to trigger focus on Lua input
     chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
     todos = EMPTY,           -- Claude Code todo list items
     todosCollapsed = false,  -- Whether todo column is collapsed
@@ -117,6 +118,7 @@ function OutputLine:copyToInput()
         text = text:sub(3)
     end
     self.panel.luaInput = text
+    self.panel:focusLuaInput()
 end
 
 -- Nested prototype: Issue model
@@ -874,13 +876,16 @@ function AppConsole:noEmbeddedApp()
     return self.embeddedApp == nil
 end
 
--- Update an app's requirements content (called by Claude after fleshing out)
-function AppConsole:updateRequirements(name, content)
+-- Re-read an app's requirements.md from disk and update UI
+function AppConsole:updateRequirements(name)
     local app = self:findApp(name)
-    if app then
-        app.requirementsContent = content
-        -- Also update description from first paragraph
-        app.description = parseRequirements(content)
+    if app and self._baseDir then
+        local reqPath = self._baseDir .. "/apps/" .. name .. "/requirements.md"
+        local content = readFile(reqPath)
+        if content then
+            app.requirementsContent = content
+            app.description = parseRequirements(content)
+        end
     end
 end
 
@@ -953,6 +958,24 @@ end
 
 function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
+end
+
+function AppConsole:focusLuaInput()
+    -- Set JS code to focus input. Changing the value triggers execution.
+    self._luaInputFocusTrigger = string.format([[
+        var input = document.getElementById('lua-input');
+        if (input) {
+            input.focus();
+            setTimeout(function() {
+                var textarea = input.shadowRoot && input.shadowRoot.querySelector('textarea');
+                if (textarea) {
+                    var len = textarea.value.length;
+                    textarea.setSelectionRange(len, len);
+                }
+            }, 0);
+        }
+        // %d
+    ]], os.time())
 end
 
 function AppConsole:clearChat()

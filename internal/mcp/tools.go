@@ -26,7 +26,7 @@ func (s *Server) registerTools() {
 	// ui_configure
 	// Spec: mcp.md section 5.1
 	s.mcpServer.AddTool(mcp.NewTool("ui_configure",
-		mcp.WithDescription("Prepare the server environment and file system. Must be the first tool called."),
+		mcp.WithDescription("Reconfigure and restart the UI server with a different base directory. Optional—server auto-configures at startup using --dir (defaults to .ui)."),
 		mcp.WithString("base_dir", mcp.Required(), mcp.Description("Absolute path to the UI working directory. Use {project}/.ui unless user specifies otherwise.")),
 	), s.handleConfigure)
 
@@ -53,7 +53,7 @@ func (s *Server) registerTools() {
 	// ui_install
 	// Spec: mcp.md section 5.7
 	s.mcpServer.AddTool(mcp.NewTool("ui_install",
-		mcp.WithDescription("Install bundled configuration files (skill files). Call after ui_configure when install_needed is true."),
+		mcp.WithDescription("Install bundled configuration files (skill files). Server must be running (auto-starts on MCP connection)."),
 		mcp.WithBoolean("force", mcp.Description("If true, overwrites existing files. Defaults to false.")),
 	), s.handleInstall)
 
@@ -359,7 +359,7 @@ func compareSemver(a, b string) int {
 func (s *Server) handleInstall(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	// Check state - server must be running
 	if s.state != Running {
-		return mcp.NewToolResultError("ui_install requires the server to be running. Call ui_configure first."), nil
+		return mcp.NewToolResultError("ui_install requires the server to be running - server may not have started correctly"), nil
 	}
 
 	// Parse force parameter
@@ -700,7 +700,7 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 		sessionID = s.currentVendedID
 	}
 	if sessionID == "" {
-		return mcp.NewToolResultError("no active session - call ui_configure first"), nil
+		return mcp.NewToolResultError("no active session - server may not have started correctly"), nil
 	}
 
 	path, ok := args["path"].(string)
@@ -779,7 +779,7 @@ func (s *Server) handleRun(ctx context.Context, request mcp.CallToolRequest) (*m
 		sessionID = s.currentVendedID
 	}
 	if sessionID == "" {
-		return mcp.NewToolResultError("no active session - call ui_configure first"), nil
+		return mcp.NewToolResultError("no active session - server may not have started correctly"), nil
 	}
 
 	// Get the session for LoadCodeDirect
@@ -864,7 +864,7 @@ func (s *Server) handleStatus(ctx context.Context, request mcp.CallToolRequest) 
 // handleDisplay loads and displays an app by calling mcp:display(name) in Lua.
 func (s *Server) handleDisplay(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.state != Running {
-		return mcp.NewToolResultError("server not running - call ui_configure first"), nil
+		return mcp.NewToolResultError("server not running - server may not have started correctly"), nil
 	}
 
 	args, ok := request.Params.Arguments.(map[string]interface{})
@@ -926,7 +926,7 @@ func (s *Server) handleAudit(ctx context.Context, request mcp.CallToolRequest) (
 	s.mu.RUnlock()
 
 	if baseDir == "" {
-		return mcp.NewToolResultError("server not configured - call ui_configure first"), nil
+		return mcp.NewToolResultError("server not configured - server may not have started correctly"), nil
 	}
 
 	args, ok := request.Params.Arguments.(map[string]interface{})

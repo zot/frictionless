@@ -26,8 +26,6 @@ Use the `.ui/mcp` script for all MCP operations:
 .ui/mcp event                       # Wait for next UI event
 ```
 
-The script reads the MCP port automatically from `.ui/mcp-port` file.
-
 ## File Operations
 
 **ALWAYS use the Write tool to create/update files.** Do NOT use Bash heredocs (`cat > file << 'EOF'`).
@@ -35,61 +33,196 @@ The script reads the MCP port automatically from `.ui/mcp-port` file.
 - Write tool works in background agents and allows user approval
 - Bash heredocs are denied in background agents
 
+---
+
+# Workflow
+
+**This is the main content. Follow these steps in order.**
+
+## Step 1: Create Todos (IMMEDIATELY)
+
+Extract the app name from your prompt (e.g., "contacts" from "Build the app contacts").
+
+**Run this command BEFORE reading any files:**
+
+```bash
+.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'}, 'APP_NAME')"
+```
+
+This shows progress in the UI. The user is watching - without this, the build looks frozen.
+
+If this fails, stop immediately and return an error: `Could not create todos`
+
+Also create Claude Code tasks:
+
+```
+TaskCreate: "Read requirements" (activeForm: "Reading requirements...")
+TaskCreate: "Update requirements" (activeForm: "Updating requirements...")
+TaskCreate: "Design changes" (activeForm: "Designing...")
+TaskCreate: "Write code" (activeForm: "Writing code...")
+TaskCreate: "Write viewdefs" (activeForm: "Writing viewdefs...")
+TaskCreate: "Link and audit" (activeForm: "Auditing...")
+TaskCreate: "Simplify code" (activeForm: "Simplifying...")
+```
+
+## Step 2: Read Requirements
+
+```bash
+.ui/mcp run "mcp:startTodoStep(1)"
+```
+
+TaskUpdate("Read requirements": in_progress)
+
+- Check `{base_dir}/apps/<app>/requirements.md`
+- If it does not exist, create it with human-readable prose (no ASCII art or tables)
+- If `{base_dir}/apps/<app>/TESTING.md` exists, read it and note any Known Issues
+
+## Step 3: Update Requirements
+
+```bash
+.ui/mcp run "mcp:startTodoStep(2)"
+```
+
+TaskUpdate("Read requirements": completed), TaskUpdate("Update requirements": in_progress)
+
+- If the task requires changes to requirements.md, update it now
+- Ensure requirements are complete and unambiguous before designing
+- Skip this step if requirements don't need changes
+
+## Step 4: Design
+
+```bash
+.ui/mcp run "mcp:startTodoStep(3)"
+```
+
+TaskUpdate("Update requirements": completed), TaskUpdate("Design changes": in_progress)
+
+- Check `{base_dir}/patterns/` for reusable patterns
+- Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element
+- Write the design in `{base_dir}/apps/<app>/design.md`:
+   - **Intent**: What the UI accomplishes
+   - **Layout**: ASCII wireframe showing structure
+   - **Data Model**: Tables of types, fields, and descriptions
+   - **Methods**: Actions each type performs
+   - **ViewDefs**: Template files needed
+   - **Events**: JSON examples of user interactions with **complete handling instructions**
+     - Claude reads design.md to understand how to handle events
+     - Include: event name, JSON payload example, and exactly what Claude should do
+
+## Step 5: Write Code
+
+```bash
+.ui/mcp run "mcp:startTodoStep(4)"
+```
+
+TaskUpdate("Design changes": completed), TaskUpdate("Write code": in_progress)
+
+Write files to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
+- `app.lua` — Lua classes and logic (**write this before viewdefs**)
+
+## Step 6: Write Viewdefs
+
+```bash
+.ui/mcp run "mcp:startTodoStep(5)"
+```
+
+TaskUpdate("Write code": completed), TaskUpdate("Write viewdefs": in_progress)
+
+- `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
+- `viewdefs/<Item>.list-item.html` — List item templates (if needed)
+
+## Step 7: Link and Audit
+
+```bash
+.ui/mcp run "mcp:startTodoStep(6)"
+```
+
+TaskUpdate("Write viewdefs": completed), TaskUpdate("Link and audit": in_progress)
+
+**Create symlinks:**
+
+```bash
+.ui/mcp linkapp add <app>
+```
+
+**Automated audit:**
+
+```bash
+.ui/mcp audit $APP
+```
+
+The tool checks Lua code AND viewdefs for:
+- Dead methods (defined but never called)
+- Missing `session.reloading` guard on instance creation
+- Global variable name doesn't match app directory
+- `<style>` blocks in list-item viewdefs
+- `item.` prefix in list-item viewdefs
+- `ui-action` on non-buttons
+- `ui-class="hidden:..."` (should use `ui-class-hidden`)
+- `ui-value` on checkboxes/switches
+- Operators in binding paths
+- HTML parse errors in viewdefs
+
+**AI-based checks** (require reading comprehension):
+- Compare design.md against requirements.md — **every required feature must be represented**
+- Compare implementation against design.md — **every designed feature must be implemented**
+- Check for missing `min-height: 0` on scrollable flex children
+- Check that Cancel buttons revert changes (see Edit/Cancel Pattern in Reference)
+
+**Fix violations** before continuing:
+1. **Dead methods NOT in design.md** → Delete them from `app.lua`
+2. **Dead methods IN design.md** → Record in `TESTING.md` under `## Gaps`
+3. **Other violations** → Fix them in the code
+4. **Warnings** (external methods) → OK to ignore
+
+## Step 8: Simplify
+
+```bash
+.ui/mcp run "mcp:startTodoStep(7)"
+```
+
+TaskUpdate("Link and audit": completed), TaskUpdate("Simplify code": in_progress)
+
+Use the `code-simplifier` agent:
+
+```
+Task tool with subagent_type="code-simplifier"
+prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+```
+
+## Step 9: Complete
+
+```bash
+.ui/mcp run "mcp:completeTodos()"
+.ui/mcp run "mcp:appUpdated('APP_NAME')"
+.ui/mcp run "if appConsole then appConsole:addAgentMessage('Done - built APP_NAME') end"
+```
+
+TaskUpdate("Simplify code": completed)
+
+---
+
+# Reference
+
+Everything below is reference material for implementing the workflow above.
+
 ## Core Principles
-- use SOLID principles, comprehensive unit tests
-- when adding code, verify whether it needs to be factored
+
+- Use SOLID principles, comprehensive unit tests
+- When adding code, verify whether it needs to be factored
 - Code and specs as MINIMAL as possible
-- write idiomatic Lua code
+- Write idiomatic Lua code
 
 ## Hot-Loading
 
 **Both Lua code and viewdefs hot-load automatically from disk.** When you edit files:
 - Lua files in `apps/<app>/app.lua` → re-executed, preserving app state
 - Viewdef files in `apps/<app>/viewdefs/` → browser updates automatically
-- `session.reloading` is `true` during reload, `false` otherwise — use to detect hot-reloads
+- `session.reloading` is `true` during reload, `false` otherwise
 
 **Write order matters:** Write code changes FIRST, then viewdefs. Viewdefs may reference new types/methods that must exist before the viewdef loads.
 
-**Just write files to disk.** The server watches for changes and hot-loads automatically.
-
-## Progress Reporting
-
-Report build progress so the apps dashboard shows status:
-
-```bash
-.ui/mcp progress <app> <percent> <stage>
-```
-
-**Call progress at each phase:**
-
-| Phase | Command |
-|-------|---------|
-| Starting | `.ui/mcp progress myapp 0 "starting..."` |
-| Reading requirements | `.ui/mcp progress myapp 5 "reading requirements..."` |
-| Updating requirements | `.ui/mcp progress myapp 10 "updating requirements..."` |
-| Designing | `.ui/mcp progress myapp 20 "designing..."` |
-| Writing code | `.ui/mcp progress myapp 40 "writing code..."` |
-| Writing viewdefs | `.ui/mcp progress myapp 60 "writing viewdefs..."` |
-| Linking | `.ui/mcp progress myapp 80 "linking..."` |
-| Auditing | `.ui/mcp progress myapp 90 "auditing..."` |
-| Simplifying | `.ui/mcp progress myapp 95 "simplifying..."` |
-| Complete | `.ui/mcp progress myapp 100 "complete"` |
-
-**After all files are written**, trigger dashboard rescan:
-
-```bash
-.ui/mcp run "mcp:appUpdated('myapp')"
-```
-
-**When done**, send a final message (clears thinking status):
-
-```bash
-.ui/mcp run "if appConsole then appConsole:addAgentMessage('Done - brief description') end"
-```
-
 ## MCP Global Methods
-
-The `mcp` global provides methods for interacting with the MCP server:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
@@ -99,131 +232,11 @@ The `mcp` global provides methods for interacting with the MCP server:
 | `mcp:appUpdated(name)` | nil | Trigger dashboard rescan after file changes |
 | `mcp.pushState(event)` | nil | Send event to Claude agent |
 
-**Important:** `mcp:display(appName)` expects a **string** app name, not an object. If you have an AppInfo object, pass `appInfo.name`.
+**Important:** `mcp:display(appName)` expects a **string** app name, not an object.
 
 **Important:** do not display the app after building it unless the user specifically requests it.
 
-## Workflow
-
-**At the start**, create tasks for Claude Code and the UI todo panel:
-
-```
--- Claude Code tasks
-TaskCreate: "Read requirements" (activeForm: "Reading requirements...")
-TaskCreate: "Update requirements" (activeForm: "Updating requirements...")
-TaskCreate: "Design changes" (activeForm: "Designing...")
-TaskCreate: "Write code" (activeForm: "Writing code...")
-TaskCreate: "Write viewdefs" (activeForm: "Writing viewdefs...")
-TaskCreate: "Link and audit" (activeForm: "Auditing...")
-TaskCreate: "Simplify code" (activeForm: "Simplifying...")
-
--- MCP todo panel (syncs progress bar + thinking messages)
-.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'}, '<app>')"
-```
-
-Then work through each step, updating both TaskUpdate AND mcp:startTodoStep.
-
-1. → TaskUpdate(status: in_progress), `.ui/mcp run "mcp:startTodoStep(1)"`, **Check for test issues**: If `{base_dir}/apps/<app>/TESTING.md` exists, read it and offer to resolve any Known Issues before proceeding
-
-2. → **Read requirements** (step 1 already started above)
-   - Check `{base_dir}/apps/<app>/requirements.md` first
-   - If it does not exist, create it with human-readable prose (no ASCII art or tables)
-
-3. → TaskUpdate("Read requirements": completed), TaskUpdate("Update requirements": in_progress), `.ui/mcp run "mcp:startTodoStep(2)"`, **Update requirements**
-   - If the task requires changes to requirements.md, update it now
-   - Ensure requirements are complete and unambiguous before designing
-   - Skip this step if requirements don't need changes
-
-4. → TaskUpdate("Update requirements": completed), TaskUpdate("Design changes": in_progress), `.ui/mcp run "mcp:startTodoStep(3)"`, **Design**
-   - Check `{base_dir}/patterns/` for reusable patterns
-   - Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>` element representing the app
-   - Write the design in `{base_dir}/apps/<app>/design.md`:
-      - **Intent**: What the UI accomplishes
-      - **Layout**: ASCII wireframe showing structure
-      - **Data Model**: Tables of types, fields, and descriptions
-      - **Methods**: Actions each type performs
-      - **ViewDefs**: Template files needed
-      - **Events**: JSON examples of user interactions with **complete handling instructions**
-        - Claude reads design.md to understand how to handle events — requirements.md may have detailed event handling that must be copied to design.md
-        - Include: event name, JSON payload example, and exactly what Claude should do (spawn agent, call `.ui/mcp run`, respond via method, etc.)
-        - If requirements.md has a "Claude Event Handling" or similar section, transfer all that information to design.md
-
-5. → TaskUpdate("Design changes": completed), TaskUpdate("Write code": in_progress), `.ui/mcp run "mcp:startTodoStep(4)"`, **Write files** to `{base_dir}/apps/<app>/` (**code first, then viewdefs**):
-   - `design.md` — design spec (first, for reference)
-   - `app.lua` — Lua classes and logic (**write this before viewdefs**)
-   - → TaskUpdate("Write code": completed), TaskUpdate("Write viewdefs": in_progress), `.ui/mcp run "mcp:startTodoStep(5)"`
-   - `viewdefs/<Type>.DEFAULT.html` — HTML templates (after code exists)
-   - `viewdefs/<Item>.list-item.html` — List item templates (if needed)
-
-6. → TaskUpdate("Write viewdefs": completed), TaskUpdate("Link and audit": in_progress), `.ui/mcp run "mcp:startTodoStep(6)"`, **Create symlinks**
-
-   ```bash
-   .ui/mcp linkapp add <app>
-   ```
-
-7. → **Audit** (part of step 6, no new todo step):
-
-   **Automated checks first** (via HTTP API):
-   ```bash
-   .ui/mcp audit $APP
-   ```
-
-   The tool checks Lua code AND viewdefs for:
-   - Dead methods (defined but never called)
-   - Missing `session.reloading` guard on instance creation
-   - Global variable name doesn't match app directory
-   - `<style>` blocks in list-item viewdefs
-   - `item.` prefix in list-item viewdefs
-   - `ui-action` on non-buttons
-   - `ui-class="hidden:..."` (should use `ui-class-hidden`)
-   - `ui-value` on checkboxes/switches
-   - Operators in binding paths
-   - HTML parse errors in viewdefs
-
-   **Do not manually check viewdefs** — the tool handles all viewdef validation.
-
-   **AI-based checks** (require reading comprehension):
-   - Compare design.md against requirements.md — **every required feature must be represented**
-   - Compare implementation against design.md — **every designed feature must be implemented**
-   - Compare implementation against requirements.md — **every principle must be followed**
-   - Feature gaps are violations that must be fixed before the task is complete
-   - **Responsibility verification:** When requirements.md has explicit responsibility sections (e.g., "Lua Responsibilities", "Claude Responsibilities", "Data Flow"):
-     - For each stated Lua responsibility, find the Lua code that implements it — if no code exists or it just sends an event to Claude, it's a violation
-     - For each stated Claude responsibility, verify Lua does NOT implement it (Claude handles via events)
-     - If requirements say "Lua-driven" or "all X happens in Lua", verify Lua actually does the work
-     - Example violation: Requirements say "Lua scans directories" but code sends `refresh_request` event (Claude does scanning)
-   - Check for missing `min-height: 0` on scrollable flex children
-   - Check that Cancel buttons revert changes (see Edit/Cancel Pattern)
-
-   **Fix violations** before the task is complete:
-
-   1. **Dead methods NOT in design.md** → Delete them from `app.lua` now
-   2. **Dead methods IN design.md** → Record in `TESTING.md` under `## Gaps` (design/code mismatch)
-   3. **Other violations** (viewdef issues, missing guards) → Fix them in the code
-   4. **Warnings** (external methods) → OK to ignore, these are called by Claude
-
-   After fixing, **report any recorded gaps** to the user.
-
-8. → TaskUpdate("Link and audit": completed), TaskUpdate("Simplify code": in_progress), `.ui/mcp run "mcp:startTodoStep(7)"`, **Simplify**
-
-   Use the `code-simplifier` agent to refine the app code for clarity, consistency, and maintainability:
-
-   ```
-   Task tool with subagent_type="code-simplifier"
-   prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
-   ```
-
-   The agent will analyze and refine the Lua code while preserving functionality.
-
-9. → TaskUpdate("Simplify code": completed), `.ui/mcp run "mcp:completeTodos()"`, **Complete**
-   - Trigger dashboard rescan:
-     ```bash
-     .ui/mcp run "mcp:appUpdated('$APP')"
-     ```
-
 ## Common Binding Mistakes
-
-These are easy to get wrong:
 
 | Wrong | Right |
 |-------|-------|
@@ -281,12 +294,6 @@ function Task:cancel()
     end
     self.editing = false
 end
-```
-
-**Viewdef usage:**
-```html
-<sl-button ui-action="save()">Save</sl-button>
-<sl-button ui-action="cancel()">Cancel</sl-button>
 ```
 
 **Key points:**
@@ -375,6 +382,8 @@ function MaLuba:mutate()
 end
 ```
 
+**IMPORTANT: a mutation method must on the class that mutated, not on another class**
+
 **CRITICAL: All field additions and their `mutate()` methods must arrive in a SINGLE hot-load.**
 
 If they arrive in separate hot-loads, it fails silently:
@@ -384,42 +393,18 @@ If they arrive in separate hot-loads, it fails silently:
 | 1st: Add field | Calls `mutate()` | `mutate()` doesn't exist yet → field stays nil |
 | 2nd: Add `mutate()` | Checks for init changes | Prototype init unchanged → `mutate()` not called |
 
-**Why this happens:** Hot-reload only calls `mutate()` when the prototype's init table changes. Adding a method doesn't change the init table, so the second hot-load doesn't trigger mutation.
-
 **Solution: Use atomic writes via temp file**
-
-Hot-loading only watches files that are already loaded. Write to a temp copy, make all your changes, then `mv` to trigger exactly one hot-load:
 
 ```bash
 # 1. Copy to temp file (not watched)
 cp {base_dir}/apps/myapp/app.lua {base_dir}/apps/myapp/app.lua.tmp
 
 # 2. Make ALL changes to the temp file
-#    - Add new fields to prototype init
-#    - Add/update mutate() method
-#    - Add new methods
-#    (multiple edits here don't trigger hot-loads)
 
-# 3. Audit the temp file (see below)
+# 3. Audit the temp file
 
 # 4. Atomic replace triggers single hot-load
 mv {base_dir}/apps/myapp/app.lua.tmp {base_dir}/apps/myapp/app.lua
-```
-
-**Audit the finished temp file before mv:**
-
-1. **Identify new fields**: Compare temp file's prototype init against original
-2. **Check for table/array fields**: Look for fields with `EMPTY` or `{}` defaults
-3. **Verify mutate() coverage**: For each new table/array field, confirm `mutate()` initializes it
-4. **Fix if needed**: Edit the temp file again (still no hot-load), then mv
-
-If you're adding `outputLines = EMPTY`, your mutate() must have:
-```lua
-function App:mutate()
-    if self.outputLines == nil then
-        self.outputLines = {}
-    end
-end
 ```
 
 **When mutate() is needed:**
@@ -427,11 +412,6 @@ end
 - Adding fields that other code expects to be non-nil
 - Removing fields (set to `nil` to clear from existing instances)
 - Not needed for simple values with sensible nil defaults
-
-**mutate() rules:**
-- **Idempotent**: Must be safe to run multiple times (use `if self.field == nil then`)
-- **Replaceable**: Contents can be completely rewritten each hot-load — no need to preserve old mutation code
-- **Runs on all instances**: Called after hotload for every tracked instance whose prototype init changed
 
 ## Behavior
 
@@ -446,10 +426,6 @@ end
 **JavaScript is available via:**
 - `<script>` elements in viewdefs — static "library" code loaded once
 - `ui-code` attribute — dynamic injection as-needed (see ui-code binding below)
-
-**When JS is needed:**
-- **App-local JS** (resize handlers, DOM tricks): Use `<script>` tags in the viewdef (after root element, before `</template>`)
-- **Claude-triggered JS** (remote execution): The MCP shell provides `mcp.code` via `ui-code="code"` binding. Claude sets `mcp.code = "window.close()"` to execute JS remotely. Don't add `ui-code` bindings in apps — use the existing MCP shell capability.
 
 ## Bindings
 
@@ -493,8 +469,6 @@ app.closeWindow = "if (value) window.close()"
 app.closeWindow = "window.close()"  -- or set a trigger value
 ```
 
-Use cases: auto-close window, trigger downloads, custom DOM manipulation, browser APIs.
-
 **Namespace resolution (3-tier):**
 
 When resolving which viewdef to use for a type:
@@ -502,14 +476,6 @@ When resolving which viewdef to use for a type:
 1. Variable's `namespace` property → `Type.{namespace}`
 2. Variable's `fallbackNamespace` property → `Type.{fallbackNamespace}`
 3. Default → `Type.DEFAULT`
-
-```html
-<!-- Explicit namespace via ui-namespace -->
-<div ui-view="contact" ui-namespace="COMPACT"/>
-
-<!-- ViewList sets fallbackNamespace="list-item" automatically -->
-<div ui-view="contacts?wrapper=lua.ViewList"/>
-```
 
 ## Variable Paths
 
@@ -519,14 +485,12 @@ When resolving which viewdef to use for a type:
 - Parent traversal: `..`
 - Method calls: `getName()`, `setValue(_)`
 - Path params: `contacts?wrapper=ViewList&item=ContactPresenter`
-  - Properties after `?` are set on the created variable
-  - Uses URL query string syntax: `key=value&key2=value2`
 
-**IMPORTANT:** No operators in paths. Operators like negation, equality, logical-and, plus, etc. are NOT valid. For negation, create a method (e.g., `isCollapsed()` returning `not self.expanded` instead of using the negation operator).
+**IMPORTANT:** No operators in paths. Operators like negation, equality, logical-and, plus, etc. are NOT valid. For negation, create a method (e.g., `isCollapsed()` returning `not self.expanded`).
 
-**Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy. Use boolean fields (e.g., `isActive`) or methods returning booleans for class/attr toggles.
+**Truthy values:** Lua `nil` becomes JS `null` which is falsy. Any non-nil value is truthy.
 
-**Method path constraints:**  (see Variable Properties)
+**Method path constraints:**
 - Paths ending in `()` (no argument) must have access `r` or `action`
 - Paths ending in `(_)` (with argument) must have access `w` or `action`
 
@@ -536,8 +500,6 @@ Path traversal uses nullish coalescing (like JavaScript's `?.`). If any segment 
 - **Read direction:** The binding displays empty/default value instead of erroring
 - **Write direction:** Fails gracefully
 
-This allows bindings like `ui-value="selectedContact.firstName"` to work when `selectedContact` is nil (e.g., nothing selected).
-
 ### Read/Write Method Paths
 
 Methods can act as read/write properties by ending the path in `()` with `access=rw`:
@@ -545,8 +507,6 @@ Methods can act as read/write properties by ending the path in `()` with `access
 ```html
 <input ui-value="value()?access=rw">
 ```
-
-On read, the method is called with no arguments. On write, the value is passed as an argument. In Lua, use varargs:
 
 ```lua
 function MyPresenter:value(...)
@@ -561,7 +521,7 @@ end
 
 `<sl-input ui-value="name?prop1=val1&prop2=val2"></sl-input>`
 
-**Only use properties listed here.** Do not invent new properties like `negate=true` — they don't exist. For boolean inversions, create a Lua method (e.g., `notEditing()` returning `not self.editing`).
+**Only use properties listed here.** Do not invent new properties.
 
 | Property  | Values                                   | Description                                                           |
 |-----------|------------------------------------------|-----------------------------------------------------------------------|
@@ -569,7 +529,7 @@ end
 | `wrapper` | Type name (e.g., `lua.ViewList`)         | Wrap with this type                                                   |
 | `keypress`| (flag)                                   | Live update on every keystroke                                        |
 | `scrollOnOutput` | (flag)                            | Auto-scroll to bottom when content changes                            |
-| `item` | wrapper type                                | Specify wrapper type for ViewList items                               |
+| `itemWrapper` | Type name                             | Wrap each ViewList item with this presenter type                      |
 | `create` | Type name (e.g., `Contact`)              | Create instance of this type as variable value                        |
 
 **Default ui-value access by element type:**
@@ -577,8 +537,6 @@ end
 - Interactive Shoelace (`sl-input`, `sl-textarea`, `sl-select`, `sl-checkbox`, `sl-radio`, `sl-radio-group`, `sl-radio-button`, `sl-switch`, `sl-range`, `sl-color-picker`, `sl-rating`): `rw`
 - Read-only Shoelace (`sl-progress-bar`, `sl-progress-ring`, `sl-qr-code`, `sl-option`, `sl-copy-button`): `r`
 - Non-interactive elements (`div`, `span`, etc.): `r`
-
-Custom wrappers may define additional properties, but only use them when the design explicitly specifies a wrapper that documents those properties.
 
 ## Widgets
 
@@ -609,17 +567,9 @@ Custom wrappers may define additional properties, but only use them when the des
 <div ui-view="items?wrapper=lua.ViewList"></div>
 ```
 
-**IMPORTANT:** Always use `ui-view` with `wrapper=lua.ViewList` for lists, which wrap their items in with ui-view attributes.
+**IMPORTANT:** Always use `ui-view` with `wrapper=lua.ViewList` for lists.
 
-**Selectable lists:** For lists where clicking an item selects it, bind `ui-event-mousedown` (not `ui-event-click`) unless the user states otherwise. This provides immediate visual feedback before the click completes.
-
-**Item viewdef (`lua.ViewListItem.list-item.html`):**
-
-```html
-<template>
-  <div><span ui-value="item.name"></span></div>
-</template>
-```
+**Selectable lists:** For lists where clicking an item selects it, bind `ui-event-mousedown` (not `ui-event-click`). This provides immediate visual feedback.
 
 ## List Item Viewdef Context (Critical)
 
@@ -643,31 +593,51 @@ Custom wrappers may define additional properties, but only use them when the des
 </div>
 ```
 
-**Why this happens:**
-1. ViewList wraps each array element in a ViewListItem
-2. ViewListItem's viewdef (`lua.ViewListItem.list-item.html`) renders `<div ui-view="item"></div>`
-3. This `ui-view="item"` makes the wrapped item the context for its own viewdef
-4. So inside `TreeItem.list-item.html`, `name` refers to `TreeItem.name` directly
-
 **Where you DO use `item.` prefix:**
 - Inside `lua.ViewListItem.list-item.html` itself (where `item` is a property of ViewListItem)
 - NOT in the item's own viewdef (e.g., `TreeItem.list-item.html`)
 
-## ui-viewlist is a special case for lists
+## Select Dropdowns with Dynamic Options
 
-`ui-viewlist` is lower level and only used when element children must have a specific type, like `sl-select` with its `sl-option` items. Otherwise use a regular list.
+Use `ui-view` with `wrapper=lua.ViewList` to populate `<sl-select>` dropdowns. Create a `lua.ViewListItem` viewdef that renders `<sl-option>` elements directly.
 
-`ui-viewlist` expects an exemplar child element which it will clone and use with `ui-view` for each list item.
-
-Example:
-
+**HTML (inside the select):**
 ```html
-<sl-select ui-viewlist="options">
-  <sl-option></sl-option>
+<sl-select ui-value="selectedContactId" label="Contact">
+  <span ui-view="contacts()?wrapper=lua.ViewList" ui-namespace="contact-option"></span>
 </sl-select>
 ```
 
-The `<sl-option>` tells the frontend to use `<sl-option ui-view="options[N]"></sl-option>` for each item `N`.
+**Viewdef (`lua.ViewListItem.contact-option.html`):**
+```html
+<template>
+  <sl-option ui-attr-value="index">
+    <span ui-value="item.fullName()"></span>
+  </sl-option>
+</template>
+```
+
+**Key points:**
+- Use a `<span>` as the container element
+- The viewdef is for `lua.ViewListItem`, NOT your domain type
+- Use an app-specific namespace (e.g., `contact-option` not just `option`)
+- `index` is the 0-based position — use as the option value
+- `item` is the domain object (or wrapped presenter if `itemWrapper` is set)
+- `baseItem` is always the unwrapped domain object
+
+**Backend stores the selected index (0-based):**
+```lua
+function ContactApp:getSelectedContact()
+    local idx = tonumber(self.selectedContactId)
+    if idx then
+        return self:contacts()[idx + 1]  -- Lua is 1-based
+    end
+end
+```
+
+## ui-viewlist (Deprecated)
+
+`ui-viewlist` is lower-level and generally not needed. Prefer `ui-view` with `wrapper=lua.ViewList` instead
 
 ## Lua Pattern
 
@@ -724,7 +694,7 @@ end
 
 ## Viewport Fitting (Critical)
 
-**Apps must fit within the viewport without causing page scroll.** Content that overflows should scroll within its container, not the page.
+**Apps must fit within the viewport without causing page scroll.**
 
 **Required CSS pattern for full-height apps:**
 

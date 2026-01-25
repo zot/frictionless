@@ -30,16 +30,8 @@ Background agents require auto-accept mode to write files. **Before doing anythi
 
 Do NOT proceed with any other work if the permissions check fails.
 
-## File Operations
+## After Permissions Check
 
-**Use Write tool for all file creation/updates.** Never use Bash heredocs.
+**Run the `/ui-builder` skill.** The skill's Workflow section starts with Step 1: Create Todos - follow it exactly.
 
-## Instructions
-
-**Ensure the above Permissions Check has succeeded before proceeding**
-
-**Run the `/ui-builder` skill and follow its COMPLETE workflow.** The skill has:
-- Progress reporting at each phase
-- Auditing and simplifying steps
-
-**Do NOT skip phases.**
+The workflow is structured so the first thing you do is create todos to show progress in the UI. **Do not skip this step** - the user is watching and needs feedback.

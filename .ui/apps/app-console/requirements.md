@@ -162,7 +162,7 @@ The bottom panel has Chat/Lua tabs. The Lua tab provides a REPL for executing Lu
 - Input textarea for multi-line Lua code
 - Run button (or Ctrl+Enter) executes the code
 - Clear button clears output history
-- Clicking an output line copies it to the input area
+- Clicking an output line copies it to the input area, focuses the input, and positions cursor at the end
 
 Useful for debugging, inspecting app state, and testing Lua expressions.
 

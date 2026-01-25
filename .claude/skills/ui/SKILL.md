@@ -7,10 +7,6 @@ description: use when **running Frictionless UIs** or needing to understand UI s
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
-## Getting base_dir and url
-
-Always get `base_dir` and `url` from `ui_status` first. All paths below use `{base_dir}` as a placeholder. Use `{url}` exactly as returned (e.g., `http://127.0.0.1:34919`).
-
 ## Simple Requests
 
 When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright if connected.
@@ -23,11 +19,19 @@ When the user says `events` it means to start the event loop in the foreground, 
 
 The event script waits for user interactions and returns JSON:
 
+**Always use the relative path `.ui/mcp`**:
+
 ```bash
 .ui/mcp event
 ```
 
-Returns one JSON array per line containing one or more events:
+**NOT the absolute path `/home/X/.ui/mcp`:**
+
+```bash
+/home/bubba/work/.ui/mcp event # <-- wrong, this is inconvenient for the user's permissions and also uses more tokens
+```
+
+This returns one JSON array per line containing one or more events:
 ```json
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
@@ -41,8 +45,8 @@ Make sure you have read the design file for the event.
 {"app":"app-console", "context":"contacts", "note":"...contacts", "event":"chat", "text":"hello"}
 ```
 
-**Read:** `{base_dir}/apps/app-console/design.md` (from `app` field)
-**NOT:** `{base_dir}/apps/contacts/design.md` (ignore `context` and `note`)
+**Read design.md based on the `app` field:** `{base_dir}/apps/app-console/design.md` (from `app` field) <-- CORRECT
+**DO read design.md based on `context` or `note`:** `{base_dir}/apps/contacts/design.md` (ignore `context` and `note`) <-- WRONG
 
 The `app` field identifies which app's design.md to read. Other fields like `context` or `note` provide data for event handling but do NOT change which design file you read.
 
@@ -61,8 +65,19 @@ This is the most responsive approach - events are handled immediately.
 **Background event loop (alternative):**
 Run `.ui/mcp event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
 
+**CRITICAL: Kill previous event listener before restarting.**
+If the event call runs in background or times out, the old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
+
+```
+1. Track the task_id from `.ui/mcp event` (returned when running in background or via TaskOutput)
+2. Before restarting: TaskStop(task_id=<previous_task_id>)
+3. Then start new: `.ui/mcp event`
+```
+
+Failure to kill the old listener means it will consume events intended for the new one.
+
 **Exit codes:**
-- 0 + empty output = timeout, no events (just restart)
+- 0 + empty output = timeout, no events (kill old task, restart)
 - 0 + JSON output = events received
 - 52 = server restarted (restart both server and event loop)
 
@@ -129,13 +144,11 @@ end
 
 ## Server Lifecycle
 
-The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
+The server auto-starts when the MCP connection is established. Use `.ui/mcp status` to get `sessions` count and `url`.
 
 **URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. The server binds the root URL to the MCP session automatically via a cookie - no session ID needed in the URL.
 
 **Verifying connection:** After navigating with Playwright, call `.ui/mcp status` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
-
-If you need to reconfigure (different base_dir), run `.ui/mcp configure {base_dir}` - this stops the current server and restarts with the new directory.
 
 ## Building or modifying UIs
 

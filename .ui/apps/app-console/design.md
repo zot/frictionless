@@ -123,6 +123,7 @@ Legend:
 | panelMode | string | "chat" or "lua" (bottom panel mode) |
 | luaOutputLines | OutputLine[] | Lua console output history |
 | luaInput | string | Current Lua code input |
+| _luaInputFocusTrigger | number | Incremented to trigger focus on Lua input (via ui-code) |
 | chatQuality | number | 0=fast, 1=thorough, 2=background |
 | todos | TodoItem[] | Claude Code todo list items |
 | todosCollapsed | boolean | Whether todo column is collapsed |
@@ -239,6 +240,7 @@ Legend:
 | luaTabVariant() | Returns "primary" if lua, else "default" |
 | runLua() | Execute luaInput, append output to luaOutputLines |
 | clearLuaOutput() | Clear luaOutputLines |
+| focusLuaInput() | Increment _luaInputFocusTrigger to focus input via ui-code |
 | qualityLabel() | Returns "Fast", "Thorough", or "Background" |
 | qualityValue() | Returns "fast", "thorough", or "background" |
 | setChatQuality() | Update quality from slider event |
@@ -251,7 +253,7 @@ Legend:
 |--------|-------------|
 | addAgentMessage(text) | Add agent message to chat, clear mcp.statusLine |
 | addAgentThinking(text) | Add thinking message to chat, update mcp.statusLine |
-| updateRequirements(name, content) | Update an app's requirementsContent |
+| updateRequirements(name) | Re-read an app's requirements.md from disk and update requirementsContent |
 | setTodos(todos) | Replace todo list with new items (legacy API) |
 | createTodos(steps, appName) | Create todos from step labels, store appName for progress |
 | startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
@@ -271,7 +273,7 @@ Legend:
 
 | Method | Description |
 |--------|-------------|
-| copyToInput() | Copy this line's text to appConsole.luaInput |
+| copyToInput() | Copy this line's text to appConsole.luaInput, focus input, position cursor at end |
 
 ### AppConsole.AppInfo
 
@@ -359,7 +361,7 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 | Event | Action |
 |-------|--------|
 | `chat` | Dispatch based on `handler` field (see Chat Events below) |
-| `build_request` | Spawn background ui-builder agent |
+| `build_request` | Spawn background `ui-builder` agent to build the UI |
 | `test_request` | Spawn background agent for `/ui-testing` |
 | `fix_request` | Spawn background agent to fix issues via `/ui-builder` |
 | `app_created` | Show progress while fleshing out requirements (see app_created Handling below) |
@@ -383,11 +385,13 @@ appConsole:addAgentThinking("Reading initial requirements...")
 -- Step 2: Show progress and thinking, then expand
 mcp:appProgress("{name}", 50, "fleshing out requirements")
 appConsole:addAgentThinking("Fleshing out requirements...")
--- Expand the brief description into full requirements
+-- Expand the brief description into full, human-readable requirements
+-- do not use the `/ui-builder` skill for this, do not do a design
+-- just make requirements
 
 -- Step 3: Complete and clear progress
--- Write expanded requirements.md to disk
-appConsole:updateRequirements("{name}", expandedContent)
+-- Write expanded requirements.md to disk, then re-read into UI
+appConsole:updateRequirements("{name}")
 mcp:appProgress("{name}", nil, nil)  -- Clear progress bar
 appConsole:addAgentMessage("Created requirements for {name}. Click Build to generate the app.")
 ```

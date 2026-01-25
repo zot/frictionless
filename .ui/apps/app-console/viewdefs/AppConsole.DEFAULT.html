@@ -681,7 +681,8 @@
           <div class="lua-panel" ui-class-hidden="notLuaPanel()">
             <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
             <div class="lua-input-area">
-              <sl-textarea rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+              <sl-textarea id="lua-input" rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+              <div style="display:none" ui-code="_luaInputFocusTrigger"></div>
               <div class="lua-buttons">
                 <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
                 <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
