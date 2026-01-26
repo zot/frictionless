@@ -24,7 +24,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
 | ═══════════════ drag handle ════════════════  |
-| Todos [▼]    | [Chat] [Lua]              [⬆]  |
+| Todos [▼][🗑] | [Chat] [Lua]              [⬆]  |
 |--------------|----------------------------------|
 | 🔄 Reading   | (Chat Panel - when Chat tab)    |
 | ⏳ Update    | Agent: Which app would you like |
@@ -69,6 +69,7 @@ Legend:
 - `[✓]` = Test passed, `[ ]` = Untested, `[✗]` = Test failed
 - Todo: `🔄` = in_progress (blue), `⏳` = pending (gray), `✓` = completed (green/muted)
 - `[▼]` = Collapse todos button
+- `[🗑]` = Clear todos button
 
 **Build progress** (when app is building):
 - Progress bar showing 0-100%
@@ -78,6 +79,7 @@ Legend:
 **Action buttons** (based on app state):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
 - `[Open]` — shown when app has viewdefs (canOpen), disabled for "app-console" and "mcp"
+- `[Make it thorough]` — shown when app has checkpoints (hasCheckpoints), consolidates changes into design
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
 
@@ -122,9 +124,14 @@ Legend:
 | panelMode | string | "chat" or "lua" (bottom panel mode) |
 | luaOutputLines | OutputLine[] | Lua console output history |
 | luaInput | string | Current Lua code input |
-| chatQuality | number | 0=fast, 1=thorough, 2=background |
+| _luaInputFocusTrigger | number | Incremented to trigger focus on Lua input (via ui-code) |
+| (removed) | | Build mode now in global mcp.buildMode |
 | todos | TodoItem[] | Claude Code todo list items |
 | todosCollapsed | boolean | Whether todo column is collapsed |
+| _todoSteps | table[] | Step definitions for createTodos/startTodoStep |
+| _currentStep | number | Current in_progress step (1-based), 0 if none |
+| _todoApp | string | App name for progress reporting during todo steps |
+| _checkpointsTime | number | Unix timestamp of last checkpoint status refresh |
 
 ### TodoItem (Claude Code task)
 
@@ -154,6 +161,7 @@ Legend:
 | showGaps | boolean | Expand gaps section (default false) |
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
+| _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
 
 ### Issue
 
@@ -211,6 +219,7 @@ Legend:
 | scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/, parse each |
 | rescanApp(name) | Rescan single app from disk |
 | refresh() | Calls mcp:scanAvailableApps() then scanAppsFromDisk() |
+| refreshCheckpoints() | Batch check checkpoint.fossil for all apps, update _hasCheckpoints and _checkpointsTime |
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
@@ -235,19 +244,22 @@ Legend:
 | luaTabVariant() | Returns "primary" if lua, else "default" |
 | runLua() | Execute luaInput, append output to luaOutputLines |
 | clearLuaOutput() | Clear luaOutputLines |
-| qualityLabel() | Returns "Fast", "Thorough", or "Background" |
-| qualityValue() | Returns "fast", "thorough", or "background" |
-| setChatQuality() | Update quality from slider event |
+| focusLuaInput() | Increment _luaInputFocusTrigger to focus input via ui-code |
+| (build mode methods removed) | Handler injected by mcp.pushState override |
 | toggleTodos() | Toggle todosCollapsed state |
+| clearTodos() | Clear todos list and reset step state |
 
-**External methods (called by Claude via ui_run/mcp methods):**
+**External methods (called by Claude via `.ui/mcp run`):**
 
 | Method | Description |
 |--------|-------------|
 | addAgentMessage(text) | Add agent message to chat, clear mcp.statusLine |
 | addAgentThinking(text) | Add thinking message to chat, update mcp.statusLine |
-| updateRequirements(name, content) | Update an app's requirementsContent |
-| setTodos(todos) | Replace todo list with new items |
+| updateRequirements(name) | Re-read an app's requirements.md from disk and update requirementsContent |
+| setTodos(todos) | Replace todo list with new items (legacy API) |
+| createTodos(steps, appName) | Create todos from step labels, store appName for progress |
+| startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
+| completeTodos() | Mark all steps complete, clear progress bar |
 
 ### TodoItem
 
@@ -263,7 +275,7 @@ Legend:
 
 | Method | Description |
 |--------|-------------|
-| copyToInput() | Copy this line's text to appConsole.luaInput |
+| copyToInput() | Copy this line's text to appConsole.luaInput, focus input, position cursor at end |
 
 ### AppConsole.AppInfo
 
@@ -300,6 +312,11 @@ Legend:
 | requestBuild() | Set progress to 0/"pondering", then call pushEvent("build_request", {target = self.name}) |
 | requestTest() | Call pushEvent("test_request", {target = self.name}) |
 | requestFix() | Call pushEvent("fix_request", {target = self.name}) |
+| hasCheckpoints() | Check if checkpoint.fossil exists (cached, triggers refreshCheckpoints if stale) |
+| noCheckpoints() | Returns not hasCheckpoints() |
+| checkpointIcon() | Returns "rocket" if hasCheckpoints, "gem" otherwise |
+| requestConsolidate() | Call pushEvent("consolidate_request", {target = self.name}) |
+| requestReviewGaps() | Call pushEvent("review_gaps_request", {target = self.name}) |
 | openApp() | Call appConsole:openEmbedded(self.name) to show in embedded view |
 | isSelf() | Returns true if this is the "app-console" app itself |
 | isMcp() | Returns true if this is the "mcp" app |
@@ -337,11 +354,13 @@ Legend:
 ### From UI to Claude
 
 ```json
-{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "quality": "fast", "handler": null, "note": "make sure you have understood the app at /path/apps/contacts"}
+{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "handler": "/ui-fast", "background": false, "note": "make sure you have understood the app at /path/apps/contacts"}
 {"app": "app-console", "event": "build_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 {"app": "app-console", "event": "test_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
 {"app": "app-console", "event": "fix_request", "target": "contacts", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/contacts"}
 {"app": "app-console", "event": "app_created", "name": "my-app", "description": "A brief description", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "app-console", "event": "consolidate_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "app-console", "event": "review_gaps_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 ```
 
 Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly. Each event also includes a `note` field with the full path to the app, reminding Claude to read the app's docs before acting.
@@ -351,10 +370,12 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 | Event | Action |
 |-------|--------|
 | `chat` | Dispatch based on `handler` field (see Chat Events below) |
-| `build_request` | Spawn background ui-builder agent |
-| `test_request` | Spawn background agent for `/ui-testing` |
-| `fix_request` | Spawn background agent to fix issues via `/ui-builder` |
+| `build_request` | Invoke the `/ui-thorough` skill to build the UI |
+| `test_request` | Invoke the `/ui-testing` skill |
+| `fix_request` | Invoke the `/ui-thorough` skill to fix issues |
 | `app_created` | Show progress while fleshing out requirements (see app_created Handling below) |
+| `consolidate_request` | Invoke the `/ui-thorough` skill to integrate checkpointed changes into design |
+| `review_gaps_request` | Invoke the `/ui-thorough` skill to review and clean up fast code gaps |
 
 ### app_created Handling
 
@@ -375,28 +396,22 @@ appConsole:addAgentThinking("Reading initial requirements...")
 -- Step 2: Show progress and thinking, then expand
 mcp:appProgress("{name}", 50, "fleshing out requirements")
 appConsole:addAgentThinking("Fleshing out requirements...")
--- Expand the brief description into full requirements
+-- Expand the brief description into full, human-readable requirements
+-- do not use the `/ui-builder` skill for this, do not do a design
+-- just make requirements
 
 -- Step 3: Complete and clear progress
--- Write expanded requirements.md to disk
-appConsole:updateRequirements("{name}", expandedContent)
+-- Write expanded requirements.md to disk, then re-read into UI
+appConsole:updateRequirements("{name}")
 mcp:appProgress("{name}", nil, nil)  -- Clear progress bar
 appConsole:addAgentMessage("Created requirements for {name}. Click Build to generate the app.")
 ```
 
 ### Chat Events
 
-**Payload:** `text`, `handler`, `context`, `quality`, `reminder`, `note`
+**Payload:** `text`, `handler`, `background`, `context`, `reminder`, `note`
 
-**Handler dispatch (check FIRST):**
-
-| Handler | Action |
-|---------|--------|
-| `null` | Fast: read app files, make direct edits (see Fast Quality below) |
-| `"/ui-builder"` | Thorough: invoke `/ui-builder` skill with progress feedback (see Thorough Quality below) |
-| `"background-ui-builder"` | Background: spawn background ui-builder agent (see Background Agents below) |
-
-The `handler` field reflects user's quality choice. Always respect it - use `/ui-builder` even for "simple" changes when specified.
+**Handler dispatch:** See `/ui` skill's "Build Settings" section. The `handler` and `background` fields are injected by the MCP layer based on the status bar toggles.
 
 **Reply:** `appConsole:addAgentMessage(text)` when done.
 
@@ -411,82 +426,6 @@ Examples: "Reading the design...", "Found the issue, fixing...", "Running tests.
 **Before sending:** Check for new events first. Handle events immediately; save thinking message for after.
 
 Final response via `appConsole:addAgentMessage(text)` clears `mcp.statusLine`.
-
-### Fast Quality (handler=null)
-
-1. Set progress: `ui_run('mcp:appProgress("{context}", 0, "editing")')`
-2. Read target app files: `design.md`, `app.lua`, `viewdefs/*.html`
-3. Make changes using Edit tool
-4. Clear and reply: `ui_run('mcp:appUpdated("{context}"); appConsole:addAgentMessage("Done - {description}")')`
-
-### Thorough Quality (handler="/ui-builder")
-
-Invoke the `/ui-builder` skill with thinking messages at each phase. The skill defines progress percentages; pair them with `addAgentThinking()` for user feedback:
-
-| Phase | Progress | Thinking |
-|-------|----------|----------|
-| Starting | 0 | "Starting ui-builder..." |
-| Reading requirements | 10 | "Reading requirements..." |
-| Designing | 20 | "Designing changes..." |
-| Writing code | 40 | "Writing code..." |
-| Writing viewdefs | 60 | "Writing viewdefs..." |
-| Linking | 80 | "Linking app..." |
-| Auditing | 90 | "Auditing..." |
-| Simplifying | 95 | "Simplifying..." |
-| Complete | 100 | (final message via addAgentMessage) |
-
-**Call both** `mcp:appProgress()` AND `appConsole:addAgentThinking()` at each phase:
-```lua
-mcp:appProgress("{context}", 20, "designing")
-appConsole:addAgentThinking("Designing changes...")
-```
-
-This ensures users see progress in both the app list (progress bar) and chat panel (thinking message).
-
-### Background Agents
-
-**Note:** For `build_request`, Lua already sets progress to `0, "pondering"` before sending the event, providing immediate feedback to the user.
-
-Background agents use the `.ui/mcp` script (not MCP tools or curl). The script reads the MCP port from `.ui/mcp-port` automatically.
-
-**Prompt template for background build agent:**
-```
-Build the app "{target}" at .ui/apps/{target}/
-
-## Progress Reporting
-
-Use the `.ui/mcp` script for all MCP operations:
-
-```bash
-.ui/mcp progress {target} <percent> "<stage>"   # Report progress
-.ui/mcp run "<lua code>"                        # Execute Lua
-.ui/mcp audit {target}                          # Audit app
-```
-
-**Report progress at EACH phase of the /ui-builder skill:**
-
-| Phase | Command |
-|-------|---------|
-| Starting | `.ui/mcp progress {target} 0 "starting..."` |
-| Reading requirements | `.ui/mcp progress {target} 10 "reading requirements..."` |
-| Designing | `.ui/mcp progress {target} 20 "designing..."` |
-| Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
-| Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
-| Linking | `.ui/mcp progress {target} 80 "linking..."` |
-| Auditing | `.ui/mcp progress {target} 90 "auditing..."` |
-| Simplifying | `.ui/mcp progress {target} 95 "simplifying..."` |
-| Complete | `.ui/mcp progress {target} 100 "complete"` then `.ui/mcp run "mcp:appUpdated('{target}')"` |
-
-## Instructions
-
-**Run the /ui-builder skill and follow its full workflow.** The skill defines the phases, design spec format, auditing checks, and simplification steps. Do NOT skip phases.
-
-The progress commands above correspond to the skill's phases. Send each progress update BEFORE starting that phase.
-
-The user is watching the progress bar in the UI. Missing progress updates make it look frozen.
-```
-
-Then spawn: `Task(subagent_type="ui-builder", run_in_background=true, prompt=<above>)`
 
 ### MCP Convenience Methods
 
@@ -512,9 +451,53 @@ end
 function mcp:setTodos(todos)
     if appConsole then appConsole:setTodos(todos) end
 end
+
+function mcp:createTodos(steps, appName)
+    if appConsole then appConsole:createTodos(steps, appName) end
+end
+
+function mcp:startTodoStep(n)
+    if appConsole then appConsole:startTodoStep(n) end
+end
+
+function mcp:completeTodos()
+    if appConsole then appConsole:completeTodos() end
+end
 ```
 
-This allows Claude to call `mcp:appProgress()`, `mcp:appUpdated()`, and `mcp:setTodos()` without checking if app-console is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
+This allows Claude to call these methods without checking if app-console is loaded.
+
+### Todo Step API (AppConsole methods)
+
+The `AppConsole` class implements the todo step logic:
+
+**Internal state:**
+| Field | Type | Description |
+|-------|------|-------------|
+| _todoSteps | table[] | Step definitions: {label, progress, thinking} |
+| _currentStep | number | Current in_progress step (1-based), 0 if none |
+| _todoApp | string | App name for progress reporting |
+
+**Hardcoded ui-thorough steps (in AppConsole):**
+```lua
+local UI_BUILDER_STEPS = {
+    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
+    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
+    {label = "Design", progress = 20, thinking = "Designing..."},
+    {label = "Write code", progress = 40, thinking = "Writing code..."},
+    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Link and audit", progress = 90, thinking = "Auditing..."},
+    {label = "Simplify", progress = 95, thinking = "Simplifying..."},
+}
+```
+
+**Methods:**
+
+| Method | Description |
+|--------|-------------|
+| createTodos(steps, appName) | Create todo items from step labels, store appName for progress |
+| startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
+| completeTodos() | Mark all complete, clear progress bar |
 
 ## File Parsing (Lua)
 

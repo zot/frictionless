@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.8.0**
+**Version: 0.9.0**
 
 **A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
 
@@ -25,25 +25,27 @@ Claude writes your app logic and skips everything else. See [overview](docs/OVER
 
 ## Usage
 
-Once installed, use `/ui` to start the frictionless server. The server uses `.ui` as the default working directory.
+Once installed, use `/ui show` to show the Frictionless console. You can build apps in the console.
 
-### Building UIs
+Frictionless uses your project's `.ui` directory for its apps and content.
+
+### Building UIs in the CLI
 
 Ask Claude to build a UI:
 
 ```
-/ui-builder make a contacts app with search and inline editing
+/ui-thorough make a contacts app with search and inline editing
 ```
 
 Or display an existing app:
 
 ```
-/ui show
+/ui show contacts
 ```
 
 ### Standalone Mode
 
-Run frictionless independently for development or testing:
+Run frictionless independently for development or testing changes to Frictionless itself:
 
 ```bash
 frictionless serve --port 8000 --mcp-port 8001
@@ -88,11 +90,16 @@ mkdir -p {home}/.claude/bin
 curl -L https://github.com/zot/frictionless/releases/latest/download/frictionless-linux-amd64 -o {home}/.claude/bin/frictionless
 chmod +x {home}/.claude/bin/frictionless
 
-# Add to Claude Code
+cd {your-project}
+
+# Add Frictionless to your project
 claude mcp add frictionless -- {home}/.claude/bin/frictionless} mcp
 
 # Initialize the project
 {home}/.claude/bin/frictionless} install
+
+# Add the playwright MCP server to your project for better debugging
+claude mcp add playwright -- npx @playwright/mcp@latest
 ```
 
 ## Future Directions

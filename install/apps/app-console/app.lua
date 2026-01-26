@@ -16,10 +16,24 @@ AppConsole = session:prototype("AppConsole", {
     panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
     luaOutputLines = EMPTY,
     luaInput = "",
-    chatQuality = 0,  -- 0=fast, 1=thorough, 2=background
+    _luaInputFocusTrigger = 0,  -- Incremented to trigger focus on Lua input
     todos = EMPTY,           -- Claude Code todo list items
-    todosCollapsed = false   -- Whether todo column is collapsed
+    todosCollapsed = false,  -- Whether todo column is collapsed
+    _todoSteps = EMPTY,      -- Step definitions for createTodos/startTodoStep
+    _currentStep = 0,        -- Current in_progress step (1-based), 0 if none
+    _todoApp = EMPTY         -- App name for progress reporting
 })
+
+-- Hardcoded ui-thorough step definitions
+local UI_THOROUGH_STEPS = {
+    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
+    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
+    {label = "Design", progress = 20, thinking = "Designing..."},
+    {label = "Write code", progress = 40, thinking = "Writing code..."},
+    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Link and audit", progress = 90, thinking = "Auditing..."},
+    {label = "Simplify", progress = 95, thinking = "Simplifying..."},
+}
 
 -- Nested prototype: Chat message model
 AppConsole.ChatMessage = session:prototype("AppConsole.ChatMessage", {
@@ -103,6 +117,7 @@ function OutputLine:copyToInput()
         text = text:sub(3)
     end
     self.panel.luaInput = text
+    self.panel:focusLuaInput()
 end
 
 -- Nested prototype: Issue model
@@ -302,6 +317,19 @@ function AppInfo:requirementsIcon()
     return self.showRequirements and "chevron-down" or "chevron-right"
 end
 
+function AppInfo:hasCheckpoints()
+    -- Trigger batch refresh if cache is stale
+    local now = os.time()
+    if not appConsole._checkpointsTime or (now - appConsole._checkpointsTime) >= 1 then
+        appConsole:refreshCheckpoints()
+    end
+    return self._hasCheckpoints or false
+end
+
+function AppInfo:checkpointIcon()
+    return self:hasCheckpoints() and "rocket" or "gem"
+end
+
 -- Push an event with common fields (app, mcp_port, note) plus custom fields
 function AppInfo:pushEvent(eventType, extra)
     local status = mcp:status()
@@ -331,6 +359,18 @@ end
 
 function AppInfo:requestFix()
     self:pushEvent("fix_request", { target = self.name })
+end
+
+function AppInfo:noCheckpoints()
+    return not self:hasCheckpoints()
+end
+
+function AppInfo:requestConsolidate()
+    self:pushEvent("consolidate_request", { target = self.name })
+end
+
+function AppInfo:requestReviewGaps()
+    self:pushEvent("review_gaps_request", { target = self.name })
 end
 
 function AppInfo:openApp()
@@ -482,14 +522,17 @@ end
 
 -- Hot-load mutation: initialize new fields on existing instances
 function AppConsole:mutate()
-    if self.chatQuality == nil then
-        self.chatQuality = 0
-    end
     if self.todos == nil then
         self.todos = {}
     end
     if self.todosCollapsed == nil then
         self.todosCollapsed = false
+    end
+    if self._todoSteps == nil then
+        self._todoSteps = {}
+    end
+    if self._currentStep == nil then
+        self._currentStep = 0
     end
 end
 
@@ -667,6 +710,27 @@ function AppConsole:refresh()
     self:scanAppsFromDisk()
 end
 
+-- Batch refresh checkpoint status for all apps (cached for 1 second)
+function AppConsole:refreshCheckpoints()
+    local status = mcp:status()
+    local baseDir = status and status.base_dir
+    for _, app in ipairs(self._apps) do
+        if baseDir then
+            local path = baseDir .. "/apps/" .. app.name .. "/checkpoint.fossil"
+            local handle = io.open(path, "r")
+            if handle then
+                handle:close()
+                app._hasCheckpoints = true
+            else
+                app._hasCheckpoints = false
+            end
+        else
+            app._hasCheckpoints = false
+        end
+    end
+    self._checkpointsTime = os.time()
+end
+
 -- Select an app
 function AppConsole:select(app)
     self.selected = app
@@ -737,28 +801,6 @@ function AppConsole:createApp()
     self.newAppDesc = ""
 end
 
--- Quality setting methods
-function AppConsole:qualityLabel()
-    local labels = {"Fast", "Thorough", "Background"}
-    return labels[self.chatQuality + 1]
-end
-
-function AppConsole:qualityValue()
-    local values = {"fast", "thorough", "background"}
-    return values[self.chatQuality + 1]
-end
-
-function AppConsole:qualityHandler()
-    local handlers = {nil, "/ui-builder", "background-ui-builder"}
-    return handlers[self.chatQuality + 1]
-end
-
--- Set quality from slider (captures sl-input events)
-function AppConsole:setChatQuality()
-   print("QUALITY: "..tostring(self.chatQuality))
-    -- self.chatQuality = tonumber(value) or 0
-end
-
 -- Send chat message
 function AppConsole:sendChat()
     if self.chatInput == "" then return end
@@ -766,11 +808,11 @@ function AppConsole:sendChat()
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
     local reminder = "Show todos and thinking messages while working"
-    local handler = self:qualityHandler()
     if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, quality = self:qualityValue(), handler = handler, reminder = reminder })
+        -- quality and handler are injected by mcp.pushState override
+        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, reminder = reminder })
     else
-        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, quality = self:qualityValue(), handler = handler, reminder = reminder })
+        mcp.pushState({ app = "app-console", event = "chat", text = self.chatInput, reminder = reminder })
     end
 
     self.chatInput = ""
@@ -854,13 +896,16 @@ function AppConsole:noEmbeddedApp()
     return self.embeddedApp == nil
 end
 
--- Update an app's requirements content (called by Claude after fleshing out)
-function AppConsole:updateRequirements(name, content)
+-- Re-read an app's requirements.md from disk and update UI
+function AppConsole:updateRequirements(name)
     local app = self:findApp(name)
-    if app then
-        app.requirementsContent = content
-        -- Also update description from first paragraph
-        app.description = parseRequirements(content)
+    if app and self._baseDir then
+        local reqPath = self._baseDir .. "/apps/" .. name .. "/requirements.md"
+        local content = readFile(reqPath)
+        if content then
+            app.requirementsContent = content
+            app.description = parseRequirements(content)
+        end
     end
 end
 
@@ -935,6 +980,36 @@ function AppConsole:clearLuaOutput()
     self.luaOutputLines = {}
 end
 
+function AppConsole:focusLuaInput()
+    -- Set JS code to focus input. Changing the value triggers execution.
+    self._luaInputFocusTrigger = string.format([[
+        var input = document.getElementById('lua-input');
+        if (input) {
+            input.focus();
+            setTimeout(function() {
+                var textarea = input.shadowRoot && input.shadowRoot.querySelector('textarea');
+                if (textarea) {
+                    var len = textarea.value.length;
+                    textarea.setSelectionRange(len, len);
+                }
+            }, 0);
+        }
+        // %d
+    ]], os.time())
+end
+
+function AppConsole:clearChat()
+    self.messages = {}
+end
+
+function AppConsole:clearPanel()
+    if self.panelMode == "chat" then
+        self:clearChat()
+    else
+        self:clearLuaOutput()
+    end
+end
+
 -- Todo list methods
 function AppConsole:setTodos(todos)
     self.todos = {}
@@ -950,6 +1025,85 @@ end
 
 function AppConsole:toggleTodos()
     self.todosCollapsed = not self.todosCollapsed
+end
+
+-- Create todos from step labels (simplified API)
+function AppConsole:createTodos(steps, appName)
+    self._todoApp = appName
+    self._currentStep = 0
+    self._todoSteps = {}
+    self.todos = {}
+
+    for _, label in ipairs(steps or {}) do
+        -- Look up step definition from UI_THOROUGH_STEPS by label
+        local stepDef = nil
+        for _, def in ipairs(UI_THOROUGH_STEPS) do
+            if def.label == label then
+                stepDef = def
+                break
+            end
+        end
+        -- Default if not found in predefined steps
+        if not stepDef then
+            stepDef = {label = label, progress = #self._todoSteps * 15 + 10, thinking = label .. "..."}
+        end
+        table.insert(self._todoSteps, stepDef)
+
+        -- Create TodoItem (all pending initially)
+        local item = session:create(TodoItem, {
+            content = stepDef.label,
+            status = "pending",
+            activeForm = stepDef.thinking
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+-- Advance to step n (completes previous, starts n)
+function AppConsole:startTodoStep(n)
+    if n < 1 or n > #self._todoSteps then return end
+
+    -- Complete previous step
+    if self._currentStep > 0 and self._currentStep <= #self.todos then
+        self.todos[self._currentStep].status = "completed"
+    end
+
+    -- Start new step
+    self._currentStep = n
+    local step = self._todoSteps[n]
+
+    if n <= #self.todos then
+        self.todos[n].status = "in_progress"
+    end
+
+    -- Update progress bar
+    if self._todoApp then
+        self:onAppProgress(self._todoApp, step.progress, step.thinking:gsub("%.%.%.$", ""))
+    end
+
+    -- Update thinking message
+    self:addAgentThinking(step.thinking)
+end
+
+-- Mark all steps complete, clear progress
+function AppConsole:completeTodos()
+    -- Mark all steps completed
+    for _, todo in ipairs(self.todos or {}) do
+        todo.status = "completed"
+    end
+    -- Clear progress bar
+    if self._todoApp then
+        self:onAppProgress(self._todoApp, nil, nil)
+    end
+    self._currentStep = 0
+end
+
+-- Clear all todos and reset step state
+function AppConsole:clearTodos()
+    self.todos = {}
+    self._todoSteps = {}
+    self._currentStep = 0
+    self._todoApp = nil
 end
 
 -- Idempotent instance creation

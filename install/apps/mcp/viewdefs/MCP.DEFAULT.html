@@ -20,6 +20,7 @@
       min-height: 0;
       width: 100%;
       overflow: hidden;  /* Let embedded apps handle their own scrolling */
+      isolation: isolate;  /* Create stacking context so embedded app z-indexes don't compete with menu */
     }
     /* Override 100vh in embedded apps - they should fill this container, not viewport */
     .mcp-app-container > div {
@@ -29,19 +30,43 @@
     .mcp-status-bar {
       flex-shrink: 0;
       line-height: 1.4;
-      padding: 4px 12px;
+      padding: 4px 6px;
       background: var(--sl-color-neutral-100);
       border-top: 1px solid var(--sl-color-neutral-200);
       font-family: var(--sl-font-sans);
       font-size: var(--sl-font-size-small);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .mcp-status-bar::after {
+    .mcp-status-bar .mcp-status-text {
+      flex: 1;
+      min-width: 0;
+    }
+    .mcp-status-bar .mcp-status-toggles {
+      flex-shrink: 0;
+      display: flex;
+    }
+    .mcp-status-bar .mcp-status-text::after {
       content: '\00a0';  /* non-breaking space to maintain height when empty */
     }
     .mcp-status-bar .thinking {
       color: #E07A47;
       font-weight: bold;
       font-style: italic;
+    }
+    .mcp-build-mode-toggle {
+      cursor: pointer;
+      padding: 2px 3px;
+      border-radius: var(--sl-border-radius-small);
+      transition: background 0.2s;
+    }
+    .mcp-build-mode-toggle:hover {
+      background: var(--sl-color-neutral-200);
+    }
+    .mcp-build-mode-toggle sl-icon {
+      font-size: 1.1rem;
+      vertical-align: middle;
     }
     .mcp-menu-container {
       position: fixed;
@@ -84,6 +109,18 @@
       --track-width: 3px;
       --indicator-color: #E07A47;
       filter: drop-shadow(0 0 4px #E07A47) drop-shadow(0 0 8px #F5A97F);
+    }
+    .mcp-menu-button .mcp-wait-counter {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #E07A47;
+      text-shadow: 0 0 2px #000, 0 0 4px #000, 0 0 6px #000;
+      pointer-events: none;
+      z-index: 1;
     }
     .mcp-menu-dropdown {
       position: fixed;
@@ -128,8 +165,52 @@
       text-align: center;
       word-break: break-word;
     }
+    .mcp-notifications {
+      position: fixed;
+      top: 56px;
+      right: 8px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sl-spacing-small);
+      max-width: 400px;
+    }
+    .mcp-notification sl-alert {
+      box-shadow: var(--sl-shadow-large);
+    }
     .hidden { display: none !important; }
   </style>
+
+  <script>
+    // Client-local wait time counter - tracks server timestamp, counts with client clock
+    (function() {
+      function update() {
+        const timestampEl = document.querySelector('.mcp-wait-timestamp');
+        const counterEl = document.querySelector('.mcp-wait-counter');
+        if (!timestampEl || !counterEl) return;
+
+        const serverTimestamp = parseInt(timestampEl.textContent, 10) || 0;
+        const elapsed = Math.floor(Date.now() / 1000) - serverTimestamp;
+
+        if (!serverTimestamp) {
+          counterEl.classList.add('hidden');
+          counterEl.textContent = '';
+        } else if (elapsed > 5) {
+          counterEl.textContent = elapsed;
+          counterEl.classList.remove('hidden');
+        } else {
+          counterEl.classList.add('hidden');
+        }
+      }
+
+      // Start polling when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { setInterval(update, 200); });
+      } else {
+        setInterval(update, 200);
+      }
+    })();
+  </script>
 
   <div class="mcp-shell">
     <!-- Current app content -->
@@ -137,7 +218,20 @@
 
     <!-- Status bar -->
     <div class="mcp-status-bar">
-      <span ui-attr-class="statusClass" ui-value="statusLine"></span>
+      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine"></span>
+      <span class="mcp-status-toggles">
+        <span class="mcp-build-mode-toggle" ui-event-click="openHelp()" title="Documentation">
+          <sl-icon name="question-circle"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleBuildMode()" ui-attr-title="buildModeTooltip()">
+          <sl-icon name="rocket-takeoff-fill" ui-class-hidden="isThoroughMode()"></sl-icon>
+          <sl-icon name="gem" ui-class-hidden="isFastMode()"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleBackground()" ui-attr-title="backgroundTooltip()">
+          <sl-icon name="hourglass-split" ui-class-hidden="isBackground()"></sl-icon>
+          <sl-icon name="arrow-repeat" ui-class-hidden="isForeground()"></sl-icon>
+        </span>
+      </span>
     </div>
 
     <!-- App switcher menu button (9-dot grid) - floats above all content -->
@@ -147,7 +241,12 @@
         <!-- Processing indicator - shows when agent is not connected to /wait -->
         <span class="mcp-spinner" ui-class-hidden="pollingEvents()">
           <sl-spinner></sl-spinner>
+          <span class="mcp-wait-counter hidden"></span>
         </span>
+        <!-- Hidden timestamp for JS counter (UNIX seconds when wait started, 0 if connected) -->
+        <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
+        <!-- Hidden span to trigger disconnect notification check on UI refresh -->
+        <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
       </button>
     </div>
 
@@ -157,6 +256,9 @@
         <div></div>
       </div>
     </div>
+
+    <!-- Notifications container -->
+    <div class="mcp-notifications" ui-view="notifications()?wrapper=lua.ViewList"></div>
 
     <!-- Hidden element for JavaScript execution -->
     <div style="display:none;" ui-code="code"></div>

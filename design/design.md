@@ -44,10 +44,12 @@ Support multiple MCP transport modes:
 ### Startup Behavior
 - Server uses `--dir` (defaults to `.ui`)
 - Auto-install if `{base_dir}` or `{base_dir}/README.md` missing:
-  - Claude skills (`/ui`, `/ui-builder`) to `{project}/.claude/skills/`
-  - Claude agents to `{project}/.claude/agents/`
+  - Claude skills (`/ui`, `/ui-basics`, `/ui-fast`, `/ui-thorough`, `/ui-testing`) to `{project}/.claude/skills/`
+  - Apps (app-console, claude-panel, mcp, viewlist) to `{base_dir}/apps/`
   - Web frontend (html/*) to `{base_dir}/html/`
-  - MCP resources, viewdefs, and helper scripts to `{base_dir}/`
+  - MCP resources to `{base_dir}/resources/`
+  - Lua files and viewdef symlinks to `{base_dir}/lua/` and `{base_dir}/viewdefs/`
+  - Helper scripts (mcp, linkapp) to `{base_dir}/`
 - Auto-starts HTTP server
 - `ui_configure` optional—triggers full reconfigure (stop, reinitialize, restart)
 

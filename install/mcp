@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
 prog="$1"
@@ -10,6 +10,7 @@ usage: mcp [--help | PROG [options]]
 
 mcp --help                      this message
 mcp audit APP                   run code quality audit on APP
+mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/clear)
 mcp browser                     open browser to UI session
 mcp display APP                 display APP in the browser
 mcp event                       wait for next UI event (120s timeout)
@@ -22,9 +23,184 @@ mcp variables                   get current variable values
 here
 }
 
+ensure_fossil() {
+    FOSSIL_BIN="$HOME/.claude/bin/fossil"
+    if [ -x "$FOSSIL_BIN" ]; then
+        return 0
+    fi
+    echo "Downloading fossil..." >&2
+    mkdir -p "$HOME/.claude/bin"
+
+    # Get latest version from changes page
+    version=$(curl -sL "https://fossil-scm.org/home/doc/trunk/www/changes.wiki" | grep -oP '(?<=<h2 id="v)[0-9]+_[0-9]+' | head -1 | tr '_' '.')
+    if [ -z "$version" ]; then
+        version="2.27"  # fallback
+    fi
+
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)
+            url="https://fossil-scm.org/home/uv/fossil-linux-x64-${version}.tar.gz"
+            ;;
+        Darwin-arm64)
+            url="https://fossil-scm.org/home/uv/fossil-mac-arm-${version}.tar.gz"
+            ;;
+        Darwin-x86_64)
+            url="https://fossil-scm.org/home/uv/fossil-mac-x64-${version}.tar.gz"
+            ;;
+        *)
+            echo "Unsupported platform: $(uname -s)-$(uname -m)" >&2
+            exit 1
+            ;;
+    esac
+    curl -sL "$url" | tar -xzf - -C "$HOME/.claude/bin" fossil
+    chmod +x "$FOSSIL_BIN"
+}
+
+checkpoint_save() {
+    local app="$1" msg="$2"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -d "$app_dir" ]; then
+        echo "App not found: $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    if [ ! -f "$repo" ]; then
+        # Initialize new repo
+        "$FOSSIL_BIN" init "$repo" --project-name "$app" >/dev/null
+        "$FOSSIL_BIN" open "$repo" --force >/dev/null
+        "$FOSSIL_BIN" settings ignore-glob '.#*,.*~,*~,checkpoint.fossil,.fslckout'
+        # Add all files and create first check-in with app contents
+        "$FOSSIL_BIN" add . >/dev/null 2>&1
+        "$FOSSIL_BIN" commit -m "${msg:-initial state}" --no-warnings >/dev/null
+        echo "Created checkpoint: ${msg:-initial state}"
+    else
+        # Check for changes
+        if "$FOSSIL_BIN" changes --quiet | grep -q .; then
+            "$FOSSIL_BIN" add . >/dev/null 2>&1
+            "$FOSSIL_BIN" commit -m "${msg:-checkpoint}" --no-warnings >/dev/null
+            echo "Saved checkpoint: ${msg:-checkpoint}"
+        else
+            echo "No changes to checkpoint"
+        fi
+    fi
+}
+
+checkpoint_list() {
+    local app="$1"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -f "$repo" ]; then
+        echo "No checkpoints for $app"
+        exit 0
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+    # Filter out fossil's automatic "initial empty check-in"
+    "$FOSSIL_BIN" timeline -n 20 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in'
+}
+
+checkpoint_rollback() {
+    local app="$1" n="$2"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -f "$repo" ]; then
+        echo "No checkpoints for $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    if [ -z "$n" ]; then
+        # Undo last change
+        "$FOSSIL_BIN" undo
+    else
+        # Get hash of nth commit (1-indexed, excluding hidden initial empty check-in)
+        local hash=$("$FOSSIL_BIN" timeline -n 100 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in' | head -n "$n" | tail -1 | cut -d' ' -f1)
+        if [ -z "$hash" ]; then
+            echo "Checkpoint $n not found" >&2
+            exit 1
+        fi
+        "$FOSSIL_BIN" checkout "$hash" --force
+    fi
+    echo "Rolled back to checkpoint"
+}
+
+checkpoint_diff() {
+    local app="$1" n="${2:-1}"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -f "$repo" ]; then
+        echo "No checkpoints for $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    # Get hash of nth commit (1-indexed, excluding hidden initial empty check-in)
+    local hash=$("$FOSSIL_BIN" timeline -n 100 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in' | head -n "$n" | tail -1 | cut -d' ' -f1)
+    if [ -z "$hash" ]; then
+        echo "Checkpoint $n not found" >&2
+        exit 1
+    fi
+    "$FOSSIL_BIN" diff --from "$hash"
+}
+
+checkpoint_clear() {
+    local app="$1"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -f "$repo" ]; then
+        echo "No checkpoints for $app"
+        exit 0
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+    "$FOSSIL_BIN" close --force 2>/dev/null
+    rm -f "$repo" .fslckout
+    echo "Cleared checkpoints for $app"
+}
+
 case "$prog" in
     --help)
         help
+        ;;
+    checkpoint)
+        cmd="$1"
+        app="$2"
+        case "$cmd" in
+            save)
+                checkpoint_save "$app" "$3"
+                ;;
+            list)
+                checkpoint_list "$app"
+                ;;
+            rollback)
+                checkpoint_rollback "$app" "$3"
+                ;;
+            diff)
+                checkpoint_diff "$app" "$3"
+                ;;
+            clear)
+                checkpoint_clear "$app"
+                ;;
+            *)
+                echo "Usage: mcp checkpoint save|list|rollback|diff|clear APP [arg]" >&2
+                exit 1
+                ;;
+        esac
         ;;
     audit)
         app="$1"
@@ -48,14 +224,23 @@ case "$prog" in
              -d "$(jq -n --arg name "$name" '{name: $name}')"
         ;;
     event)
+        # kill previous event watcher for this config if there is one
+        if [ -f "$dir/.eventpid" ]; then
+            if [ "$(ps --no-headers -o comm $(cat "$dir/.eventpid"))" = bash ]; then
+                kill "$dir/.eventpid"
+            fi
+        fi
+        echo $BASHPID > "$dir/.eventpid"
         while true; do
-            out=$(curl -s "http://127.0.0.1:$port/wait?timeout=120")
+            out="$(curl -s "http://127.0.0.1:$port/wait?timeout=120")"
             status=$?
             if [ -n "$out" ]; then
                 echo "$out"
+                rm "$dir/.eventpid"
                 break
             elif [ $status != 0 ]; then
-                break
+                rm "$dir/.eventpid"
+                exit $status
             fi
         done
         ;;

@@ -641,56 +641,63 @@ Installation behavior:
 
 **Install Manifest:**
 
-Skills and agents installed to `{project}/.claude/`:
+Skills installed to `{project}/.claude/skills/`:
 ```
 .claude/skills/ui/SKILL.md
-.claude/skills/ui-builder/SKILL.md
-.claude/skills/ui-builder/examples/requirements.md
-.claude/skills/ui-builder/examples/design.md
-.claude/skills/ui-builder/examples/app.lua
-.claude/skills/ui-builder/examples/viewdefs/ContactApp.DEFAULT.html
-.claude/skills/ui-builder/examples/viewdefs/Contact.list-item.html
-.claude/skills/ui-builder/examples/viewdefs/ChatMessage.list-item.html
-.claude/agents/ui-builder.md
+.claude/skills/ui-basics/SKILL.md
+.claude/skills/ui-fast/SKILL.md
+.claude/skills/ui-thorough/SKILL.md
+.claude/skills/ui-testing/SKILL.md
+.claude/skills/ui-testing/TESTING-TEMPLATE.md
 ```
 
 Resources installed to `{base_dir}/resources/`:
 ```
+resources/intro.md
 resources/reference.md
 resources/viewdefs.md
 resources/lua.md
 resources/mcp.md
+resources/ui_audit.md
 ```
 
-Viewdefs installed to `{base_dir}/viewdefs/`:
+Apps installed to `{base_dir}/apps/` (each with app.lua, viewdefs/, design.md, requirements.md):
+```
+apps/app-console/
+apps/claude-panel/
+apps/mcp/
+apps/viewlist/
+```
+
+Viewdefs installed to `{base_dir}/viewdefs/` (symlinks to app viewdefs, bundled as symlinks):
 ```
 viewdefs/lua.ViewList.DEFAULT.html
 viewdefs/lua.ViewListItem.list-item.html
 viewdefs/MCP.DEFAULT.html
+viewdefs/MCP.AppMenuItem.list-item.html
+viewdefs/MCP.Notification.list-item.html
+viewdefs/AppConsole.*.html (7 files)
+viewdefs/ClaudePanel.*.html (4 files)
 ```
 
 Scripts installed to `{base_dir}/` (executable):
 ```
-event
-state
-variables
+mcp
 linkapp
-status
-run
-display
-browser
 ```
 
-Lua entry point installed to `{base_dir}/lua/`:
+Lua files installed to `{base_dir}/lua/` (symlinks to app lua files):
 ```
 lua/main.lua
+lua/mcp.lua
+lua/app-console.lua
+lua/claude-panel.lua
 ```
 
 HTML files installed to `{base_dir}/html/` (dynamically discovered from bundle):
 ```
 html/index.html
 html/main-*.js
-html/worker-*.js
 ```
 
 Documentation installed to `{base_dir}`:
@@ -700,7 +707,7 @@ README.md
 
 **Path Resolution:**
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui`, project is `.`)
-- Creates `.claude/`, `.claude/skills/`, and `.claude/agents/` directories if they don't exist
+- Creates `.claude/` and `.claude/skills/` directories if they don't exist
 
 **Behavior:**
 1. **Check State:** Server must be running.

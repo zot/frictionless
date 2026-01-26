@@ -147,27 +147,39 @@ type InstallResult struct {
 }
 
 // installFile installs a single file from the bundle.
-// bundlePath: path relative to bundle root (e.g., "resources/reference.md")
-// destPath: absolute destination path
-// mode: file permissions (0644 for regular files, 0755 for scripts)
 // Returns: "installed", "skipped", or "" (file not found in bundle)
-func (s *Server) installFile(bundlePath, destPath string, mode os.FileMode, force bool) (string, error) {
-	// Skip if file exists (unless force)
-	if _, err := os.Stat(destPath); err == nil && !force {
-		return "skipped", nil
+func (s *Server) installFile(bundlePath, destPath string, mode os.FileMode, force bool, fileInfoMap map[string]cli.BundleFileInfo) (string, error) {
+	fileExists := false
+	if _, err := os.Stat(destPath); err == nil {
+		if !force {
+			return "skipped", nil
+		}
+		fileExists = true
 	}
 
-	// Read content from bundle
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
+	}
+
+	// Handle symlinks
+	if info, ok := fileInfoMap[bundlePath]; ok && info.IsSymlink {
+		if fileExists {
+			os.Remove(destPath)
+		}
+		if err := os.Symlink(info.SymlinkTarget, destPath); err != nil {
+			return "", fmt.Errorf("failed to create symlink %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed symlink: %s -> %s", destPath, info.SymlinkTarget)
+		return "installed", nil
+	}
+
+	// Handle regular files
 	content, err := cli.BundleReadFile(bundlePath)
 	if err != nil || len(content) == 0 {
 		s.cfg.Log(1, "File not found in bundle: %s", bundlePath)
 		return "", nil
 	}
 
-	// Create directory and write file
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		return "", fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
-	}
 	if err := os.WriteFile(destPath, content, mode); err != nil {
 		return "", fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
 	}
@@ -184,64 +196,68 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		return nil, fmt.Errorf("server not configured (baseDir not set)")
 	}
 
-	// Require bundled binary for install
 	if bundled, _ := cli.IsBundled(); !bundled {
 		return nil, fmt.Errorf("install requires a bundled binary (use 'make build')")
 	}
 
-	// Project root is the grandparent of baseDir (e.g., .ui -> .)
 	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
 
-	// Version checking: compare bundled README version with installed version
-	var bundledVersion, installedVersion string
-	if bundledContent, err := cli.BundleReadFile("README.md"); err == nil {
-		bundledVersion = parseReadmeVersion(bundledContent)
-	}
-	if installedContent, err := os.ReadFile(filepath.Join(s.baseDir, "README.md")); err == nil {
-		installedVersion = parseReadmeVersion(installedContent)
+	// Check versions to skip unnecessary reinstalls
+	bundledVersion := readBundledVersion()
+	installedVersion := readInstalledVersion(s.baseDir)
+
+	if !force && installedVersion != "" && bundledVersion != "" &&
+		compareSemver(installedVersion, bundledVersion) >= 0 {
+		return &InstallResult{
+			VersionSkipped:   true,
+			BundledVersion:   bundledVersion,
+			InstalledVersion: installedVersion,
+			Hint:             "Use force=true to reinstall",
+		}, nil
 	}
 
-	// Skip if installed version >= bundled version (unless force)
-	if !force && installedVersion != "" && bundledVersion != "" {
-		if compareSemver(installedVersion, bundledVersion) >= 0 {
-			return &InstallResult{
-				VersionSkipped:   true,
-				BundledVersion:   bundledVersion,
-				InstalledVersion: installedVersion,
-				Hint:             "Use force=true to reinstall",
-			}, nil
-		}
-	}
+	// Build file info map for symlink detection
+	fileInfoMap := buildFileInfoMap()
 
 	var installed, skipped []string
-
-	// Helper to track install results
 	track := func(relPath, status string) {
-		switch status {
-		case "installed":
+		if status == "installed" {
 			installed = append(installed, relPath)
-		case "skipped":
+		} else if status == "skipped" {
 			skipped = append(skipped, relPath)
 		}
 	}
 
-	// 1. Install skills and agents to {project}/.claude/{category}/
-	claudeFiles := []struct{ category, file string }{
-		{"skills/ui", "SKILL.md"},
-		{"skills/ui-builder", "SKILL.md"},
-		{"skills/ui-builder", "examples/requirements.md"},
-		{"skills/ui-builder", "examples/design.md"},
-		{"skills/ui-builder", "examples/app.lua"},
-		{"skills/ui-builder", "examples/viewdefs/ContactApp.DEFAULT.html"},
-		{"skills/ui-builder", "examples/viewdefs/Contact.list-item.html"},
-		{"skills/ui-builder", "examples/viewdefs/ChatMessage.list-item.html"},
-		{"agents", "ui-builder.md"},
+	// installBundleFiles installs files from a bundle directory to a destination
+	installBundleFiles := func(bundleDir, destDir string, mode os.FileMode) error {
+		files, _ := cli.BundleListFiles(bundleDir)
+		for _, bundlePath := range files {
+			fileName := filepath.Base(bundlePath)
+			destPath := filepath.Join(destDir, fileName)
+			relPath := filepath.Join(bundleDir, fileName)
+			status, err := s.installFile(bundlePath, destPath, mode, force, fileInfoMap)
+			if err != nil {
+				return err
+			}
+			track(relPath, status)
+		}
+		return nil
 	}
-	for _, f := range claudeFiles {
+
+	// 1. Install skills to {project}/.claude/skills/
+	skillFiles := []struct{ category, file string }{
+		{"skills/ui", "SKILL.md"},
+		{"skills/ui-basics", "SKILL.md"},
+		{"skills/ui-fast", "SKILL.md"},
+		{"skills/ui-thorough", "SKILL.md"},
+		{"skills/ui-testing", "SKILL.md"},
+		{"skills/ui-testing", "TESTING-TEMPLATE.md"},
+	}
+	for _, f := range skillFiles {
 		bundlePath := filepath.Join(f.category, f.file)
 		destPath := filepath.Join(projectRoot, ".claude", f.category, f.file)
 		relPath := filepath.Join(".claude", f.category, f.file)
-		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
@@ -249,58 +265,60 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 
 	// 2. Install resources to {base_dir}/resources/
-	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md"} {
+	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md", "ui_audit.md"} {
 		bundlePath := filepath.Join("resources", file)
 		destPath := filepath.Join(s.baseDir, "resources", file)
-		status, err := s.installFile(bundlePath, destPath, 0644, force)
+		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
 		track(bundlePath, status)
 	}
 
-	// 3. Install viewdefs to {base_dir}/viewdefs/
-	for _, file := range []string{"lua.ViewList.DEFAULT.html", "lua.ViewListItem.list-item.html", "MCP.DEFAULT.html"} {
-		bundlePath := filepath.Join("viewdefs", file)
-		destPath := filepath.Join(s.baseDir, "viewdefs", file)
-		status, err := s.installFile(bundlePath, destPath, 0644, force)
+	// 3. Install apps to {base_dir}/apps/ (recursively, includes symlinks)
+	appFiles, _ := cli.BundleListFilesRecursive("apps")
+	for _, bundlePath := range appFiles {
+		destPath := filepath.Join(s.baseDir, bundlePath)
+		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
 		track(bundlePath, status)
 	}
 
-	// 4. Install scripts to {base_dir}/ (executable)
-	for _, file := range []string{"event", "state", "variables", "linkapp"} {
+	// 4. Install viewdefs to {base_dir}/viewdefs/
+	if err := installBundleFiles("viewdefs", filepath.Join(s.baseDir, "viewdefs"), 0644); err != nil {
+		return nil, err
+	}
+
+	// 5. Install lua files to {base_dir}/lua/
+	if err := installBundleFiles("lua", filepath.Join(s.baseDir, "lua"), 0644); err != nil {
+		return nil, err
+	}
+
+	// 6. Install scripts to {base_dir}/ (executable)
+	for _, file := range []string{"mcp", "linkapp"} {
 		destPath := filepath.Join(s.baseDir, file)
-		status, err := s.installFile(file, destPath, 0755, force)
+		status, err := s.installFile(file, destPath, 0755, force, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
 		track(file, status)
 	}
 
-	// 5. Install html files to {base_dir}/html/ (dynamically discovered from bundle)
-	htmlFiles, _ := cli.BundleListFiles("html")
-	for _, bundlePath := range htmlFiles {
-		fileName := filepath.Base(bundlePath)
-		destPath := filepath.Join(s.baseDir, "html", fileName)
-		relPath := filepath.Join("html", fileName)
-		status, err := s.installFile(bundlePath, destPath, 0644, force)
-		if err != nil {
-			return nil, err
-		}
-		track(relPath, status)
+	// 7. Install html files to {base_dir}/html/
+	if err := installBundleFiles("html", filepath.Join(s.baseDir, "html"), 0644); err != nil {
+		return nil, err
 	}
 
-	// 6. Install README.md to {base_dir}/
-	status, err := s.installFile("README.md", filepath.Join(s.baseDir, "README.md"), 0644, force)
+	// 8. Install README.md to {base_dir}/
+	status, err := s.installFile("README.md", filepath.Join(s.baseDir, "README.md"), 0644, force, fileInfoMap)
 	if err != nil {
 		return nil, err
 	}
 	track("README.md", status)
 
-	// 7. Check for optional external dependencies and add suggestions
+	// 9. Check for optional external dependencies
 	var suggestions []string
 	codeSimplifierPath := filepath.Join(projectRoot, ".claude", "agents", "code-simplifier.md")
 	if _, err := os.Stat(codeSimplifierPath); os.IsNotExist(err) {
@@ -312,6 +330,37 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		Skipped:     skipped,
 		Suggestions: suggestions,
 	}, nil
+}
+
+// readBundledVersion extracts version from the bundled README.md.
+func readBundledVersion() string {
+	content, err := cli.BundleReadFile("README.md")
+	if err != nil {
+		return ""
+	}
+	return parseReadmeVersion(content)
+}
+
+// readInstalledVersion extracts version from the installed README.md.
+func readInstalledVersion(baseDir string) string {
+	content, err := os.ReadFile(filepath.Join(baseDir, "README.md"))
+	if err != nil {
+		return ""
+	}
+	return parseReadmeVersion(content)
+}
+
+// buildFileInfoMap creates a lookup map for bundle file metadata (used for symlink detection).
+func buildFileInfoMap() map[string]cli.BundleFileInfo {
+	allFiles, err := cli.BundleListFilesWithInfo()
+	if err != nil {
+		return make(map[string]cli.BundleFileInfo)
+	}
+	fileInfoMap := make(map[string]cli.BundleFileInfo, len(allFiles))
+	for _, f := range allFiles {
+		fileInfoMap[f.Name] = f
+	}
+	return fileInfoMap
 }
 
 // compareSemver compares two semantic versions.
