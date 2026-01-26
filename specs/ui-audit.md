@@ -46,7 +46,7 @@ Background agents POST to `/api/ui_audit` with JSON body `{"name": "app-name"}`.
 
 **ui-value on checkbox**: Using `ui-value` on `sl-checkbox` or `sl-switch` renders the boolean as text. Should use `ui-attr-checked` instead.
 
-**Operators in paths**: Binding paths contain operators (`!`, `==`, `&&`, `||`, `+`, `-`). Paths don't support operators - use Lua methods instead.
+**Operators in paths**: Binding paths contain operators (`!`, `==`, `&&`, `||`, `+`, `-`). Paths don't support operators - use Lua methods instead. Excludes `ui-namespace` which is a viewdef namespace identifier (e.g., `list-item`), not a binding path.
 
 **Missing Lua method**: A viewdef binding references a method that doesn't exist in app.lua. For example, `ui-action="doSomething()"` where `doSomething` is not defined on any prototype. This catches typos and forgotten implementations.
 

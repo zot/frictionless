@@ -20,7 +20,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-mcp-receive-event.md → `internal/mcp/tools.go`
 - [x] seq-mcp-run.md → `internal/mcp/tools.go`
 - [x] seq-mcp-get-state.md → `internal/mcp/resources.go`
-- [x] seq-mcp-state-wait.md → `internal/mcp/server.go` (handleWait, pushStateEvent, drainStateQueue, hasPollingClients)
+- [x] seq-mcp-state-wait.md → `internal/mcp/server.go`
 - [x] seq-audit.md → `internal/mcp/audit.go`, `internal/mcp/tools.go`
 
 ### Test Designs
@@ -94,6 +94,7 @@ Registered by `setupMCPGlobal` in each session:
 |--------|-----------|---------|
 | `pushState` | `mcp.pushState(event: table)` | `nil` |
 | `pollingEvents` | `mcp:pollingEvents()` | `boolean` |
+| `waitTime` | `mcp:waitTime()` | `number` (seconds since agent last responded, 0 if connected) |
 | `app` | `mcp:app(appName: string)` | `app` or `nil, errmsg` |
 | `display` | `mcp:display(appName: string)` | `true` or `nil, errmsg` |
 | `status` | `mcp:status()` | `table` (see below) |

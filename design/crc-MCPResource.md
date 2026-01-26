@@ -1,6 +1,7 @@
 # MCPResource
 
 **Source Spec:** mcp.md
+**Requirements:** R9, R10
 
 ## Responsibilities
 

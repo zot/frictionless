@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
 prog="$1"
@@ -48,13 +48,22 @@ case "$prog" in
              -d "$(jq -n --arg name "$name" '{name: $name}')"
         ;;
     event)
+        # kill previous event watcher for this config if there is one
+        if [ -f "$dir/.eventpid" ]; then
+            if [ "$(ps --no-headers -o comm $(cat "$dir/.eventpid"))" = bash ]; then
+                kill "$dir/.eventpid"
+            fi
+        fi
+        echo $BASHPID > "$dir/.eventpid"
         while true; do
-            out=$(curl -s "http://127.0.0.1:$port/wait?timeout=120")
+            out="$(curl -s "http://127.0.0.1:$port/wait?timeout=120")"
             status=$?
             if [ -n "$out" ]; then
                 echo "$out"
+                rm "$dir/.eventpid"
                 break
             elif [ $status != 0 ]; then
+                rm "$dir/.eventpid"
                 exit $status
             fi
         done

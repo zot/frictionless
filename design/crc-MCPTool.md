@@ -1,6 +1,7 @@
 # MCPTool
 
 **Source Spec:** specs/mcp.md
+**Requirements:** R4, R5, R6, R7, R8, R18
 
 ## Responsibilities
 

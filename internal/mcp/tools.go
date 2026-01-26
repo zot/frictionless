@@ -431,6 +431,14 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
+		// mcp:waitTime() - seconds since agent last responded, or 0 if connected
+		// Spec: mcp.md Section 8.3
+		L.SetField(mcpTable, "waitTime", L.NewFunction(func(L *lua.LState) int {
+			// Note: Called as mcp:waitTime() but we ignore the self argument
+			L.Push(lua.LNumber(s.getWaitTime(vendedID)))
+			return 1
+		}))
+
 		// mcp:app(appName) - load an app without displaying it
 		// Returns the app global, or nil, errmsg
 		L.SetField(mcpTable, "app", L.NewFunction(func(L *lua.LState) int {

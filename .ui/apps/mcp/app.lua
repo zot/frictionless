@@ -2,39 +2,35 @@
 -- Outer shell for all ui-mcp apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
--- Filesystem helpers (same pattern as apps app)
+-- Filesystem helpers
 
 local function fileExists(path)
     local handle = io.open(path, "r")
-    if handle then
-        handle:close()
-        return true
-    end
-    return false
+    if not handle then return false end
+    handle:close()
+    return true
 end
 
-local function readFile(path)
+local function readFileTrimmed(path)
     local handle = io.open(path, "r")
-    if handle then
-        local content = handle:read("*a")
-        handle:close()
-        return content and content:match("^%s*(.-)%s*$") or ""  -- trim whitespace
-    end
-    return ""
+    if not handle then return "" end
+    local content = handle:read("*a")
+    handle:close()
+    if not content then return "" end
+    return content:match("^%s*(.-)%s*$") or ""
 end
 
 local function listDirs(path)
     local dirs = {}
     local handle = io.popen('ls -1d "' .. path .. '"/*/ 2>/dev/null')
-    if handle then
-        for line in handle:lines() do
-            local name = line:match("([^/]+)/$")
-            if name and name ~= "" then
-                table.insert(dirs, name)
-            end
+    if not handle then return dirs end
+    for line in handle:lines() do
+        local name = line:match("([^/]+)/$")
+        if name and name ~= "" then
+            table.insert(dirs, name)
         end
-        handle:close()
     end
+    handle:close()
     return dirs
 end
 
@@ -46,14 +42,6 @@ MCP.Notification = session:prototype("MCP.Notification", {
 })
 local Notification = MCP.Notification
 
-function Notification:new(message, variant, mcpRef)
-    return session:create(Notification, {
-        message = message,
-        variant = variant or "danger",
-        _mcp = mcpRef
-    })
-end
-
 function Notification:dismiss()
     if self._mcp then
         self._mcp:dismissNotification(self)
@@ -61,22 +49,12 @@ function Notification:dismiss()
 end
 
 -- Nested prototype: App menu item (wraps app info for list binding)
--- Namespace under MCP since mcp is the global instance of type MCP
 MCP.AppMenuItem = session:prototype("MCP.AppMenuItem", {
     _name = "",
     _iconHtml = "",
     _mcp = EMPTY
 })
 local AppMenuItem = MCP.AppMenuItem
-
-function AppMenuItem:new(name, iconHtml, mcpRef)
-    local item = session:create(AppMenuItem, {
-        _name = name,
-        _iconHtml = iconHtml or "",
-        _mcp = mcpRef
-    })
-    return item
-end
 
 function AppMenuItem:name()
     return self._name
@@ -95,90 +73,116 @@ end
 -- Extend the global mcp object with shell functionality
 -- Note: mcp is created by the server, we just add methods and properties
 
--- Add properties for menu state and notifications
-if not mcp._availableApps then
-    mcp._availableApps = {}
-end
-if mcp.menuOpen == nil then
-    mcp.menuOpen = false
-end
-if not mcp._notifications then
-    mcp._notifications = {}
-end
+-- Initialize properties for menu state and notifications
+mcp._availableApps = mcp._availableApps or {}
+mcp.menuOpen = mcp.menuOpen or false
+mcp._notifications = mcp._notifications or {}
 
--- Scan for available apps (built apps with app.lua)
+-- Scan for available apps (built apps with app.lua, excluding mcp shell)
 function mcp:scanAvailableApps()
     local status = mcp:status()
-    if not status or not status.base_dir then
-        return
-    end
+    if not status or not status.base_dir then return end
 
     local appsPath = status.base_dir .. "/apps"
-    local appDirs = listDirs(appsPath)
-
     self._availableApps = {}
-    for _, name in ipairs(appDirs) do
+
+    for _, name in ipairs(listDirs(appsPath)) do
         local appPath = appsPath .. "/" .. name
-        -- Only include apps that are built (have app.lua)
-        -- Exclude "mcp" - it's the shell, not a user app
         if name ~= "mcp" and fileExists(appPath .. "/app.lua") then
-            local iconHtml = readFile(appPath .. "/icon.html")
-            table.insert(self._availableApps, AppMenuItem:new(name, iconHtml, self))
+            local item = session:create(AppMenuItem, {
+                _name = name,
+                _iconHtml = readFileTrimmed(appPath .. "/icon.html"),
+                _mcp = self
+            })
+            table.insert(self._availableApps, item)
         end
     end
 end
 
--- Return available apps for binding
 function mcp:availableApps()
     return self._availableApps
 end
 
--- Toggle menu visibility
 function mcp:toggleMenu()
     self.menuOpen = not self.menuOpen
 end
 
--- Close menu
 function mcp:closeMenu()
     self.menuOpen = false
 end
 
--- Check if menu is hidden (for ui-class-hidden)
 function mcp:menuHidden()
     return not self.menuOpen
 end
 
--- Select an app from the menu
 function mcp:selectApp(name)
     mcp:display(name)
     self.menuOpen = false
 end
 
--- Show a notification toast
 function mcp:notify(message, variant)
-    local n = Notification:new(message, variant, self)
-    table.insert(self._notifications, n)
-    -- Auto-dismiss after 5 seconds
-    -- Note: We can't use setTimeout in Lua, so notifications stay until dismissed
-    -- The viewdef will use Shoelace's auto-dismiss via duration attribute
+    local notification = session:create(Notification, {
+        message = message,
+        variant = variant or "danger",
+        _mcp = self
+    })
+    table.insert(self._notifications, notification)
 end
 
--- Return notifications for binding
 function mcp:notifications()
     return self._notifications
 end
 
--- Dismiss a notification
 function mcp:dismissNotification(notification)
     for i, n in ipairs(self._notifications) do
         if n == notification then
             table.remove(self._notifications, i)
-            break
+            return
         end
     end
 end
 
--- Scan apps on initial load
+-- Returns seconds offset from UNIX epoch when wait started, or 0 if connected
+function mcp:waitStartOffset()
+    local wt = self:waitTime()
+    if wt == 0 then return 0 end
+    return math.floor(os.time() - wt)
+end
+
+
+-- Check and notify if Claude appears disconnected (called on UI refresh)
+-- Returns empty string for hidden span binding
+function mcp:checkDisconnectNotify()
+    local wt = self:waitTime()
+    if wt == 0 then
+        self._notifiedForDisconnect = false
+    elseif not self._notifiedForDisconnect and wt > 5 and self:pendingEventCount() > 0 then
+        self:notify("Claude might be busy or not watching events", "warning")
+        self._notifiedForDisconnect = true
+    end
+    return ""
+end
+
+-- Override pushState to warn on long wait times (idempotent)
+function mcp:setupPushStateOverride()
+    if mcp._pushStateOverridden then return end
+    mcp._pushStateOverridden = true
+
+    local originalPushState = mcp.pushState
+    mcp.pushState = function(event)
+        local wt = mcp:waitTime()
+        if wt == 0 then
+            mcp._notifiedForDisconnect = false
+        elseif not mcp._notifiedForDisconnect and wt > 5 then
+            mcp:notify("Claude might be busy or not watching events", "warning")
+            mcp._notifiedForDisconnect = true
+        end
+        return originalPushState(event)
+    end
+end
+
+-- Initialization
 if not session.reloading then
     mcp:scanAvailableApps()
 end
+mcp:setupPushStateOverride()

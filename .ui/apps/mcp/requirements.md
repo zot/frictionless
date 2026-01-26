@@ -41,6 +41,24 @@ Show a spinner overlaying the 9-dot button when the agent event loop is not conn
 - The 9-dot button remains clickable underneath
 - When connected to `/wait`, the spinner is hidden
 
+### Wait Time Counter (Client-Local)
+
+Display a counter inside the spinner showing seconds elapsed since the spinner appeared:
+- Entirely client-side JavaScript — no server round-trips needed
+- When spinner becomes visible (`pollingEvents()` returns false), store timestamp and start interval
+- Interval updates counter display every second
+- Counter shows seconds elapsed as bold orange text with black glow for contrast
+- Hidden when elapsed time is 5 seconds or less
+- When spinner hides (`pollingEvents()` becomes true), clear interval and hide counter
+
+### Busy Notification
+
+When pushing an event via `mcp.pushState`:
+- Idempotently override the global `pushState` function to add this behavior
+- Before pushing, if there are no other pending events, check `mcp:waitTime()`
+- If waitTime exceeds 15 seconds, show a notification: "Claude might be busy or not watching events"
+- Use the "warning" variant for this notification
+
 ## Available Apps
 
 The menu should list apps discovered from the apps directory. Since mcp is Lua-driven, it should scan for available apps on load using the same filesystem pattern as the `apps` app.

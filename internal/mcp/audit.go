@@ -86,7 +86,7 @@ var (
 )
 
 // AuditApp performs a full audit of an app
-// CRC: crc-Auditor.md#AuditApp
+// CRC: crc-Auditor.md
 func AuditApp(baseDir, appName string) (*AuditResult, error) {
 	appPath := filepath.Join(baseDir, "apps", appName)
 
@@ -192,7 +192,7 @@ func AuditApp(baseDir, appName string) (*AuditResult, error) {
 }
 
 // analyzeLua extracts method definitions and calls, checks guards and global name
-// CRC: crc-Auditor.md#analyzeLua
+// CRC: crc-Auditor.md
 func analyzeLua(content, appName string, result *AuditResult) (defs map[string]string, calls map[string]bool) {
 	defs = make(map[string]string)  // method name -> "Type:method"
 	calls = make(map[string]bool)
@@ -226,7 +226,7 @@ func analyzeLua(content, appName string, result *AuditResult) (defs map[string]s
 }
 
 // checkReloadingGuard verifies instance creation is wrapped in reloading check
-// CRC: crc-Auditor.md#checkReloadingGuard
+// CRC: crc-Auditor.md
 func checkReloadingGuard(content string, result *AuditResult) {
 	// Look for global = Type:new( patterns
 	lines := strings.Split(content, "\n")
@@ -266,7 +266,7 @@ func checkReloadingGuard(content string, result *AuditResult) {
 }
 
 // checkGlobalName verifies the global variable matches the app directory name
-// CRC: crc-Auditor.md#checkGlobalName
+// CRC: crc-Auditor.md
 func checkGlobalName(content, appName string, result *AuditResult) {
 	// Convert app name to expected global (kebab-case to camelCase)
 	expected := kebabToCamel(appName)
@@ -299,7 +299,7 @@ func kebabToCamel(s string) string {
 }
 
 // analyzeViewdef parses HTML and checks for violations
-// CRC: crc-Auditor.md#analyzeViewdef
+// CRC: crc-Auditor.md
 func analyzeViewdef(filename, content string, isListItem bool, result *AuditResult) map[string]bool {
 	calls := make(map[string]bool)
 
@@ -321,7 +321,7 @@ func analyzeViewdef(filename, content string, isListItem bool, result *AuditResu
 }
 
 // walkDOM recursively checks each node for violations
-// CRC: crc-Auditor.md#walkDOM
+// CRC: crc-Auditor.md
 func walkDOM(n *html.Node, filename string, isListItem bool, result *AuditResult, calls map[string]bool) {
 	if n.Type == html.ElementNode {
 		tagName := n.Data
@@ -376,19 +376,22 @@ func walkDOM(n *html.Node, filename string, isListItem bool, result *AuditResult
 				}
 
 				// Check for operators in paths
+				// Skip ui-namespace which is a viewdef namespace identifier, not a binding path
 				// Skip checking inside () since those are method calls
-				pathPart := attr.Val
-				if idx := strings.Index(pathPart, "?"); idx != -1 {
-					pathPart = pathPart[:idx] // Remove query params
-				}
-				// Remove method call parentheses content for operator check
-				cleanPath := regexp.MustCompile(`\([^)]*\)`).ReplaceAllString(pathPart, "()")
-				if operatorPattern.MatchString(cleanPath) {
-					result.Violations = append(result.Violations, Violation{
-						Type:     "operator_in_path",
-						Location: fmt.Sprintf("viewdefs/%s", filename),
-						Detail:   fmt.Sprintf("Operators in path '%s' (use Lua methods instead)", attr.Val),
-					})
+				if attr.Key != "ui-namespace" {
+					pathPart := attr.Val
+					if idx := strings.Index(pathPart, "?"); idx != -1 {
+						pathPart = pathPart[:idx] // Remove query params
+					}
+					// Remove method call parentheses content for operator check
+					cleanPath := regexp.MustCompile(`\([^)]*\)`).ReplaceAllString(pathPart, "()")
+					if operatorPattern.MatchString(cleanPath) {
+						result.Violations = append(result.Violations, Violation{
+							Type:     "operator_in_path",
+							Location: fmt.Sprintf("viewdefs/%s", filename),
+							Detail:   fmt.Sprintf("Operators in path '%s' (use Lua methods instead)", attr.Val),
+						})
+					}
 				}
 
 				// Extract method calls
@@ -406,7 +409,7 @@ func walkDOM(n *html.Node, filename string, isListItem bool, result *AuditResult
 }
 
 // findDeadMethods identifies methods defined but never called
-// CRC: crc-Auditor.md#findDeadMethods
+// CRC: crc-Auditor.md
 func findDeadMethods(defs map[string]string, luaCalls, viewdefCalls map[string]bool, result *AuditResult) {
 	for methodName, fullName := range defs {
 		// Skip framework methods
@@ -444,7 +447,7 @@ func findDeadMethods(defs map[string]string, luaCalls, viewdefCalls map[string]b
 }
 
 // findMissingMethods identifies viewdef calls that don't match any Lua method definition
-// CRC: crc-Auditor.md#findMissingMethods
+// CRC: crc-Auditor.md
 func findMissingMethods(defs map[string]string, viewdefCalls map[string]bool, result *AuditResult) {
 	for callName := range viewdefCalls {
 		if builtinViewdefFunctions[callName] {

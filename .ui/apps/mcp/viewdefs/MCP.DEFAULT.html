@@ -20,6 +20,7 @@
       min-height: 0;
       width: 100%;
       overflow: hidden;  /* Let embedded apps handle their own scrolling */
+      isolation: isolate;  /* Create stacking context so embedded app z-indexes don't compete with menu */
     }
     /* Override 100vh in embedded apps - they should fill this container, not viewport */
     .mcp-app-container > div {
@@ -85,6 +86,18 @@
       --indicator-color: #E07A47;
       filter: drop-shadow(0 0 4px #E07A47) drop-shadow(0 0 8px #F5A97F);
     }
+    .mcp-menu-button .mcp-wait-counter {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #E07A47;
+      text-shadow: 0 0 2px #000, 0 0 4px #000, 0 0 6px #000;
+      pointer-events: none;
+      z-index: 1;
+    }
     .mcp-menu-dropdown {
       position: fixed;
       top: 56px;
@@ -144,6 +157,37 @@
     .hidden { display: none !important; }
   </style>
 
+  <script>
+    // Client-local wait time counter - tracks server timestamp, counts with client clock
+    (function() {
+      function update() {
+        const timestampEl = document.querySelector('.mcp-wait-timestamp');
+        const counterEl = document.querySelector('.mcp-wait-counter');
+        if (!timestampEl || !counterEl) return;
+
+        const serverTimestamp = parseInt(timestampEl.textContent, 10) || 0;
+        const elapsed = Math.floor(Date.now() / 1000) - serverTimestamp;
+
+        if (!serverTimestamp) {
+          counterEl.classList.add('hidden');
+          counterEl.textContent = '';
+        } else if (elapsed > 5) {
+          counterEl.textContent = elapsed;
+          counterEl.classList.remove('hidden');
+        } else {
+          counterEl.classList.add('hidden');
+        }
+      }
+
+      // Start polling when DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => { setInterval(update, 200); });
+      } else {
+        setInterval(update, 200);
+      }
+    })();
+  </script>
+
   <div class="mcp-shell">
     <!-- Current app content -->
     <div class="mcp-app-container" ui-view="value"></div>
@@ -160,7 +204,12 @@
         <!-- Processing indicator - shows when agent is not connected to /wait -->
         <span class="mcp-spinner" ui-class-hidden="pollingEvents()">
           <sl-spinner></sl-spinner>
+          <span class="mcp-wait-counter hidden"></span>
         </span>
+        <!-- Hidden timestamp for JS counter (UNIX seconds when wait started, 0 if connected) -->
+        <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
+        <!-- Hidden span to trigger disconnect notification check on UI refresh -->
+        <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
       </button>
     </div>
 

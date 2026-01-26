@@ -66,7 +66,7 @@ Both modes start an HTTP server with debug and API endpoints.
 Both modes start HTTP servers. In stdio mode, ports are selected randomly and written to `{base_dir}/ui-port` and `{base_dir}/mcp-port`. Endpoints on the MCP port:
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
-- `GET /wait`: Long-poll for mcp.state changes (see Section 8.3)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
 
 ### 2.3 SSE Mode (`serve` command)
 
@@ -81,7 +81,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `POST /message`: Send MCP requests
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
-- `GET /wait`: Long-poll for mcp.state changes (see Section 8.3)
+- `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
 
 ### 2.4 Install Command (`install`)
 
@@ -460,6 +460,7 @@ end
 |--------|-----------|-------------|
 | `pushState` | `mcp.pushState(event)` | Push an event table to the state queue. Signals waiting HTTP clients. See Section 8.1. |
 | `pollingEvents` | `mcp:pollingEvents()` | Returns `true` if an agent is connected to `/wait`. See Section 8.2. |
+| `waitTime` | `mcp:waitTime()` | Returns seconds since agent last responded, or 0 if connected. See Section 8.3. |
 | `app` | `mcp:app(appName)` | Load an app without displaying it. Returns the app global, or `nil, errmsg`. |
 | `display` | `mcp:display(appName)` | Load and display an app. Returns `true`, or `nil, errmsg`. |
 | `status` | `mcp:status()` | Returns the current MCP server status as a table. See below. |
@@ -834,7 +835,30 @@ end
 **Use Case:**
 This allows Lua code to conditionally enable event-driven features or provide visual feedback (e.g., a status indicator) based on whether an agent is actively monitoring for events.
 
-### 8.3 HTTP Wait Endpoint
+### 8.3 Wait Time Tracking
+
+**Purpose:** Track how long the UI has been waiting for the agent to respond.
+
+**Server Behavior:**
+1. On startup, the server records a timestamp (`waitStartTime`).
+2. Whenever the `/wait` endpoint returns (either with events or timeout), the server updates `waitStartTime` to the current time.
+3. When the `/wait` endpoint is connected (a client is actively waiting), `waitStartTime` is conceptually "now".
+
+**Lua API:**
+```lua
+-- Returns seconds since agent last responded
+local seconds = mcp:waitTime()
+
+-- Returns 0 if agent is currently connected to /wait
+if mcp:pollingEvents() then
+    assert(mcp:waitTime() == 0)
+end
+```
+
+**Use Case:**
+UI can display a "waiting for Claude..." indicator that shows elapsed time, helping users understand that the agent is processing their request.
+
+### 8.4 HTTP Wait Endpoint
 
 **Endpoint:** `GET /wait`
 
@@ -870,7 +894,7 @@ Content-Type: application/json
 HTTP/1.1 204 No Content
 ```
 
-### 8.4 Agent Integration Pattern
+### 8.5 Agent Integration Pattern
 
 Agents can monitor for state changes using a background shell script:
 

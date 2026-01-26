@@ -6,11 +6,11 @@ CRC (Class-Responsibility-Collaboration) cards are a design technique from the 1
 
 ```
 Level 1: Specs      What you want (human-written)
-Level 2: Design     What the AI understood (CRC cards, sequences, UI specs)
+Level 2: Design     What the AI understood (requirements, CRC cards, sequences, UI specs)
 Level 3: Code       What got built
 ```
 
-The design level is the key innovation—it makes the AI's interpretation **explicit and reviewable** before expensive code generation.
+The design level is the key innovation—it makes the AI's interpretation **explicit and reviewable** before expensive code generation. Reviewing design documents is far cheaper than reviewing code, so catching misunderstandings early saves significant rework.
 
 ## CRC Cards
 

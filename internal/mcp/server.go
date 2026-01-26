@@ -57,6 +57,9 @@ type Server struct {
 	stateWaiters   map[string][]chan struct{} // sessionID -> list of waiting channels
 	stateQueue     map[string][]interface{}   // sessionID -> queued events
 	stateWaitersMu sync.Mutex                 // Protects stateWaiters and stateQueue
+
+	// Wait time tracking (Spec: mcp.md Section 8.3)
+	waitStartTime time.Time // When agent last responded (updated on /wait return)
 }
 
 // NewServer creates a new MCP server.
@@ -72,6 +75,7 @@ func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManag
 		state:           Configured, // Initial internal state before ui_configure is called
 		stateWaiters:    make(map[string][]chan struct{}),
 		stateQueue:      make(map[string][]interface{}),
+		waitStartTime:   time.Now(), // Spec: mcp.md Section 8.3
 	}
 	srv.registerTools()
 	srv.registerResources()
@@ -743,7 +747,18 @@ func (s *Server) hasPollingClients(sessionID string) bool {
 	return len(s.stateWaiters[sessionID]) > 0
 }
 
-// writeEventsJSON writes events as JSON or returns false if no events.
+// getWaitTime returns seconds since agent last responded, or 0 if currently connected.
+// Spec: mcp.md Section 8.3
+func (s *Server) getWaitTime(sessionID string) float64 {
+	if s.hasPollingClients(sessionID) {
+		return 0
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return time.Since(s.waitStartTime).Seconds()
+}
+
+// writeEventsJSON writes events as JSON. Returns true if events were written.
 func writeEventsJSON(w http.ResponseWriter, events []interface{}) bool {
 	if len(events) == 0 {
 		return false
@@ -751,6 +766,18 @@ func writeEventsJSON(w http.ResponseWriter, events []interface{}) bool {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
 	return true
+}
+
+// respondWithEvents drains the queue, updates waitStartTime, and writes response.
+// Used by handleWait to consolidate the response logic for signal and timeout cases.
+func (s *Server) respondWithEvents(w http.ResponseWriter, sessionID string) {
+	s.mu.Lock()
+	s.waitStartTime = time.Now()
+	s.mu.Unlock()
+
+	if !writeEventsJSON(w, s.drainStateQueue(sessionID)) {
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // handleWait handles GET /wait - long-poll for state changes on the current session.
@@ -783,6 +810,9 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 
 	// Check if there are already events queued
 	if writeEventsJSON(w, s.drainStateQueue(sessionID)) {
+		s.mu.Lock()
+		s.waitStartTime = time.Now()
+		s.mu.Unlock()
 		return
 	}
 
@@ -820,16 +850,13 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 	// Wait for signal or timeout
 	select {
 	case <-waiterCh:
-		if !writeEventsJSON(w, s.drainStateQueue(sessionID)) {
-			w.WriteHeader(http.StatusNoContent)
-		}
-
+		s.respondWithEvents(w, sessionID)
 	case <-time.After(time.Duration(timeout) * time.Second):
-		if !writeEventsJSON(w, s.drainStateQueue(sessionID)) {
-			w.WriteHeader(http.StatusNoContent)
-		}
-
+		s.respondWithEvents(w, sessionID)
 	case <-r.Context().Done():
-		// Client disconnected - defer handles cleanup
+		// Client disconnected - update waitStartTime so waitTime() resets
+		s.mu.Lock()
+		s.waitStartTime = time.Now()
+		s.mu.Unlock()
 	}
 }

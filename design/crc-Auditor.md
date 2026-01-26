@@ -1,6 +1,7 @@
 # Auditor
 
 **Source Spec:** specs/ui-audit.md
+**Requirements:** R19, R20, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33
 
 Analyzes frictionless apps for code quality violations.
 
@@ -10,6 +11,7 @@ Analyzes frictionless apps for code quality violations.
 - externalMethods: Methods called by Claude, flagged as warnings (`addAgentMessage`, `updateRequirements`, `onAppProgress`, `onAppUpdated`)
 - buttonElements: Elements where `ui-action` is valid (`button`, `sl-button`, `sl-icon-button`)
 - operatorChars: Characters invalid in binding paths (`!`, `=`, `&`, `|`, `+`, `-`)
+- namespaceAttrs: Attributes excluded from path checks (`ui-namespace` - viewdef namespace identifier)
 
 ## Does
 

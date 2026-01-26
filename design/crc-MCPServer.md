@@ -1,6 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20
 
 ## Responsibilities
 
@@ -18,6 +19,7 @@
 - stateWaiters: Waiting HTTP requests for current session (channels)
 - mcpStateQueue: Event queue for current session (mcp.state)
 - goLogFile: Current Go log file handle (`mcp.log`) for reopening on reconfigure
+- waitStartTime: Timestamp when agent last responded (updated on startup and when /wait returns)
 
 ### Does
 - initialize: Set up MCP server, auto-install if README.md missing, auto-start HTTP server
@@ -29,7 +31,7 @@
 - listTools: Return available tools (ui_configure, ui_run, ui_open_browser, ui_status, ui_install, ui_display)
 - handleResourceRequest: Process resource queries (ui://state uses currentVendedID)
 - handleToolCall: Execute tool operations by delegating to specific handlers
-- handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); after draining queue, calls SafeExecuteInSession with empty function to trigger browser update
+- handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); updates waitStartTime on return; after draining queue, calls SafeExecuteInSession with empty function to trigger browser update
 - notifyStateChange: Signal waiting HTTP clients when mcp.pushState() called
 - atomicSwapQueue: Atomically swap mcp.state with empty table, return accumulated events
 - SafeExecuteInSession: Wraps ui-server's ExecuteInSession with panic recovery; converts Lua errors/panics to errors
@@ -39,7 +41,7 @@
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
 - handleVariables: Render interactive variable tree (GET /variables)
 - handleState: Return session state JSON (GET /state)
-- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:app, mcp:display, mcp:status)
+- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status)
 - loadMCPLua: Load `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
 - loadAppInitFiles: Scan `{base_dir}/apps/*/` and load `init.lua` from each app directory if it exists
 

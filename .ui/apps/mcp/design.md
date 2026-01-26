@@ -33,6 +33,22 @@ When the agent event loop is not connected to `/wait` (Claude is processing):
 - Uses `mcp:pollingEvents()` server method - returns false when processing
 - Spinner hidden via `ui-class-hidden="pollingEvents()"`
 
+### Wait Time Counter (Client-Local JavaScript)
+
+Client-side JavaScript manages the counter display without server round-trips:
+- A `<script>` block in the viewdef defines counter management functions
+- When `pollingEvents()` changes, a `ui-code` binding triggers JS to start/stop the counter
+- Counter stores start timestamp and uses `setInterval` to update every second
+- Counter element shows seconds elapsed, hidden when <= 5 seconds
+- Bold orange text with black glow for contrast, centered in spinner
+- Interval cleared when spinner hides (pollingEvents becomes true)
+
+### pushState Override
+
+On load, idempotently override the global `pushState` function:
+- Before pushing an event, check if there are no other pending events
+- If no pending events and `mcp:waitTime() > 15`, call `mcp:notify()` with warning about Claude being busy
+
 ### Menu Open State (Icon Grid)
 
 ```
@@ -78,9 +94,11 @@ The global `mcp` object is provided by the server. This app adds:
 | selectApp(name) | Call mcp:display(name), close menu |
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
+| waitTime() | Server-provided: seconds since last agent connection to /wait |
 | notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
 | notifications() | Returns _notifications for binding |
 | dismissNotification(n) | Remove notification from list |
+| setupPushStateOverride() | Idempotently override pushState to warn on long wait times |
 
 ### MCP.Notification (notification toast)
 
