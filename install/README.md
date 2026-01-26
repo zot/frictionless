@@ -1,6 +1,6 @@
 # frictionless
 
-**Version: 0.7.0**
+**Version: 0.8.0**
 
 An MCP server that enables AI agents to build interactive UIs for rich two-way communication with users.
 

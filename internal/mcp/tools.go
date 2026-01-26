@@ -5,6 +5,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/yuin/goldmark"
 	lua "github.com/yuin/gopher-lua"
 	"github.com/zot/ui-engine/cli"
 )
@@ -247,7 +249,7 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 
 	// 2. Install resources to {base_dir}/resources/
-	for _, file := range []string{"reference.md", "viewdefs.md", "lua.md", "mcp.md"} {
+	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md"} {
 		bundlePath := filepath.Join("resources", file)
 		destPath := filepath.Join(s.baseDir, "resources", file)
 		status, err := s.installFile(bundlePath, destPath, 0644, force)
@@ -1123,4 +1125,184 @@ func (s *Server) handleAPIAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := s.callMCPHandler(s.handleAudit, args)
 	apiResponse(w, result, err)
+}
+
+// handleAPIResource handles GET /api/resource/ and /api/resource/{path}
+// Serves files from {base_dir}/resources/ with directory listing support
+func (s *Server) handleAPIResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		apiError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	s.mu.RLock()
+	baseDir := s.baseDir
+	s.mu.RUnlock()
+
+	// Extract path after /api/resource/
+	reqPath := strings.TrimPrefix(r.URL.Path, "/api/resource/")
+	reqPath = filepath.Clean(reqPath)
+
+	// Prevent directory traversal
+	if strings.Contains(reqPath, "..") {
+		apiError(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+
+	resourceDir := filepath.Join(baseDir, "resources")
+	fullPath := filepath.Join(resourceDir, reqPath)
+
+	// Ensure path is within resources directory
+	if !strings.HasPrefix(fullPath, resourceDir) {
+		apiError(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+
+	info, err := os.Stat(fullPath)
+	if os.IsNotExist(err) {
+		apiError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if info.IsDir() {
+		// Directory listing
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			apiError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		type dirEntry struct {
+			Name  string `json:"name"`
+			IsDir bool   `json:"is_dir"`
+			Size  int64  `json:"size,omitempty"`
+		}
+
+		var listing []dirEntry
+		for _, entry := range entries {
+			// Skip hidden files
+			if strings.HasPrefix(entry.Name(), ".") {
+				continue
+			}
+			de := dirEntry{
+				Name:  entry.Name(),
+				IsDir: entry.IsDir(),
+			}
+			if !entry.IsDir() {
+				if fi, err := entry.Info(); err == nil {
+					de.Size = fi.Size()
+				}
+			}
+			listing = append(listing, de)
+		}
+
+		// Return JSON for curl, HTML for browsers
+		userAgent := r.Header.Get("User-Agent")
+		if strings.Contains(userAgent, "curl") {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"path":    reqPath,
+				"entries": listing,
+			})
+		} else {
+			// HTML directory listing
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+  <title>Resources: /%s</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.5rem; color: #333; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+    a { color: #0066cc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .dir { font-weight: bold; }
+    .dir::after { content: "/"; }
+    .size { color: #666; font-size: 0.875rem; margin-left: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Resources: /%s</h1>
+  <ul>
+`, reqPath, reqPath)
+			for _, entry := range listing {
+				entryPath := entry.Name
+				if reqPath != "" && reqPath != "." {
+					entryPath = reqPath + "/" + entry.Name
+				}
+				if entry.IsDir {
+					fmt.Fprintf(w, `    <li><a href="/api/resource/%s" class="dir">%s</a></li>`+"\n", entryPath, entry.Name)
+				} else {
+					fmt.Fprintf(w, `    <li><a href="/api/resource/%s">%s</a><span class="size">%d bytes</span></li>`+"\n", entryPath, entry.Name, entry.Size)
+				}
+			}
+			fmt.Fprintf(w, `  </ul>
+</body>
+</html>
+`)
+		}
+	} else {
+		// Serve file
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			apiError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		ext := filepath.Ext(fullPath)
+		userAgent := r.Header.Get("User-Agent")
+		isCurl := strings.Contains(userAgent, "curl")
+
+		// Render markdown as HTML for browsers
+		if ext == ".md" && !isCurl {
+			var buf bytes.Buffer
+			if err := goldmark.Convert(content, &buf); err != nil {
+				apiError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+  <title>%s</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+    h1, h2, h3 { color: #333; }
+    code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 4px; }
+    pre code { background: none; padding: 0; }
+    a { color: #0066cc; }
+    table { border-collapse: collapse; width: 100%%; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f4f4f4; }
+  </style>
+</head>
+<body>
+%s
+</body>
+</html>
+`, filepath.Base(fullPath), buf.String())
+			return
+		}
+
+		// Set content type based on extension
+		switch ext {
+		case ".md":
+			w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		case ".json":
+			w.Header().Set("Content-Type", "application/json")
+		case ".html":
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		default:
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		}
+
+		w.Write(content)
+	}
 }

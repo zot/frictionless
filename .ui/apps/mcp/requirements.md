@@ -55,9 +55,14 @@ Display a counter inside the spinner showing seconds elapsed since the spinner a
 
 When pushing an event via `mcp.pushState`:
 - Idempotently override the global `pushState` function to add this behavior
-- Before pushing, if there are no other pending events, check `mcp:waitTime()`
-- If waitTime exceeds 15 seconds, show a notification: "Claude might be busy or not watching events"
+- Before pushing, check `mcp:waitTime()`
+- If waitTime exceeds 5 seconds, show a notification: "Claude might be busy. Use /ui events to reconnect."
 - Use the "warning" variant for this notification
+- Only show once per disconnect period (reset when Claude reconnects)
+
+Additionally, on UI refresh, check if events are pending and Claude appears disconnected:
+- If `waitTime() > 5` and there are pending events, show the same warning
+- This catches interactions that don't go through pushState
 
 ## Available Apps
 
@@ -81,6 +86,27 @@ A status bar at the bottom of the viewport:
 - Displays `mcp.statusLine` text with `mcp.statusClass` CSS class
 - The `.thinking` class styles text as orange bold-italic
 - Maintains consistent height even when empty
+- Compact padding (6px horizontal)
+
+### Help Icon
+
+A help icon (question mark) at the right edge of the status bar, before the build toggles:
+- Clicking opens `localhost:{MCP-PORT}/api/resource/` in a new browser tab
+- Shows resources documentation index
+- Tooltip: "Documentation"
+
+### Build Settings Toggles
+
+Two toggle icons on the right edge of the status bar, grouped tightly together:
+
+| Toggle | Icons | Values |
+|--------|-------|--------|
+| Build mode | 🚀 rocket / 💎 diamond | fast / thorough |
+| Execution | ⏳ hourglass / 🔄 arrows | foreground / background |
+
+- Icons have minimal padding (3px horizontal) for a compact appearance
+- Click toggles between states
+- Hover shows tooltip describing current value with "(click to change)"
 
 ## Notifications
 

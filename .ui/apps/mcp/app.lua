@@ -73,10 +73,12 @@ end
 -- Extend the global mcp object with shell functionality
 -- Note: mcp is created by the server, we just add methods and properties
 
--- Initialize properties for menu state and notifications
+-- Initialize properties for menu state, notifications, and build settings
 mcp._availableApps = mcp._availableApps or {}
 mcp.menuOpen = mcp.menuOpen or false
 mcp._notifications = mcp._notifications or {}
+mcp.buildMode = mcp.buildMode or "fast"  -- "fast" or "thorough"
+mcp.runInBackground = mcp.runInBackground or false  -- foreground or background execution
 
 -- Scan for available apps (built apps with app.lua, excluding mcp shell)
 function mcp:scanAvailableApps()
@@ -120,6 +122,59 @@ function mcp:selectApp(name)
     self.menuOpen = false
 end
 
+-- Build mode toggle (fast/thorough)
+function mcp:toggleBuildMode()
+    if self.buildMode == "fast" then
+        self.buildMode = "thorough"
+    else
+        self.buildMode = "fast"
+    end
+end
+
+function mcp:isFastMode()
+    return self.buildMode == "fast"
+end
+
+function mcp:isThoroughMode()
+    return self.buildMode == "thorough"
+end
+
+function mcp:buildModeTooltip()
+    if self.buildMode == "fast" then
+        return "Fast mode (click to change)"
+    else
+        return "Thorough mode (click to change)"
+    end
+end
+
+-- Background execution toggle
+function mcp:toggleBackground()
+    self.runInBackground = not self.runInBackground
+end
+
+function mcp:isBackground()
+    return self.runInBackground
+end
+
+function mcp:isForeground()
+    return not self.runInBackground
+end
+
+function mcp:backgroundTooltip()
+    if self.runInBackground then
+        return "Background (click to change)"
+    else
+        return "Foreground (click to change)"
+    end
+end
+
+-- Open help documentation in new browser tab
+function mcp:openHelp()
+    local status = self:status()
+    local port = status and status.mcp_port or 8000
+    self.code = string.format("window.open('http://localhost:%d/api/resource/', '_blank')", port)
+end
+
 function mcp:notify(message, variant)
     local notification = session:create(Notification, {
         message = message,
@@ -157,32 +212,38 @@ function mcp:checkDisconnectNotify()
     if wt == 0 then
         self._notifiedForDisconnect = false
     elseif not self._notifiedForDisconnect and wt > 5 and self:pendingEventCount() > 0 then
-        self:notify("Claude might be busy or not watching events", "warning")
+        self:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
         self._notifiedForDisconnect = true
     end
     return ""
 end
 
--- Override pushState to warn on long wait times (idempotent)
-function mcp:setupPushStateOverride()
-    if mcp._pushStateOverridden then return end
-    mcp._pushStateOverridden = true
+-- Override pushState to inject build mode and warn on long wait times (idempotent)
+if not mcp._originalPushState then
+   mcp._originalPushState = mcp.pushState
+end
 
-    local originalPushState = mcp.pushState
-    mcp.pushState = function(event)
-        local wt = mcp:waitTime()
-        if wt == 0 then
-            mcp._notifiedForDisconnect = false
-        elseif not mcp._notifiedForDisconnect and wt > 5 then
-            mcp:notify("Claude might be busy or not watching events", "warning")
-            mcp._notifiedForDisconnect = true
-        end
-        return originalPushState(event)
+function mcp.pushState(event)
+    -- Inject build settings
+    if mcp.buildMode == "thorough" then
+        event.handler = "/ui-thorough"
+    else
+        event.handler = "/ui-fast"
     end
+    event.background = mcp.runInBackground
+
+    -- Warn on long wait times
+    local wt = mcp:waitTime()
+    if wt == 0 then
+        mcp._notifiedForDisconnect = false
+    elseif not mcp._notifiedForDisconnect and wt > 5 then
+        mcp:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
+        mcp._notifiedForDisconnect = true
+    end
+    return mcp._originalPushState(event)
 end
 
 -- Initialization
 if not session.reloading then
     mcp:scanAvailableApps()
 end
-mcp:setupPushStateOverride()

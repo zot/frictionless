@@ -67,6 +67,8 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
+- `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
+- `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML for browsers, raw for curl)
 
 ### 2.3 SSE Mode (`serve` command)
 
@@ -82,6 +84,8 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `GET /variables`: Interactive variable tree view
 - `GET /state`: Current session state (JSON)
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
+- `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
+- `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML for browsers, raw for curl)
 
 ### 2.4 Install Command (`install`)
 

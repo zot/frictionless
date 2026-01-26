@@ -36,6 +36,7 @@
     .app-list-header h2 {
       margin: 0;
       font-size: var(--sl-font-size-large);
+      font-weight: bold;
     }
     .app-list {
       flex: 1;
@@ -265,18 +266,6 @@
     }
     .chat-input-row sl-input {
       flex: 1;
-    }
-    .quality-control {
-      display: flex;
-      align-items: center;
-      gap: var(--sl-spacing-x-small);
-      min-width: 130px;
-    }
-    .quality-label {
-      font-size: var(--sl-font-size-small);
-      color: var(--sl-color-neutral-600);
-      min-width: 70px;
-      text-align: right;
     }
     /* Chat message styles */
     .chat-message {
@@ -579,6 +568,10 @@
                 <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
                 Open
               </sl-button>
+              <sl-button variant="default" ui-class-hidden="selected.noCheckpoints()" ui-action="selected.requestConsolidate()">
+                <sl-icon slot="prefix" name="gem"></sl-icon>
+                Make it thorough
+              </sl-button>
               <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestTest()">
                 <sl-icon slot="prefix" name="check2-square"></sl-icon>
                 Test
@@ -586,6 +579,10 @@
               <sl-button variant="warning" ui-class-hidden="selected.noIssues()" ui-action="selected.requestFix()">
                 <sl-icon slot="prefix" name="tools"></sl-icon>
                 Fix Issues
+              </sl-button>
+              <sl-button variant="warning" ui-class-hidden="selected.noGaps()" ui-action="selected.requestReviewGaps()">
+                <sl-icon slot="prefix" name="exclamation-triangle"></sl-icon>
+                Review Gaps
               </sl-button>
             </div>
 
@@ -672,10 +669,6 @@
           <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
           <div class="chat-input-row" ui-class-hidden="notChatPanel()">
             <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-            <div class="quality-control">
-              <span class="quality-label" ui-value="qualityLabel()"></span>
-              <sl-range min="0" max="2" step="1" ui-value="chatQuality" ui-event-sl-input="setChatQuality()" style="width: 60px; --thumb-size: 14px;"></sl-range>
-            </div>
             <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
           </div>
 

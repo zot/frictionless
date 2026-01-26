@@ -7,6 +7,16 @@ description: use when **running Frictionless UIs** or needing to understand UI s
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
+## CRITICAL: Handler Dispatch Rule
+
+**NEVER modify or create UI code directly.** When an event requires UI changes (build, fix, chat requests about UI), you MUST:
+
+1. Check the `handler` field in the event (`"/ui-fast"` or `"/ui-thorough"`)
+2. Invoke that skill using `Skill(skill: "ui-fast")` or `Skill(skill: "ui-thorough")`
+3. Pass the event context to the skill
+
+This applies to ALL UI modifications—requirements, design, code, and viewdefs. The `/ui` skill handles event loops and display; it delegates all UI changes to the handler skill.
+
 ## Simple Requests
 
 When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright if connected.
@@ -109,19 +119,60 @@ To display an app (e.g., `claude-panel`):
 4. When events arrive, handle according to design.md, then restart the loop:
    - Parse JSON: [{"app":"app-console","event":"select","name":"contacts"}]
    - Check design.md's "Events" section for how to handle each event type
-   - Some events use `.ui/mcp run` directly: `.ui/mcp run 'contacts:doSomething()'`
-   - Some events require spawning a background agent (see below)
+   - **For UI changes**: Check event's `handler` field and invoke that skill (see Handler Dispatch Rule above)
+   - Simple state changes: use `.ui/mcp run` directly
+   - Some events require spawning a background agent (see Build Settings below)
    - Restart: `.ui/mcp event`
 ```
 
 **Background Agent Events:**
-Some events require spawning a background Task agent. The design.md specifies this explicitly:
-```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app")
-```
-Look for patterns like "spawn background agent" or `Task(...)` in the design.md's event handling section. Background agents allow the event loop to continue while long-running work (builds, tests) executes.
+Some events require spawning a background Task agent. The design.md specifies this explicitly. Look for patterns like "spawn background agent" or `Task(...)` in the design.md's event handling section. Background agents allow the event loop to continue while long-running work (builds, tests) executes.
 
 **The event loop is NOT optional.** Without it, button clicks and form submissions are silently ignored.
+
+## Build Settings
+
+Every event has two fields injected automatically by the MCP layer based on the status bar toggles:
+
+| Toggle | Field | Values |
+|--------|-------|--------|
+| Build mode (rocket/diamond) | `handler` | `"/ui-fast"` or `"/ui-thorough"` |
+| Execution (hourglass/arrows) | `background` | `false` or `true` |
+
+### Handler Dispatch (MANDATORY)
+
+**DO NOT skip this.** When handling events that involve UI changes:
+
+1. **Invoke the skill named in `handler`** — use `Skill(skill: "ui-fast")` or `Skill(skill: "ui-thorough")`
+2. **Check `background`** — if true, run as background agent via Task tool
+
+**Always respect these fields.** They reflect the user's explicit choices via the UI toggles. Ignoring the handler means ignoring user preferences.
+
+### Execution Mode
+
+| `background` | Behavior |
+|--------------|----------|
+| `false` | Run in foreground (blocks event loop) |
+| `true` | Run as background agent (event loop continues) |
+
+For background execution:
+```
+Task(subagent_type="ui-builder", run_in_background=true, prompt="invoke {handler} skill...")
+```
+
+### `/ui-fast`
+
+Rapid iteration with checkpointing:
+1. Checkpoint current state before changes
+2. Make edits directly
+3. Hot-reload shows results immediately
+4. User can rollback if needed
+
+### `/ui-thorough`
+
+Full workflow with progress feedback:
+- Requirements → Design → Code → Viewdefs → Audit → Simplify
+- Shows step-by-step progress in UI
 
 ## App Variable Convention
 
@@ -150,14 +201,13 @@ The server auto-starts when the MCP connection is established. Use `.ui/mcp stat
 
 **Verifying connection:** After navigating with Playwright, call `.ui/mcp status` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 
-## Building or modifying UIs
+## Building or Modifying UIs
 
-**ALWAYS use the `/ui-builder` skill to create or modify UIs.** Do NOT use `ui_*` MCP tools directly for building.
+**Always use `/ui-fast` or `/ui-thorough`** — never edit UI files directly from the `/ui` skill. When handling events, check the `handler` field to determine which skill to invoke. When the user asks for changes outside an event loop, ask which mode they prefer or default to `/ui-fast` for small changes.
 
-Before invoking `/ui-builder`:
+**Before building a new app:**
 1. Create the app directory: `mkdir -p {base_dir}/apps/<app>`
 2. Write requirements to `{base_dir}/apps/<app>/requirements.md`
-3. Invoke `/ui-builder`: "Read `{base_dir}/apps/<app>/requirements.md` and build the app"
 
 ### Requirements Format
 
@@ -170,7 +220,7 @@ A short paragraph describing what the app does.
 ...
 ```
 
-The first line is a descriptive title (e.g., "# Contact Manager"), followed by prose describing the app. See the `/ui-builder` skill's `examples/requirements.md` for a reference.
+The first line is a descriptive title (e.g., "# Contact Manager"), followed by prose describing the app. See `.claude/skills/ui-builder/examples/requirements.md` for a reference.
 
 ## Directory Structure
 
@@ -190,7 +240,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 ## File Ownership
 
 - `requirements.md` — you write/update this
-- `design.md`, `app.lua`, `viewdefs/` — use `/ui-builder` skill to modify
+- `design.md`, `app.lua`, `viewdefs/` — **MUST use `/ui-fast` or `/ui-thorough` skill** (never edit directly from `/ui`)
 
 ## Debugging
 

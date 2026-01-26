@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.7.0**
+**Version: 0.8.0**
 
 **A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
 
@@ -21,7 +21,7 @@ Frictionless uses [ui-engine](https://github.com/zot/ui-engine) to eliminate com
 - **No frontend code** — just HTML templates with declarative bindings
 - **No sync wiring** — change backend data, UI updates automatically—no code to detect or push changes
 
-Claude writes your app logic and skips everything else. See [overview](doc/OVERVIEW.md) for details.
+Claude writes your app logic and skips everything else. See [overview](docs/OVERVIEW.md) for details.
 
 ## Usage
 

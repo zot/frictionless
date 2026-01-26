@@ -37,6 +37,11 @@ func (s *Server) registerResources() {
 	), s.handleGetStaticResource)
 
 	// Explicitly register core docs for discovery
+	s.mcpServer.AddResource(mcp.NewResource("ui://intro", "Frictionless UI User Guide",
+		mcp.WithResourceDescription("User guide: quick start, build modes, app console, checkpoints"),
+		mcp.WithMIMEType("text/markdown"),
+	), s.handleGetStaticResource)
+
 	s.mcpServer.AddResource(mcp.NewResource("ui://reference", "UI Platform Reference",
 		mcp.WithResourceDescription("Main entry point for UI platform documentation"),
 		mcp.WithMIMEType("text/markdown"),

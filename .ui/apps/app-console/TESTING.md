@@ -14,5 +14,10 @@
 - [ ] Panel tabs switch between Chat and Lua
 - [ ] Refresh rescans apps from disk
 - [ ] Gaps indicator shows warning icon when TESTING.md has non-empty Gaps section
+- [ ] Checkpoint icon shows rocket for apps with checkpoints, gem otherwise
+- [ ] Make it thorough button appears when app has checkpoints
+- [ ] Make it thorough button triggers consolidate_request event
+- [ ] Review Gaps button appears when app has gaps
+- [ ] Review Gaps button triggers review_gaps_request event
 
 ## Gaps

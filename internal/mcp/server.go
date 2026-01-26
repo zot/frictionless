@@ -149,6 +149,7 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/api/ui_install", s.handleAPIInstall)
 	mux.HandleFunc("/api/ui_open_browser", s.handleAPIOpenBrowser)
 	mux.HandleFunc("/api/ui_audit", s.handleAPIAudit)
+	mux.HandleFunc("/api/resource/", s.handleAPIResource)
 
 	// Listen on random port
 	listener, err := net.Listen("tcp", ":0")

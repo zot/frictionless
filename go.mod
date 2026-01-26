@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/layeh/gopher-json v0.0.0-20201124131017-552bb3c4c3bf
 	github.com/mark3labs/mcp-go v0.43.2
+	github.com/yuin/goldmark v1.7.16
 	github.com/yuin/gopher-lua v1.1.1
 	github.com/zot/ui-engine v0.0.0
 	golang.org/x/net v0.49.0

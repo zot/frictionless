@@ -22,7 +22,17 @@ Outer shell for all frictionless apps. Displays the current app full-viewport an
 
 ### Status Bar
 
-Fixed at the bottom of the viewport, always visible. Displays `mcp.statusLine` text with `mcp.statusClass` CSS class applied. The `.thinking` class styles text as orange bold-italic.
+Fixed at the bottom of the viewport, always visible. Compact horizontal padding (6px). Displays `mcp.statusLine` text with `mcp.statusClass` CSS class applied. The `.thinking` class styles text as orange bold-italic.
+
+At the right end of the status bar are icons grouped tightly together in a `.mcp-status-toggles` container:
+
+| Icon | Action | Description |
+|------|--------|-------------|
+| ❓ question mark | openHelp() | Opens `/api/resource/` in new tab |
+| 🚀/💎 | toggleBuildMode() | fast / thorough |
+| ⏳/🔄 | toggleBackground() | foreground / background |
+
+Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows tooltip.
 
 ### Processing Indicator
 
@@ -45,9 +55,24 @@ Client-side JavaScript manages the counter display without server round-trips:
 
 ### pushState Override
 
-On load, idempotently override the global `pushState` function:
-- Before pushing an event, check if there are no other pending events
-- If no pending events and `mcp:waitTime() > 15`, call `mcp:notify()` with warning about Claude being busy
+On load, idempotently override the global `pushState` function to:
+
+1. **Inject build settings:**
+   - `event.handler` = `"/ui-fast"` or `"/ui-thorough"`
+   - `event.background` = `true` or `false`
+
+2. **Warn on long wait times:**
+   - If `mcp:waitTime() > 5` and not already notified, show warning notification
+   - Resets `_notifiedForDisconnect` when Claude reconnects (waitTime returns to 0)
+
+### Disconnect Check (checkDisconnectNotify)
+
+Called on UI refresh via hidden span binding. Warns if:
+- `waitTime() > 5` seconds AND
+- `pendingEventCount() > 0` (events are waiting) AND
+- Not already notified this disconnect period
+
+This catches the case where user interacts with UI but Claude isn't listening.
 
 ### Menu Open State (Icon Grid)
 
@@ -80,6 +105,9 @@ The global `mcp` object is provided by the server. This app adds:
 | statusLine | string | Status text to display (server-provided) |
 | statusClass | string | CSS class for status bar styling (e.g., "thinking") |
 | _notifications | Notification[] | Active notification toasts |
+| buildMode | string | "fast" or "thorough" - global build mode setting |
+| runInBackground | boolean | Whether to run builds in background |
+| _notifiedForDisconnect | boolean | Whether disconnect warning has been shown (prevents duplicate notifications) |
 
 ## Methods
 
@@ -95,10 +123,21 @@ The global `mcp` object is provided by the server. This app adds:
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 | waitTime() | Server-provided: seconds since last agent connection to /wait |
+| pendingEventCount() | Server-provided: number of events waiting to be processed |
+| waitStartOffset() | Returns UNIX timestamp when wait started, or 0 if connected (for client-side counter) |
+| checkDisconnectNotify() | Check if Claude appears disconnected and show warning notification if needed |
 | notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
 | notifications() | Returns _notifications for binding |
 | dismissNotification(n) | Remove notification from list |
-| setupPushStateOverride() | Idempotently override pushState to warn on long wait times |
+| openHelp() | Open /api/resource/ in new browser tab using mcp:status().mcp_port |
+| toggleBuildMode() | Toggle between "fast" and "thorough" modes |
+| isFastMode() | Returns true if buildMode is "fast" |
+| isThoroughMode() | Returns true if buildMode is "thorough" |
+| buildModeTooltip() | Returns tooltip text for current mode |
+| toggleBackground() | Toggle between foreground and background execution |
+| isBackground() | Returns true if runInBackground is true |
+| isForeground() | Returns true if runInBackground is false |
+| backgroundTooltip() | Returns tooltip text for current execution mode |
 
 ### MCP.Notification (notification toast)
 

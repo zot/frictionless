@@ -70,6 +70,8 @@ Tool API (Spec 2.5) - enables curl access for spawned agents:
 - `POST /api/ui_install`: Install bundled files
 - `POST /api/ui_open_browser`: Open browser to UI
 - `POST /api/ui_audit`: Audit app for code quality violations
+- `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
+- `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML via goldmark for browsers, raw for curl)
 
 ### Lua Loading Sequence (Spec 4.2)
 During startup, Go executes:

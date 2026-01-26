@@ -29,8 +29,10 @@ When an app is selected, show:
 - Action buttons based on state:
   - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
   - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
+  - Make it thorough (when has checkpoints) - sends consolidate_request to invoke `/ui-thorough` skill
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
+  - Review Gaps (when has gaps) - sends review_gaps_request to invoke `/ui-thorough` skill
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
 - Fixed Issues section (collapsed by default)
@@ -88,19 +90,11 @@ Selected app provides context for the conversation.
 - Messages display in reverse order (newest at bottom, like Claude Code terminal)
 - User messages prefixed with `>` character
 
-**Quality Selector:**
+**Build Mode:**
 
-A 3-position slider next to the Send button controls how modification requests are handled:
+Build mode is controlled globally via the status bar toggle (rocket=fast, diamond=thorough). The `handler` field is injected into every event automatically by the MCP layer.
 
-| Mode | Behavior |
-|------|----------|
-| Fast | Vibe code - just make the change directly, no skill, no phases |
-| Thorough | Use ui-builder skill with full phases (design, audit, etc.) |
-| Background | Spawn background agent (shows progress bar, non-blocking) |
-
-Default is Fast for quickest feedback. User can switch to higher quality modes when needed.
-
-**IMPORTANT:** Claude MUST always respect the quality field. When `quality` is "thorough", Claude MUST invoke the `/ui-builder` skill and follow its full workflow (update design.md, audit, etc.). When `quality` is "fast", Claude can make direct edits without the skill. This is not optional - the quality setting is the user's explicit choice about how they want changes handled.
+See `/ui` skill's "Build Mode" section for how Claude should handle the `handler` field.
 
 ## Claude Code Todo List
 
@@ -187,11 +181,13 @@ User message with selected app as context. Respond conversationally.
 | Field | Description |
 |-------|-------------|
 | `text` | The user's message |
-| `quality` | Quality level: "fast", "thorough", or "background" |
-| `handler` | Skill to invoke: `null` (direct edit), `"/ui-builder"`, or `"background-ui-builder"` |
+| `handler` | Skill to invoke: `"/ui-fast"` or `"/ui-thorough"` (injected by MCP) |
+| `background` | Whether to run as background agent (injected by MCP) |
 | `context` | Selected app name (if any) |
 | `reminder` | Brief reminder to show todos and thinking messages |
 | `note` | Path to app files for context |
+
+**Handler dispatch:** See `/ui` skill's "Build Mode" section for how to handle the `handler` field. Always respect it.
 
 **Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
 - Appear in chat log styled differently (italic, muted)
@@ -200,13 +196,6 @@ User message with selected app as context. Respond conversationally.
 Before sending a thinking message, check for new events first. If there's an event, handle it immediately and save the thinking message as a todo.
 
 Use `appConsole:addAgentMessage(text)` for the final response (clears status bar).
-
-**If the chat involves modifying an app:** Check the `handler` field and follow it exactly:
-- `null` (fast quality) — Read app files at `{base_dir}/apps/{context}/`, make the change directly, reply via `appConsole:addAgentMessage()`
-- `"/ui-builder"` (thorough quality) — **MUST invoke `/ui-builder` skill** with full phases (design update, code, viewdefs, audit, simplify). Do NOT skip phases or make direct edits.
-- `"background-ui-builder"` (background quality) — Spawn background ui-builder agent using the **same prompt template as `build_request`** (see below). Include the user's `text` in the prompt so the agent knows what to do.
-
-**The handler field reflects the user's quality choice and must be respected.** If handler is `/ui-builder`, Claude must use the skill even for "simple" changes.
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
@@ -262,6 +251,12 @@ Run ui-testing on an app. Can also use a background agent pattern.
 
 ### `fix_request`
 Fix known issues in an app. Can also use a background agent pattern.
+
+### `consolidate_request`
+Invoke the `/ui-thorough` skill to integrate checkpointed changes from `/ui-fast` into requirements.md and design.md. Always invokes `/ui-thorough` regardless of the build mode toggle. After consolidation, checkpoints are cleared.
+
+### `review_gaps_request`
+Invoke the `/ui-thorough` skill to review and clean up fast code gaps listed in TESTING.md. Always invokes `/ui-thorough` regardless of the build mode toggle.
 
 ## Data Flow
 
@@ -334,3 +329,23 @@ When an app's TESTING.md has a non-empty `## Gaps` section, show a warning indic
 
 - In the app list: show a ⚠ icon next to apps with gaps
 - In app details: show a "Gaps" section header (similar to Known Issues) that expands to show the gaps content
+
+## Checkpoint Indicator
+
+Apps can have checkpoints from `/ui-fast` prototyping sessions. Show checkpoint status in the app list:
+
+- Rocket icon (🚀) next to apps WITH checkpoints (rapid prototyping in progress)
+- Gem icon (💎) next to apps WITHOUT checkpoints (stable/thorough)
+
+The icon is shown in the app list item, before the app name.
+
+## Make it Thorough Button
+
+When an app has checkpoints, show a "Make it thorough" button in the action buttons area. This button:
+
+- Only appears when the app has checkpoints (`hasCheckpoints()`)
+- Sends a `consolidate_request` event to Claude
+- Claude invokes `/ui-thorough` to integrate the checkpointed changes into both requirements.md and design.md
+- After consolidation, checkpoints are cleared
+
+This allows users to prototype quickly with `/ui-fast`, then consolidate changes into proper documentation when ready.

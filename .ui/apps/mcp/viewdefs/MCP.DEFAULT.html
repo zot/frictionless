@@ -30,19 +30,43 @@
     .mcp-status-bar {
       flex-shrink: 0;
       line-height: 1.4;
-      padding: 4px 12px;
+      padding: 4px 6px;
       background: var(--sl-color-neutral-100);
       border-top: 1px solid var(--sl-color-neutral-200);
       font-family: var(--sl-font-sans);
       font-size: var(--sl-font-size-small);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .mcp-status-bar::after {
+    .mcp-status-bar .mcp-status-text {
+      flex: 1;
+      min-width: 0;
+    }
+    .mcp-status-bar .mcp-status-toggles {
+      flex-shrink: 0;
+      display: flex;
+    }
+    .mcp-status-bar .mcp-status-text::after {
       content: '\00a0';  /* non-breaking space to maintain height when empty */
     }
     .mcp-status-bar .thinking {
       color: #E07A47;
       font-weight: bold;
       font-style: italic;
+    }
+    .mcp-build-mode-toggle {
+      cursor: pointer;
+      padding: 2px 3px;
+      border-radius: var(--sl-border-radius-small);
+      transition: background 0.2s;
+    }
+    .mcp-build-mode-toggle:hover {
+      background: var(--sl-color-neutral-200);
+    }
+    .mcp-build-mode-toggle sl-icon {
+      font-size: 1.1rem;
+      vertical-align: middle;
     }
     .mcp-menu-container {
       position: fixed;
@@ -194,7 +218,20 @@
 
     <!-- Status bar -->
     <div class="mcp-status-bar">
-      <span ui-attr-class="statusClass" ui-value="statusLine"></span>
+      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine"></span>
+      <span class="mcp-status-toggles">
+        <span class="mcp-build-mode-toggle" ui-event-click="openHelp()" title="Documentation">
+          <sl-icon name="question-circle"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleBuildMode()" ui-attr-title="buildModeTooltip()">
+          <sl-icon name="rocket-takeoff-fill" ui-class-hidden="isThoroughMode()"></sl-icon>
+          <sl-icon name="gem" ui-class-hidden="isFastMode()"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleBackground()" ui-attr-title="backgroundTooltip()">
+          <sl-icon name="hourglass-split" ui-class-hidden="isBackground()"></sl-icon>
+          <sl-icon name="arrow-repeat" ui-class-hidden="isForeground()"></sl-icon>
+        </span>
+      </span>
     </div>
 
     <!-- App switcher menu button (9-dot grid) - floats above all content -->
