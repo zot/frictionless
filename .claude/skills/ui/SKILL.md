@@ -7,7 +7,21 @@ description: use when **running Frictionless UIs** or needing to understand UI s
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
-## CRITICAL: Handler Dispatch Rule
+## CRITICAL: Before Handling ANY Event
+
+**ALWAYS read the design file for the app that sent the event FIRST.** The `app` field tells you which design to read:
+
+```
+Event: {"app":"app-console", "event":"app_created", "name":"contacts", "context":"contacts", "note":"...contacts..."}
+       ^^^^^^^^^^^^^^^^
+Read:  .ui/apps/app-console/design.md  <-- ONLY use the "app" field
+```
+
+**WARNING:** Do NOT be misled by `context`, `note`, `name`, or other fields that mention other app names. These are data for handling the event—they do NOT change which design.md you read. The `app` field is the ONLY field that determines the design file.
+
+The design.md explains how to handle each event type. Do NOT skip this step—even for events that seem obvious like `app_created`.
+
+## Handler Dispatch Rule
 
 **NEVER modify or create UI code directly.** When an event requires UI changes (build, fix, chat requests about UI), you MUST:
 
@@ -46,21 +60,7 @@ This returns one JSON array per line containing one or more events:
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
 
-Make sure you have read the design file for the event.
-
-### Which Design File to Read
-
-**Example event:**
-```json
-{"app":"app-console", "context":"contacts", "note":"...contacts", "event":"chat", "text":"hello"}
-```
-
-**Read design.md based on the `app` field:** `{base_dir}/apps/app-console/design.md` (from `app` field) <-- CORRECT
-**DO read design.md based on `context` or `note`:** `{base_dir}/apps/contacts/design.md` (ignore `context` and `note`) <-- WRONG
-
-The `app` field identifies which app's design.md to read. Other fields like `context` or `note` provide data for event handling but do NOT change which design file you read.
-
-You must not skip reading that app's design unless you have already read it in this conversation.
+**Remember:** Read the design.md for the `app` field (see "Before Handling ANY Event" above). Other fields like `context` or `note` provide data but do NOT change which design file you read.
 
 ### Running in Foreground or Background
 

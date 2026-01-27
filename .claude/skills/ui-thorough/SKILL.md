@@ -56,7 +56,15 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
    - Use the diff output to ensure nothing is missed
    - **Both files must be updated** — the design must stay in sync with requirements
 
-3. **Record as fast code gaps:**
+3. **Simplify the checkpointed code:**
+
+   Run the code-simplifier agent on the app's Lua code:
+   ```
+   Task tool with subagent_type="code-simplifier"
+   prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+   ```
+
+4. **Record as fast code gaps:**
 
    Since checkpoint work is rapid prototyping ("quick and dirty"), add a summary to `TESTING.md` under `## Gaps` with a `### Fast Code` subsection:
 
@@ -74,7 +82,7 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
 
    This flags the code for later review/cleanup while preserving the feature.
 
-4. **Clear checkpoints:**
+5. **Clear checkpoints:**
    ```bash
    .ui/mcp checkpoint clear <app>
    ```
@@ -209,6 +217,9 @@ The tool checks Lua code AND viewdefs for:
 2. Dead methods IN design.md → Record in `TESTING.md` under `## Gaps`
 3. Other violations → Fix in code
 4. Warnings (external methods) → OK to ignore
+
+**Clear Empty Gaps:**
+If there were gaps and they are all gone now, leave the `## Gaps` section empty, do not leave a comment.
 
 ## Step 8: Simplify
 

@@ -243,7 +243,7 @@ html, body {
 
 # Styling
 
-**Put ALL CSS in top-level viewdefs only.** Never in list-item viewdefs.
+**Put ALL CSS in the main app viewdef only** (e.g. `MyApp.DEFAULT.html`). Never in list-item viewdefs or other non-main viewdefs.
 
 ```html
 <template>

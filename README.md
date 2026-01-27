@@ -2,20 +2,31 @@
 
 **Version: 0.9.0**
 
-**A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
+**An app ecosystem for Claude. Share the love—or steal it.**
 
-Build and modify apps while they run. No recompiles. No restarts.
+Chat with Claude, get **fully hot-loadable apps**. Lua backend, HTML templates. No recompiles. No restarts.
+
+And your apps can even **integrate with Claude**: your apps poke Claude and Claude pokes back. Right in the state.
+
+Apps for
 
 - **Quality of life** — tame complex tasks with forms and buttons
-  - **Claude life** — UIs for common Claude tasks
+  - **Claude life** — point, click, Claude makes it so
   - **UNIX life** — UIs for UNIX tools
-- **Life beyond code** — expense tracking, habit building, project planning
-- **Dashboards** — surface information at a glance
-- **Prototype production apps** — build functional wireframes at a fraction of the tokens
+- **Life beyond code** — expenses, habits, projects, whatever
+- **Dashboards** — surface info at a glance
+- **Prototypes** — functional wireframes at a fraction of the tokens
+
+What does **"fully" hot-loadable** mean?
+
+- Both front-end changes and backend changes are hot-loadable.
+- All your state is in the backend and hotloading preserves it.
+- You rename a field of a prototype, all its instances' fields get renamed.
+- Yeah. *That* kind of **fully hot-loadable**.
 
 ## How It Works
 
-Frictionless uses [ui-engine](https://github.com/zot/ui-engine) to eliminate complexity that eats tokens:
+Built on [ui-engine](https://github.com/zot/ui-engine). Less complexity → fewer tokens:
 
 - **No API layer** — no endpoints, no serialization, no DTOs
 - **No frontend code** — just HTML templates with declarative bindings
@@ -76,7 +87,7 @@ frictionless extract output/             # Extract all bundled files to current 
 
 ## Installation
 
-Paste this into Claude Code to install:
+Tell Claude:
 
 ```
 Install using github zot/frictionless readme

@@ -8,8 +8,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 
 ```
 +----------------------------------+------------------------------------+
-| Claude Panel *                   | Chat                               |
-| (* = pulsating when disconnected)|                                    |
+| Claude Panel                     | // CHAT                            |
 +----------------------------------+------------------------------------+
 | [Commit] [Test] [Build]          | +--------------------------------+ |
 +----------------------------------+ | Agent: How can I help?         | |
@@ -19,7 +18,7 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 +----------------------------------+ |                                | |
 | > Agents (4)                     | +--------------------------------+ |
 |   - ui-builder                   | +--------------------------------+ |
-|   - ui-learning                  | | [Type message...]       [Send] | |
+|   - ui-learning                  | | [Type message...]              | |
 | > Commands (12)                  | +--------------------------------+ |
 | > Skills (3)                     |                                    |
 +----------------------------------+------------------------------------+
@@ -70,7 +69,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | addAgentMessage(t)   | Add agent response to messages                    |
 | loadGitStatus()      | Load branch and changed file count                |
 | discoverItems()      | Scan filesystem for agents/commands/skills        |
-| pollingIndicator()   | Return "" if connected, "*" if disconnected       |
 
 ### TreeSection
 | Method          | Description                    |
@@ -131,12 +129,22 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 
 ## Styling
 
-- Connection indicator: Orange (#d97706) pulsating asterisk next to title when disconnected, empty when connected. Uses `claude-sparkle` animation with scale and glow effects.
-- Left panel: fixed 320px width
+Inherits terminal aesthetic from MCP shell via CSS variables:
+- Dark backgrounds: `--term-bg`, `--term-bg-elevated`, `--term-bg-panel`
+- Orange accent: `--term-accent`, `--term-accent-glow`
+- Typography: `--term-mono` (JetBrains Mono), `--term-sans` (Space Grotesk)
+- Glow effects on interactive elements
+
+Layout:
+- Left panel: fixed 320px width with `--term-bg-panel` background
 - Right panel: flexible, fills remaining space
-- Section headers: clickable, show expand/collapse indicator
-- Tree items: indented, hover highlight
-- Chat messages: fixed height container (calc to fit viewport), vertical scroll overflow, auto-scroll on new messages
-- Chat input: Enter key sends message (same as clicking Send button)
-- Shoelace components for buttons, inputs, icons
+- Section headers: clickable, chevron icon rotates when collapsed
+- Tree items: indented, hover shows `--term-bg-hover`
+- Chat messages: fixed height container, vertical scroll, auto-scroll on new messages
+- Chat input: Enter key sends message
+
+Components:
+- Shoelace components with dark theme overrides (::part selectors)
 - `ui-code="jsCode"` on container for dynamic JS execution
+
+**Note:** Connection status is shown by MCP shell's unified indicator, not in this panel.

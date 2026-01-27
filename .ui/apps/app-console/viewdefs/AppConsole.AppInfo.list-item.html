@@ -2,7 +2,8 @@
   <div class="app-item" ui-class-selected="isSelected()" ui-event-mousedown="selectMe()">
     <span class="app-item-name">
       <sl-icon name="exclamation-triangle" class="gaps-icon" ui-class-hidden="noGaps()"></sl-icon>
-      <sl-icon ui-attr-name="checkpointIcon()" class="checkpoint-icon"></sl-icon>
+      <sl-icon name="hammer" class="build-icon" ui-class-hidden="isBuilt()"></sl-icon>
+      <sl-icon ui-attr-name="checkpointIcon()" class="checkpoint-icon" ui-class-hidden="needsBuild()"></sl-icon>
       <span ui-value="name"></span>
     </span>
     <div class="app-item-progress" ui-class-hidden="isBuilding()">

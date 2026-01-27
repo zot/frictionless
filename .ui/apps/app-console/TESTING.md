@@ -19,5 +19,11 @@
 - [ ] Make it thorough button triggers consolidate_request event
 - [ ] Review Gaps button appears when app has gaps
 - [ ] Review Gaps button triggers review_gaps_request event
+- [ ] Hammer icon shows for unbuilt apps
+- [ ] Checkpoint icon hidden for unbuilt apps
+- [ ] Delete App button shows for non-protected apps
+- [ ] Delete confirmation dialog appears when Delete App clicked
+- [ ] Confirming delete removes app globals, unlinks, and deletes directory
+- [ ] Protected apps (app-console, mcp, claude-panel, viewlist) cannot be deleted
 
 ## Gaps

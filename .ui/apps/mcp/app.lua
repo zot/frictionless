@@ -204,6 +204,11 @@ function mcp:waitStartOffset()
     return math.floor(os.time() - wt)
 end
 
+-- Returns true if waiting for Claude to reconnect
+function mcp:isWaiting()
+    return self:waitTime() > 0
+end
+
 
 -- Check and notify if Claude appears disconnected (called on UI refresh)
 -- Returns empty string for hidden span binding

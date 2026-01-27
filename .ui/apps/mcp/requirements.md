@@ -35,21 +35,22 @@ Apps display as icons with names underneath:
 
 ## Processing Indicator
 
-Show a spinner overlaying the 9-dot button when the agent event loop is not connected to the `/wait` endpoint:
-- Indicates that Claude is processing events
-- Spinner overlays the 9-dot icon at 50% opacity (both visible)
-- The 9-dot button remains clickable underneath
-- When connected to `/wait`, the spinner is hidden
+Indicate processing state via a pulsating glow effect on the menu button:
+- When `isWaiting()` returns true, the button enters a `.waiting` state
+- The button border glows orange and pulses via CSS animation
+- The grid icon dims to 30% opacity
+- A wait time counter appears centered over the button
+- The button remains clickable in waiting state
+- When `isWaiting()` becomes false, the glow stops and counter disappears
 
 ### Wait Time Counter (Client-Local)
 
-Display a counter inside the spinner showing seconds elapsed since the spinner appeared:
+Display a counter showing seconds elapsed since waiting started:
 - Entirely client-side JavaScript — no server round-trips needed
-- When spinner becomes visible (`pollingEvents()` returns false), store timestamp and start interval
-- Interval updates counter display every second
-- Counter shows seconds elapsed as bold orange text with black glow for contrast
-- Hidden when elapsed time is 5 seconds or less
-- When spinner hides (`pollingEvents()` becomes true), clear interval and hide counter
+- JavaScript interval (200ms) reads timestamp from hidden element
+- Counter displays as bold orange text with glow, centered in button
+- Only shown when elapsed time exceeds 5 seconds
+- Text clears when not waiting
 
 ### Busy Notification
 
@@ -122,7 +123,36 @@ Agents can display notifications to alert users of important events (errors, war
 
 ## Styling
 
+### Terminal Aesthetic
+
+The MCP shell uses a retro-futuristic terminal theme that all child apps inherit:
+
+**Color Palette (CSS Variables):**
+- `--term-bg`: #0a0a0f (deep dark background)
+- `--term-bg-elevated`: #12121a (raised surfaces)
+- `--term-bg-hover`: #1a1a24 (hover states)
+- `--term-border`: #2a2a3a (subtle borders)
+- `--term-text`: #e0e0e8 (primary text)
+- `--term-text-dim`: #8888a0 (secondary text)
+- `--term-text-muted`: #5a5a70 (tertiary text)
+- `--term-accent`: #E07A47 (orange accent)
+- `--term-accent-glow`: rgba(224, 122, 71, 0.4) (glow effect)
+- `--term-success`: #4ade80 (green)
+- `--term-warning`: #fbbf24 (yellow)
+- `--term-danger`: #f87171 (red)
+
+**Typography:**
+- `--term-mono`: JetBrains Mono, Fira Code, Consolas (monospace)
+- `--term-sans`: Space Grotesk, system-ui (headings/UI)
+
+**Visual Effects:**
+- Scan line overlay on shell background
+- Glow effects on interactive elements
+- Orange accent color for focused/active states
+
+### Layout Guidelines
+
 - No padding or margins around the app content
-- The menu button should have subtle styling (semi-transparent, hover effect)
+- The menu button should have subtle styling with hover glow
 - Menu button should not interfere with app content interaction
-- Status bar has subtle styling (light background, border-top)
+- Status bar has terminal styling with prompt character (`>`)

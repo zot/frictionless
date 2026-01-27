@@ -90,6 +90,26 @@ Checkpoints use fossil SCM under the hood, managed via `.ui/mcp checkpoint` comm
 
 ---
 
+# Reporting progress
+
+**Run this command BEFORE reading any files:**
+
+```bash
+.ui/mcp run "mcp:createTodos({'Fast requirements', 'Fast code', 'Fast viewdefs', 'Fast finish'}, 'APP_NAME')"
+```
+
+This shows progress in the UI. The user is watching - without this, the build looks frozen.
+
+Also create Claude Code tasks:
+```
+TaskCreate: "Fast requirements" (activeForm: "Reading requirements...")
+TaskCreate: "Fast code" (activeForm: "Writing code...")
+TaskCreate: "Fast viewdefs" (activeForm: "Writing viewdefs...")
+TaskCreate: "Fast finish" (activeForm: "Finishing...")
+```
+
+
+
 # Consolidation
 
 Checkpoints are **ephemeral** - they exist during rapid prototyping, then get cleared after changes are incorporated into the design.
