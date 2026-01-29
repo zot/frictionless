@@ -17,7 +17,30 @@ When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright 
 
 When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
 
-When the user says `events` it means to start the event loop in the foreground, but not use `.ui/mcp display` or `.ui/mcp open_browser` as in Quick Start.
+When the user says `events` it means to start the event loop in the foreground, but not use `.ui/mcp display` or `.ui/mcp browser` as in Quick Start.
+
+## Helper Script Reference
+
+The `.ui/mcp` script provides commands for interacting with the UI server:
+
+**CRITICAL: URLs must NEVER include session IDs.** Always use `{url}/?conserve=true` (root URL). Session IDs in URLs will cause problems.
+
+| Command | Description |
+|---------|-------------|
+| `.ui/mcp status` | Get server status (url, sessions, base_dir) |
+| `.ui/mcp browser` | Open browser to `{url}/?conserve=true` |
+| `.ui/mcp display APP` | Display APP in the browser |
+| `.ui/mcp run 'lua code'` | Execute Lua code in session |
+| `.ui/mcp event` | Wait for next UI event (120s timeout) |
+| `.ui/mcp state` | Get current session state |
+| `.ui/mcp variables` | Get current variable values |
+| `.ui/mcp audit APP` | Run code quality audit on APP |
+| `.ui/mcp progress APP PERCENT STAGE` | Report build progress |
+| `.ui/mcp linkapp add\|remove APP` | Manage app symlinks |
+| `.ui/mcp checkpoint CMD APP [MSG]` | Manage checkpoints (save/list/rollback/diff/clear) |
+| `.ui/mcp theme list` | List available themes |
+| `.ui/mcp theme classes [THEME]` | List semantic classes for theme |
+| `.ui/mcp theme audit APP [THEME]` | Audit app's theme class usage |
 
 ## How to Process Events
 
@@ -83,7 +106,7 @@ To display an app (e.g., `claude-panel`):
      - if URL does NOT start with {url}/, then browser_navigate to {url}/?conserve=true
      - do not wait for playwright page to display
      - do not check the current state or take a snapshot
-   - Otherwise, run `.ui/mcp open_browser`
+   - Otherwise, run `.ui/mcp browser`
    - `.ui/mcp status` to verify sessions > 0 (confirms browser connected)
 
 3. IMMEDIATELY start the event loop:
@@ -131,7 +154,7 @@ end
 
 The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
 
-**URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. The server binds the root URL to the MCP session automatically via a cookie - no session ID needed in the URL.
+**URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. **NEVER include session IDs in URLs** — they will cause problems. The server binds the root URL to the MCP session automatically via a cookie.
 
 **Verifying connection:** After navigating with Playwright, call `.ui/mcp status` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 

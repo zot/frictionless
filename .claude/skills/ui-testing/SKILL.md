@@ -16,7 +16,7 @@ Always make sure you have `base_dir` from `ui_status` first. All paths below use
 1. Find requirements: {base_dir}/apps/<app>/requirements.md
 2. Check server: `.ui/mcp status` → get base_dir and url
 3. Load app: `.ui/mcp display("<app>")`
-4. Open browser: `.ui/mcp open_browser` OR navigate Playwright to {url}/?conserve=true
+4. Open browser: `.ui/mcp browser` OR navigate Playwright to {url}/?conserve=true
 5. Create TESTING.md from requirements
 6. Test each feature, update checklist
 7. Document bugs in Known Issues section
@@ -34,7 +34,7 @@ Always make sure you have `base_dir` from `ui_status` first. All paths below use
 `.ui/mcp display("<app-name>")`
 
 # Open in Playwright (use url from `.ui/mcp status`)
-`.ui/mcp open_browser`  # or navigate to {url}/?conserve=true
+`.ui/mcp browser`  # or navigate to {url}/?conserve=true
 ```
 
 ### 2. Create TESTING.md

@@ -255,6 +255,30 @@ html, body {
 </template>
 ```
 
+**Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes. Apps inherit base component styles from the MCP shell.
+
+### Semantic Theme Classes
+
+| Class | Description | Usage |
+|-------|-------------|-------|
+| `.panel-header` | Header bar with bottom accent | Panel/section headers with title and action buttons |
+| `.panel-header-left` | Header bar with left accent | Detail panels where accent is on the left side |
+| `.section-header` | Collapsible section header | Expandable/collapsible sections with hover feedback |
+| `.item` | Base class for list items | Standard list item styling |
+| `.selected` | Selected state modifier | Apply to items with selection state (use with `.item`) |
+| `.input-area` | Input area with top accent | Chat/command input areas |
+
+**Compose theme + app classes** (Tailwind-style):
+```html
+<div class="panel-header app-list-header">
+```
+- Theme class (`.panel-header`) - provides themed styling (accent bars, sweeps)
+- App class (`.app-list-header`) - adds app-specific layout/overrides
+
+This keeps theming swappable while preserving app-specific needs.
+
+**Auditing theme usage:** Run `.ui/mcp theme audit myapp` to check which classes are documented vs app-specific.
+
 ---
 
 # MCP Methods

@@ -19,6 +19,9 @@ mcp progress APP PERCENT STAGE  report build progress
 mcp run 'lua code'              execute Lua code in session
 mcp state                       get current session state
 mcp status                      get server status
+mcp theme list                  list available themes
+mcp theme classes [THEME]       list semantic classes for theme
+mcp theme audit APP [THEME]     audit app's theme class usage
 mcp variables                   get current variable values
 here
 }
@@ -79,9 +82,9 @@ checkpoint_save() {
         "$FOSSIL_BIN" commit -m "${msg:-initial state}" --no-warnings >/dev/null
         echo "Created checkpoint: ${msg:-initial state}"
     else
-        # Check for changes
+        # Add any new files first, then check for changes
+        "$FOSSIL_BIN" add . >/dev/null 2>&1
         if "$FOSSIL_BIN" changes --quiet | grep -q .; then
-            "$FOSSIL_BIN" add . >/dev/null 2>&1
             "$FOSSIL_BIN" commit -m "${msg:-checkpoint}" --no-warnings >/dev/null
             echo "Saved checkpoint: ${msg:-checkpoint}"
         else
@@ -174,7 +177,7 @@ checkpoint_clear() {
 }
 
 case "$prog" in
-    --help)
+    help | --help)
         help
         ;;
     checkpoint)
@@ -268,7 +271,15 @@ case "$prog" in
     status)
         exec curl -s "http://127.0.0.1:$port/api/ui_status"
         ;;
+    theme)
+        # Theme commands use CLI directly (no server needed)
+        exec "$HOME/.claude/bin/frictionless" theme "$@" --dir "$dir"
+        ;;
     variables)
         exec curl -s "http://127.0.0.1:$port/variables"
+        ;;
+    *)
+        echo 1>&2 "Unknown command: $1"
+        exit 1
         ;;
 esac

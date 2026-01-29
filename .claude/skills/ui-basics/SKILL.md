@@ -146,7 +146,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 <!-- Input --> <sl-input ui-value="email" label="Email"></sl-input>
 <!-- Live --> <sl-input ui-value="search?keypress">
 <!-- Button --> <sl-button ui-action="save()">Save</sl-button>
-<!-- Select --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
+<!-- Select or Dropdown --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
 <!-- Check --> <sl-checkbox ui-attr-checked="agreed">Agree</sl-checkbox>
 <!-- Switch --> <sl-switch ui-attr-checked="dark">Dark</sl-switch>
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
@@ -254,6 +254,30 @@ html, body {
   <div class="my-app">...</div>
 </template>
 ```
+
+**Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes. Apps inherit base component styles from the MCP shell.
+
+### Semantic Theme Classes
+
+| Class | Description | Usage |
+|-------|-------------|-------|
+| `.panel-header` | Header bar with bottom accent | Panel/section headers with title and action buttons |
+| `.panel-header-left` | Header bar with left accent | Detail panels where accent is on the left side |
+| `.section-header` | Collapsible section header | Expandable/collapsible sections with hover feedback |
+| `.item` | Base class for list items | Standard list item styling |
+| `.selected` | Selected state modifier | Apply to items with selection state (use with `.item`) |
+| `.input-area` | Input area with top accent | Chat/command input areas |
+
+**Compose theme + app classes** (Tailwind-style):
+```html
+<div class="panel-header app-list-header">
+```
+- Theme class (`.panel-header`) - provides themed styling (accent bars, sweeps)
+- App class (`.app-list-header`) - adds app-specific layout/overrides
+
+This keeps theming swappable while preserving app-specific needs.
+
+**Auditing theme usage:** Run `.ui/mcp theme audit myapp` to check which classes are documented vs app-specific.
 
 ---
 

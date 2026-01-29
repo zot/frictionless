@@ -37,6 +37,7 @@ local UI_THOROUGH_STEPS = {
     {label = "Fast Design", progress = 20, thinking = "Designing..."},
     {label = "Fast code", progress = 40, thinking = "Writing code..."},
     {label = "Fast viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Fast verify", progress = 60, thinking = "Verifying requirements..."},
     {label = "Fast finish", progress = 80, thinking = "Finishing..."},
 }
 
@@ -403,10 +404,14 @@ function AppInfo:confirmDeleteApp()
 
     local name = self.name
     local baseDir = mcp:status().base_dir
+    local protoName = toPascalCase(name)
 
     -- Clear global variables for this app
-    _G[toPascalCase(name)] = nil
+    _G[protoName] = nil
     _G[toCamelCase(name)] = nil
+
+    -- Remove prototype and all nested prototypes (e.g., Contacts.Contact, Contacts.ChatMessage)
+    session:removePrototype(protoName, true)
 
     -- Unlink and delete the app
     os.execute('.ui/mcp linkapp remove "' .. name .. '"')
@@ -1084,6 +1089,8 @@ function AppConsole:clearTodos()
     self._todoSteps = {}
     self._currentStep = 0
     self._todoApp = nil
+    mcp.statusLine = ""
+    mcp.statusClass = ""
 end
 
 if not session.reloading then

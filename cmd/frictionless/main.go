@@ -40,6 +40,10 @@ func main() {
 			if command == "install" {
 				return true, runInstall(args)
 			}
+			// Handle theme command (file-based, no server needed)
+			if command == "theme" {
+				return true, runTheme(args)
+			}
 			return false, 0
 		},
 		CustomHelp: func() string {
@@ -48,12 +52,16 @@ Commands:
   mcp             Start MCP server on Stdio (for AI integration)
   serve           Start standalone server with HTTP UI and MCP endpoints
   install         Install skills and resources (without starting server)
+  theme           Theme management (list, classes, audit)
 
 Examples:
   frictionless mcp                                        Start MCP server (default: --dir .ui)
   frictionless serve --port 8000 --mcp-port 8001          Start standalone with UI on 8000, MCP on 8001
   frictionless install                                    Install skills and resources
-  frictionless install --force                            Force reinstall even if up to date`
+  frictionless install --force                            Force reinstall even if up to date
+  frictionless theme list                                 List available themes
+  frictionless theme classes [THEME]                      Show semantic classes for a theme
+  frictionless theme audit APP [THEME]                    Audit app's theme class usage`
 		},
 		CustomVersion: func() string {
 			return "frictionless " + Version
@@ -303,6 +311,134 @@ func runInstall(args []string) int {
 	}
 
 	return 0
+}
+
+// runTheme handles theme management commands (file-based, no server needed).
+func runTheme(args []string) int {
+	// Default dir to .ui
+	baseDir := ".ui"
+
+	// Parse --dir flag
+	var filteredArgs []string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--dir" && i+1 < len(args) {
+			baseDir = args[i+1]
+			i++ // skip the value
+		} else if strings.HasPrefix(args[i], "--dir=") {
+			baseDir = strings.TrimPrefix(args[i], "--dir=")
+		} else {
+			filteredArgs = append(filteredArgs, args[i])
+		}
+	}
+
+	if len(filteredArgs) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: frictionless theme <list|classes|audit> [options]")
+		fmt.Fprintln(os.Stderr, "  theme list              List available themes")
+		fmt.Fprintln(os.Stderr, "  theme classes [THEME]   Show semantic classes for a theme")
+		fmt.Fprintln(os.Stderr, "  theme audit APP [THEME] Audit app's theme class usage")
+		return 1
+	}
+
+	action := filteredArgs[0]
+	actionArgs := filteredArgs[1:]
+
+	switch action {
+	case "list":
+		themes, err := mcp.ListThemes(baseDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error listing themes: %v\n", err)
+			return 1
+		}
+		current := mcp.GetCurrentTheme(baseDir)
+		fmt.Printf("Themes: %s\n", strings.Join(themes, ", "))
+		if current != "" {
+			fmt.Printf("Current: %s\n", current)
+		}
+		return 0
+
+	case "classes":
+		theme := ""
+		if len(actionArgs) > 0 {
+			theme = actionArgs[0]
+		}
+		if theme == "" {
+			theme = mcp.GetCurrentTheme(baseDir)
+		}
+		if theme == "" {
+			fmt.Fprintln(os.Stderr, "No theme specified and no current theme set")
+			return 1
+		}
+
+		fm, err := mcp.GetThemeClasses(baseDir, theme)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting theme classes: %v\n", err)
+			return 1
+		}
+
+		fmt.Printf("Theme: %s\n", fm.Name)
+		fmt.Printf("Description: %s\n\n", fm.Description)
+		fmt.Println("Classes:")
+		for _, c := range fm.Classes {
+			fmt.Printf("  .%s\n", c.Name)
+			fmt.Printf("    %s\n", c.Description)
+			fmt.Printf("    Usage: %s\n", c.Usage)
+			if len(c.Elements) > 0 {
+				fmt.Printf("    Elements: %s\n", strings.Join(c.Elements, ", "))
+			}
+			fmt.Println()
+		}
+		return 0
+
+	case "audit":
+		if len(actionArgs) == 0 {
+			fmt.Fprintln(os.Stderr, "Usage: frictionless theme audit APP [THEME]")
+			return 1
+		}
+		app := actionArgs[0]
+		theme := ""
+		if len(actionArgs) > 1 {
+			theme = actionArgs[1]
+		}
+		if theme == "" {
+			theme = mcp.GetCurrentTheme(baseDir)
+		}
+		if theme == "" {
+			fmt.Fprintln(os.Stderr, "No theme specified and no current theme set")
+			return 1
+		}
+
+		result, err := mcp.AuditAppTheme(baseDir, app, theme)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error auditing theme: %v\n", err)
+			return 1
+		}
+
+		fmt.Printf("App: %s\n", result.App)
+		fmt.Printf("Theme: %s\n", result.Theme)
+		fmt.Printf("\nSummary: %d classes total, %d documented, %d undocumented\n",
+			result.Summary.Total, result.Summary.Documented, result.Summary.Undocumented)
+
+		if len(result.UndocumentedClasses) > 0 {
+			fmt.Println("\nUndocumented classes:")
+			for _, c := range result.UndocumentedClasses {
+				fmt.Printf("  .%s (%s:%d)\n", c.Class, c.File, c.Line)
+			}
+		}
+
+		if len(result.UnusedThemeClasses) > 0 {
+			fmt.Println("\nUnused theme classes (not used by this app):")
+			for _, c := range result.UnusedThemeClasses {
+				fmt.Printf("  .%s\n", c)
+			}
+		}
+
+		return 0
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown theme action: %s\n", action)
+		fmt.Fprintln(os.Stderr, "Usage: frictionless theme <list|classes|audit> [options]")
+		return 1
+	}
 }
 
 // runServe runs the standalone server with HTTP UI and SSE MCP endpoints.

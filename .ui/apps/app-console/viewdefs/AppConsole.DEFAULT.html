@@ -60,12 +60,10 @@
       background: var(--term-bg-panel);
     }
 
+    /* App-specific overrides (theme via .panel-header) */
     .app-list-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
       padding: 16px;
-      border-bottom: 1px solid var(--term-border);
+      border-radius: 0 0 8px 0;  /* slightly larger sweep */
     }
 
     .app-list-header h2 {
@@ -107,10 +105,9 @@
       background: var(--term-bg-hover);
     }
 
+    /* App-specific override (theme via .selected-item) */
     .app-item.selected {
-      background: var(--term-accent-dim);
-      border-left: 3px solid var(--term-accent);
-      padding-left: 13px;
+      padding-left: 10px;
     }
 
     .app-item-name {
@@ -162,6 +159,7 @@
       overflow-y: auto;
     }
 
+    /* App-specific overrides (theme via .panel-header-left) */
     .detail-header {
       margin-bottom: 20px;
       padding-bottom: 16px;
@@ -240,7 +238,7 @@
     }
 
     .detail-actions sl-button::part(base) {
-      border-radius: 4px;
+      padding-inline: 1.25em;
     }
 
     /* Sections */
@@ -264,12 +262,15 @@
       gap: 8px;
       cursor: pointer;
       user-select: none;
-      padding: 8px 0;
+      padding: 8px 0 8px 10px;
       color: var(--term-text-dim);
-      transition: color 0.15s;
+      transition: color 0.15s, border-color 0.15s;
+      border-left: 3px solid var(--term-border);
+      border-radius: 0 0 0 6px;
     }
 
     .section-header:hover {
+      border-color: var(--term-accent);
       color: var(--term-accent);
     }
 
@@ -425,7 +426,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
+      padding: 10px 72px 10px 16px; /* extra right padding to clear floating menu button */
       background: var(--term-bg-panel);
       border-bottom: 1px solid var(--term-border);
       flex-shrink: 0;
@@ -517,7 +518,8 @@
       align-items: center;
       justify-content: space-between;
       padding: 8px 12px;
-      border-bottom: 1px solid var(--term-border);
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 6px 0;
       flex-shrink: 0;
       cursor: pointer;
     }
@@ -613,6 +615,9 @@
       justify-content: space-between;
       margin-bottom: 12px;
       flex-shrink: 0;
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 0 0 8px;
+      padding-left: 12px;
     }
 
     .panel-tabs {
@@ -642,6 +647,9 @@
       display: flex;
       gap: 8px;
       flex-shrink: 0;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      padding-top: 12px;
     }
 
     .chat-input-row sl-input {
@@ -781,11 +789,6 @@
       color: var(--term-text-dim);
     }
 
-    sl-button::part(base) {
-      font-family: var(--term-mono);
-      border-radius: 4px;
-    }
-
     sl-button[variant="default"]::part(base) {
       background: var(--term-bg-elevated);
       border-color: var(--term-border);
@@ -830,7 +833,6 @@
     }
 
     sl-badge::part(base) {
-      font-family: var(--term-mono);
       font-size: 10px;
     }
 
@@ -859,7 +861,7 @@
     <div class="main-content">
       <!-- App List Panel -->
       <div class="app-list-panel">
-        <div class="app-list-header">
+        <div class="panel-header app-list-header">
           <h2>Frictionless</h2>
           <div>
             <sl-icon-button name="arrow-clockwise" label="Refresh" ui-action="refresh()"></sl-icon-button>
@@ -886,7 +888,7 @@
         <div class="normal-detail" ui-class-hidden="hasEmbeddedApp()">
           <!-- App Details -->
           <div class="detail-content" ui-class-hidden="hideDetail()">
-            <div class="detail-header">
+            <div class="panel-header-left detail-header">
               <h2 ui-value="selected.name"></h2>
               <div class="detail-description" ui-value="selected.description"></div>
             </div>
@@ -1009,7 +1011,7 @@
       <div class="bottom-panel-content">
         <!-- Todo Column -->
         <div class="todo-column" ui-class-collapsed="todosCollapsed">
-          <div class="todo-header">
+          <div class="panel-header todo-header">
             <h4 ui-event-click="toggleTodos()">Todos</h4>
             <div class="todo-header-buttons">
               <sl-icon-button name="trash" label="Clear" ui-action="clearTodos()"></sl-icon-button>
@@ -1031,7 +1033,7 @@
 
           <!-- Chat Panel Content -->
           <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
-          <div class="chat-input-row" ui-class-hidden="notChatPanel()">
+          <div class="input-area chat-input-row" ui-class-hidden="notChatPanel()">
             <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
             <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
           </div>

@@ -62,13 +62,15 @@
       max-height: 100% !important;
     }
 
-    /* Status bar - terminal style */
+    /* Status bar - terminal style with LCARS accent */
     .mcp-status-bar {
       flex-shrink: 0;
       line-height: 1.4;
-      padding: 6px 12px;
+      padding: 6px 12px 6px 16px;
       background: var(--term-bg-elevated);
-      border-top: 1px solid var(--term-border);
+      border-top: 3px solid var(--term-accent);
+      border-left: 4px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
       font-family: var(--term-mono);
       font-size: 12px;
       display: flex;
@@ -112,8 +114,8 @@
 
     .mcp-build-mode-toggle {
       cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
       transition: all 0.2s;
       color: var(--term-text-dim);
     }
@@ -142,12 +144,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 48px;
       padding: 0;
-      border: 1px solid var(--term-border);
+      border: 2px solid var(--term-border);
       background: var(--term-bg-elevated);
-      border-radius: 8px;
+      border-radius: 999px;
       cursor: pointer;
       transition: all 0.2s;
       box-shadow:
@@ -219,19 +221,20 @@
       opacity: 1;
     }
 
-    /* Dropdown menu - terminal panel */
+    /* Dropdown menu - terminal panel with LCARS accent */
     .mcp-menu-dropdown {
       position: fixed;
-      top: 64px;
+      top: 68px;
       right: 12px;
       z-index: 10000;
       background: var(--term-bg-elevated);
       border: 1px solid var(--term-border);
-      border-radius: 8px;
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 8px 8px 8px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.6),
         0 0 1px rgba(255, 255, 255, 0.1);
-      padding: 12px;
+      padding: 12px 12px 12px 14px;
     }
 
     .mcp-menu-dropdown::before {
@@ -241,10 +244,11 @@
       font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.1em;
-      color: var(--term-text-dim);
+      color: var(--term-accent);
       margin-bottom: 8px;
       padding-bottom: 8px;
-      border-bottom: 1px solid var(--term-border);
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 0 4px;
     }
 
     .mcp-icon-grid {
@@ -325,9 +329,16 @@
       border: 1px solid var(--term-border);
     }
 
-    /* Shoelace dark theme overrides */
+    /* Shoelace dark theme overrides - LCARS-inspired */
     sl-button::part(base) {
       font-family: var(--term-mono);
+      border-radius: 999px;
+    }
+
+    sl-badge::part(base) {
+      font-family: var(--term-mono);
+      border-radius: 999px;
+      padding: 0 0.75em;
     }
 
     sl-spinner {
@@ -340,6 +351,80 @@
       background: var(--term-bg-elevated);
       border-color: var(--term-border);
       color: var(--term-text);
+    }
+
+    /* Theme classes - compose with app-specific classes */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 6px 0;
+    }
+
+    .panel-header-left {
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 0 0 8px;
+      padding-left: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 8px 0 8px 10px;
+      border-left: 3px solid var(--term-border);
+      border-radius: 0 0 0 6px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .section-header:hover {
+      border-color: var(--term-accent);
+      color: var(--term-accent);
+    }
+
+    .selected-item {
+      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+      border-left: 6px solid var(--term-accent);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .input-area {
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      padding-top: 12px;
+    }
+
+    /* LCARS-style scrollbars */
+    * {
+      scrollbar-width: auto;
+      scrollbar-color: var(--term-accent) var(--term-bg);
+    }
+
+    ::-webkit-scrollbar {
+      width: 16px;
+      height: 16px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--term-bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--term-accent);
+      border: 4px solid var(--term-bg);
+      border-radius: 8px;
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--term-accent-bright);
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: var(--term-bg);
     }
 
     .hidden { display: none !important; }

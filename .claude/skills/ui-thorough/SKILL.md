@@ -89,28 +89,31 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
 
 This ensures prototyping work is captured in the design before proceeding.
 
-## Step 1: Create Todos (IMMEDIATELY)
+## Step 1: Create Progress Steps (IMMEDIATELY)
 
 Extract the app name from your prompt.
 
 **Run this command BEFORE reading any files:**
 
+**MCP progress** (shows in UI):
 ```bash
 .ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'}, 'APP_NAME')"
 ```
 
 This shows progress in the UI. The user is watching - without this, the build looks frozen.
 
-Also create Claude Code tasks:
+**Claude Code TaskCreate** (tracks work):
 ```
-TaskCreate: "Read requirements" (activeForm: "Reading requirements...")
-TaskCreate: "Update requirements" (activeForm: "Updating requirements...")
-TaskCreate: "Design changes" (activeForm: "Designing...")
-TaskCreate: "Write code" (activeForm: "Writing code...")
-TaskCreate: "Write viewdefs" (activeForm: "Writing viewdefs...")
-TaskCreate: "Link and audit" (activeForm: "Auditing...")
-TaskCreate: "Simplify code" (activeForm: "Simplifying...")
+TaskCreate("Read requirements", activeForm: "Reading requirements...")
+TaskCreate("Update requirements", activeForm: "Updating requirements...")
+TaskCreate("Design changes", activeForm: "Designing...")
+TaskCreate("Write code", activeForm: "Writing code...")
+TaskCreate("Write viewdefs", activeForm: "Writing viewdefs...")
+TaskCreate("Link and audit", activeForm: "Auditing...")
+TaskCreate("Simplify code", activeForm: "Simplifying...")
 ```
+
+Create both—MCP progress for user visibility, TaskCreate for work tracking.
 
 ## Step 2: Read Requirements
 

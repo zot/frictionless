@@ -32,9 +32,10 @@ You can use the playwright browser to connect to it.
 Release versions use semantic versioning in `README.md` (the `**Version: X.Y.Z**` line near the top).
 
 **To create a release:**
-1. Update `**Version: X.Y.Z**` in both `README.md` and `install/README.md`
-2. Commit: `git commit -am "Release vX.Y.Z"`
-3. Tag: `git tag vX.Y.Z`
-4. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
-5. Push: `git push && git push --tags`
-6. Create GitHub release: `gh release create vX.Y.Z release/* --title "vX.Y.Z" --notes "Release notes here"`
+1. Check if [ui-engine](https://github.com/zot/ui-engine) has a newer version and update `go.mod` if needed (`go get github.com/zot/ui-engine@latest`)
+2. Update `**Version: X.Y.Z**` in both `README.md` and `install/README.md`
+3. Commit: `git commit -am "Release vX.Y.Z"`
+4. Tag: `git tag vX.Y.Z`
+5. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
+6. Push: `git push && git push --tags`
+7. Create GitHub release: `gh release create vX.Y.Z release/* --title "vX.Y.Z" --notes "Release notes here"`

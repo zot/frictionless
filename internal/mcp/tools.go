@@ -72,6 +72,14 @@ func (s *Server) registerTools() {
 		mcp.WithDescription("Analyze an app for code quality violations (dead methods, viewdef issues)"),
 		mcp.WithString("name", mcp.Required(), mcp.Description("App name to audit")),
 	), s.handleAudit)
+
+	// ui_theme
+	s.mcpServer.AddTool(mcp.NewTool("ui_theme",
+		mcp.WithDescription("Theme management: list available themes, get semantic classes, audit app theme usage"),
+		mcp.WithString("action", mcp.Required(), mcp.Description("Action: list, classes, audit")),
+		mcp.WithString("theme", mcp.Description("Theme name (defaults to current theme)")),
+		mcp.WithString("app", mcp.Description("App name (required for audit action)")),
+	), s.handleTheme)
 }
 
 // Spec: mcp.md section 5.1
@@ -252,6 +260,7 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		{"skills/ui-thorough", "SKILL.md"},
 		{"skills/ui-testing", "SKILL.md"},
 		{"skills/ui-testing", "TESTING-TEMPLATE.md"},
+		{"skills/ui-themer", "SKILL.md"},
 	}
 	for _, f := range skillFiles {
 		bundlePath := filepath.Join(f.category, f.file)
@@ -318,7 +327,18 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 	track("README.md", status)
 
-	// 9. Check for optional external dependencies
+	// 9. Install themes to {base_dir}/themes/ (includes symlinks)
+	themeFiles, _ := cli.BundleListFiles("themes")
+	for _, bundlePath := range themeFiles {
+		destPath := filepath.Join(s.baseDir, bundlePath)
+		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
+		if err != nil {
+			return nil, err
+		}
+		track(bundlePath, status)
+	}
+
+	// 10. Check for optional external dependencies
 	var suggestions []string
 	codeSimplifierPath := filepath.Join(projectRoot, ".claude", "agents", "code-simplifier.md")
 	if _, err := os.Stat(codeSimplifierPath); os.IsNotExist(err) {
@@ -784,15 +804,8 @@ func (s *Server) handleOpenBrowser(ctx context.Context, request mcp.CallToolRequ
 		return mcp.NewToolResultError("Server not running"), nil
 	}
 
-	// Convert vended ID to internal session ID for URL
-	// URLs should use internal session IDs, not vended IDs
-	internalID := s.UiServer.GetSessions().GetInternalID(sessionID)
-	if internalID == "" {
-		return mcp.NewToolResultError(fmt.Sprintf("session %s not found", sessionID)), nil
-	}
-
-	// Construct URL: baseURL + "/" + internalSessionID + path
-	fullURL := fmt.Sprintf("%s/%s%s", baseURL, internalID, path)
+	// Construct URL: baseURL + path (no session ID - cookie handles session binding)
+	fullURL := fmt.Sprintf("%s%s", baseURL, path)
 	if conserve {
 		if strings.Contains(fullURL, "?") {
 			fullURL += "&conserve=true"
@@ -1011,6 +1024,87 @@ func (s *Server) handleAudit(ctx context.Context, request mcp.CallToolRequest) (
 	return mcp.NewToolResultText(string(jsonResult)), nil
 }
 
+// handleTheme handles theme management operations.
+func (s *Server) handleTheme(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.mu.RLock()
+	baseDir := s.baseDir
+	s.mu.RUnlock()
+
+	if baseDir == "" {
+		return mcp.NewToolResultError("server not configured"), nil
+	}
+
+	args, ok := request.Params.Arguments.(map[string]interface{})
+	if !ok {
+		return mcp.NewToolResultError("arguments must be a map"), nil
+	}
+
+	action, ok := args["action"].(string)
+	if !ok || action == "" {
+		return mcp.NewToolResultError("action is required"), nil
+	}
+
+	theme, _ := args["theme"].(string)
+	app, _ := args["app"].(string)
+
+	var result interface{}
+	var err error
+
+	switch action {
+	case "list":
+		themes, listErr := ListThemes(baseDir)
+		if listErr != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("listing themes: %v", listErr)), nil
+		}
+		current := GetCurrentTheme(baseDir)
+		result = ThemeListResult{
+			Themes:  themes,
+			Current: current,
+		}
+
+	case "classes":
+		if theme == "" {
+			theme = GetCurrentTheme(baseDir)
+		}
+		if theme == "" {
+			return mcp.NewToolResultError("no theme specified and no current theme set"), nil
+		}
+		fm, classErr := GetThemeClasses(baseDir, theme)
+		if classErr != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("getting theme classes: %v", classErr)), nil
+		}
+		result = ThemeClassesResult{
+			Theme:   theme,
+			Classes: fm.Classes,
+		}
+
+	case "audit":
+		if app == "" {
+			return mcp.NewToolResultError("app is required for audit action"), nil
+		}
+		if theme == "" {
+			theme = GetCurrentTheme(baseDir)
+		}
+		if theme == "" {
+			return mcp.NewToolResultError("no theme specified and no current theme set"), nil
+		}
+		result, err = AuditAppTheme(baseDir, app, theme)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("auditing theme: %v", err)), nil
+		}
+
+	default:
+		return mcp.NewToolResultError(fmt.Sprintf("unknown action: %s (use: list, classes, audit)", action)), nil
+	}
+
+	jsonResult, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("marshaling result: %v", err)), nil
+	}
+
+	return mcp.NewToolResultText(string(jsonResult)), nil
+}
+
 // HTTP Tool API handlers (Spec 2.5)
 // These wrap the MCP tool handlers for HTTP access by spawned agents.
 
@@ -1173,6 +1267,21 @@ func (s *Server) handleAPIAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.callMCPHandler(s.handleAudit, args)
+	apiResponse(w, result, err)
+}
+
+// handleAPITheme handles POST /api/ui_theme
+func (s *Server) handleAPITheme(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		apiError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	args, err := parseJSONBody(r)
+	if err != nil {
+		apiError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
+		return
+	}
+	result, err := s.callMCPHandler(s.handleTheme, args)
 	apiResponse(w, result, err)
 }
 

@@ -333,7 +333,7 @@ Legend:
 | requestDelete() | Set confirmDelete to true |
 | cancelDelete() | Set confirmDelete to false |
 | hideDeleteConfirm() | Returns confirmDelete == false |
-| confirmDeleteApp() | Delete the app: set globals to nil, unlink app, delete directory, remove from list |
+| confirmDeleteApp() | Delete the app: set globals to nil, remove prototype and nested prototypes from registry, unlink app, delete directory, remove from list |
 
 ### TestItem
 

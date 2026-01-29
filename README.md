@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.9.0**
+**Version: 0.10.0**
 
 **An app ecosystem for Claude. Share the love—or steal it.**
 
@@ -11,9 +11,9 @@ And your apps can even **integrate with Claude**: your apps poke Claude and Clau
 Apps for
 
 - **Quality of life** — tame complex tasks with forms and buttons
-  - **Claude life** — point, click, Claude makes it so
+  - **Claude Code life** — point, click, Claude makes it so
   - **UNIX life** — UIs for UNIX tools
-- **Life beyond code** — expenses, habits, projects, whatever
+- **Life beyond Claude Code** — expenses, habits, projects, whatever
 - **Dashboards** — surface info at a glance
 - **Prototypes** — functional wireframes at a fraction of the tokens
 
@@ -22,7 +22,7 @@ What does **"fully" hot-loadable** mean?
 - Both front-end changes and backend changes are hot-loadable.
 - All your state is in the backend and hotloading preserves it.
 - You rename a field of a prototype, all its instances' fields get renamed.
-- Yeah. *That* kind of **fully hot-loadable**.
+- Yeah even structural changes to your data. *That's* what **fully hot-loadable** means.
 
 ## How It Works
 

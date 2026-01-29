@@ -9,7 +9,7 @@ What does "fully" hot-loadable mean?
 - Both front-end changes and backend changes are hot-loadable.
 - All your state is in the backend and hotloading preserves it.
 - You rename a field of a prototype, all its instances' fields get renamed.
-- Yeah. *That* kind of **fully hot-loadable**.
+- Yeah even structural changes to your data. *That's* what **fully hot-loadable** means.
 
 ## Quick Start
 
