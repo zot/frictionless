@@ -24,6 +24,8 @@ What does **"fully" hot-loadable** mean?
 - You rename a field of a prototype, all its instances' fields get renamed.
 - Yeah even structural changes to your data. *That's* what **fully hot-loadable** means.
 
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/Wd5n5fXoCuU/0.jpg)](https://youtu.be/Wd5n5fXoCuU)
+
 ## How It Works
 
 Built on [ui-engine](https://github.com/zot/ui-engine). Less complexity → fewer tokens:
