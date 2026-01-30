@@ -107,6 +107,25 @@ sl-badge::part(base) {
   border-radius: 999px;
 }
 
+/* LCARS scrollbars - pill-shaped thumbs */
+/* Note: Playwright doesn't render border-radius on scrollbar thumbs */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--term-accent);
+  border: 4px solid var(--term-bg);
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent-bright);
+}
+
 /* Menu button - circular */
 .mcp-menu-button {
   border-radius: 999px;

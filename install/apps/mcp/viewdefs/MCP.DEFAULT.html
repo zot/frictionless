@@ -1,10 +1,33 @@
 <template>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    :root {
+      /* Terminal color palette */
+      --term-bg: #0a0a0f;
+      --term-bg-elevated: #12121a;
+      --term-bg-hover: #1a1a24;
+      --term-border: #2a2a3a;
+      --term-text: #e0e0e8;
+      --term-text-dim: #8888a0;
+      --term-accent: #E07A47;
+      --term-accent-glow: rgba(224, 122, 71, 0.4);
+      --term-accent-bright: #ff9966;
+      --term-success: #4ade80;
+      --term-warning: #fbbf24;
+      --term-danger: #f87171;
+      --term-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      --term-sans: 'Space Grotesk', system-ui, sans-serif;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
+      background: var(--term-bg);
+      color: var(--term-text);
     }
+
     .mcp-shell {
       position: fixed;
       top: 0;
@@ -14,175 +37,401 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      background: var(--term-bg);
+      /* Subtle scan line overlay */
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.03) 2px,
+          rgba(0, 0, 0, 0.03) 4px
+        );
     }
+
     .mcp-app-container {
       flex: 1;
       min-height: 0;
       width: 100%;
-      overflow: hidden;  /* Let embedded apps handle their own scrolling */
-      isolation: isolate;  /* Create stacking context so embedded app z-indexes don't compete with menu */
+      overflow: hidden;
+      isolation: isolate;
     }
-    /* Override 100vh in embedded apps - they should fill this container, not viewport */
+
     .mcp-app-container > div {
       height: 100% !important;
       max-height: 100% !important;
     }
+
+    /* Status bar - terminal style with LCARS accent */
     .mcp-status-bar {
       flex-shrink: 0;
       line-height: 1.4;
-      padding: 4px 6px;
-      background: var(--sl-color-neutral-100);
-      border-top: 1px solid var(--sl-color-neutral-200);
-      font-family: var(--sl-font-sans);
-      font-size: var(--sl-font-size-small);
+      padding: 6px 12px 6px 16px;
+      background: var(--term-bg-elevated);
+      border-top: 3px solid var(--term-accent);
+      border-left: 4px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      font-family: var(--term-mono);
+      font-size: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      color: var(--term-text-dim);
     }
+
     .mcp-status-bar .mcp-status-text {
       flex: 1;
       min-width: 0;
     }
+
+    .mcp-status-bar .mcp-status-text::before {
+      content: '>';
+      color: var(--term-accent);
+      margin-right: 8px;
+      font-weight: 600;
+    }
+
+    .mcp-status-bar .mcp-status-text::after {
+      content: '\00a0';
+    }
+
     .mcp-status-bar .mcp-status-toggles {
       flex-shrink: 0;
       display: flex;
+      gap: 4px;
     }
-    .mcp-status-bar .mcp-status-text::after {
-      content: '\00a0';  /* non-breaking space to maintain height when empty */
-    }
+
     .mcp-status-bar .thinking {
-      color: #E07A47;
-      font-weight: bold;
-      font-style: italic;
+      color: var(--term-accent);
+      font-weight: 600;
+      animation: terminal-blink 1s ease-in-out infinite;
     }
+
+    @keyframes terminal-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
     .mcp-build-mode-toggle {
       cursor: pointer;
-      padding: 2px 3px;
-      border-radius: var(--sl-border-radius-small);
-      transition: background 0.2s;
+      padding: 4px 10px;
+      border-radius: 999px;
+      transition: all 0.2s;
+      color: var(--term-text-dim);
     }
+
     .mcp-build-mode-toggle:hover {
-      background: var(--sl-color-neutral-200);
+      background: var(--term-bg-hover);
+      color: var(--term-accent);
+      box-shadow: 0 0 8px var(--term-accent-glow);
     }
+
     .mcp-build-mode-toggle sl-icon {
-      font-size: 1.1rem;
+      font-size: 1rem;
       vertical-align: middle;
     }
+
+    /* Menu container - floating terminal widget */
     .mcp-menu-container {
       position: fixed;
-      top: 8px;
-      right: 8px;
+      top: 12px;
+      right: 12px;
       z-index: 10000;
     }
+
     .mcp-menu-button {
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 48px;
+      height: 48px;
       padding: 0;
-      border: none;
-      background: rgba(255, 255, 255, 0.9);
-      border-radius: var(--sl-border-radius-medium);
-      box-shadow: 0 0 8px 2px rgba(100, 149, 237, 0.6);
+      border: 2px solid var(--term-border);
+      background: var(--term-bg-elevated);
+      border-radius: 999px;
       cursor: pointer;
-      transition: box-shadow 0.2s;
+      transition: all 0.2s;
+      box-shadow:
+        0 0 20px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
+
     .mcp-menu-button:hover {
-      box-shadow: 0 0 12px 4px rgba(100, 149, 237, 0.8);
+      border-color: var(--term-accent);
+      box-shadow:
+        0 0 20px rgba(0, 0, 0, 0.5),
+        0 0 15px var(--term-accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
+
     .mcp-menu-button .mcp-icon {
-      font-size: 1.5rem;
-      color: var(--sl-color-neutral-600);
+      font-size: 1.4rem;
+      color: var(--term-text-dim);
+      transition: color 0.2s;
     }
-    .mcp-menu-button .mcp-spinner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      opacity: 1;
-      pointer-events: none;
+
+    .mcp-menu-button:hover .mcp-icon {
+      color: var(--term-accent);
     }
-    .mcp-menu-button .mcp-spinner sl-spinner {
-      font-size: 1.3rem;
-      --track-width: 3px;
-      --indicator-color: #E07A47;
-      filter: drop-shadow(0 0 4px #E07A47) drop-shadow(0 0 8px #F5A97F);
+
+    /* Waiting state - pulsating glow */
+    .mcp-menu-button.waiting {
+      border-color: var(--term-accent);
+      animation: button-pulse 2s ease-in-out infinite;
     }
+
+    .mcp-menu-button.waiting .mcp-icon {
+      opacity: 0.3;
+    }
+
+    @keyframes button-pulse {
+      0%, 100% {
+        box-shadow:
+          0 0 20px rgba(0, 0, 0, 0.5),
+          0 0 15px var(--term-accent-glow),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+      50% {
+        box-shadow:
+          0 0 20px rgba(0, 0, 0, 0.5),
+          0 0 30px var(--term-accent-glow),
+          0 0 50px rgba(224, 122, 71, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+    }
+
     .mcp-menu-button .mcp-wait-counter {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 0.75rem;
-      font-weight: bold;
-      color: #E07A47;
-      text-shadow: 0 0 2px #000, 0 0 4px #000, 0 0 6px #000;
+      font-family: var(--term-mono);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--term-accent);
+      text-shadow: 0 0 8px var(--term-accent-glow);
       pointer-events: none;
       z-index: 1;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
+
+    .mcp-menu-button.waiting .mcp-wait-counter {
+      opacity: 1;
+    }
+
+    /* Dropdown menu - terminal panel with LCARS accent */
     .mcp-menu-dropdown {
       position: fixed;
-      top: 56px;
-      right: 8px;
+      top: 68px;
+      right: 12px;
       z-index: 10000;
-      background: var(--sl-color-neutral-0);
-      border: 1px solid var(--sl-color-neutral-200);
-      border-radius: var(--sl-border-radius-medium);
-      box-shadow: var(--sl-shadow-large);
-      padding: var(--sl-spacing-small);
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 8px 8px 8px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.6),
+        0 0 1px rgba(255, 255, 255, 0.1);
+      padding: 12px 12px 12px 14px;
     }
+
+    .mcp-menu-dropdown::before {
+      content: 'APPS';
+      display: block;
+      font-family: var(--term-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--term-accent);
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 0 4px;
+    }
+
     .mcp-icon-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: var(--sl-spacing-small);
+      gap: 8px;
     }
+
     .mcp-menu-item {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: var(--sl-spacing-small);
+      padding: 12px 8px;
       cursor: pointer;
-      font-family: var(--sl-font-sans);
-      border-radius: var(--sl-border-radius-medium);
+      font-family: var(--term-mono);
+      border-radius: 6px;
       min-width: 72px;
+      border: 1px solid transparent;
+      transition: all 0.15s;
     }
+
     .mcp-menu-item:hover {
-      background: var(--sl-color-primary-50);
+      background: var(--term-bg-hover);
+      border-color: var(--term-accent);
+      box-shadow: 0 0 12px var(--term-accent-glow);
     }
+
     .mcp-menu-item-icon {
       font-size: 1.5rem;
-      margin-bottom: var(--sl-spacing-x-small);
+      margin-bottom: 6px;
+      color: var(--term-text-dim);
+      transition: color 0.15s;
     }
+
+    .mcp-menu-item:hover .mcp-menu-item-icon {
+      color: var(--term-accent);
+    }
+
     .mcp-menu-item-icon sl-icon {
       font-size: 1.5rem;
     }
+
     .mcp-menu-item-name {
-      font-size: var(--sl-font-size-small);
-      color: var(--sl-color-neutral-700);
+      font-size: 11px;
+      color: var(--term-text-dim);
       text-align: center;
       word-break: break-word;
+      transition: color 0.15s;
     }
+
+    .mcp-menu-item:hover .mcp-menu-item-name {
+      color: var(--term-text);
+    }
+
+    /* Notifications - terminal alerts */
     .mcp-notifications {
       position: fixed;
-      top: 56px;
-      right: 8px;
+      top: 64px;
+      right: 12px;
       z-index: 9999;
       display: flex;
       flex-direction: column;
-      gap: var(--sl-spacing-small);
+      gap: 8px;
       max-width: 400px;
     }
+
     .mcp-notification sl-alert {
-      box-shadow: var(--sl-shadow-large);
+      font-family: var(--term-mono);
+      font-size: 13px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     }
+
+    .mcp-notification sl-alert::part(base) {
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+    }
+
+    /* Shoelace dark theme overrides - LCARS-inspired */
+    sl-button::part(base) {
+      font-family: var(--term-mono);
+      border-radius: 999px;
+    }
+
+    sl-badge::part(base) {
+      font-family: var(--term-mono);
+      border-radius: 999px;
+      padding: 0 0.75em;
+    }
+
+    sl-spinner {
+      --track-color: var(--term-border);
+      --indicator-color: var(--term-accent);
+    }
+
+    sl-alert::part(base) {
+      font-family: var(--term-mono);
+      background: var(--term-bg-elevated);
+      border-color: var(--term-border);
+      color: var(--term-text);
+    }
+
+    /* Theme classes - compose with app-specific classes */
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 6px 0;
+    }
+
+    .panel-header-left {
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 0 0 8px;
+      padding-left: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 8px 0 8px 10px;
+      border-left: 3px solid var(--term-border);
+      border-radius: 0 0 0 6px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .section-header:hover {
+      border-color: var(--term-accent);
+      color: var(--term-accent);
+    }
+
+    .selected-item {
+      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+      border-left: 6px solid var(--term-accent);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .input-area {
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      padding-top: 12px;
+    }
+
+    /* LCARS-style scrollbars */
+    * {
+      scrollbar-width: auto;
+      scrollbar-color: var(--term-accent) var(--term-bg);
+    }
+
+    ::-webkit-scrollbar {
+      width: 16px;
+      height: 16px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--term-bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--term-accent);
+      border: 4px solid var(--term-bg);
+      border-radius: 8px;
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--term-accent-bright);
+      background-clip: padding-box;
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: var(--term-bg);
+    }
+
     .hidden { display: none !important; }
   </style>
 
   <script>
-    // Client-local wait time counter - tracks server timestamp, counts with client clock
+    // Client-local wait time counter (updates every 200ms)
     (function() {
       function update() {
         const timestampEl = document.querySelector('.mcp-wait-timestamp');
@@ -192,18 +441,10 @@
         const serverTimestamp = parseInt(timestampEl.textContent, 10) || 0;
         const elapsed = Math.floor(Date.now() / 1000) - serverTimestamp;
 
-        if (!serverTimestamp) {
-          counterEl.classList.add('hidden');
-          counterEl.textContent = '';
-        } else if (elapsed > 5) {
-          counterEl.textContent = elapsed;
-          counterEl.classList.remove('hidden');
-        } else {
-          counterEl.classList.add('hidden');
-        }
+        // Show counter text only after 5 seconds of waiting
+        counterEl.textContent = (serverTimestamp && elapsed > 5) ? elapsed : '';
       }
 
-      // Start polling when DOM is ready
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => { setInterval(update, 200); });
       } else {
@@ -234,18 +475,12 @@
       </span>
     </div>
 
-    <!-- App switcher menu button (9-dot grid) - floats above all content -->
+    <!-- App switcher menu button -->
     <div class="mcp-menu-container">
-      <button class="mcp-menu-button" ui-action="toggleMenu()" title="App Menu">
+      <button class="mcp-menu-button" ui-action="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
         <sl-icon class="mcp-icon" name="grid-3x3-gap-fill"></sl-icon>
-        <!-- Processing indicator - shows when agent is not connected to /wait -->
-        <span class="mcp-spinner" ui-class-hidden="pollingEvents()">
-          <sl-spinner></sl-spinner>
-          <span class="mcp-wait-counter hidden"></span>
-        </span>
-        <!-- Hidden timestamp for JS counter (UNIX seconds when wait started, 0 if connected) -->
+        <span class="mcp-wait-counter"></span>
         <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
-        <!-- Hidden span to trigger disconnect notification check on UI refresh -->
         <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
       </button>
     </div>

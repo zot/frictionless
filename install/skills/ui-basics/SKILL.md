@@ -146,7 +146,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 <!-- Input --> <sl-input ui-value="email" label="Email"></sl-input>
 <!-- Live --> <sl-input ui-value="search?keypress">
 <!-- Button --> <sl-button ui-action="save()">Save</sl-button>
-<!-- Select --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
+<!-- Select or Dropdown --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
 <!-- Check --> <sl-checkbox ui-attr-checked="agreed">Agree</sl-checkbox>
 <!-- Switch --> <sl-switch ui-attr-checked="dark">Dark</sl-switch>
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
@@ -243,7 +243,7 @@ html, body {
 
 # Styling
 
-**Put ALL CSS in top-level viewdefs only.** Never in list-item viewdefs.
+**Put ALL CSS in the main app viewdef only** (e.g. `MyApp.DEFAULT.html`). Never in list-item viewdefs or other non-main viewdefs.
 
 ```html
 <template>

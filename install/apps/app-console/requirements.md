@@ -33,6 +33,7 @@ When an app is selected, show:
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
   - Review Gaps (when has gaps) - sends review_gaps_request to invoke `/ui-thorough` skill
+  - Delete App (when not protected) - shows confirmation dialog, then removes the app entirely
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
 - Fixed Issues section (collapsed by default)
@@ -74,6 +75,27 @@ When Claude receives the `app_created` event, it should show both progress (in t
 | 3    | (clear)  | (final message)                   | Write the expanded requirements.md to disk, clear progress                    |
 
 Use `mcp:appProgress(name, percent, stage)` for the progress bar, `appConsole:addAgentThinking(text)` for chat panel updates, then `appConsole:addAgentMessage(text)` for the final response. Call `appConsole:updateRequirements(name, content)` to populate the requirements in the UI, then `mcp:appProgress(name, nil, nil)` to clear the progress bar.
+
+## Delete App
+
+Allow users to delete apps that are not protected. Protected apps include: `app-console`, `mcp`, `claude-panel`, `viewlist`.
+
+**Delete Button:**
+- Only shown for non-protected apps (apps not in the protected list)
+- Clicking shows a confirmation dialog
+- Located in the action buttons area
+
+**Confirmation Dialog:**
+- Shows warning message asking user to confirm deletion
+- Has "Delete" and "Cancel" buttons
+- Prevents accidental deletion
+
+**On Delete (Lua):**
+1. Set the app's global variables to nil (e.g., `contacts = nil`, `Contacts = nil`)
+2. Unlink the app from lua/ and viewdefs/ directories
+3. Delete the app directory recursively
+4. Remove the app from the apps list
+5. Clear selection
 
 ## Chat Panel
 
@@ -349,3 +371,31 @@ When an app has checkpoints, show a "Make it thorough" button in the action butt
 - After consolidation, checkpoints are cleared
 
 This allows users to prototype quickly with `/ui-fast`, then consolidate changes into proper documentation when ready.
+
+## Styling
+
+This app inherits the terminal aesthetic from the MCP shell, using CSS variables:
+
+**Color Palette:**
+- `--term-bg`: deep dark background (#0a0a0f)
+- `--term-bg-elevated`: raised surfaces (#12121a)
+- `--term-bg-hover`: hover states (#1a1a24)
+- `--term-border`: subtle borders (#2a2a3a)
+- `--term-text`: primary text (#e0e0e8)
+- `--term-text-dim`: secondary text (#8888a0)
+- `--term-accent`: orange accent (#E07A47)
+- `--term-accent-glow`: glow effects (rgba(224, 122, 71, 0.4))
+
+**Typography:**
+- `--term-mono`: JetBrains Mono, Fira Code, Consolas (code)
+- `--term-sans`: Space Grotesk, system-ui (headings)
+
+**Component Overrides:**
+All Shoelace components require dark theme overrides via `::part()` selectors:
+- Inputs, textareas, selects: dark backgrounds, dim borders, orange focus glow
+- Buttons: elevated backgrounds, orange hover states
+- Badges: accent colors with glow
+- Alerts: dark backgrounds, color-coded borders
+
+**Selection States:**
+Selected app in list shows orange left border accent.

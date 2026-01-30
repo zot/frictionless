@@ -82,6 +82,12 @@ Legend:
 - `[Make it thorough]` — shown when app has checkpoints (hasCheckpoints), consolidates changes into design
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
+- `[Delete App]` — shown when app is not protected; shows confirmation dialog before deletion
+
+**App list icons:**
+- 🔨 (hammer) — shown for unbuilt apps (needsBuild)
+- 💎 (gem) or 🚀 (rocket) — shown for built apps (rocket if hasCheckpoints, gem otherwise)
+- ⚠ (exclamation-triangle) — shown if app has gaps
 
 ### New App Form (replaces details)
 ```
@@ -162,6 +168,7 @@ Legend:
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
 | _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
+| confirmDelete | boolean | Show delete confirmation dialog |
 
 ### Issue
 
@@ -297,6 +304,7 @@ Legend:
 | notBuilding() | Returns true if buildProgress is nil |
 | canOpen() | Returns true if hasViewdefs |
 | needsBuild() | Returns true if not hasViewdefs |
+| isBuilt() | Returns true if hasViewdefs |
 | toggleKnownIssues() | Toggle showKnownIssues |
 | toggleFixedIssues() | Toggle showFixedIssues |
 | toggleRequirements() | Toggle showRequirements |
@@ -321,6 +329,11 @@ Legend:
 | isSelf() | Returns true if this is the "app-console" app itself |
 | isMcp() | Returns true if this is the "mcp" app |
 | openButtonDisabled() | Returns true if Open button should be disabled (app-console or mcp) |
+| isProtected() | Returns true if app is in PROTECTED_APPS list (app-console, mcp, claude-panel, viewlist) |
+| requestDelete() | Set confirmDelete to true |
+| cancelDelete() | Set confirmDelete to false |
+| hideDeleteConfirm() | Returns confirmDelete == false |
+| confirmDeleteApp() | Delete the app: set globals to nil, remove prototype and nested prototypes from registry, unlink app, delete directory, remove from list |
 
 ### TestItem
 
@@ -512,3 +525,24 @@ local UI_BUILDER_STEPS = {
 - `### N.` under "Known Issues" = open bugs
 - `### N.` under "Fixed Issues" = resolved bugs
 - `## Gaps` section content = design/code mismatch (show ⚠ if non-empty)
+
+## Styling
+
+Inherits terminal aesthetic from MCP shell via CSS variables.
+
+**Key Variables:**
+- `--term-bg`: #0a0a0f (deep dark)
+- `--term-bg-elevated`: #12121a (panels, headers)
+- `--term-bg-hover`: #1a1a24 (hover states)
+- `--term-border`: #2a2a3a (borders)
+- `--term-text`: #e0e0e8 (primary)
+- `--term-text-dim`: #8888a0 (secondary)
+- `--term-accent`: #E07A47 (orange)
+- `--term-mono`: JetBrains Mono (monospace)
+- `--term-sans`: Space Grotesk (headings)
+
+**Component Notes:**
+- All Shoelace components need `::part()` overrides for dark theme
+- Selected app shows orange left border (4px solid `--term-accent`)
+- Progress bars use accent color with glow
+- Collapsible sections have chevron indicators

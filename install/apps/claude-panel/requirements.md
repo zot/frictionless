@@ -61,16 +61,15 @@ A universal panel for Claude Code showing project status and quick actions.
 | Branch  | `git branch --show-current`       | Current git branch                 |
 | Changed | `git status --porcelain \| wc -l` | Count of changed files             |
 
-## Connection Indicator
+## Styling
 
-A pulsating orange asterisk (*) appears next to "Claude Panel" when the agent event loop is **not connected** to the `/wait` endpoint. When connected, the indicator disappears.
+This app inherits the terminal aesthetic from the MCP shell, using CSS variables:
+- Dark backgrounds (`--term-bg`, `--term-bg-elevated`, etc.)
+- Orange accent color (`--term-accent`, `--term-accent-glow`)
+- Monospace typography (`--term-mono`) with Space Grotesk headings (`--term-sans`)
+- Glow effects on interactive elements
 
-| State        | Display                           |
-|--------------|-----------------------------------|
-| Connected    | Nothing (clean title)             |
-| Disconnected | Orange pulsating `*` with glow    |
-
-The animation uses Claude's brand orange (#d97706) with a sparkle effect (scale + glow intensity pulse over 2 seconds).
+**Note:** Connection status is indicated by the MCP shell's unified indicator (pulsating glow on menu button with wait counter). This app no longer has its own connection indicator.
 
 ## Tree Sections
 

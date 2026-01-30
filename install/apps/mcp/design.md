@@ -37,21 +37,21 @@ Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between ico
 ### Processing Indicator
 
 When the agent event loop is not connected to `/wait` (Claude is processing):
-- A semi-transparent spinner overlays the 9-dot icon at 50% opacity
-- Both the spinner and 9-dot button remain visible
-- The 9-dot button stays clickable (spinner has pointer-events: none)
-- Uses `mcp:pollingEvents()` server method - returns false when processing
-- Spinner hidden via `ui-class-hidden="pollingEvents()"`
+- The menu button enters a `.waiting` state via `ui-class-waiting="isWaiting()"`
+- A pulsating orange glow effect animates around the button (CSS `button-pulse` animation)
+- The grid icon dims to 30% opacity
+- A wait time counter appears centered over the button
+- The button remains fully clickable during wait state
 
 ### Wait Time Counter (Client-Local JavaScript)
 
 Client-side JavaScript manages the counter display without server round-trips:
-- A `<script>` block in the viewdef defines counter management functions
-- When `pollingEvents()` changes, a `ui-code` binding triggers JS to start/stop the counter
-- Counter stores start timestamp and uses `setInterval` to update every second
-- Counter element shows seconds elapsed, hidden when <= 5 seconds
-- Bold orange text with black glow for contrast, centered in spinner
-- Interval cleared when spinner hides (pollingEvents becomes true)
+- A `<script>` block with `setInterval(200ms)` reads timestamp from hidden element
+- Server provides `waitStartOffset()` - UNIX timestamp when wait started, or 0 if connected
+- Counter calculates elapsed seconds client-side
+- Counter shows seconds elapsed, empty when <= 5 seconds
+- Bold orange text with glow, centered in button (`.mcp-wait-counter`)
+- CSS controls visibility via parent `.waiting` class
 
 ### pushState Override
 
@@ -123,6 +123,7 @@ The global `mcp` object is provided by the server. This app adds:
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 | waitTime() | Server-provided: seconds since last agent connection to /wait |
+| isWaiting() | Returns true if waitTime() > 0 (for ui-class-waiting binding) |
 | pendingEventCount() | Server-provided: number of events waiting to be processed |
 | waitStartOffset() | Returns UNIX timestamp when wait started, or 0 if connected (for client-side counter) |
 | checkDisconnectNotify() | Check if Claude appears disconnected and show warning notification if needed |

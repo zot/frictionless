@@ -90,6 +90,46 @@ Checkpoints use fossil SCM under the hood, managed via `.ui/mcp checkpoint` comm
 
 ---
 
+# Workflow
+
+**Always checkpoint and show progress**, even for small fixes. Any change takes time and the user is watching.
+
+## Workflow
+
+1. **Checkpoint** before starting
+2. **Create progress steps** appropriate to the work (see below)
+3. Write `{base_dir}/apps/<app>/icon.html` (if new app)
+4. Check `{base_dir}/patterns/` for reusable patterns (if building new features)
+5. **Do the work**, updating progress as you go
+6. Carefully go over the requirements item by item and make sure that the viewdefs and code meet them. Check behavioral requirements like scrolling, resizing, and hiding.
+7. Run `.ui/mcp audit APP`
+8. **Checkpoint** after finishing
+
+## Progress Steps
+
+Pick steps relevant to what you're changing:
+
+| Change type | Steps |
+|-------------|-------|
+| CSS/styling fix | `{'Fix viewdefs'}` |
+| Lua logic fix | `{'Fix code'}` |
+| New feature | `{'Fast requirements', 'Fast code', 'Fast viewdefs', 'Fast verify', 'Fast finish'}` |
+| Full build | `{'Fast requirements', 'Fast code', 'Fast viewdefs', 'Fast verify', 'Fast finish'}` |
+
+**Fast verify**: Go through requirements item by item and verify the code/viewdefs meet them. Fix any gaps before finishing. Check behavioral requirements like scrolling, resizing, and hiding.
+
+**MCP progress** (shows in UI):
+```bash
+.ui/mcp run "mcp:createTodos({'Fix viewdefs'}, 'APP_NAME')"
+```
+
+**Claude Code TaskCreate** (tracks work):
+```
+TaskCreate("Fix viewdefs", activeForm: "Fixing viewdefs...")
+```
+
+Create both—MCP progress for user visibility, TaskCreate for work tracking.
+
 # Consolidation
 
 Checkpoints are **ephemeral** - they exist during rapid prototyping, then get cleared after changes are incorporated into the design.

@@ -7,9 +7,29 @@ description: use when **running Frictionless UIs** or needing to understand UI s
 
 Foundation for building and running ui-engine UIs with Lua apps connected to widgets.
 
-## Getting base_dir and url
+## CRITICAL: Before Handling ANY Event
 
-Always get `base_dir` and `url` from `ui_status` first. All paths below use `{base_dir}` as a placeholder. Use `{url}` exactly as returned (e.g., `http://127.0.0.1:34919`).
+**ALWAYS read the design file for the app that sent the event FIRST.** The `app` field tells you which design to read:
+
+```
+Event: {"app":"app-console", "event":"app_created", "name":"contacts", "context":"contacts", "note":"...contacts..."}
+       ^^^^^^^^^^^^^^^^
+Read:  .ui/apps/app-console/design.md  <-- ONLY use the "app" field
+```
+
+**WARNING:** Do NOT be misled by `context`, `note`, `name`, or other fields that mention other app names. These are data for handling the event—they do NOT change which design.md you read. The `app` field is the ONLY field that determines the design file.
+
+The design.md explains how to handle each event type. Do NOT skip this step—even for events that seem obvious like `app_created`.
+
+## Handler Dispatch Rule
+
+**NEVER modify or create UI code directly.** When an event requires UI changes (build, fix, chat requests about UI), you MUST:
+
+1. Check the `handler` field in the event (`"/ui-fast"` or `"/ui-thorough"`)
+2. Invoke that skill using `Skill(skill: "ui-fast")` or `Skill(skill: "ui-thorough")`
+3. Pass the event context to the skill
+
+This applies to ALL UI modifications—requirements, design, code, and viewdefs. The `/ui` skill handles event loops and display; it delegates all UI changes to the handler skill.
 
 ## Simple Requests
 
@@ -46,30 +66,26 @@ The `.ui/mcp` script provides commands for interacting with the UI server:
 
 The event script waits for user interactions and returns JSON:
 
+**Always use the relative path `.ui/mcp`**:
+
 ```bash
 .ui/mcp event
 ```
 
-Returns one JSON array per line containing one or more events:
+**NOT the absolute path `/home/X/.ui/mcp`:**
+
+```bash
+/home/bubba/work/.ui/mcp event # <-- wrong, this is inconvenient for the user's permissions and also uses more tokens
+```
+
+This returns one JSON array per line containing one or more events:
 ```json
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
 
-Make sure you have read the design file for the event.
+As soon as you receive events, create a task to restart the event loop using TaskCreate. This ensures that after handling all events and any spawned work, the loop restarts.
 
-### Which Design File to Read
-
-**Example event:**
-```json
-{"app":"app-console", "context":"contacts", "note":"...contacts", "event":"chat", "text":"hello"}
-```
-
-**Read:** `{base_dir}/apps/app-console/design.md` (from `app` field)
-**NOT:** `{base_dir}/apps/contacts/design.md` (ignore `context` and `note`)
-
-The `app` field identifies which app's design.md to read. Other fields like `context` or `note` provide data for event handling but do NOT change which design file you read.
-
-You must not skip reading that app's design unless you have already read it in this conversation.
+**Remember:** Read the design.md for the `app` field (see "Before Handling ANY Event" above). Other fields like `context` or `note` provide data but do NOT change which design file you read.
 
 ### Running in Foreground or Background
 
@@ -84,8 +100,19 @@ This is the most responsive approach - events are handled immediately.
 **Background event loop (alternative):**
 Run `.ui/mcp event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
 
+**CRITICAL: Kill previous event listener before restarting.**
+If the event call runs in background or times out, the old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
+
+```
+1. Track the task_id from `.ui/mcp event` (returned when running in background or via TaskOutput)
+2. Before restarting: TaskStop(task_id=<previous_task_id>)
+3. Then start new: `.ui/mcp event`
+```
+
+Failure to kill the old listener means it will consume events intended for the new one.
+
 **Exit codes:**
-- 0 + empty output = timeout, no events (just restart)
+- 0 + empty output = timeout, no events (kill old task, restart)
 - 0 + JSON output = events received
 - 52 = server restarted (restart both server and event loop)
 
@@ -117,19 +144,60 @@ To display an app (e.g., `claude-panel`):
 4. When events arrive, handle according to design.md, then restart the loop:
    - Parse JSON: [{"app":"app-console","event":"select","name":"contacts"}]
    - Check design.md's "Events" section for how to handle each event type
-   - Some events use `.ui/mcp run` directly: `.ui/mcp run 'contacts:doSomething()'`
-   - Some events require spawning a background agent (see below)
+   - **For UI changes**: Check event's `handler` field and invoke that skill (see Handler Dispatch Rule above)
+   - Simple state changes: use `.ui/mcp run` directly
+   - Some events require spawning a background agent (see Build Settings below)
    - Restart: `.ui/mcp event`
 ```
 
 **Background Agent Events:**
-Some events require spawning a background Task agent. The design.md specifies this explicitly:
-```
-Task(subagent_type="ui-builder", run_in_background=true, prompt="Build the {target} app")
-```
-Look for patterns like "spawn background agent" or `Task(...)` in the design.md's event handling section. Background agents allow the event loop to continue while long-running work (builds, tests) executes.
+Some events require spawning a background Task agent. The design.md specifies this explicitly. Look for patterns like "spawn background agent" or `Task(...)` in the design.md's event handling section. Background agents allow the event loop to continue while long-running work (builds, tests) executes.
 
 **The event loop is NOT optional.** Without it, button clicks and form submissions are silently ignored.
+
+## Build Settings
+
+Every event has two fields injected automatically by the MCP layer based on the status bar toggles:
+
+| Toggle | Field | Values |
+|--------|-------|--------|
+| Build mode (rocket/diamond) | `handler` | `"/ui-fast"` or `"/ui-thorough"` |
+| Execution (hourglass/arrows) | `background` | `false` or `true` |
+
+### Handler Dispatch (MANDATORY)
+
+**DO NOT skip this.** When handling events that involve UI changes:
+
+1. **Invoke the skill named in `handler`** — use `Skill(skill: "ui-fast")` or `Skill(skill: "ui-thorough")`
+2. **Check `background`** — if true, run as background agent via Task tool
+
+**Always respect these fields.** They reflect the user's explicit choices via the UI toggles. Ignoring the handler means ignoring user preferences.
+
+### Execution Mode
+
+| `background` | Behavior |
+|--------------|----------|
+| `false` | Run in foreground (blocks event loop) |
+| `true` | Run as background agent (event loop continues) |
+
+For background execution:
+```
+Task(subagent_type="ui-builder", run_in_background=true, prompt="invoke {handler} skill...")
+```
+
+### `/ui-fast`
+
+Rapid iteration with checkpointing:
+1. Checkpoint current state before changes
+2. Make edits directly
+3. Hot-reload shows results immediately
+4. User can rollback if needed
+
+### `/ui-thorough`
+
+Full workflow with progress feedback:
+- Requirements → Design → Code → Viewdefs → Audit → Simplify
+- Shows step-by-step progress in UI
 
 ## App Variable Convention
 
@@ -152,22 +220,19 @@ end
 
 ## Server Lifecycle
 
-The server auto-starts when the MCP connection is established. Use `ui_status` to get `base_dir`, `url`, and `sessions` count.
+The server auto-starts when the MCP connection is established. Use `.ui/mcp status` to get `sessions` count and `url`.
 
 **URL:** Always use `{url}/?conserve=true` to access the UI. The `conserve` parameter prevents duplicate browser tabs. **NEVER include session IDs in URLs** — they will cause problems. The server binds the root URL to the MCP session automatically via a cookie.
 
 **Verifying connection:** After navigating with Playwright, call `.ui/mcp status` and check that `sessions > 0`. This confirms the browser connected without needing artificial waits.
 
-If you need to reconfigure (different base_dir), run `.ui/mcp configure {base_dir}` - this stops the current server and restarts with the new directory.
+## Building or Modifying UIs
 
-## Building or modifying UIs
+**Always use `/ui-fast` or `/ui-thorough`** — never edit UI files directly from the `/ui` skill. When handling events, check the `handler` field to determine which skill to invoke. When the user asks for changes outside an event loop, ask which mode they prefer or default to `/ui-fast` for small changes.
 
-**ALWAYS use the `/ui-builder` skill to create or modify UIs.** Do NOT use `ui_*` MCP tools directly for building.
-
-Before invoking `/ui-builder`:
+**Before building a new app:**
 1. Create the app directory: `mkdir -p {base_dir}/apps/<app>`
 2. Write requirements to `{base_dir}/apps/<app>/requirements.md`
-3. Invoke `/ui-builder`: "Read `{base_dir}/apps/<app>/requirements.md` and build the app"
 
 ### Requirements Format
 
@@ -180,7 +245,7 @@ A short paragraph describing what the app does.
 ...
 ```
 
-The first line is a descriptive title (e.g., "# Contact Manager"), followed by prose describing the app. See the `/ui-builder` skill's `examples/requirements.md` for a reference.
+The first line is a descriptive title (e.g., "# Contact Manager"), followed by prose describing the app. See `.claude/skills/ui-builder/examples/requirements.md` for a reference.
 
 ## Directory Structure
 
@@ -200,7 +265,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 ## File Ownership
 
 - `requirements.md` — you write/update this
-- `design.md`, `app.lua`, `viewdefs/` — use `/ui-builder` skill to modify
+- `design.md`, `app.lua`, `viewdefs/` — **MUST use `/ui-fast` or `/ui-thorough` skill** (never edit directly from `/ui`)
 
 ## Debugging
 

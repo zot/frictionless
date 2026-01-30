@@ -1,53 +1,53 @@
-# frictionless
+# Frictionless
 
-**Version: 0.6.0**
+**Version: 0.11.0**
 
-An MCP server that enables AI agents to build interactive UIs for rich two-way communication with users.
+**An app ecosystem for Claude. Share the love—or steal it.**
 
-## Benefits
+Chat with Claude, get **fully hot-loadable apps**. Lua backend, HTML templates. No recompiles. No restarts.
 
-- **Prototyping** — Agent and user collaborate on UI wireframes for production apps
-- **Testing** — Create mock UIs for testing workflows
-- **Stateful interaction** — Go beyond text-only conversations:
-  - Collect structured input (forms, selections, ratings, file picks)
-  - Present data with layout (lists, tables, comparisons)
-  - Multi-step workflows (wizards, confirmations, progress tracking)
-  - Real-time feedback loops (editing, previewing, validation)
-- **Claude Apps** — Persistent UIs for interacting with Claude:
-  - Launch panels with buttons for design, implement, analyze gaps
-  - Project dashboards showing available commands, agents, skills
-  - Status displays for background tasks and build progress
+And your apps can even **integrate with Claude**: your apps poke Claude and Claude pokes back. Right in the state.
 
-## Installation
+Apps for
 
-Paste this into Claude Code to install:
+- **Quality of life** — tame complex tasks with forms and buttons
+  - **Claude Code life** — point, click, Claude makes it so
+  - **UNIX life** — UIs for UNIX tools
+- **Life beyond Claude Code** — expenses, habits, projects, whatever
+- **Dashboards** — surface info at a glance
+- **Prototypes** — functional wireframes at a fraction of the tokens
 
-```
-Install from github zot/frictionless readme
-```
+What does **"fully" hot-loadable** mean?
 
-To install manually:
+- Both front-end changes and backend changes are hot-loadable.
+- All your state is in the backend and hotloading preserves it.
+- You rename a field of a prototype, all its instances' fields get renamed.
+- Yeah even structural changes to your data. *That's* what **fully hot-loadable** means.
 
-```bash
-# Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
-mkdir -p {home}/.claude/bin
-curl -L https://github.com/zot/frictionless/releases/latest/download/frictionless-linux-amd64 -o {home}/.claude/bin/frictionless
-chmod +x {home}/.claude/bin/frictionless
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/Wd5n5fXoCuU/0.jpg)](https://youtu.be/Wd5n5fXoCuU)
 
-# Add to Claude Code
-claude mcp add frictionless -- {home}/.claude/bin/frictionless} mcp
-```
+## How It Works
+
+Built on [ui-engine](https://github.com/zot/ui-engine). Less complexity → fewer tokens:
+
+- **No API layer** — no endpoints, no serialization, no DTOs
+- **No frontend code** — just HTML templates with declarative bindings
+- **No sync wiring** — change backend data, UI updates automatically—no code to detect or push changes
+
+Claude writes your app logic and skips everything else. See [overview](docs/OVERVIEW.md) for details.
 
 ## Usage
 
-Once installed, Claude Code automatically starts frictionless when needed. The server uses `.ui` as the default working directory.
+Once installed, use `/ui show` to show the Frictionless console. You can build apps in the console.
 
-### Building UIs
+Frictionless uses your project's `.ui` directory for its apps and content.
+
+### Building UIs in the CLI
 
 Ask Claude to build a UI:
 
 ```
-/ui-builder make a contacts app with search and inline editing
+/ui-thorough make a contacts app with search and inline editing
 ```
 
 Or display an existing app:
@@ -58,14 +58,15 @@ Or display an existing app:
 
 ### Standalone Mode
 
-Run frictionless independently for development or testing:
+Run frictionless independently for development or testing changes to Frictionless itself:
 
 ```bash
-frictionless serve --port 8000
-frictionless serve --port 8000 --dir /path/to/ui-dir
+frictionless serve --port 8000 --mcp-port 8001
+frictionless serve --port 8000 --mcp-port 8001 --dir /path/to/ui-dir
 ```
 
 The `--dir` option specifies the working directory for Lua scripts, viewdefs, and apps. Defaults to `.ui`.
+The `--mcp-port` is only needed if you want to connect it to Claude.
 
 ### Bundling
 
@@ -81,10 +82,39 @@ frictionless extract output/             # Extract all bundled files to current 
 
 ## Documentation (in .ui by default)
 
-- **[Platform Reference](resources/reference.md)** — Architecture, tools, and quick start guide
-- **[Viewdef Syntax](resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
-- **[Lua API](resources/lua.md)** — Class patterns and globals
-- **[Agent Workflow](resources/mcp.md)** — Best practices for AI agents
+- **[Intro](install/resources/intro.md)** — Introduction and overview
+- **[Platform Reference](install/resources/reference.md)** — Architecture, tools, and quick start guide
+- **[Viewdef Syntax](install/resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
+- **[Lua API](install/resources/lua.md)** — Class patterns and globals
+- **[Agent Workflow](install/resources/mcp.md)** — Best practices for AI agents
+
+## Installation
+
+Tell Claude:
+
+```
+Install using github zot/frictionless readme
+```
+
+To install manually:
+
+```bash
+# Download (replace OS/ARCH: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)
+mkdir -p {home}/.claude/bin
+curl -L https://github.com/zot/frictionless/releases/latest/download/frictionless-linux-amd64 -o {home}/.claude/bin/frictionless
+chmod +x {home}/.claude/bin/frictionless
+
+cd {your-project}
+
+# Add Frictionless to your project
+claude mcp add frictionless -- {home}/.claude/bin/frictionless} mcp
+
+# Initialize the project
+{home}/.claude/bin/frictionless} install
+
+# Add the playwright MCP server to your project for better debugging
+claude mcp add playwright -- npx @playwright/mcp@latest
+```
 
 ## Future Directions
 

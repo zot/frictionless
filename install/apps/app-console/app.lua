@@ -33,6 +33,12 @@ local UI_THOROUGH_STEPS = {
     {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
     {label = "Link and audit", progress = 90, thinking = "Auditing..."},
     {label = "Simplify", progress = 95, thinking = "Simplifying..."},
+
+    {label = "Fast Design", progress = 20, thinking = "Designing..."},
+    {label = "Fast code", progress = 40, thinking = "Writing code..."},
+    {label = "Fast viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Fast verify", progress = 60, thinking = "Verifying requirements..."},
+    {label = "Fast finish", progress = 80, thinking = "Finishing..."},
 }
 
 -- Nested prototype: Chat message model
@@ -93,14 +99,14 @@ function TodoItem:isCompleted()
     return self.status == "completed"
 end
 
+local TODO_STATUS_ICONS = {
+    in_progress = "🔄",
+    completed = "✓",
+    pending = "⏳"
+}
+
 function TodoItem:statusIcon()
-    if self.status == "in_progress" then
-        return "🔄"
-    elseif self.status == "completed" then
-        return "✓"
-    else
-        return "⏳"
-    end
+    return TODO_STATUS_ICONS[self.status] or "⏳"
 end
 
 -- Nested prototype: Output line model (for Lua console)
@@ -142,24 +148,18 @@ function TestItem:new(text, status)
     return session:create(TestItem, { text = text, status = status or "untested" })
 end
 
+local TEST_STATUS_ICONS = {
+    passed = "✓",
+    failed = "✗",
+    untested = " "
+}
+
 function TestItem:icon()
-    if self.status == "passed" then
-        return "✓"
-    elseif self.status == "failed" then
-        return "✗"
-    else
-        return " "
-    end
+    return TEST_STATUS_ICONS[self.status] or " "
 end
 
 function TestItem:iconClass()
-    if self.status == "passed" then
-        return "passed"
-    elseif self.status == "failed" then
-        return "failed"
-    else
-        return "untested"
-    end
+    return self.status
 end
 
 -- Nested prototype: App info model
@@ -179,7 +179,8 @@ AppConsole.AppInfo = session:prototype("AppConsole.AppInfo", {
     gapsContent = "",
     showGaps = false,
     buildProgress = EMPTY,
-    buildStage = EMPTY
+    buildStage = EMPTY,
+    confirmDelete = false
 })
 local AppInfo = AppConsole.AppInfo
 
@@ -237,6 +238,8 @@ function AppInfo:needsBuild()
     return not self.hasViewdefs
 end
 
+AppInfo.isBuilt = AppInfo.canOpen
+
 function AppInfo:knownIssueCount()
     return #self.knownIssues
 end
@@ -261,29 +264,24 @@ function AppInfo:notBuilding()
     return self.buildProgress == nil
 end
 
-function AppInfo:toggleKnownIssues()
-    self.showKnownIssues = not self.showKnownIssues
+-- Helper to create toggle/hidden/icon methods for collapsible sections
+local function makeCollapsible(proto, fieldName)
+    local showField = "show" .. fieldName
+    proto["toggle" .. fieldName] = function(self)
+        self[showField] = not self[showField]
+    end
+    proto[fieldName:sub(1,1):lower() .. fieldName:sub(2) .. "Hidden"] = function(self)
+        return not self[showField]
+    end
+    proto[fieldName:sub(1,1):lower() .. fieldName:sub(2) .. "Icon"] = function(self)
+        return self[showField] and "chevron-down" or "chevron-right"
+    end
 end
 
-function AppInfo:toggleFixedIssues()
-    self.showFixedIssues = not self.showFixedIssues
-end
-
-function AppInfo:knownIssuesHidden()
-    return not self.showKnownIssues
-end
-
-function AppInfo:fixedIssuesHidden()
-    return not self.showFixedIssues
-end
-
-function AppInfo:knownIssuesIcon()
-    return self.showKnownIssues and "chevron-down" or "chevron-right"
-end
-
-function AppInfo:fixedIssuesIcon()
-    return self.showFixedIssues and "chevron-down" or "chevron-right"
-end
+makeCollapsible(AppInfo, "KnownIssues")
+makeCollapsible(AppInfo, "FixedIssues")
+makeCollapsible(AppInfo, "Gaps")
+makeCollapsible(AppInfo, "Requirements")
 
 function AppInfo:hasGaps()
     return self.gapsContent ~= nil and self.gapsContent ~= ""
@@ -291,30 +289,6 @@ end
 
 function AppInfo:noGaps()
     return not self:hasGaps()
-end
-
-function AppInfo:toggleGaps()
-    self.showGaps = not self.showGaps
-end
-
-function AppInfo:gapsHidden()
-    return not self.showGaps
-end
-
-function AppInfo:gapsIcon()
-    return self.showGaps and "chevron-down" or "chevron-right"
-end
-
-function AppInfo:toggleRequirements()
-    self.showRequirements = not self.showRequirements
-end
-
-function AppInfo:requirementsHidden()
-    return not self.showRequirements
-end
-
-function AppInfo:requirementsIcon()
-    return self.showRequirements and "chevron-down" or "chevron-right"
 end
 
 function AppInfo:hasCheckpoints()
@@ -374,11 +348,8 @@ function AppInfo:requestReviewGaps()
 end
 
 function AppInfo:openApp()
-    print("[DEBUG] openApp called, self.name type:", type(self.name), "value:", tostring(self.name))
     if type(self.name) == "string" then
         appConsole:openEmbedded(self.name)
-    else
-        print("[DEBUG] ERROR: self.name is not a string!")
     end
 end
 
@@ -394,6 +365,70 @@ function AppInfo:openButtonDisabled()
     return self:isSelf() or self:isMcp()
 end
 
+-- Protected apps that cannot be deleted
+local PROTECTED_APPS = {
+    ["app-console"] = true,
+    ["mcp"] = true,
+    ["claude-panel"] = true,
+    ["viewlist"] = true
+}
+
+function AppInfo:isProtected()
+    return PROTECTED_APPS[self.name] or false
+end
+
+function AppInfo:requestDelete()
+    self.confirmDelete = true
+end
+
+function AppInfo:cancelDelete()
+    self.confirmDelete = false
+end
+
+function AppInfo:hideDeleteConfirm()
+    return not self.confirmDelete
+end
+
+-- Convert kebab-case to camelCase (e.g., "my-app" -> "myApp")
+local function toCamelCase(name)
+    return name:gsub("%-(%l)", function(c) return c:upper() end)
+end
+
+-- Convert kebab-case to PascalCase (e.g., "my-app" -> "MyApp")
+local function toPascalCase(name)
+    return toCamelCase(name):gsub("^%l", string.upper)
+end
+
+function AppInfo:confirmDeleteApp()
+    if self:isProtected() then return end
+
+    local name = self.name
+    local baseDir = mcp:status().base_dir
+    local protoName = toPascalCase(name)
+
+    -- Clear global variables for this app
+    _G[protoName] = nil
+    _G[toCamelCase(name)] = nil
+
+    -- Remove prototype and all nested prototypes (e.g., Contacts.Contact, Contacts.ChatMessage)
+    session:removePrototype(protoName, true)
+
+    -- Unlink and delete the app
+    os.execute('.ui/mcp linkapp remove "' .. name .. '"')
+    os.execute('rm -rf "' .. baseDir .. '/apps/' .. name .. '"')
+
+    -- Remove from app list and clear selection
+    for i, app in ipairs(appConsole._apps) do
+        if app.name == name then
+            table.remove(appConsole._apps, i)
+            break
+        end
+    end
+    appConsole.selected = nil
+
+    mcp:scanAvailableApps()
+end
+
 -- Filesystem helpers for Lua-driven app discovery
 
 -- Read file contents, returns nil if file doesn't exist
@@ -403,16 +438,6 @@ local function readFile(path)
     local content = handle:read("*a")
     handle:close()
     return content
-end
-
--- Check if file exists
-local function fileExists(path)
-    local handle = io.open(path, "r")
-    if handle then
-        handle:close()
-        return true
-    end
-    return false
 end
 
 -- Check if directory exists and has files
@@ -479,23 +504,21 @@ local function parseTesting(content)
         table.insert(result.tests, { text = text, status = testStatus })
     end
 
-    -- Parse Known Issues section
-    local knownSection = content:match("## Known Issues.-\n(.-)\n## ")
-        or content:match("## Known Issues.-\n(.*)$")
-    if knownSection then
-        for num, title in knownSection:gmatch("### (%d+)%.%s*([^\n]+)") do
-            table.insert(result.knownIssues, { number = tonumber(num), title = title })
+    -- Parse issue sections (Known Issues and Fixed Issues share same format)
+    local function parseIssueSection(sectionName)
+        local issues = {}
+        local section = content:match("## " .. sectionName .. ".-\n(.-)\n## ")
+            or content:match("## " .. sectionName .. ".-\n(.*)$")
+        if section then
+            for num, title in section:gmatch("### (%d+)%.%s*([^\n]+)") do
+                table.insert(issues, { number = tonumber(num), title = title })
+            end
         end
+        return issues
     end
 
-    -- Parse Fixed Issues section
-    local fixedSection = content:match("## Fixed Issues.-\n(.-)\n## ")
-        or content:match("## Fixed Issues.-\n(.*)$")
-    if fixedSection then
-        for num, title in fixedSection:gmatch("### (%d+)%.%s*([^\n]+)") do
-            table.insert(result.fixedIssues, { number = tonumber(num), title = title })
-        end
-    end
+    result.knownIssues = parseIssueSection("Known Issues")
+    result.fixedIssues = parseIssueSection("Fixed Issues")
 
     -- Parse Gaps section (design/code mismatch indicator)
     local gapsSection = content:match("## Gaps.-\n(.-)\n## ")
@@ -833,45 +856,33 @@ function AppConsole:addAgentThinking(text)
     mcp.statusClass = "thinking"
 end
 
--- Check if detail panel should show
 function AppConsole:showDetail()
     return self.selected ~= nil and not self.showNewForm
 end
 
--- Check if detail panel should hide
 function AppConsole:hideDetail()
     return not self:showDetail()
 end
 
--- Check if placeholder should show
 function AppConsole:showPlaceholder()
     return self.selected == nil and not self.showNewForm
 end
 
--- Check if placeholder should hide
 function AppConsole:hidePlaceholder()
     return not self:showPlaceholder()
 end
 
--- Check if new form should hide
 function AppConsole:hideNewForm()
     return not self.showNewForm
 end
 
--- Open app in embedded view
 function AppConsole:openEmbedded(name)
     -- Handle case where name might be an AppInfo object instead of string
-    if type(name) == "table" then
-        if type(name.name) == "string" then
-            name = name.name
-        else
-            print("Could not extract name from app to open")
-            -- Can't extract a string name, bail out
-            return
-        end
+    if type(name) == "table" and type(name.name) == "string" then
+        name = name.name
     end
     if type(name) ~= "string" or name == "" then
-        return  -- Invalid argument, bail out
+        return
     end
     local appValue = mcp:app(name)
     if appValue then
@@ -880,23 +891,19 @@ function AppConsole:openEmbedded(name)
     end
 end
 
--- Close embedded view and restore normal layout
 function AppConsole:closeEmbedded()
     self.embeddedApp = nil
     self.embeddedValue = nil
 end
 
--- Check if an app is embedded
 function AppConsole:hasEmbeddedApp()
     return self.embeddedApp ~= nil
 end
 
--- Check if no app is embedded
 function AppConsole:noEmbeddedApp()
     return self.embeddedApp == nil
 end
 
--- Re-read an app's requirements.md from disk and update UI
 function AppConsole:updateRequirements(name)
     local app = self:findApp(name)
     if app and self._baseDir then
@@ -909,7 +916,6 @@ function AppConsole:updateRequirements(name)
     end
 end
 
--- Panel mode methods (Chat vs Lua)
 function AppConsole:showChatPanel()
     self.panelMode = "chat"
 end
@@ -934,44 +940,35 @@ function AppConsole:luaTabVariant()
     return self.panelMode == "lua" and "primary" or "default"
 end
 
--- Lua console methods
 function AppConsole:runLua()
     if self.luaInput == "" then return end
 
-    -- Add command line to output
     local cmdLine = session:create(OutputLine, { text = "> " .. self.luaInput, panel = self })
     table.insert(self.luaOutputLines, cmdLine)
 
     local code = self.luaInput
-    local fn, err
 
-    -- If input doesn't start with "return", try prepending it (for expressions)
-    if not code:match("^%s*return%s") then
-        fn, err = loadstring("return " .. code)
-    end
+    -- Try as expression first, then as statement
+    local fn = code:match("^%s*return%s") and loadstring(code)
+        or loadstring("return " .. code)
+        or loadstring(code)
 
-    -- If that failed or wasn't tried, use original code
     if not fn then
-        fn, err = loadstring(code)
+        local _, err = loadstring(code)
+        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
+        table.insert(self.luaOutputLines, errLine)
+        return
     end
 
-    if fn then
-        local ok, result = pcall(fn)
-        if ok then
-            if result ~= nil then
-                local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
-                table.insert(self.luaOutputLines, resultLine)
-            end
-            -- Clear input on success
-            self.luaInput = ""
-        else
-            -- Runtime error - keep input for correction
-            local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
-            table.insert(self.luaOutputLines, errLine)
+    local ok, result = pcall(fn)
+    if ok then
+        if result ~= nil then
+            local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
+            table.insert(self.luaOutputLines, resultLine)
         end
+        self.luaInput = ""
     else
-        -- Syntax error - keep input for correction
-        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
+        local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
         table.insert(self.luaOutputLines, errLine)
     end
 end
@@ -1010,7 +1007,6 @@ function AppConsole:clearPanel()
     end
 end
 
--- Todo list methods
 function AppConsole:setTodos(todos)
     self.todos = {}
     for _, t in ipairs(todos or {}) do
@@ -1027,7 +1023,6 @@ function AppConsole:toggleTodos()
     self.todosCollapsed = not self.todosCollapsed
 end
 
--- Create todos from step labels (simplified API)
 function AppConsole:createTodos(steps, appName)
     self._todoApp = appName
     self._currentStep = 0
@@ -1059,16 +1054,13 @@ function AppConsole:createTodos(steps, appName)
     end
 end
 
--- Advance to step n (completes previous, starts n)
 function AppConsole:startTodoStep(n)
     if n < 1 or n > #self._todoSteps then return end
 
-    -- Complete previous step
     if self._currentStep > 0 and self._currentStep <= #self.todos then
         self.todos[self._currentStep].status = "completed"
     end
 
-    -- Start new step
     self._currentStep = n
     local step = self._todoSteps[n]
 
@@ -1076,40 +1068,32 @@ function AppConsole:startTodoStep(n)
         self.todos[n].status = "in_progress"
     end
 
-    -- Update progress bar
     if self._todoApp then
         self:onAppProgress(self._todoApp, step.progress, step.thinking:gsub("%.%.%.$", ""))
     end
-
-    -- Update thinking message
     self:addAgentThinking(step.thinking)
 end
 
--- Mark all steps complete, clear progress
 function AppConsole:completeTodos()
-    -- Mark all steps completed
     for _, todo in ipairs(self.todos or {}) do
         todo.status = "completed"
     end
-    -- Clear progress bar
     if self._todoApp then
         self:onAppProgress(self._todoApp, nil, nil)
     end
     self._currentStep = 0
 end
 
--- Clear all todos and reset step state
 function AppConsole:clearTodos()
     self.todos = {}
     self._todoSteps = {}
     self._currentStep = 0
     self._todoApp = nil
+    mcp.statusLine = ""
+    mcp.statusClass = ""
 end
 
--- Idempotent instance creation
 if not session.reloading then
     appConsole = AppConsole:new()
-
-    -- Scan apps from disk (Lua-driven discovery)
     appConsole:scanAppsFromDisk()
 end
