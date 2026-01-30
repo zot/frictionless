@@ -82,10 +82,11 @@ frictionless extract output/             # Extract all bundled files to current 
 
 ## Documentation (in .ui by default)
 
-- **[Platform Reference](resources/reference.md)** — Architecture, tools, and quick start guide
-- **[Viewdef Syntax](resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
-- **[Lua API](resources/lua.md)** — Class patterns and globals
-- **[Agent Workflow](resources/mcp.md)** — Best practices for AI agents
+- **[Intro](install/resources/intro.md)** — Introduction and overview
+- **[Platform Reference](install/resources/reference.md)** — Architecture, tools, and quick start guide
+- **[Viewdef Syntax](install/resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
+- **[Lua API](install/resources/lua.md)** — Class patterns and globals
+- **[Agent Workflow](install/resources/mcp.md)** — Best practices for AI agents
 
 ## Installation
 
