@@ -71,8 +71,8 @@ var (
 	// Matches: :methodName(
 	methodCallPattern = regexp.MustCompile(`:(\w+)\s*\(`)
 
-	// Matches: methodName() in attribute values
-	viewdefCallPattern = regexp.MustCompile(`(\w+)\(\)`)
+	// Matches: methodName() or methodName(_) in attribute values
+	viewdefCallPattern = regexp.MustCompile(`(\w+)\((_)?\)`)
 
 	// Matches: globalName = TypeName:new(
 	globalAssignPattern = regexp.MustCompile(`^(\w+)\s*=\s*\w+:new\(`)
@@ -83,6 +83,20 @@ var (
 	// Matches operators in paths
 	// Note: we strip () contents before checking, so no need for lookahead
 	operatorPattern = regexp.MustCompile(`[!&|]|==|~=|\+|-`)
+
+	// Matches method calls with non-empty args (not () or (_))
+	// Captures: method name, args content
+	nonEmptyArgsPattern = regexp.MustCompile(`(\w+)\(([^)]+)\)`)
+
+	// Path syntax validation regex
+	// prefix: ident | bracket | ident()
+	// suffix: prefix | ident(_)
+	// property: ident(=text)?
+	// path: (prefix.)* suffix (?property(&property)*)?
+	pathSyntaxPattern = regexp.MustCompile(
+		`^(?:(?:[a-zA-Z_]\w*(?:\(\))?|\[(?:[a-zA-Z_]\w*|\d+)\])\.)*` + // prefixes with dots
+			`(?:[a-zA-Z_]\w*(?:\(\)|(?:\(_\)))?|\[(?:[a-zA-Z_]\w*|\d+)\])` + // suffix
+			`(?:\?[a-zA-Z_]\w*(?:=[^&]*)?(?:&[a-zA-Z_]\w*(?:=[^&]*)?)*)?$`) // optional properties
 )
 
 // AuditApp performs a full audit of an app
@@ -364,6 +378,15 @@ func walkDOM(n *html.Node, filename string, isListItem bool, result *AuditResult
 				})
 			}
 
+			// Check ui-value on sl-badge
+			if attr.Key == "ui-value" && tagName == "sl-badge" {
+				result.Violations = append(result.Violations, Violation{
+					Type:     "ui_value_badge",
+					Location: fmt.Sprintf("viewdefs/%s", filename),
+					Detail:   "ui-value on <sl-badge> not supported; use <span ui-value=\"...\"></span> inside the badge",
+				})
+			}
+
 			// Check for ui-* attributes
 			if strings.HasPrefix(attr.Key, "ui-") {
 				// Check for item. prefix in list-item
@@ -390,6 +413,27 @@ func walkDOM(n *html.Node, filename string, isListItem bool, result *AuditResult
 							Type:     "operator_in_path",
 							Location: fmt.Sprintf("viewdefs/%s", filename),
 							Detail:   fmt.Sprintf("Operators in path '%s' (use Lua methods instead)", attr.Val),
+						})
+					}
+
+					// Check for non-empty method args (only () or (_) allowed)
+					for _, match := range nonEmptyArgsPattern.FindAllStringSubmatch(attr.Val, -1) {
+						args := match[2]
+						if args != "_" {
+							result.Violations = append(result.Violations, Violation{
+								Type:     "non_empty_method_args",
+								Location: fmt.Sprintf("viewdefs/%s", filename),
+								Detail:   fmt.Sprintf("Method '%s(%s)' has invalid args; only () or (_) allowed", match[1], args),
+							})
+						}
+					}
+
+					// Validate path syntax as final check
+					if !pathSyntaxPattern.MatchString(attr.Val) {
+						result.Violations = append(result.Violations, Violation{
+							Type:     "invalid_path_syntax",
+							Location: fmt.Sprintf("viewdefs/%s", filename),
+							Detail:   fmt.Sprintf("Invalid path syntax: '%s'", attr.Val),
 						})
 					}
 				}

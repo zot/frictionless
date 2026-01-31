@@ -25,6 +25,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 
 ### Test Designs
 - [ ] test-MCP.md → `tools_test.go`
+- [x] test-Auditor.md → `audit_test.go`
 
 ## Systems
 
@@ -163,7 +164,7 @@ Cross-platform binary builds via Makefile:
   - [x] ui_run (6 tests: execute code, session access, JSON marshalling, non-JSON result, mcp global, no session)
   - [ ] Frictionless UI Creation (6 scenarios)
   - [x] ClearLogs (5 tests: clears files, calls callback, handles missing dir, skips subdirs, no callback)
-  - [ ] ui_audit (findMissingMethods: missing method detected, builtin function skipped, all methods exist)
+  - [x] ui_audit (27 tests via temp fixtures: R34 badge/R35 method args/R36 path syntax)
 - [ ] O3: Document frontend conserve mode SharedWorker requirements (spec 6.1)
 - [ ] O4: Install tests fail without bundled binary (`make build`)
   - [ ] TestInstallSkillFilesFreshInstall

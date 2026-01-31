@@ -83,7 +83,7 @@ This returns one JSON array per line containing one or more events:
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
 
-As soon as you receive events, create a task to restart the event loop using TaskCreate. This ensures that after handling all events and any spawned work, the loop restarts.
+As soon as you receive events, create a task to restart the event loop using TaskCreate—but only if there isn't already a pending restart task. Stacking multiple restart tasks just creates confusion.
 
 **Remember:** Read the design.md for the `app` field (see "Before Handling ANY Event" above). Other fields like `context` or `note` provide data but do NOT change which design file you read.
 

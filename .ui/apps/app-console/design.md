@@ -13,8 +13,10 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |------------------|  A contact manager with...  |
 | > contacts 17/21 | [Open] [Test] [Fix Issues]  |
 |   tasks    5/5   |-----------------------------|
-|   my-app   ████░ | Tests (17/21)               |
-|   new-app  --    | [✓] Badge shows count       |
+|   my-app   ████░ | > Requirements              |
+|   new-app  --    |-----------------------------|
+|                  | Tests (17/21)               |
+|                  | [✓] Badge shows count       |
 |                  | [ ] Delete removes contact  |
 |                  | [✗] Edit saves changes      |
 |                  |-----------------------------|
@@ -79,9 +81,11 @@ Legend:
 **Action buttons** (based on app state):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
 - `[Open]` — shown when app has viewdefs (canOpen), disabled for "app-console" and "mcp"
-- `[Make it thorough]` — shown when app has checkpoints (hasCheckpoints), consolidates changes into design
+- `[Make it thorough (N)]` — shown when app has checkpoints (hasCheckpoints), shows count and tooltip "N pending changes"
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
+- `[Review Gaps]` — shown when app has gaps (hasGaps), reviews and documents fast code gaps
+- `[Analyze]` — shown when app is built (isBuilt), performs full gap analysis even without existing gaps
 - `[Delete App]` — shown when app is not protected; shows confirmation dialog before deletion
 
 **App list icons:**
@@ -168,6 +172,7 @@ Legend:
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
 | _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
+| _checkpointCount | number | Cached count of checkpoints (refreshed with _hasCheckpoints) |
 | confirmDelete | boolean | Show delete confirmation dialog |
 
 ### Issue
@@ -322,9 +327,13 @@ Legend:
 | requestFix() | Call pushEvent("fix_request", {target = self.name}) |
 | hasCheckpoints() | Check if checkpoint.fossil exists (cached, triggers refreshCheckpoints if stale) |
 | noCheckpoints() | Returns not hasCheckpoints() |
+| checkpointCount() | Returns count of checkpoints (triggers refresh if needed) |
+| checkpointTooltip() | Returns "N pending changes" for tooltip |
+| consolidateButtonText() | Returns "Make it thorough (N)" for button text |
 | checkpointIcon() | Returns "rocket" if hasCheckpoints, "gem" otherwise |
 | requestConsolidate() | Call pushEvent("consolidate_request", {target = self.name}) |
 | requestReviewGaps() | Call pushEvent("review_gaps_request", {target = self.name}) |
+| requestAnalyze() | Call pushEvent("analyze_request", {target = self.name}) |
 | openApp() | Call appConsole:openEmbedded(self.name) to show in embedded view |
 | isSelf() | Returns true if this is the "app-console" app itself |
 | isMcp() | Returns true if this is the "mcp" app |
@@ -374,6 +383,7 @@ Legend:
 {"app": "app-console", "event": "app_created", "name": "my-app", "description": "A brief description", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 {"app": "app-console", "event": "consolidate_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 {"app": "app-console", "event": "review_gaps_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
+{"app": "app-console", "event": "analyze_request", "target": "my-app", "mcp_port": 37067, "note": "make sure you have understood the app at /path/apps/my-app"}
 ```
 
 Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn agents directly. Each event also includes a `note` field with the full path to the app, reminding Claude to read the app's docs before acting.
@@ -388,7 +398,84 @@ Lua includes `mcp_port` from `mcp:status()` in action events so Claude can spawn
 | `fix_request` | Invoke the `/ui-thorough` skill to fix issues |
 | `app_created` | Show progress while fleshing out requirements (see app_created Handling below) |
 | `consolidate_request` | Invoke the `/ui-thorough` skill to integrate checkpointed changes into design |
-| `review_gaps_request` | Invoke the `/ui-thorough` skill to review and clean up fast code gaps |
+| `review_gaps_request` | Review fast code gaps and integrate into design (see review_gaps Handling below) |
+| `analyze_request` | Full gap analysis on built app (see analyze_request Handling below) |
+
+### build_request Handling
+
+Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
+
+**Event payload:** `{app: "app-console", event: "build_request", target: "my-app"}`
+
+**Note:** Lua already sets progress to `0, "pondering"` before sending this event, so the user sees immediate feedback when clicking Build.
+
+**Prompt template for background build agent:**
+```
+Build the app "{target}" at .ui/apps/{target}/
+
+## Progress Reporting
+
+Use the `.ui/mcp` script for all MCP operations:
+
+```bash
+.ui/mcp progress {target} <percent> "<stage>"   # Report progress
+.ui/mcp run "<lua code>"                        # Execute Lua
+.ui/mcp audit {target}                          # Audit app
+```
+
+**Report progress at EACH phase of the /ui-builder skill:**
+
+| Phase | Command |
+|-------|---------|
+| Starting | `.ui/mcp progress {target} 0 "starting..."` |
+| Reading requirements | `.ui/mcp progress {target} 5 "reading requirements..."` |
+| Updating requirements | `.ui/mcp progress {target} 10 "updating requirements..."` |
+| Designing | `.ui/mcp progress {target} 20 "designing..."` |
+| Writing code | `.ui/mcp progress {target} 40 "writing code..."` |
+| Writing viewdefs | `.ui/mcp progress {target} 60 "writing viewdefs..."` |
+| Linking | `.ui/mcp progress {target} 80 "linking..."` |
+| Auditing | `.ui/mcp progress {target} 90 "auditing..."` |
+| Simplifying | `.ui/mcp progress {target} 95 "simplifying..."` |
+| Complete | `.ui/mcp progress {target} 100 "complete"` then `.ui/mcp run "mcp:appUpdated('{target}')"` |
+
+## Instructions
+
+**Run the /ui-builder skill and follow its full workflow.** The skill defines the phases, design spec format, auditing checks, and simplification steps. Do NOT skip phases.
+
+The progress commands above correspond to the skill's phases. Send each progress update BEFORE starting that phase.
+
+The user is watching the progress bar in the UI. Missing progress updates make it look frozen.
+```
+
+Then spawn: `Task(subagent_type="ui-builder", run_in_background=true, prompt=<above>)`
+
+**Why background?** Building takes time. A background agent lets Claude continue responding to chat while the build runs. The progress bar shows real-time status.
+
+### review_gaps Handling
+
+Review the `## Gaps` section in the target app's `TESTING.md`. For each gap item:
+1. Verify the code/viewdef feature is properly documented in `design.md`
+2. If documented correctly, remove the item from gaps
+3. If not documented, add proper documentation to `design.md` then remove from gaps
+
+After processing all gaps, the `## Gaps` section should be **empty** (no placeholder text, no notes about "no gaps").
+
+### analyze_request Handling
+
+Perform a full gap analysis on a built app, even if there are no existing gaps in TESTING.md. This is a proactive analysis that:
+
+1. Compares `design.md` against `app.lua` and viewdefs to find:
+   - Methods defined in design but not implemented in code
+   - Methods in code but not documented in design
+   - ViewDefs referenced in design but missing from viewdefs/
+   - Data model fields that don't match implementation
+2. Compares `requirements.md` against the implementation to find:
+   - Features described but not implemented
+   - Implemented features not in requirements
+3. Updates `TESTING.md` with findings in the `## Gaps` section
+4. If gaps are found, the app will show the ⚠ indicator
+
+Always invokes `/ui-thorough` regardless of the build mode toggle.
 
 ### app_created Handling
 
@@ -546,3 +633,4 @@ Inherits terminal aesthetic from MCP shell via CSS variables.
 - Selected app shows orange left border (4px solid `--term-accent`)
 - Progress bars use accent color with glow
 - Collapsible sections have chevron indicators
+- Todo column collapse: chevron rotates 180° when collapsed, header centers vertically, shrinks to 32px width

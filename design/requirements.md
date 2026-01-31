@@ -40,3 +40,6 @@
 - **R31:** Detect operators in binding paths (excludes ui-namespace which is a viewdef namespace, not a path)
 - **R32:** Detect missing Lua methods referenced in viewdefs
 - **R33:** Return JSON with violations, warnings, and summary
+- **R34:** Detect ui-value on sl-badge elements (must use span with ui-value inside badge)
+- **R35:** Detect non-empty method args in paths (only `method()` or `method(_)` allowed)
+- **R36:** Validate path syntax against grammar as final check

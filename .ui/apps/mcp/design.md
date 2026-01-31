@@ -24,15 +24,20 @@ Outer shell for all frictionless apps. Displays the current app full-viewport an
 
 Fixed at the bottom of the viewport, always visible. Compact horizontal padding (6px). Displays `mcp.statusLine` text with `mcp.statusClass` CSS class applied. The `.thinking` class styles text as orange bold-italic.
 
-At the right end of the status bar are icons grouped tightly together in a `.mcp-status-toggles` container:
+At the right end of the status bar are icons grouped tightly together in a `.mcp-status-toggles` container (no gap between icons):
 
 | Icon | Action | Description |
 |------|--------|-------------|
 | ❓ question mark | openHelp() | Opens `/api/resource/` in new tab |
+| 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
 
-Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows tooltip.
+Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows dynamic tooltip.
+
+### Tools Icon
+
+The tools icon shows the current app in app-console when clicked. If the current app has checkpoints (fast code), the icon glows orange via CSS `filter: drop-shadow()`. The tooltip shows "Go to App" normally or "Go to App - fast coded" when checkpoints exist.
 
 ### Processing Indicator
 
@@ -131,6 +136,11 @@ The global `mcp` object is provided by the server. This app adds:
 | notifications() | Returns _notifications for binding |
 | dismissNotification(n) | Remove notification from list |
 | openHelp() | Open /api/resource/ in new browser tab using mcp:status().mcp_port |
+| openTools() | Display app-console and select the current app |
+| currentAppName() | Returns kebab-case name of current app from mcp.value.type |
+| currentAppHasCheckpoints() | Returns true if current app has checkpoints (via appConsole:findApp) |
+| currentAppNoCheckpoints() | Returns not currentAppHasCheckpoints() |
+| toolsTooltip() | Returns "Go to App - fast coded" if checkpoints, else "Go to App" |
 | toggleBuildMode() | Toggle between "fast" and "thorough" modes |
 | isFastMode() | Returns true if buildMode is "fast" |
 | isThoroughMode() | Returns true if buildMode is "thorough" |

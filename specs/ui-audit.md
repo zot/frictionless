@@ -46,7 +46,23 @@ Background agents POST to `/api/ui_audit` with JSON body `{"name": "app-name"}`.
 
 **ui-value on checkbox**: Using `ui-value` on `sl-checkbox` or `sl-switch` renders the boolean as text. Should use `ui-attr-checked` instead.
 
+**ui-value on badge**: Using `ui-value` on `sl-badge` is not supported. Use a `<span ui-value="..."></span>` inside the badge instead.
+
 **Operators in paths**: Binding paths contain operators (`!`, `==`, `&&`, `||`, `+`, `-`). Paths don't support operators - use Lua methods instead. Excludes `ui-namespace` which is a viewdef namespace identifier (e.g., `list-item`), not a binding path.
+
+**Non-empty method args**: Method calls in paths can only be `method()` or `method(_)`. Using `method(arg)` with any other content is not allowed - the underscore `_` is a special placeholder for the binding value.
+
+**Invalid path syntax**: As a final validation, all ui-* attribute values (except `ui-namespace`) are checked against the path grammar. Valid path syntax is:
+
+```
+prefix   ::= ident | "[" ( ident | number ) "]" | ident "()"
+suffix   ::= prefix | ident "(_)"
+property ::= ident [ "=" text ]
+path     ::= { prefix "." } suffix [ "?" property { "&" property } ]
+```
+
+Examples of valid paths: `name`, `getName()`, `parent.child`, `items[0].name`, `setValue(_)`, `items?wrapper=ViewList`, `search?keypress`
+Examples of invalid paths: `getValue(x)`, `name[`, `foo..bar`
 
 **Missing Lua method**: A viewdef binding references a method that doesn't exist in app.lua. For example, `ui-action="doSomething()"` where `doSomething` is not defined on any prototype. This catches typos and forgotten implementations.
 

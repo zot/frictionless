@@ -98,7 +98,7 @@
     .mcp-status-bar .mcp-status-toggles {
       flex-shrink: 0;
       display: flex;
-      gap: 4px;
+      gap: 0;
     }
 
     .mcp-status-bar .thinking {
@@ -129,6 +129,11 @@
     .mcp-build-mode-toggle sl-icon {
       font-size: 1rem;
       vertical-align: middle;
+    }
+
+    .mcp-build-mode-toggle.has-checkpoints sl-icon {
+      color: var(--term-accent);
+      filter: drop-shadow(0 0 6px var(--term-accent-glow)) drop-shadow(0 0 12px var(--term-accent-glow));
     }
 
     /* Menu container - floating terminal widget */
@@ -463,6 +468,9 @@
       <span class="mcp-status-toggles">
         <span class="mcp-build-mode-toggle" ui-event-click="openHelp()" title="Documentation">
           <sl-icon name="question-circle"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="openTools()" ui-class-has-checkpoints="currentAppHasCheckpoints()" ui-attr-title="toolsTooltip()">
+          <sl-icon name="tools"></sl-icon>
         </span>
         <span class="mcp-build-mode-toggle" ui-event-click="toggleBuildMode()" ui-attr-title="buildModeTooltip()">
           <sl-icon name="rocket-takeoff-fill" ui-class-hidden="isThoroughMode()"></sl-icon>

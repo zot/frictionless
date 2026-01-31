@@ -373,6 +373,20 @@
       50% { opacity: 0; }
     }
 
+    /* Pulsating animation for buttons */
+    @keyframes pulsate {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(224, 122, 71, 0.7);
+      }
+      50% {
+        box-shadow: 0 0 0 8px rgba(224, 122, 71, 0);
+      }
+    }
+
+    .pulsating::part(base) {
+      animation: pulsate 1.5s ease-in-out infinite;
+    }
+
     /* New app form */
     .new-app-form {
       display: flex;
@@ -554,6 +568,23 @@
     .todo-column.collapsed .todo-header h4,
     .todo-column.collapsed .todo-header-buttons sl-icon-button:first-child {
       display: none;
+    }
+
+    .todo-column.collapsed .todo-header {
+      justify-content: center;
+      padding: 8px 4px;
+    }
+
+    .todo-column.collapsed .todo-header-buttons {
+      justify-content: center;
+    }
+
+    .todo-column.collapsed .collapse-toggle {
+      transform: rotate(180deg);
+    }
+
+    .collapse-toggle {
+      transition: transform 0.2s ease;
     }
 
     .todo-list {
@@ -789,36 +820,49 @@
       color: var(--term-text-dim);
     }
 
-    sl-button[variant="default"]::part(base) {
+    /* Button styles for app-console chrome (not embedded apps) */
+    .app-list-panel sl-button[variant="default"]::part(base),
+    .normal-detail sl-button[variant="default"]::part(base),
+    .chat-panel sl-button[variant="default"]::part(base) {
       background: var(--term-bg-elevated);
       border-color: var(--term-border);
       color: var(--term-text);
     }
 
-    sl-button[variant="default"]::part(base):hover {
+    .app-list-panel sl-button[variant="default"]::part(base):hover,
+    .normal-detail sl-button[variant="default"]::part(base):hover,
+    .chat-panel sl-button[variant="default"]::part(base):hover {
       background: var(--term-bg-hover);
       border-color: var(--term-accent);
       color: var(--term-accent);
     }
 
-    sl-button[variant="primary"]::part(base) {
+    .app-list-panel sl-button[variant="primary"]::part(base),
+    .normal-detail sl-button[variant="primary"]::part(base),
+    .chat-panel sl-button[variant="primary"]::part(base) {
       background: var(--term-accent);
       border-color: var(--term-accent);
       color: var(--term-bg);
     }
 
-    sl-button[variant="primary"]::part(base):hover {
+    .app-list-panel sl-button[variant="primary"]::part(base):hover,
+    .normal-detail sl-button[variant="primary"]::part(base):hover,
+    .chat-panel sl-button[variant="primary"]::part(base):hover {
       background: var(--term-accent-bright);
       box-shadow: 0 0 12px var(--term-accent-glow);
     }
 
-    sl-button[variant="warning"]::part(base) {
+    .app-list-panel sl-button[variant="warning"]::part(base),
+    .normal-detail sl-button[variant="warning"]::part(base),
+    .chat-panel sl-button[variant="warning"]::part(base) {
       background: var(--term-warning-dim);
       border-color: var(--term-warning);
       color: var(--term-warning);
     }
 
-    sl-button[variant="danger"]::part(base) {
+    .app-list-panel sl-button[variant="danger"]::part(base),
+    .normal-detail sl-button[variant="danger"]::part(base),
+    .chat-panel sl-button[variant="danger"]::part(base) {
       background: var(--term-danger-dim);
       border-color: var(--term-danger);
       color: var(--term-danger);
@@ -917,10 +961,12 @@
                 <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
                 Open
               </sl-button>
-              <sl-button variant="default" ui-class-hidden="selected.noCheckpoints()" ui-action="selected.requestConsolidate()">
-                <sl-icon slot="prefix" name="gem"></sl-icon>
-                Make it thorough
-              </sl-button>
+              <sl-tooltip ui-attr-content="selected.checkpointTooltip()">
+                <sl-button variant="default" ui-class-hidden="selected.noCheckpoints()" ui-class-pulsating="selected.shouldPulsate()" ui-action="selected.requestConsolidate()">
+                  <sl-icon slot="prefix" name="gem"></sl-icon>
+                  <span ui-value="selected.consolidateButtonText()"></span>
+                </sl-button>
+              </sl-tooltip>
               <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestTest()">
                 <sl-icon slot="prefix" name="check2-square"></sl-icon>
                 Test
@@ -932,6 +978,10 @@
               <sl-button variant="warning" ui-class-hidden="selected.noGaps()" ui-action="selected.requestReviewGaps()">
                 <sl-icon slot="prefix" name="exclamation-triangle"></sl-icon>
                 Review Gaps
+              </sl-button>
+              <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-action="selected.requestAnalyze()">
+                <sl-icon slot="prefix" name="search"></sl-icon>
+                Analyze
               </sl-button>
               <sl-button variant="danger" ui-class-hidden="selected.isProtected()" ui-action="selected.requestDelete()">
                 <sl-icon slot="prefix" name="trash"></sl-icon>
@@ -1015,7 +1065,7 @@
             <h4 ui-event-click="toggleTodos()">Todos</h4>
             <div class="todo-header-buttons">
               <sl-icon-button name="trash" label="Clear" ui-action="clearTodos()"></sl-icon-button>
-              <sl-icon-button name="chevron-left" label="Collapse" ui-event-click="toggleTodos()"></sl-icon-button>
+              <sl-icon-button class="collapse-toggle" name="chevron-left" label="Collapse" ui-event-click="toggleTodos()"></sl-icon-button>
             </div>
           </div>
           <div class="todo-list" ui-view="todos?wrapper=lua.ViewList"></div>

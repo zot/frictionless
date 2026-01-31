@@ -26,13 +26,15 @@ When an app is selected, show:
 - App name as header
 - Description (first paragraph from requirements.md, parsed by Lua)
 - Build progress and phase (when app is building) - shows progress bar and stage label
+- Requirements section (expandable, collapsed by default) - shows full requirements.md content
 - Action buttons based on state:
   - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
   - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
-  - Make it thorough (when has checkpoints) - sends consolidate_request to invoke `/ui-thorough` skill
+  - Make it thorough (N) (when has checkpoints) - shows count of pending changes, tooltip says "N pending changes", sends consolidate_request to invoke `/ui-thorough` skill
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
   - Review Gaps (when has gaps) - sends review_gaps_request to invoke `/ui-thorough` skill
+  - Analyze (when built) - sends analyze_request for full gap analysis even without existing gaps
   - Delete App (when not protected) - shows confirmation dialog, then removes the app entirely
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
@@ -278,7 +280,12 @@ Fix known issues in an app. Can also use a background agent pattern.
 Invoke the `/ui-thorough` skill to integrate checkpointed changes from `/ui-fast` into requirements.md and design.md. Always invokes `/ui-thorough` regardless of the build mode toggle. After consolidation, checkpoints are cleared.
 
 ### `review_gaps_request`
-Invoke the `/ui-thorough` skill to review and clean up fast code gaps listed in TESTING.md. Always invokes `/ui-thorough` regardless of the build mode toggle.
+Review the `## Gaps` section in the target app's TESTING.md. For each gap item:
+1. Verify the feature is properly documented in design.md
+2. If documented correctly, remove the item from gaps
+3. If not documented, add documentation to design.md then remove from gaps
+
+After processing, the `## Gaps` section should be **empty** (no placeholder text). Always invokes `/ui-thorough` regardless of the build mode toggle.
 
 ## Data Flow
 

@@ -7,6 +7,18 @@ description: UI engine reference - bindings, state management, patterns. Foundat
 
 Reference material for ui-engine apps. Load this once, then use `/ui-fast` or `/ui-thorough` for actual work.
 
+Make sure `/frontend-design` is loaded if available.
+
+## On Skill Load
+
+**Run this command immediately:**
+
+```bash
+.ui/mcp patterns
+```
+
+This shows available patterns in `.ui/patterns/` - reusable solutions for common ui-engine problems.
+
 ## Helper Script
 
 ```bash
@@ -16,6 +28,7 @@ Reference material for ui-engine apps. Load this once, then use `/ui-fast` or `/
 .ui/mcp browser             # Open browser to UI session
 .ui/mcp linkapp add myapp   # Create symlinks
 .ui/mcp audit myapp         # Run code quality audit
+.ui/mcp patterns            # List available patterns
 ```
 
 ## File Operations
@@ -194,50 +207,9 @@ Viewdef (`lua.ViewListItem.my-option.html`):
 
 ---
 
-# Patterns
+# Common Patterns
 
-## Edit/Cancel Pattern
-
-```lua
-function Item:openEditor()
-    self._snapshot = { name = self.name }
-    self.editing = true
-end
-
-function Item:save()
-    self._snapshot = nil
-    self.editing = false
-end
-
-function Item:cancel()
-    if self._snapshot then
-        self.name = self._snapshot.name
-        self._snapshot = nil
-    end
-    self.editing = false
-end
-```
-
-## Viewport Fitting
-
-```css
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-.my-app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-.scrollable-area {
-  flex: 1;
-  min-height: 0;  /* CRITICAL */
-  overflow-y: auto;
-}
-```
+**Run `.ui/mcp patterns` to see available patterns** in `.ui/patterns/`.
 
 ---
 

@@ -10,7 +10,8 @@ usage: mcp [--help | PROG [options]]
 
 mcp --help                      this message
 mcp audit APP                   run code quality audit on APP
-mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/clear)
+mcp patterns                    list available patterns with frontmatter
+mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/clear/baseline/count)
 mcp browser                     open browser to UI session
 mcp display APP                 display APP in the browser
 mcp event                       wait for next UI event (120s timeout)
@@ -81,12 +82,16 @@ checkpoint_save() {
         "$FOSSIL_BIN" add . >/dev/null 2>&1
         "$FOSSIL_BIN" commit -m "${msg:-initial state}" --no-warnings >/dev/null
         echo "Created checkpoint: ${msg:-initial state}"
+        # Notify UI of checkpoint change
+        "$dir/mcp" run "if appConsole then appConsole._checkpointsTime = 0 end" >/dev/null 2>&1
     else
         # Add any new files first, then check for changes
         "$FOSSIL_BIN" add . >/dev/null 2>&1
         if "$FOSSIL_BIN" changes --quiet | grep -q .; then
             "$FOSSIL_BIN" commit -m "${msg:-checkpoint}" --no-warnings >/dev/null
             echo "Saved checkpoint: ${msg:-checkpoint}"
+            # Notify UI of checkpoint change
+            "$dir/mcp" run "if appConsole then appConsole._checkpointsTime = 0 end" >/dev/null 2>&1
         else
             echo "No changes to checkpoint"
         fi
@@ -105,8 +110,8 @@ checkpoint_list() {
 
     ensure_fossil
     cd "$app_dir"
-    # Filter out fossil's automatic "initial empty check-in"
-    "$FOSSIL_BIN" timeline -n 20 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in'
+    # Remove date headers, baseline, and fossil artifacts
+    "$FOSSIL_BIN" timeline -t ci --oneline | head -n -3
 }
 
 checkpoint_rollback() {
@@ -126,8 +131,8 @@ checkpoint_rollback() {
         # Undo last change
         "$FOSSIL_BIN" undo
     else
-        # Get hash of nth commit (1-indexed, excluding hidden initial empty check-in)
-        local hash=$("$FOSSIL_BIN" timeline -n 100 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in' | head -n "$n" | tail -1 | cut -d' ' -f1)
+        # Get hash of nth commit (1-indexed, excluding baseline and artifacts)
+        local hash=$("$FOSSIL_BIN" timeline -n 100 -t ci --oneline | grep -v '^---\|^+++\|=== BASELINE ===' | head -n "$n" | tail -1 | cut -d' ' -f1)
         if [ -z "$hash" ]; then
             echo "Checkpoint $n not found" >&2
             exit 1
@@ -150,8 +155,8 @@ checkpoint_diff() {
     ensure_fossil
     cd "$app_dir"
 
-    # Get hash of nth commit (1-indexed, excluding hidden initial empty check-in)
-    local hash=$("$FOSSIL_BIN" timeline -n 100 -t ci --oneline | grep -v '^---\|^+++\|initial empty check-in' | head -n "$n" | tail -1 | cut -d' ' -f1)
+    # Get hash of nth commit (1-indexed, excluding baseline and artifacts)
+    local hash=$("$FOSSIL_BIN" timeline -t ci --oneline | head -n -3 | head -n "$n" | tail -1 | cut -d' ' -f1)
     if [ -z "$hash" ]; then
         echo "Checkpoint $n not found" >&2
         exit 1
@@ -160,20 +165,55 @@ checkpoint_diff() {
 }
 
 checkpoint_clear() {
+    # Clear = reset to baseline (same as baseline command)
+    checkpoint_baseline "$1"
+}
+
+checkpoint_baseline() {
+    local app="$1"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -d "$app_dir" ]; then
+        echo "App not found: $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    # Close and remove existing repo if present
+    if [ -f "$repo" ]; then
+        "$FOSSIL_BIN" close --force 2>/dev/null
+        rm -f "$repo" .fslckout
+    fi
+
+    # Create fresh repo with current state as baseline
+    "$FOSSIL_BIN" init "$repo" --project-name "$app" >/dev/null
+    "$FOSSIL_BIN" open "$repo" --force >/dev/null
+    "$FOSSIL_BIN" settings ignore-glob '.#*,.*~,*~,checkpoint.fossil,.fslckout'
+    "$FOSSIL_BIN" add . >/dev/null 2>&1
+    "$FOSSIL_BIN" commit -m "=== BASELINE ===" --no-warnings >/dev/null
+    echo "Baseline set for $app"
+    # Notify UI of checkpoint change
+    "$dir/mcp" run "if appConsole then appConsole._checkpointsTime = 0 end" >/dev/null 2>&1
+}
+
+checkpoint_count() {
     local app="$1"
     local app_dir="$dir/apps/$app"
     local repo="$app_dir/checkpoint.fossil"
 
     if [ ! -f "$repo" ]; then
-        echo "No checkpoints for $app"
+        echo "0"
         exit 0
     fi
 
     ensure_fossil
     cd "$app_dir"
-    "$FOSSIL_BIN" close --force 2>/dev/null
-    rm -f "$repo" .fslckout
-    echo "Cleared checkpoints for $app"
+    # Count commits excluding baseline and fossil artifacts
+    local count=$("$FOSSIL_BIN" timeline -t ci --oneline | head -n -3 | wc -l)
+    echo "$count"
 }
 
 case "$prog" in
@@ -199,8 +239,14 @@ case "$prog" in
             clear)
                 checkpoint_clear "$app"
                 ;;
+            baseline)
+                checkpoint_baseline "$app"
+                ;;
+            count)
+                checkpoint_count "$app"
+                ;;
             *)
-                echo "Usage: mcp checkpoint save|list|rollback|diff|clear APP [arg]" >&2
+                echo "Usage: mcp checkpoint save|list|rollback|diff|clear|baseline|count APP [arg]" >&2
                 exit 1
                 ;;
         esac
@@ -214,6 +260,21 @@ case "$prog" in
         exec curl -s -X POST "http://127.0.0.1:$port/api/ui_audit" \
              -H "Content-Type: application/json" \
              -d "{\"name\": \"$app\"}"
+        ;;
+    patterns)
+        patterns_dir="$dir/patterns"
+        if [ ! -d "$patterns_dir" ]; then
+            echo "No patterns directory"
+            exit 0
+        fi
+        for file in "$patterns_dir"/*.md; do
+            [ -e "$file" ] || continue
+            # Extract frontmatter (between --- markers)
+            desc=$(sed -n '/^---$/,/^---$/{ /^description:/s/^description: *//p }' "$file")
+            basename="${file##*/}"
+            basename="${basename%.md}"
+            echo "- \`$basename.md\` - $desc"
+        done
         ;;
     browser)
         exec curl -s -X POST "http://127.0.0.1:$port/api/ui_open_browser" \

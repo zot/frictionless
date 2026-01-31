@@ -97,7 +97,7 @@ Extract the app name from your prompt.
 
 **MCP progress** (shows in UI):
 ```bash
-.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'}, 'APP_NAME')"
+.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify', 'Set baseline'}, 'APP_NAME')"
 ```
 
 This shows progress in the UI. The user is watching - without this, the build looks frozen.
@@ -111,6 +111,7 @@ TaskCreate("Write code", activeForm: "Writing code...")
 TaskCreate("Write viewdefs", activeForm: "Writing viewdefs...")
 TaskCreate("Link and audit", activeForm: "Auditing...")
 TaskCreate("Simplify code", activeForm: "Simplifying...")
+TaskCreate("Set baseline checkpoint", activeForm: "Setting baseline...")
 ```
 
 Create both—MCP progress for user visibility, TaskCreate for work tracking.
@@ -238,7 +239,23 @@ Task tool with subagent_type="code-simplifier"
 prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
 ```
 
-## Step 9: Complete
+## Step 9: Set Baseline Checkpoint
+
+```bash
+.ui/mcp run "mcp:startTodoStep(8)"
+```
+
+TaskUpdate("Simplify code": completed), TaskUpdate("Set baseline checkpoint": in_progress)
+
+Set the baseline checkpoint so future `/ui-fast` iterations can be tracked:
+
+```bash
+.ui/mcp checkpoint baseline <app>
+```
+
+This creates a clean baseline that `/ui-fast` checkpoints will build on top of.
+
+## Step 10: Complete
 
 ```bash
 .ui/mcp run "mcp:completeTodos()"
@@ -246,7 +263,7 @@ prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
 .ui/mcp run "if appConsole then appConsole:addAgentMessage('Done - built APP_NAME') end"
 ```
 
-TaskUpdate("Simplify code": completed)
+TaskUpdate("Set baseline checkpoint": completed)
 
 ---
 

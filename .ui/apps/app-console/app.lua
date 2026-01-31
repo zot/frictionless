@@ -31,8 +31,9 @@ local UI_THOROUGH_STEPS = {
     {label = "Design", progress = 20, thinking = "Designing..."},
     {label = "Write code", progress = 40, thinking = "Writing code..."},
     {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
-    {label = "Link and audit", progress = 90, thinking = "Auditing..."},
-    {label = "Simplify", progress = 95, thinking = "Simplifying..."},
+    {label = "Link and audit", progress = 85, thinking = "Auditing..."},
+    {label = "Simplify", progress = 92, thinking = "Simplifying..."},
+    {label = "Set baseline", progress = 98, thinking = "Setting baseline..."},
 
     {label = "Fast Design", progress = 20, thinking = "Designing..."},
     {label = "Fast code", progress = 40, thinking = "Writing code..."},
@@ -304,6 +305,33 @@ function AppInfo:checkpointIcon()
     return self:hasCheckpoints() and "rocket" or "gem"
 end
 
+function AppInfo:checkpointCount()
+    self:hasCheckpoints()  -- triggers refresh if needed
+    return self._checkpointCount or 0
+end
+
+function AppInfo:checkpointTooltip()
+    local count = self:checkpointCount()
+    if count == 1 then
+        return "1 pending change"
+    else
+        return count .. " pending changes"
+    end
+end
+
+function AppInfo:shouldPulsate()
+    -- Clear the flag when todos are empty
+    if not appConsole:hasTodos() then
+        self._consolidatePending = false
+    end
+    return self._consolidatePending
+end
+
+function AppInfo:consolidateButtonText()
+    local count = self:checkpointCount()
+    return "Make it thorough (" .. count .. ")"
+end
+
 -- Push an event with common fields (app, mcp_port, note) plus custom fields
 function AppInfo:pushEvent(eventType, extra)
     local status = mcp:status()
@@ -340,11 +368,16 @@ function AppInfo:noCheckpoints()
 end
 
 function AppInfo:requestConsolidate()
+    self._consolidatePending = true
     self:pushEvent("consolidate_request", { target = self.name })
 end
 
 function AppInfo:requestReviewGaps()
     self:pushEvent("review_gaps_request", { target = self.name })
+end
+
+function AppInfo:requestAnalyze()
+    self:pushEvent("analyze_request", { target = self.name })
 end
 
 function AppInfo:openApp()
@@ -739,16 +772,19 @@ function AppConsole:refreshCheckpoints()
     local baseDir = status and status.base_dir
     for _, app in ipairs(self._apps) do
         if baseDir then
-            local path = baseDir .. "/apps/" .. app.name .. "/checkpoint.fossil"
-            local handle = io.open(path, "r")
-            if handle then
-                handle:close()
-                app._hasCheckpoints = true
-            else
-                app._hasCheckpoints = false
+            -- Use mcp checkpoint count (returns 0 if no repo, excludes baseline)
+            local cmd = baseDir .. "/mcp checkpoint count " .. app.name .. " 2>/dev/null"
+            local countHandle = io.popen(cmd)
+            local count = 0
+            if countHandle then
+                count = tonumber(countHandle:read("*a")) or 0
+                countHandle:close()
             end
+            app._hasCheckpoints = count > 0
+            app._checkpointCount = count
         else
             app._hasCheckpoints = false
+            app._checkpointCount = 0
         end
     end
     self._checkpointsTime = os.time()
@@ -1023,6 +1059,10 @@ function AppConsole:toggleTodos()
     self.todosCollapsed = not self.todosCollapsed
 end
 
+function AppConsole:hasTodos()
+    return self.todos and #self.todos > 0
+end
+
 function AppConsole:createTodos(steps, appName)
     self._todoApp = appName
     self._currentStep = 0
@@ -1097,3 +1137,4 @@ if not session.reloading then
     appConsole = AppConsole:new()
     appConsole:scanAppsFromDisk()
 end
+
