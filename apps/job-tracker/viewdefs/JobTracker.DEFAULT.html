@@ -1,0 +1,703 @@
+<template>
+  <style>
+    .job-tracker {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--term-bg);
+      color: var(--term-text);
+      font-family: var(--term-mono);
+    }
+
+    .jt-view-content {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Header */
+    .jt-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      padding-right: 72px;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 6px 0;
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-header h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Filter bar */
+    .jt-filters {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    /* List view */
+    .jt-list-container {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+    }
+
+    .jt-list-header {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr 80px;
+      gap: 8px;
+      padding: 8px 16px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--term-text-dim);
+      border-bottom: 1px solid var(--term-border);
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-sort-header {
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.15s;
+    }
+
+    .jt-sort-header:hover {
+      color: var(--term-accent);
+    }
+
+    .jt-empty {
+      padding: 32px;
+      text-align: center;
+      color: var(--term-text-dim);
+    }
+
+    /* Detail view */
+    .jt-detail {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .jt-detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      padding-right: 72px;
+      border-bottom: 1px solid var(--term-border);
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-detail-info {
+      padding: 16px;
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 0 0 8px;
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-detail-company {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .jt-detail-position {
+      font-size: 1.1rem;
+      color: var(--term-text-dim);
+      margin-bottom: 12px;
+    }
+
+    .jt-detail-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 0.9rem;
+      color: var(--term-text-dim);
+    }
+
+    .jt-detail-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Iframe area */
+    .jt-iframe-area {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--term-border);
+    }
+
+    .jt-iframe-link {
+      padding: 8px 16px;
+      background: var(--term-bg-elevated);
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-iframe-link a {
+      color: var(--term-accent);
+      text-decoration: none;
+    }
+
+    .jt-iframe-link a:hover {
+      text-decoration: underline;
+    }
+
+    .jt-iframe {
+      flex: 1;
+      min-height: 0;
+      border: none;
+      background: #fff;
+    }
+
+    .jt-no-url {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--term-text-dim);
+    }
+
+    /* Timeline */
+    .jt-timeline {
+      max-height: 200px;
+      overflow-y: auto;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-note-input {
+      display: flex;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-note-input sl-input {
+      flex: 1;
+    }
+
+    .jt-timeline-list {
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    /* Form view */
+    .jt-form {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .jt-form-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      padding-right: 72px;
+      border-bottom: 1px solid var(--term-border);
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-form-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .jt-form-row {
+      margin-bottom: 16px;
+    }
+
+    .jt-form-row sl-input,
+    .jt-form-row sl-select,
+    .jt-form-row sl-textarea {
+      width: 100%;
+    }
+
+    .jt-form-row-inline {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .jt-form-row-inline sl-input {
+      flex: 1;
+    }
+
+    /* Status select in detail view */
+    .jt-status-select {
+      margin-top: 8px;
+    }
+
+    .jt-status-select sl-select {
+      width: 200px;
+    }
+
+    /* Application list items */
+    .jt-app-item {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr 80px;
+      gap: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--term-border);
+      transition: background 0.15s;
+    }
+
+    .jt-app-item:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .jt-app-item.selected {
+      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+      border-left: 4px solid var(--term-accent);
+    }
+
+    .jt-app-company {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jt-app-position {
+      color: var(--term-text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jt-app-date {
+      color: var(--term-text-dim);
+      font-size: 0.9rem;
+    }
+
+    .jt-app-item sl-badge::part(base) {
+      font-size: 10px;
+      padding: 2px 6px;
+    }
+
+    /* URL input area */
+    .jt-url-input {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-url-input sl-input {
+      flex: 1;
+    }
+
+   .jt-url-submit {
+     align-self: center;
+   }
+
+   .jt-fab-spacer {
+     width: 56px;
+     flex-shrink: 0;
+   }
+
+    /* Timeline items */
+    .jt-timeline-item {
+      display: flex;
+      gap: 12px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-timeline-date {
+      color: var(--term-text-dim);
+      font-size: 0.85rem;
+      min-width: 60px;
+    }
+
+    .jt-timeline-desc {
+      flex: 1;
+      font-size: 0.9rem;
+    }
+
+    /* Chat panel */
+    .jt-chat-area {
+      flex-shrink: 0;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-chat-input-row {
+      display: flex;
+      gap: 4px;
+      padding: 8px 16px;
+      align-items: flex-end;
+    }
+
+   .jt-chat-actions {
+     display: flex;
+     gap: 4px;
+     align-items: center;
+     align-self: flex-start;
+     padding-bottom: 4px;
+   }
+
+   .jt-chat-actions sl-icon {
+     font-size: x-large;
+   }
+   
+   .jt-chat-actions sl-button::part(label) {
+     display: flex;
+     align-items: center
+   }
+   .jt-chat-close {
+     /*width: 20px;
+        height: 20px;
+        width: 1em;
+        height: 1em;*/
+     border-radius: 3px;
+     background: var(--term-border);
+     color: var(--term-text);
+     display: flex;
+     /*align-items: center;*/
+     justify-content: center;
+     cursor: pointer;
+     flex-shrink: 0;
+   }
+
+   .jt-chat-close:hover {
+     background: var(--term-danger, #c00);
+     color: white;
+   }
+   
+   .jt-chat-close sl-icon {
+     /*font-size: 0.6rem;*/
+     font-size: x-large;
+   }
+
+   .jt-chat-input {
+     flex: 1;
+     min-height: 0;
+   }
+
+   .jt-chat-input sl-textarea::part(textarea) {
+     min-height: 1.5em;
+     max-height: 6em;
+     resize: none;
+     overflow-y: auto;
+   }
+
+   .jt-chat-output {
+     border-bottom: 1px solid var(--term-border);
+   }
+
+   /* Chat FAB - fixed position */
+   .jt-chat-fab {
+     position: fixed;
+     bottom: 52px;
+     right: 20px;
+     width: 48px;
+     height: 48px;
+     border-radius: 50%;
+     background: var(--term-accent);
+     color: var(--term-bg);
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     cursor: pointer;
+     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+     transition: transform 0.2s, background 0.2s;
+     z-index: 100;
+   }
+
+   .jt-chat-fab:hover {
+     transform: scale(1.1);
+     background: var(--term-accent-bright, var(--term-accent));
+   }
+
+   .jt-chat-fab sl-icon {
+     font-size: 1.25rem;
+   }
+
+   .jt-chat-output > .view-list {
+     max-height: 200px;
+     overflow-y: auto;
+   }
+
+   .jt-chat-msg {
+     padding: 8px 16px;
+     border-bottom: 1px solid var(--term-border);
+     cursor: pointer;
+   }
+
+   .jt-chat-msg:hover {
+     background: var(--term-bg-hover);
+   }
+
+   .jt-chat-msg.user {
+     background: var(--term-bg);
+   }
+
+   .jt-chat-msg.assistant {
+     background: var(--term-bg-elevated);
+   }
+
+   .jt-chat-role {
+     font-weight: 600;
+     text-transform: capitalize;
+     margin-right: 8px;
+     color: var(--term-text-dim);
+   }
+
+   .jt-chat-content {
+     white-space: pre-wrap;
+   }
+
+   .jt-chat-empty {
+     padding: 16px;
+     text-align: center;
+     color: var(--term-text-dim);
+     font-style: italic;
+   }
+  </style>
+
+  <div class="job-tracker">
+    <!-- List View -->
+    <div class="jt-view-content" ui-class-hidden="notListView()">
+      <div class="jt-header">
+        <h1>Job Tracker</h1>
+        <sl-button variant="primary" size="small" ui-action="showAddForm()">
+          <sl-icon slot="prefix" name="plus-lg"></sl-icon>
+          Add
+        </sl-button>
+      </div>
+
+      <div class="jt-filters">
+        <sl-button size="small" ui-attr-variant="allVariant()" ui-action="filterAll()">All</sl-button>
+        <sl-button size="small" ui-attr-variant="activeVariant()" ui-action="filterActive()">Active</sl-button>
+        <sl-button size="small" ui-attr-variant="offersVariant()" ui-action="filterOffers()">Offers</sl-button>
+        <sl-button size="small" ui-attr-variant="archivedVariant()" ui-action="filterArchived()">Archived</sl-button>
+      </div>
+
+      <div class="jt-list-header">
+        <span class="jt-sort-header" ui-event-click="sortCompany()">Company <span ui-value="companyIcon()"></span></span>
+        <span class="jt-sort-header" ui-event-click="sortPosition()">Position <span ui-value="positionIcon()"></span></span>
+        <span class="jt-sort-header" ui-event-click="sortStatus()">Status <span ui-value="statusIcon()"></span></span>
+        <span class="jt-sort-header" ui-event-click="sortDate()">Date <span ui-value="dateIcon()"></span></span>
+      </div>
+
+      <div class="jt-list-container">
+        <div ui-view="applications()?wrapper=lua.ViewList"></div>
+      </div>
+
+      <div class="jt-url-input input-area">
+        <sl-input placeholder="Paste job posting URL..." ui-value="urlInput" ui-event-keypress-enter="submitUrl()">
+          <sl-icon slot="prefix" name="link-45deg"></sl-icon>
+        </sl-input>
+        <sl-button class="jt-url-submit" variant="primary" size="small" ui-action="submitUrl()">
+          <sl-icon name="arrow-right"></sl-icon>
+        </sl-button>
+        <div class="jt-fab-spacer" ui-class-hidden="chatPanelOpen"></div>
+      </div>
+    </div>
+
+    <!-- Detail View -->
+    <div class="jt-detail jt-view-content" ui-class-hidden="notDetailView()">
+      <div class="jt-detail-header">
+        <sl-button variant="text" size="small" ui-action="showList()">
+          <sl-icon slot="prefix" name="arrow-left"></sl-icon>
+          Back
+        </sl-button>
+        <div>
+          <sl-button variant="default" size="small" ui-action="showEditForm()">
+            <sl-icon slot="prefix" name="pencil"></sl-icon>
+            Edit
+          </sl-button>
+          <sl-button variant="danger" size="small" ui-action="deleteApp()">
+            <sl-icon slot="prefix" name="trash"></sl-icon>
+          </sl-button>
+        </div>
+      </div>
+
+      <div class="jt-detail-info">
+        <div class="jt-detail-company" ui-value="selected.company"></div>
+        <div class="jt-detail-position" ui-value="selected.position"></div>
+
+        <div class="jt-status-select">
+          <sl-select size="small" ui-value="selected.status" ui-event-sl-change="changeStatus(selected.status)">
+            <sl-option value="bookmarked">Bookmarked</sl-option>
+            <sl-option value="applied">Applied</sl-option>
+            <sl-option value="phone">Phone Screen</sl-option>
+            <sl-option value="technical">Technical</sl-option>
+            <sl-option value="onsite">Onsite</sl-option>
+            <sl-option value="offer">Offer</sl-option>
+            <sl-option value="rejected">Rejected</sl-option>
+            <sl-option value="withdrawn">Withdrawn</sl-option>
+            <sl-option value="archived">Archived</sl-option>
+          </sl-select>
+        </div>
+
+        <div class="jt-detail-meta">
+          <span ui-class-hidden="selected.noUrl()">
+            <sl-icon name="calendar"></sl-icon>
+            <span ui-value="selected.appliedDateDisplay()"></span>
+          </span>
+          <span ui-class-hidden="selected.noLocation()">
+            <sl-icon name="geo-alt"></sl-icon>
+            <span ui-value="selected.location"></span>
+          </span>
+          <span ui-class-hidden="selected.noSalary()">
+            <sl-icon name="currency-dollar"></sl-icon>
+            <span ui-value="selected.salaryDisplay()"></span>
+          </span>
+          <span ui-class-hidden="selected.noHq()">
+            <sl-icon name="building"></sl-icon>
+            <span ui-value="selected.hqAddress"></span>
+          </span>
+        </div>
+      </div>
+
+      <div class="jt-iframe-area">
+        <div class="jt-iframe-link" ui-class-hidden="selected.noUrl()">
+          <a ui-attr-href="selected.url" target="_blank">Open in new tab</a>
+        </div>
+        <iframe class="jt-iframe" ui-attr-src="selected.url" ui-class-hidden="selected.noUrl()"></iframe>
+        <div class="jt-no-url" ui-class-hidden="selected.hasUrl()">No job posting URL</div>
+      </div>
+
+      <div class="jt-timeline">
+        <div class="jt-timeline-header">
+          <span>Timeline</span>
+        </div>
+        <div class="jt-note-input">
+          <sl-input placeholder="Add a note..." size="small" ui-value="noteInput" ui-event-keypress-enter="addNote()"></sl-input>
+          <sl-button size="small" ui-action="addNote()">
+            <sl-icon name="plus-lg"></sl-icon>
+          </sl-button>
+          <div class="jt-fab-spacer"></div>
+        </div>
+        <div class="jt-timeline-list" ui-view="selected.timeline?wrapper=lua.ViewList"></div>
+      </div>
+    </div>
+
+    <!-- Form View -->
+    <div class="jt-form jt-view-content" ui-class-hidden="notFormView()">
+      <div class="jt-form-header">
+        <sl-button variant="text" size="small" ui-action="cancelForm()">
+          <sl-icon slot="prefix" name="x-lg"></sl-icon>
+          Cancel
+        </sl-button>
+        <sl-button variant="primary" size="small" ui-action="saveForm()" ui-attr-disabled="formData.noChanges()">
+          <sl-icon slot="prefix" name="check-lg"></sl-icon>
+          Save
+        </sl-button>
+      </div>
+
+      <div class="jt-form-body">
+        <div class="jt-form-row">
+          <sl-input label="Company" ui-value="formData.company"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="Position" ui-value="formData.position"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="Job Posting URL" ui-value="formData.url"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-select label="Status" ui-value="formData.status">
+            <sl-option value="bookmarked">Bookmarked</sl-option>
+            <sl-option value="applied">Applied</sl-option>
+            <sl-option value="phone">Phone Screen</sl-option>
+            <sl-option value="technical">Technical</sl-option>
+            <sl-option value="onsite">Onsite</sl-option>
+            <sl-option value="offer">Offer</sl-option>
+            <sl-option value="rejected">Rejected</sl-option>
+            <sl-option value="withdrawn">Withdrawn</sl-option>
+            <sl-option value="archived">Archived</sl-option>
+          </sl-select>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="Date Applied" type="date" ui-value="formData.dateApplied"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="Location" ui-value="formData.location"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="HQ Address" ui-value="formData.hqAddress"></sl-input>
+        </div>
+        <div class="jt-form-row-inline">
+          <sl-input label="Salary Min" type="number" ui-value="formData.salaryMin"></sl-input>
+          <sl-input label="Salary Max" type="number" ui-value="formData.salaryMax"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-textarea label="Notes" rows="4" ui-value="formData.notes"></sl-textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat FAB (visible on all screens when chat closed) -->
+    <div class="jt-chat-fab" ui-class-hidden="chatPanelOpen" ui-event-click="toggleChatPanel()">
+      <sl-icon name="chat-dots"></sl-icon>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="jt-chat-area" ui-class-hidden="chatPanelHidden()">
+      <div class="jt-chat-output">
+        <div ui-view="chatMessages?wrapper=lua.ViewList&scrollOnOutput"></div>
+        <div class="jt-chat-empty" ui-class-hidden="hasChatMessages()">No messages yet</div>
+      </div>
+      <div class="jt-chat-input-row">
+        <div class="jt-chat-input">
+          <sl-textarea
+            placeholder="Chat with Claude..."
+            rows="1"
+            resize="auto"
+            ui-value="chatInput?keypress"
+            ui-event-keypress-enter="submitChat()"
+          ></sl-textarea>
+        </div>
+        <div class="jt-chat-actions">
+          <sl-button variant="text" size="large" ui-action="clearChat()" title="Clear chat">
+            <sl-icon name="trash"></sl-icon>
+          </sl-button>
+          <div class="jt-chat-close" ui-event-click="toggleChatPanel()" title="Close chat">
+            <sl-icon name="x-lg"></sl-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
