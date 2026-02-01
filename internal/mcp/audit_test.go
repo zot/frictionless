@@ -1,5 +1,5 @@
 // Package mcp tests for audit functionality
-// Test Design: test-Auditor.md
+// Test: test-Auditor.md
 package mcp
 
 import (

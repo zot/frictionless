@@ -1052,15 +1052,11 @@ func (s *Server) handleTheme(ctx context.Context, request mcp.CallToolRequest) (
 
 	switch action {
 	case "list":
-		themes, listErr := ListThemes(baseDir)
+		listResult, listErr := ListThemesWithInfo(baseDir)
 		if listErr != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("listing themes: %v", listErr)), nil
 		}
-		current := GetCurrentTheme(baseDir)
-		result = ThemeListResult{
-			Themes:  themes,
-			Current: current,
-		}
+		result = listResult
 
 	case "classes":
 		if theme == "" {

@@ -13,6 +13,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-MCPResource.md → `internal/mcp/resources.go`
 - [x] crc-MCPTool.md → `internal/mcp/tools.go`
 - [x] crc-Auditor.md → `internal/mcp/audit.go`
+- [x] crc-ThemeManager.md → `internal/mcp/theme.go`
 
 ### Sequences
 - [x] seq-mcp-lifecycle.md → `internal/mcp/server.go`, `internal/mcp/tools.go`
@@ -22,9 +23,11 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-mcp-get-state.md → `internal/mcp/resources.go`
 - [x] seq-mcp-state-wait.md → `internal/mcp/server.go`
 - [x] seq-audit.md → `internal/mcp/audit.go`, `internal/mcp/tools.go`
+- [x] seq-theme-inject.md → `internal/mcp/theme.go`, `internal/mcp/server.go`
+- [x] seq-theme-list.md → `internal/mcp/theme.go`
 
 ### Test Designs
-- [ ] test-MCP.md → `tools_test.go`
+- [ ] test-MCP.md → `internal/mcp/tools_test.go`
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
 
 ## Systems
@@ -173,3 +176,10 @@ Cross-platform binary builds via Makefile:
   - [ ] TestInstallSkillFilesCreatesDirectory
   - [ ] TestInstallSkillFilesPathResolution
   - [ ] TestInstallForceOverwrites
+- [ ] O5: Pluggable themes - remaining implementation
+  - [x] Theme CSS files (base.css, lcars.css, clarity.css, midnight.css, ninja.css)
+  - [x] Server startup injection to index.html
+  - [x] CSS `@` annotation parser for theme metadata
+  - [x] Updated theme CLI commands (list, classes, audit)
+  - [x] Prefs app for theme switching with localStorage persistence
+  - [ ] Theme test coverage (ParseThemeCSS, InjectThemeBlock, AuditAppTheme)

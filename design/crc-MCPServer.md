@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22
 
 ## Responsibilities
 

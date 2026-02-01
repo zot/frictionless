@@ -1,0 +1,160 @@
+/*
+@theme clarity
+@description Clean, editorial light theme with slate blue accent
+
+@class panel-header
+  @description Header bar with subtle bottom border
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class panel-header-left
+  @description Header with left accent bar
+  @usage Detail panels, secondary headers
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+
+@class selected-item
+  @description Selected item with subtle highlight
+  @usage List items in selected state
+  @elements div, li
+
+@class input-area
+  @description Input area with top border
+  @usage Chat input, form areas
+  @elements div, form
+*/
+
+/* Font imports - IBM Plex for editorial precision */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+/* ========== Variables ========== */
+.theme-clarity {
+  --term-bg: #fafafa;
+  --term-bg-elevated: #ffffff;
+  --term-bg-hover: #f0f0f2;
+  --term-bg-panel: #f5f5f7;
+  --term-border: #d8dae0;
+  --term-text: #1a1d24;
+  --term-text-dim: #5c6370;
+  --term-text-muted: #8a8f99;
+  --term-accent: #3b6ea5;
+  --term-accent-glow: rgba(59, 110, 165, 0.15);
+  --term-accent-bright: #4a8fd4;
+  --term-accent-dim: rgba(59, 110, 165, 0.08);
+  --term-success: #2d8659;
+  --term-success-dim: rgba(45, 134, 89, 0.12);
+  --term-warning: #b5850d;
+  --term-warning-dim: rgba(181, 133, 13, 0.12);
+  --term-danger: #c74545;
+  --term-danger-dim: rgba(199, 69, 69, 0.12);
+  --term-error: #c74545;
+  --term-error-dim: rgba(199, 69, 69, 0.12);
+  --term-info: #3b6ea5;
+  --term-mono: 'IBM Plex Mono', 'Consolas', monospace;
+  --term-sans: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* ========== Base Styles ========== */
+.theme-clarity html,
+.theme-clarity body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* ========== Theme Classes ========== */
+.theme-clarity .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--term-accent);
+}
+
+.theme-clarity .panel-header-left {
+  border-left: 3px solid var(--term-accent);
+  padding-left: 12px;
+}
+
+.theme-clarity .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--term-border);
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-clarity .section-header:hover {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+.theme-clarity .selected-item {
+  background: var(--term-accent-dim);
+  border-left: 3px solid var(--term-accent);
+}
+
+.theme-clarity .input-area {
+  border-top: 2px solid var(--term-border);
+  padding-top: 12px;
+}
+
+/* ========== Scrollbars ========== */
+.theme-clarity * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--term-border) transparent;
+}
+
+.theme-clarity ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-clarity ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.theme-clarity ::-webkit-scrollbar-thumb {
+  background: var(--term-border);
+  border-radius: 4px;
+}
+
+.theme-clarity ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent);
+}
+
+.theme-clarity ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ========== Shoelace overrides ========== */
+.theme-clarity sl-button::part(base) {
+  font-family: var(--term-sans);
+  border-radius: 4px;
+}
+
+.theme-clarity sl-badge::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 4px;
+  padding: 0 0.6em;
+}
+
+.theme-clarity sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+.theme-clarity sl-alert::part(base) {
+  font-family: var(--term-sans);
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+  border-radius: 4px;
+}

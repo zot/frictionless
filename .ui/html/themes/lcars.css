@@ -1,0 +1,167 @@
+/*
+@theme lcars
+@description Subtle Star Trek LCARS-inspired design
+
+@class panel-header
+  @description Header bar with bottom accent
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class panel-header-left
+  @description Header with left accent bar
+  @usage Detail panels, secondary headers
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+
+@class selected-item
+  @description Selected item with gradient and left accent
+  @usage List items in selected state
+  @elements div, li
+
+@class input-area
+  @description Input area with top accent bar
+  @usage Chat input, form areas
+  @elements div, form
+*/
+
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+/* ========== Variables (override :root defaults) ========== */
+.theme-lcars {
+  --term-bg: #0a0a0f;
+  --term-bg-elevated: #12121a;
+  --term-bg-hover: #1a1a24;
+  --term-bg-panel: #0d0d14;
+  --term-border: #2a2a3a;
+  --term-text: #e0e0e8;
+  --term-text-dim: #8888a0;
+  --term-text-muted: #5a5a70;
+  --term-accent: #E07A47;
+  --term-accent-glow: rgba(224, 122, 71, 0.4);
+  --term-accent-bright: #ff9966;
+  --term-accent-dim: rgba(224, 122, 71, 0.2);
+  --term-success: #4ade80;
+  --term-success-dim: rgba(74, 222, 128, 0.15);
+  --term-warning: #fbbf24;
+  --term-warning-dim: rgba(251, 191, 36, 0.15);
+  --term-danger: #f87171;
+  --term-danger-dim: rgba(248, 113, 113, 0.15);
+  --term-error: #f87171;
+  --term-error-dim: rgba(248, 113, 113, 0.15);
+  --term-info: #60a5fa;
+  --term-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --term-sans: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* ========== Base Styles ========== */
+.theme-lcars html,
+.theme-lcars body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* ========== Theme Classes ========== */
+.theme-lcars .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--term-accent);
+  border-radius: 0 0 6px 0;
+}
+
+.theme-lcars .panel-header-left {
+  border-left: 4px solid var(--term-accent);
+  border-radius: 0 0 0 8px;
+  padding-left: 12px;
+}
+
+.theme-lcars .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0 8px 10px;
+  border-left: 3px solid var(--term-border);
+  border-radius: 0 0 0 6px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-lcars .section-header:hover {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+.theme-lcars .selected-item {
+  background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+  border-left: 6px solid var(--term-accent);
+  border-radius: 0 6px 6px 0;
+}
+
+.theme-lcars .input-area {
+  border-top: 3px solid var(--term-accent);
+  border-radius: 8px 0 0 0;
+  padding-top: 12px;
+}
+
+/* ========== LCARS-style scrollbars ========== */
+.theme-lcars * {
+  scrollbar-width: auto;
+  scrollbar-color: var(--term-accent) var(--term-bg);
+}
+
+.theme-lcars ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+.theme-lcars ::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+
+.theme-lcars ::-webkit-scrollbar-thumb {
+  background: var(--term-accent);
+  border: 4px solid var(--term-bg);
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+.theme-lcars ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent-bright);
+  background-clip: padding-box;
+}
+
+.theme-lcars ::-webkit-scrollbar-corner {
+  background: var(--term-bg);
+}
+
+/* ========== Shoelace overrides ========== */
+.theme-lcars sl-button::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 999px;
+}
+
+.theme-lcars sl-badge::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 999px;
+  padding: 0 0.75em;
+}
+
+.theme-lcars sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+.theme-lcars sl-alert::part(base) {
+  font-family: var(--term-mono);
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}

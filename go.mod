@@ -7,10 +7,9 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/yuin/goldmark v1.7.16
 	github.com/yuin/gopher-lua v1.1.1
-	github.com/zot/change-tracker v0.0.0-20251214022352-e50ef78a5af4
-	github.com/zot/ui-engine v0.15.0
+	github.com/zot/change-tracker v0.0.0-20260201045121-447986f276d7
+	github.com/zot/ui-engine v0.15.2
 	golang.org/x/net v0.49.0
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -26,4 +25,5 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/sys v0.40.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

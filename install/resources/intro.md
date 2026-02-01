@@ -192,6 +192,18 @@ Poke at your app's internals. See what breaks. Fix it.
 4. **Click Open** to actually use your app.
 5. **Hit Refresh [R]** if the list looks stale.
 
+## Themes
+
+Frictionless ships with multiple visual themes. Switch themes in the **Prefs** app.
+
+**Available themes:**
+- **LCARS** (default) — Dark theme with orange accents
+- **Clarity** — Light editorial theme with slate blue
+- **Midnight** — Modern dark theme with teal
+- **Ninja** — Playful teal theme
+
+Your selection persists across sessions. See [Themes](themes.md) for customization.
+
 ## Troubleshooting
 
 **App ignores your clicks?**

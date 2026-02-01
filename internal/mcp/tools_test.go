@@ -1,5 +1,5 @@
 // Package mcp tests for tool handlers
-// Test Design: test-MCP.md (Skill File Installation section)
+// Test: test-MCP.md
 package mcp
 
 import (

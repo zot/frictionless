@@ -30,43 +30,70 @@ Workflow for auditing and standardizing semantic CSS class usage across UI apps.
 2. **Review undocumented classes**
 
    For each undocumented class, decide:
-   - **Document it**: Add to theme frontmatter if it's a semantic pattern
+   - **Document it**: Add to the theme CSS metadata block and implement the styles
    - **Replace it**: Use an existing theme class if one fits
    - **Keep it**: App-specific classes are fine (e.g., `chat-message` in a chat app)
 
 3. **Add new theme classes** (if needed)
 
-   Edit `{base_dir}/themes/lcars.md` frontmatter:
-   ```yaml
-   classes:
-     - name: new-class-name
-       description: What it does
-       usage: When to use it
-       elements: [div, header]
+   Edit `{base_dir}/html/themes/lcars.css` — add to the metadata block:
+   ```css
+   /*
+   @theme lcars
+   @description LCARS-inspired design
+
+   @class new-class-name
+     @description What it does visually
+     @usage When/where to use it
+     @elements div, header
+   */
    ```
 
-## Theme Frontmatter Schema
+   Then add the CSS rules:
+   ```css
+   .theme-lcars .new-class-name {
+     /* styling */
+   }
+   ```
 
-```yaml
----
-name: lcars
-description: Short theme description
-classes:
-  - name: panel-header
-    description: Header bar with bottom accent
-    usage: Panel/section headers with title and action buttons
-    elements: [div, header]
----
+## Theme CSS Format
+
+Theme files are CSS with `@` metadata annotations in a comment block:
+
+```css
+/*
+@theme lcars
+@description Subtle Star Trek LCARS-inspired design
+
+@class panel-header
+  @description Header bar with bottom accent
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+*/
+
+.theme-lcars {
+  --term-bg: #0a0a0f;
+  --term-accent: #E07A47;
+  /* ... */
+}
+
+.theme-lcars .panel-header {
+  border-bottom: 3px solid var(--term-accent);
+}
 ```
 
-Fields:
-- `name`: Theme identifier (matches filename without .md)
-- `description`: One-line theme description
-- `classes`: List of semantic CSS classes
-  - `name`: CSS class name
-  - `description`: What the class does visually
-  - `usage`: When/where to use it
-  - `elements`: HTML elements it's typically applied to
+Metadata fields:
+- `@theme`: Theme identifier (matches filename without .css)
+- `@description`: One-line theme description
+- `@class`: Start a semantic class definition
+  - `@description`: What the class does visually
+  - `@usage`: When/where to use it
+  - `@elements`: HTML elements it's typically applied to
 
 ## Class Naming Conventions
 
@@ -80,13 +107,15 @@ Avoid:
 
 ## Current Theme
 
-The active theme is determined by the `theme.md` symlink:
-```bash
-ls -la {base_dir}/themes/theme.md
-# theme.md -> lcars.md
+The active theme is stored in localStorage and applied via an HTML class:
+
+```html
+<html class="theme-lcars">
 ```
 
-All apps inherit styles from the current theme via the MCP shell.
+Users switch themes in the **Prefs** app. The selection persists across sessions.
+
+All apps inherit styles from the active theme automatically.
 
 ## Example Audit Output
 

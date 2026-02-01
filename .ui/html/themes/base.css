@@ -1,0 +1,48 @@
+/*
+@theme base
+@description Shared defaults and transitions for all themes
+*/
+
+/* Fallback variables - ensures ::selection, etc. work */
+:root {
+  --term-bg: #1a1a1a;
+  --term-bg-elevated: #242424;
+  --term-bg-hover: #2a2a2a;
+  --term-bg-panel: #1e1e1e;
+  --term-border: #3a3a3a;
+  --term-text: #e0e0e0;
+  --term-text-dim: #888888;
+  --term-text-muted: #666666;
+  --term-accent: #666666;
+  --term-accent-glow: rgba(102, 102, 102, 0.4);
+  --term-accent-bright: #888888;
+  --term-accent-dim: rgba(102, 102, 102, 0.2);
+  --term-success: #4ade80;
+  --term-success-dim: rgba(74, 222, 128, 0.15);
+  --term-warning: #fbbf24;
+  --term-warning-dim: rgba(251, 191, 36, 0.15);
+  --term-danger: #f87171;
+  --term-danger-dim: rgba(248, 113, 113, 0.15);
+  --term-error: #f87171;
+  --term-error-dim: rgba(248, 113, 113, 0.15);
+  --term-info: #60a5fa;
+  --term-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --term-sans: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Smooth transitions between themes */
+* {
+  transition: background-color 0.2s ease,
+              color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+/* Global styles that apply regardless of theme */
+::selection {
+  background: var(--term-accent);
+  color: var(--term-bg);
+}
+
+/* Utility class */
+.hidden { display: none !important; }

@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
 prog="$1"

@@ -1,32 +1,7 @@
 <template>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-
-    :root {
-      /* Terminal color palette */
-      --term-bg: #0a0a0f;
-      --term-bg-elevated: #12121a;
-      --term-bg-hover: #1a1a24;
-      --term-border: #2a2a3a;
-      --term-text: #e0e0e8;
-      --term-text-dim: #8888a0;
-      --term-accent: #E07A47;
-      --term-accent-glow: rgba(224, 122, 71, 0.4);
-      --term-accent-bright: #ff9966;
-      --term-success: #4ade80;
-      --term-warning: #fbbf24;
-      --term-danger: #f87171;
-      --term-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-      --term-sans: 'Space Grotesk', system-ui, sans-serif;
-    }
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: var(--term-bg);
-      color: var(--term-text);
-    }
+    /* Shell structural CSS - uses theme variables from /themes/*.css */
+    /* Theme classes (.panel-header, etc.) are in theme files */
 
     .mcp-shell {
       position: fixed;
@@ -342,106 +317,6 @@
       background: var(--term-bg-elevated);
       border: 1px solid var(--term-border);
     }
-
-    /* Shoelace dark theme overrides - LCARS-inspired */
-    sl-button::part(base) {
-      font-family: var(--term-mono);
-      border-radius: 999px;
-    }
-
-    sl-badge::part(base) {
-      font-family: var(--term-mono);
-      border-radius: 999px;
-      padding: 0 0.75em;
-    }
-
-    sl-spinner {
-      --track-color: var(--term-border);
-      --indicator-color: var(--term-accent);
-    }
-
-    sl-alert::part(base) {
-      font-family: var(--term-mono);
-      background: var(--term-bg-elevated);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    /* Theme classes - compose with app-specific classes */
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 3px solid var(--term-accent);
-      border-radius: 0 0 6px 0;
-    }
-
-    .panel-header-left {
-      border-left: 4px solid var(--term-accent);
-      border-radius: 0 0 0 8px;
-      padding-left: 12px;
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      padding: 8px 0 8px 10px;
-      border-left: 3px solid var(--term-border);
-      border-radius: 0 0 0 6px;
-      transition: border-color 0.15s, color 0.15s;
-    }
-
-    .section-header:hover {
-      border-color: var(--term-accent);
-      color: var(--term-accent);
-    }
-
-    .selected-item {
-      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
-      border-left: 6px solid var(--term-accent);
-      border-radius: 0 6px 6px 0;
-    }
-
-    .input-area {
-      border-top: 3px solid var(--term-accent);
-      border-radius: 8px 0 0 0;
-      padding-top: 12px;
-    }
-
-    /* LCARS-style scrollbars */
-    * {
-      scrollbar-width: auto;
-      scrollbar-color: var(--term-accent) var(--term-bg);
-    }
-
-    ::-webkit-scrollbar {
-      width: 16px;
-      height: 16px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--term-bg);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--term-accent);
-      border: 4px solid var(--term-bg);
-      border-radius: 8px;
-      background-clip: padding-box;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--term-accent-bright);
-      background-clip: padding-box;
-    }
-
-    ::-webkit-scrollbar-corner {
-      background: var(--term-bg);
-    }
-
-    .hidden { display: none !important; }
   </style>
 
   <script>

@@ -1,0 +1,191 @@
+<template>
+  <style>
+    .prefs-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--term-sans);
+      background: var(--term-bg);
+      color: var(--term-text);
+    }
+
+    .prefs-header {
+      padding: 16px 20px;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 8px 0;
+    }
+
+    .prefs-header h1 {
+      margin: 0;
+      font-family: var(--term-mono);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--term-accent);
+      text-transform: uppercase;
+    }
+
+    .prefs-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .prefs-section {
+      margin-bottom: 24px;
+    }
+
+    .prefs-section h2 {
+      margin: 0 0 12px 0;
+      font-family: var(--term-mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--term-text-dim);
+      padding-left: 12px;
+      border-left: 3px solid var(--term-border);
+    }
+
+    .theme-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Theme item styles (from list-item viewdef) */
+    .theme-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .theme-item:hover {
+      border-color: var(--term-accent);
+      background: var(--term-bg-hover);
+    }
+
+    .theme-item.selected {
+      border-color: var(--term-accent);
+      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+      border-left: 4px solid var(--term-accent);
+      padding-left: 12px;
+    }
+
+    .theme-radio {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--term-border);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .theme-item.selected .theme-radio {
+      border-color: var(--term-accent);
+    }
+
+    .theme-radio-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--term-accent);
+      transform: scale(0);
+      transition: transform 0.15s;
+    }
+
+    .theme-item.selected .theme-radio-dot {
+      transform: scale(1);
+    }
+
+    .theme-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .theme-name {
+      font-family: var(--term-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--term-text);
+      margin-bottom: 2px;
+    }
+
+    .theme-description {
+      font-size: 12px;
+      color: var(--term-text-dim);
+    }
+
+    .theme-swatch {
+      flex-shrink: 0;
+      width: 32px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid var(--term-border);
+    }
+  </style>
+
+  <div class="prefs-panel">
+    <div class="prefs-header panel-header">
+      <h1>Preferences</h1>
+    </div>
+
+    <div class="prefs-content">
+      <div class="prefs-section">
+        <h2>Themes</h2>
+        <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
+      </div>
+    </div>
+
+    <!-- Hidden input for JS→Lua theme sync -->
+    <input type="hidden" class="browser-theme-bridge" ui-value="_browserTheme">
+    <span style="display:none" ui-value="syncFromBrowser()"></span>
+  </div>
+
+  <script>
+    (function() {
+      const panel = document.querySelector('.prefs-panel');
+      if (!panel) return;
+
+      // Store theme functions on the panel element
+      panel.injectThemeCSS = function(themes) {
+        themes.forEach(function(theme) {
+          const href = '/themes/' + theme + '.css';
+          if (!document.querySelector('link[href="' + href + '"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            document.head.appendChild(link);
+          }
+        });
+      };
+
+      panel.applyTheme = function(name) {
+        document.documentElement.className = 'theme-' + name;
+        localStorage.setItem('theme', name);
+      };
+
+      // Inject CSS for all known themes on load
+      panel.injectThemeCSS(['clarity', 'lcars', 'midnight', 'ninja']);
+
+      // Read current theme from localStorage and push to Lua
+      const bridge = document.querySelector('.browser-theme-bridge');
+      if (bridge) {
+        const theme = localStorage.getItem('theme') || 'lcars';
+        bridge.value = theme;
+        bridge.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    })();
+  </script>
+</template>

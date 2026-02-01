@@ -296,6 +296,8 @@ The agent polls for events via the `/wait` HTTP endpoint. Events are returned as
 │       ├── viewdefs/
 │       ├── README.md
 │       └── design.md
+├── html/
+│   └── themes/     # CSS theme files (lcars.css, clarity.css, etc.)
 ├── lua/            # Symlinks to apps/<app>/*.lua
 ├── viewdefs/       # Symlinks to apps/<app>/viewdefs/*
 ├── log/            # Runtime logs

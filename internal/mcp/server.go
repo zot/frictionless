@@ -34,13 +34,13 @@ const (
 
 // Server implements an MCP server for AI integration.
 type Server struct {
-	mcpServer         *server.MCPServer
-	cfg               *cli.Config
-	UiServer          *cli.Server // UI engine server for ExecuteInSession
-	viewdefs          *cli.ViewdefManager
+	mcpServer       *server.MCPServer
+	cfg             *cli.Config
+	UiServer        *cli.Server // UI engine server for ExecuteInSession
+	viewdefs        *cli.ViewdefManager
 	startFunc       func(port int) (string, error) // Callback to start HTTP server
 	getSessionCount func() int                     // Callback to get active session count
-	onClearLogs       func()                         // Callback to reopen Go log file after clearing logs
+	onClearLogs     func()                         // Callback to reopen Go log file after clearing logs
 
 	mu              sync.RWMutex
 	state           State
@@ -374,6 +374,8 @@ func (s *Server) StartAndCreateSession() (string, error) {
 		}
 	}
 
+	s.cfg.Log(1, "Server dir: %s", s.cfg.Server.Dir)
+
 	// Set up mcp global in Lua with Go functions
 	if err := s.setupMCPGlobal(vendedID); err != nil {
 		return "", fmt.Errorf("failed to setup mcp global: %w", err)
@@ -416,6 +418,12 @@ func (s *Server) Start() (string, error) {
 	url, err := s.startFunc(0)
 	if err != nil {
 		return "", err
+	}
+
+	// Inject theme block into index.html
+	// Seq: seq-theme-inject.md
+	if err := InjectThemeBlock(s.baseDir); err != nil {
+		s.cfg.Log(0, "Warning: failed to inject theme block: %v", err)
 	}
 
 	// Update state after successful start

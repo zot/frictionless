@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.12.0**
+**Version: 0.13.0**
 
 **An app ecosystem for Claude. Share the love—or steal it.**
 
@@ -87,6 +87,7 @@ frictionless extract output/             # Extract all bundled files to current 
 - **[Viewdef Syntax](install/resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
 - **[Lua API](install/resources/lua.md)** — Class patterns and globals
 - **[Agent Workflow](install/resources/mcp.md)** — Best practices for AI agents
+- **[Themes](install/resources/themes.md)** — Theme switching and customization
 
 ## Installation
 

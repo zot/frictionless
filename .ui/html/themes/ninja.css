@@ -1,0 +1,196 @@
+/*
+@theme ninja
+@description Playful teal theme with cute cartoon ninjas - inspired by Gmail's ninja theme
+
+@class panel-header
+  @description Header bar with accent underline
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class panel-header-left
+  @description Header with left accent bar
+  @usage Detail panels, secondary headers
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+
+@class selected-item
+  @description Selected item with glow effect
+  @usage List items in selected state
+  @elements div, li
+
+@class input-area
+  @description Input area with top accent
+  @usage Chat input, form areas
+  @elements div, form
+*/
+
+/* Font imports - Nunito for cute rounded feel + Fira Code for mono */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Nunito:wght@400;500;600;700&display=swap');
+
+/* ========== Variables ========== */
+.theme-ninja {
+  --term-bg: #1a8a99;
+  --term-bg-elevated: #1d9aab;
+  --term-bg-hover: #22a9bb;
+  --term-bg-panel: #178a97;
+  --term-border: #2bb8c9;
+  --term-text: #ffffff;
+  --term-text-dim: rgba(255, 255, 255, 0.7);
+  --term-text-muted: rgba(255, 255, 255, 0.5);
+  --term-accent: #2d2d2d;
+  --term-accent-glow: rgba(45, 45, 45, 0.3);
+  --term-accent-bright: #1a1a1a;
+  --term-accent-dim: rgba(45, 45, 45, 0.15);
+  --term-success: #4ade80;
+  --term-success-dim: rgba(74, 222, 128, 0.2);
+  --term-warning: #fbbf24;
+  --term-warning-dim: rgba(251, 191, 36, 0.2);
+  --term-danger: #ef4444;
+  --term-danger-dim: rgba(239, 68, 68, 0.2);
+  --term-error: #ef4444;
+  --term-error-dim: rgba(239, 68, 68, 0.2);
+  --term-info: #60a5fa;
+  --term-mono: 'Fira Code', 'Consolas', monospace;
+  --term-sans: 'Nunito', system-ui, sans-serif;
+}
+
+/* ========== Base Styles ========== */
+.theme-ninja html,
+.theme-ninja body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* Shoji screen grid pattern overlay */
+.theme-ninja body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Cute ninja silhouette in corner */
+.theme-ninja body::after {
+  content: '';
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  width: 80px;
+  height: 80px;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.25;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3C!-- Ninja body --%3E%3Cellipse cx='50' cy='55' rx='25' ry='30' fill='%232d2d2d'/%3E%3C!-- Ninja head --%3E%3Ccircle cx='50' cy='25' r='20' fill='%232d2d2d'/%3E%3C!-- Ninja mask band --%3E%3Crect x='25' y='20' width='50' height='12' rx='2' fill='%232d2d2d'/%3E%3C!-- Eyes --%3E%3Cellipse cx='42' cy='25' rx='4' ry='3' fill='white'/%3E%3Cellipse cx='58' cy='25' rx='4' ry='3' fill='white'/%3E%3C!-- Mask tie flowing --%3E%3Cpath d='M70 26 Q80 30 85 25 Q80 35 75 32' fill='%232d2d2d'/%3E%3C!-- Arms --%3E%3Cpath d='M25 55 Q10 50 15 40' stroke='%232d2d2d' stroke-width='8' fill='none' stroke-linecap='round'/%3E%3Cpath d='M75 55 Q90 50 85 40' stroke='%232d2d2d' stroke-width='8' fill='none' stroke-linecap='round'/%3E%3C!-- Legs --%3E%3Cpath d='M40 80 L35 95' stroke='%232d2d2d' stroke-width='10' fill='none' stroke-linecap='round'/%3E%3Cpath d='M60 80 L65 95' stroke='%232d2d2d' stroke-width='10' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+/* ========== Theme Classes ========== */
+.theme-ninja .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--term-accent);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.theme-ninja .panel-header-left {
+  border-left: 4px solid var(--term-accent);
+  padding-left: 12px;
+}
+
+.theme-ninja .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--term-border);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.theme-ninja .section-header:hover {
+  border-color: var(--term-accent);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.theme-ninja .selected-item {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.2) 0%, transparent 70%);
+  border-left: 4px solid var(--term-accent);
+}
+
+.theme-ninja .input-area {
+  border-top: 2px solid var(--term-border);
+  padding-top: 12px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ========== Scrollbars ========== */
+.theme-ninja * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--term-border) var(--term-bg);
+}
+
+.theme-ninja ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.theme-ninja ::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+
+.theme-ninja ::-webkit-scrollbar-thumb {
+  background: var(--term-border);
+  border: 2px solid var(--term-bg);
+  border-radius: 5px;
+}
+
+.theme-ninja ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent);
+}
+
+.theme-ninja ::-webkit-scrollbar-corner {
+  background: var(--term-bg);
+}
+
+/* ========== Shoelace overrides ========== */
+.theme-ninja sl-button::part(base) {
+  font-family: var(--term-sans);
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.theme-ninja sl-badge::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 8px;
+  padding: 0 0.7em;
+}
+
+.theme-ninja sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+.theme-ninja sl-alert::part(base) {
+  font-family: var(--term-sans);
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+  border-radius: 8px;
+}

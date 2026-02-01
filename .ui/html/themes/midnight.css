@@ -1,0 +1,162 @@
+/*
+@theme midnight
+@description Modern dark theme with teal accent
+
+@class panel-header
+  @description Header bar with accent underline
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class panel-header-left
+  @description Header with left accent bar
+  @usage Detail panels, secondary headers
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+
+@class selected-item
+  @description Selected item with glow effect
+  @usage List items in selected state
+  @elements div, li
+
+@class input-area
+  @description Input area with top accent
+  @usage Chat input, form areas
+  @elements div, form
+*/
+
+/* Font imports - Source Code Pro + Outfit for modern clarity */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Source+Code+Pro:wght@400;500;600&display=swap');
+
+/* ========== Variables ========== */
+.theme-midnight {
+  --term-bg: #141519;
+  --term-bg-elevated: #1c1d24;
+  --term-bg-hover: #252630;
+  --term-bg-panel: #18191f;
+  --term-border: #32343d;
+  --term-text: #e4e6eb;
+  --term-text-dim: #8b8f9a;
+  --term-text-muted: #5c5f6a;
+  --term-accent: #2dd4bf;
+  --term-accent-glow: rgba(45, 212, 191, 0.25);
+  --term-accent-bright: #5eead4;
+  --term-accent-dim: rgba(45, 212, 191, 0.12);
+  --term-success: #4ade80;
+  --term-success-dim: rgba(74, 222, 128, 0.15);
+  --term-warning: #fbbf24;
+  --term-warning-dim: rgba(251, 191, 36, 0.15);
+  --term-danger: #fb7185;
+  --term-danger-dim: rgba(251, 113, 133, 0.15);
+  --term-error: #fb7185;
+  --term-error-dim: rgba(251, 113, 133, 0.15);
+  --term-info: #60a5fa;
+  --term-mono: 'Source Code Pro', 'Consolas', monospace;
+  --term-sans: 'Outfit', system-ui, sans-serif;
+}
+
+/* ========== Base Styles ========== */
+.theme-midnight html,
+.theme-midnight body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* ========== Theme Classes ========== */
+.theme-midnight .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--term-accent);
+}
+
+.theme-midnight .panel-header-left {
+  border-left: 3px solid var(--term-accent);
+  padding-left: 12px;
+}
+
+.theme-midnight .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--term-border);
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.theme-midnight .section-header:hover {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+.theme-midnight .selected-item {
+  background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 80%);
+  border-left: 3px solid var(--term-accent);
+  box-shadow: inset 0 0 20px var(--term-accent-dim);
+}
+
+.theme-midnight .input-area {
+  border-top: 2px solid var(--term-border);
+  padding-top: 12px;
+}
+
+/* ========== Scrollbars ========== */
+.theme-midnight * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--term-border) var(--term-bg);
+}
+
+.theme-midnight ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.theme-midnight ::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+
+.theme-midnight ::-webkit-scrollbar-thumb {
+  background: var(--term-border);
+  border: 2px solid var(--term-bg);
+  border-radius: 5px;
+}
+
+.theme-midnight ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent);
+}
+
+.theme-midnight ::-webkit-scrollbar-corner {
+  background: var(--term-bg);
+}
+
+/* ========== Shoelace overrides ========== */
+.theme-midnight sl-button::part(base) {
+  font-family: var(--term-sans);
+  border-radius: 6px;
+}
+
+.theme-midnight sl-badge::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 6px;
+  padding: 0 0.7em;
+}
+
+.theme-midnight sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+.theme-midnight sl-alert::part(base) {
+  font-family: var(--term-sans);
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+  border-radius: 6px;
+}
