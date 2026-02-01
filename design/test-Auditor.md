@@ -117,6 +117,33 @@
     - Run audit.
     - Expect NO path syntax violation (ui-namespace is not a binding path).
 
+### Test: Factory method pattern (R23)
+**Purpose**: Verify methods created by factory functions called at outer scope are not flagged as dead.
+
+**Scenarios**:
+1.  **Factory-created methods not dead**:
+    - Create Lua with `local function makeCollapsible(proto, fieldName)` that assigns `proto["toggle"..fieldName]`.
+    - Call `makeCollapsible(AppInfo, "Test")` at outer scope.
+    - Run audit.
+    - Expect NO `dead_method` violation for AppInfo methods.
+
+2.  **Factory defined but not called**:
+    - Define factory function but don't call it.
+    - Define `MyType:unusedMethod`.
+    - Run audit.
+    - Expect `dead_method` violation for `MyType:unusedMethod`.
+
+3.  **Other types still checked**:
+    - Call factory on `AppInfo` but not on `OtherType`.
+    - Define `OtherType:unusedMethod`.
+    - Run audit.
+    - Expect `dead_method` violation for `OtherType:unusedMethod`.
+    - Expect NO `dead_method` for `AppInfo` methods.
+
+4.  **Integration test (real app-console)**:
+    - Run audit on the real app-console app.
+    - Expect NO `dead_method` for factory-created methods like `toggleKnownIssues`.
+
 ### Test: Interaction with other checks
 **Purpose**: Verify path checks work alongside existing checks.
 

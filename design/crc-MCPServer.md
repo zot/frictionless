@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38
 
 ## Responsibilities
 
@@ -41,6 +41,7 @@
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
 - handleVariables: Render interactive variable tree (GET /variables)
 - handleState: Return session state JSON (GET /state)
+- handleAppReadme: Serve app's README.md as HTML (GET /app/{app}/readme); case-insensitive file lookup; renders markdown via goldmark
 - setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status)
 - loadMCPLua: Load `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
 - loadAppInitFiles: Scan `{base_dir}/apps/*/` and load `init.lua` from each app directory if it exists

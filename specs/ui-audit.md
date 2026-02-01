@@ -26,7 +26,25 @@ Background agents POST to `/api/ui_audit` with JSON body `{"name": "app-name"}`.
 
 ### Lua Checks (app.lua)
 
-**Dead methods**: Methods defined but never called from Lua code or viewdefs. Framework methods (`new`, `mutate`) are excluded. Methods intended for Claude to call via `ui_run` (like `addAgentMessage`, `onAppProgress`) are flagged as warnings, not violations.
+**Dead methods**: Methods defined but never called from Lua code or viewdefs. Framework methods (`new`, `mutate`) are excluded. Methods intended for Claude to call via `ui_run` (like `addAgentMessage`, `onAppProgress`) are flagged as warnings, not violations. Methods created by factory functions called at the outer scope are not dead, since the factory call itself represents intentional method creation.
+
+**Factory method pattern**: Factory functions are local functions that dynamically add methods to a prototype. When a factory function is called at the outer scope (not inside another function), any methods it creates are considered "used" and not flagged as dead. This pattern is common for generating similar methods:
+
+```lua
+local function makeCollapsible(proto, fieldName)
+    proto["toggle" .. fieldName] = function(self) ... end
+    proto[fieldName .. "Hidden"] = function(self) ... end
+    proto[fieldName .. "Icon"] = function(self) ... end
+end
+
+makeCollapsible(AppInfo, "KnownIssues")  -- outer scope call
+makeCollapsible(AppInfo, "FixedIssues")  -- outer scope call
+```
+
+The audit tool detects this pattern by:
+1. Identifying local functions that assign to `proto[...]` (factory functions)
+2. Tracking calls to these factory functions at the outer scope
+3. Marking methods created by called factories as "used"
 
 **Missing reloading guard**: Instance creation (`= Type:new()`) without being wrapped in `if not session.reloading then`. This causes duplicate instances on hot-reload.
 

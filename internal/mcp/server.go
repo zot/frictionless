@@ -151,6 +151,7 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/api/ui_audit", s.handleAPIAudit)
 	mux.HandleFunc("/api/ui_theme", s.handleAPITheme)
 	mux.HandleFunc("/api/resource/", s.handleAPIResource)
+	mux.HandleFunc("/app/", s.handleAppReadme)
 
 	// Listen on random port
 	listener, err := net.Listen("tcp", ":0")
@@ -489,13 +490,24 @@ func (s *Server) handleVariables(w http.ResponseWriter, r *http.Request) {
     .tree-container { margin-top: 20px; }
     sl-tree { --indent-size: 20px; }
     sl-tree-item::part(item) { padding: 4px 0; }
+    sl-tree-item.node-error::part(item) { background: #fee; }
+    sl-tree-item.node-error > .var-id,
+    sl-tree-item.node-error > .var-type,
+    sl-tree-item.node-error > .var-path { color: #c00; }
+    sl-tree-item.node-contains-error::part(item) { background: #fff3e0; }
+    sl-tree-item.node-contains-error > .var-id,
+    sl-tree-item.node-contains-error > .var-type { color: #e65100; }
+    .var-error { color: #c00; font-weight: bold; margin-left: 8px; }
     .var-id { color: #666; font-size: 0.9em; margin-right: 8px; }
     .var-type { color: #0066cc; font-weight: bold; margin-right: 8px; }
     .var-path { color: #666; font-style: italic; margin-right: 8px; }
     .var-value { color: #228b22; font-family: monospace; font-size: 0.9em; }
     .var-props { color: #888; font-size: 0.8em; margin-left: 16px; }
     .refresh-btn { margin-bottom: 16px; }
+    .filter-container { display: inline-flex; align-items: center; gap: 8px; margin-left: 16px; vertical-align: middle; }
+    .filter-container span { font-size: 14px; color: #666; }
     pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    sl-tree-item.hidden-by-filter { display: none; }
   </style>
 </head>
 <body>
@@ -504,6 +516,27 @@ func (s *Server) handleVariables(w http.ResponseWriter, r *http.Request) {
     <sl-icon slot="prefix" name="arrow-clockwise"></sl-icon>
     Refresh
   </sl-button>
+  <div class="filter-container">
+    <span>all</span>
+    <sl-switch id="error-filter"></sl-switch>
+    <span>errors</span>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('error-filter');
+      toggle.addEventListener('sl-change', () => {
+        const showOnlyErrors = toggle.checked;
+        document.querySelectorAll('sl-tree-item').forEach(item => {
+          if (showOnlyErrors) {
+            const hasError = item.classList.contains('node-error') || item.classList.contains('node-contains-error');
+            item.classList.toggle('hidden-by-filter', !hasError);
+          } else {
+            item.classList.remove('hidden-by-filter');
+          }
+        });
+      });
+    });
+  </script>
 `
 
 	if err != nil {
@@ -602,22 +635,47 @@ func (s *Server) renderVariableTree(variables []cli.DebugVariable) string {
 		varMap[v.ID] = v
 	}
 
+	// Compute which nodes have errors
+	hasError := make(map[int64]bool)
+	for _, v := range variables {
+		if v.Error != "" {
+			hasError[v.ID] = true
+		}
+	}
+
+	// Compute which nodes contain descendants with errors (bottom-up)
+	containsError := make(map[int64]bool)
+	var computeContainsError func(id int64) bool
+	computeContainsError = func(id int64) bool {
+		v, ok := varMap[id]
+		if !ok {
+			return false
+		}
+		for _, childID := range v.ChildIDs {
+			if hasError[childID] || computeContainsError(childID) {
+				containsError[id] = true
+			}
+		}
+		return containsError[id]
+	}
+
 	var roots []int64
 	for _, v := range variables {
 		if v.ParentID == 0 {
 			roots = append(roots, v.ID)
+			computeContainsError(v.ID)
 		}
 	}
 
 	var result strings.Builder
 	for _, rootID := range roots {
-		s.renderVariableNode(&result, varMap, rootID)
+		s.renderVariableNode(&result, varMap, rootID, hasError, containsError)
 	}
 	return result.String()
 }
 
 // renderVariableNode renders a single variable and its children.
-func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.DebugVariable, varID int64) {
+func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.DebugVariable, varID int64, hasError, containsError map[int64]bool) {
 	v, ok := varMap[varID]
 	if !ok {
 		return
@@ -642,13 +700,24 @@ func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.De
 	if valueStr != "" {
 		label += `<span class="var-value">` + escapeHTML(valueStr) + `</span>`
 	}
+	if v.Error != "" {
+		label += `<span class="var-error">` + escapeHTML(v.Error) + `</span>`
+	}
 
 	hasChildren := len(v.ChildIDs) > 0
 
+	// Determine CSS class based on error state
+	cssClass := ""
+	if hasError[varID] {
+		cssClass = " class=\"node-error\""
+	} else if containsError[varID] {
+		cssClass = " class=\"node-contains-error\""
+	}
+
 	if hasChildren {
-		sb.WriteString(`<sl-tree-item expanded>`)
+		sb.WriteString(`<sl-tree-item` + cssClass + ` expanded>`)
 	} else {
-		sb.WriteString(`<sl-tree-item>`)
+		sb.WriteString(`<sl-tree-item` + cssClass + `>`)
 	}
 	sb.WriteString(label)
 
@@ -669,7 +738,7 @@ func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.De
 	}
 
 	for _, childID := range v.ChildIDs {
-		s.renderVariableNode(sb, varMap, childID)
+		s.renderVariableNode(sb, varMap, childID, hasError, containsError)
 	}
 
 	sb.WriteString(`</sl-tree-item>`)

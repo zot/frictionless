@@ -15,6 +15,7 @@ import (
 	luajson "github.com/layeh/gopher-json"
 	"github.com/mark3labs/mcp-go/mcp"
 	lua "github.com/yuin/gopher-lua"
+	changetracker "github.com/zot/change-tracker"
 	"github.com/zot/ui-engine/cli"
 )
 
@@ -422,6 +423,9 @@ func (s *Server) getDebugVariables(sessionID string) ([]cli.DebugVariable, error
 			Properties: v.Properties,
 			ChildIDs:   v.ChildIDs,
 		}
+		if errNotNilPath(v.Error) {
+			info.Error = v.Error.Error()
+		}
 
 		// Get value - convert to interface{} for JSON serialization
 		if v.Value != nil {
@@ -432,4 +436,11 @@ func (s *Server) getDebugVariables(sessionID string) ([]cli.DebugVariable, error
 	}
 
 	return result, nil
+}
+
+func errNotNilPath(err error) bool {
+	if e, ok := err.(*changetracker.VariableError); ok && e.ErrorType == changetracker.NilPath {
+		return false
+	}
+	return err != nil
 }

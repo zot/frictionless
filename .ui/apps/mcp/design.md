@@ -28,12 +28,15 @@ At the right end of the status bar are icons grouped tightly together in a `.mcp
 
 | Icon | Action | Description |
 |------|--------|-------------|
-| ❓ question mark | openHelp() | Opens `/api/resource/` in new tab |
+| `{}` braces | variablesLinkHtml() | Opens `/variables` in new tab (variable tree) |
+| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab (documentation) |
 | 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
 
 Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows dynamic tooltip.
+
+The braces and question mark icons use `ui-html` to generate `<a>` tags with `target="_blank"`. They are styled in purple (#bb88ff) with brighter hover (#dd99ff) via `.mcp-build-mode-toggle a` CSS rules. The HTML is cached since the port doesn't change during a session.
 
 ### Tools Icon
 
@@ -135,7 +138,8 @@ The global `mcp` object is provided by the server. This app adds:
 | notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
 | notifications() | Returns _notifications for binding |
 | dismissNotification(n) | Remove notification from list |
-| openHelp() | Open /api/resource/ in new browser tab using mcp:status().mcp_port |
+| variablesLinkHtml() | Returns cached HTML anchor for /variables endpoint (opens in new tab) |
+| helpLinkHtml() | Returns cached HTML anchor for /api/resource/ (opens in new tab) |
 | openTools() | Display app-console and select the current app |
 | currentAppName() | Returns kebab-case name of current app from mcp.value.type |
 | currentAppHasCheckpoints() | Returns true if current app has checkpoints (via appConsole:findApp) |

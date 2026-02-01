@@ -1464,3 +1464,99 @@ func (s *Server) handleAPIResource(w http.ResponseWriter, r *http.Request) {
 		w.Write(content)
 	}
 }
+
+// handleAppReadme handles GET /app/{app}/readme
+// Serves the app's README.md as HTML (case-insensitive file lookup, rendered via goldmark)
+// CRC: crc-MCPServer.md
+func (s *Server) handleAppReadme(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		apiError(w, http.StatusMethodNotAllowed, "GET required")
+		return
+	}
+
+	s.mu.RLock()
+	baseDir := s.baseDir
+	s.mu.RUnlock()
+
+	// Extract app name from path: /app/{app}/readme
+	path := strings.TrimPrefix(r.URL.Path, "/app/")
+	parts := strings.Split(path, "/")
+	if len(parts) < 2 || parts[1] != "readme" {
+		apiError(w, http.StatusBadRequest, "expected /app/{app}/readme")
+		return
+	}
+	appName := parts[0]
+
+	// Prevent directory traversal
+	if strings.Contains(appName, "..") || strings.Contains(appName, "/") {
+		apiError(w, http.StatusBadRequest, "invalid app name")
+		return
+	}
+
+	appDir := filepath.Join(baseDir, "apps", appName)
+
+	// Check app directory exists
+	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+		apiError(w, http.StatusNotFound, "app not found")
+		return
+	}
+
+	// Case-insensitive search for readme.md
+	entries, err := os.ReadDir(appDir)
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var readmePath string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.ToLower(entry.Name())
+		if name == "readme.md" {
+			readmePath = filepath.Join(appDir, entry.Name())
+			break
+		}
+	}
+
+	if readmePath == "" {
+		apiError(w, http.StatusNotFound, "readme.md not found")
+		return
+	}
+
+	// Read and render markdown
+	content, err := os.ReadFile(readmePath)
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var buf bytes.Buffer
+	if err := goldmark.Convert(content, &buf); err != nil {
+		apiError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html>
+<head>
+  <title>%s - README</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+    h1, h2, h3 { color: #333; }
+    code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 3px; }
+    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 4px; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%%; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f4f4f4; }
+  </style>
+</head>
+<body>
+%s
+</body>
+</html>
+`, appName, buf.String())
+}

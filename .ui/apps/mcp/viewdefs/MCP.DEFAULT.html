@@ -131,6 +131,15 @@
       vertical-align: middle;
     }
 
+    .mcp-build-mode-toggle a {
+      color: #bb88ff;
+      text-decoration: none;
+    }
+
+    .mcp-build-mode-toggle a:hover {
+      color: #dd99ff;
+    }
+
     .mcp-build-mode-toggle.has-checkpoints sl-icon {
       color: var(--term-accent);
       filter: drop-shadow(0 0 6px var(--term-accent-glow)) drop-shadow(0 0 12px var(--term-accent-glow));
@@ -466,9 +475,8 @@
     <div class="mcp-status-bar">
       <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine"></span>
       <span class="mcp-status-toggles">
-        <span class="mcp-build-mode-toggle" ui-event-click="openHelp()" title="Documentation">
-          <sl-icon name="question-circle"></sl-icon>
-        </span>
+        <span class="mcp-build-mode-toggle" ui-html="variablesLinkHtml()"></span>
+        <span class="mcp-build-mode-toggle" ui-html="helpLinkHtml()"></span>
         <span class="mcp-build-mode-toggle" ui-event-click="openTools()" ui-class-has-checkpoints="currentAppHasCheckpoints()" ui-attr-title="toolsTooltip()">
           <sl-icon name="tools"></sl-icon>
         </span>

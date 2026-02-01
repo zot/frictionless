@@ -69,6 +69,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
 - `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
 - `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML for browsers, raw for curl)
+- `GET /app/{app}/readme`: Serve app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
 
 ### 2.3 SSE Mode (`serve` command)
 
@@ -86,6 +87,7 @@ Both modes start HTTP servers. In stdio mode, ports are selected randomly and wr
 - `GET /wait`: Long-poll for mcp.state changes (see Section 8.4)
 - `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
 - `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML for browsers, raw for curl)
+- `GET /app/{app}/readme`: Serve app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
 
 ### 2.4 Install Command (`install`)
 

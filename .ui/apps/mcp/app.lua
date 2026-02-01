@@ -168,11 +168,26 @@ function mcp:backgroundTooltip()
     end
 end
 
--- Open help documentation in new browser tab
-function mcp:openHelp()
-    local status = self:status()
-    local port = status and status.mcp_port or 8000
-    self.code = string.format("window.open('http://localhost:%d/api/resource/', '_blank')", port)
+-- Generate HTML link for variables endpoint (opens in new tab)
+-- Cached since the port doesn't change during a session
+function mcp:variablesLinkHtml()
+    if not self._variablesLinkHtml then
+        local status = self:status()
+        local port = status and status.mcp_port or 8000
+        self._variablesLinkHtml = string.format('<a href="http://localhost:%d/variables" target="_blank" title="Variables"><sl-icon name="braces"></sl-icon></a>', port)
+    end
+    return self._variablesLinkHtml
+end
+
+-- Generate HTML link for help documentation (opens in new tab)
+-- Cached since the port doesn't change during a session
+function mcp:helpLinkHtml()
+    if not self._helpLinkHtml then
+        local status = self:status()
+        local port = status and status.mcp_port or 8000
+        self._helpLinkHtml = string.format('<a href="http://localhost:%d/api/resource/" target="_blank" title="Documentation"><sl-icon name="question-circle"></sl-icon></a>', port)
+    end
+    return self._helpLinkHtml
 end
 
 -- Get the kebab-case name of the current app from mcp.value.type

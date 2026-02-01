@@ -19,6 +19,12 @@ Make sure `/frontend-design` is loaded if available.
 
 This shows available patterns in `.ui/patterns/` - reusable solutions for common ui-engine problems.
 
+## Core Principles
+
+1. **Use SOLID principles**
+2. **Use Object-oriented principles**
+3. **Write idiomatic Lua code** 
+
 ## Helper Script
 
 ```bash

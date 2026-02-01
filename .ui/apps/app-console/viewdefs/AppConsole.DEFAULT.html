@@ -142,13 +142,14 @@
     .build-icon { color: var(--term-text-muted); }
     .gaps-icon { color: var(--term-warning); }
     .checkpoint-icon { color: var(--term-success); }
+    .local-changes-icon { color: var(--term-accent); }
 
     /* Right panel - details */
     .detail-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: auto;
       padding: 20px 24px;
       background: var(--term-bg);
     }
@@ -178,6 +179,41 @@
       font-size: 14px;
       color: var(--term-text-dim);
       line-height: 1.5;
+    }
+
+    .source-url-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .source-url {
+      font-family: var(--term-mono);
+      font-size: 12px;
+      color: var(--term-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 400px;
+    }
+
+    .source-url-row a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+      color: var(--term-text-dim);
+      text-decoration: none;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .source-url-row a:hover {
+      color: var(--term-accent);
+      background: var(--term-bg-hover);
     }
 
     /* Requirements section */
@@ -403,11 +439,196 @@
       color: var(--term-accent);
     }
 
-    .new-app-form .actions {
+    .new-app-form .actions,
+    .github-form .actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
       margin-top: 8px;
+    }
+
+    /* GitHub download form */
+    .github-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .github-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .github-header h2 {
+      margin: 0;
+      font-family: var(--term-mono);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--term-accent);
+    }
+
+    .github-url-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .github-url-row sl-input {
+      flex: 1;
+    }
+
+    .github-error {
+      flex-shrink: 0;
+    }
+
+    .github-error sl-alert {
+      background: var(--term-warning-dim);
+      border: 1px solid var(--term-warning);
+    }
+
+    .github-conflict {
+      flex-shrink: 0;
+    }
+
+    .github-conflict sl-alert {
+      background: var(--term-error-dim, rgba(255, 100, 100, 0.1));
+      border: 1px solid var(--term-error, #ff6b6b);
+    }
+
+    .github-tabs {
+      flex-shrink: 0;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .github-tabs > .view-list {
+      display: flex;
+      gap: 4px;
+      white-space: nowrap;
+      overflow-x: auto;
+    }
+
+    .github-tabs sl-button {
+      font-family: var(--term-mono);
+      font-size: 11px;
+    }
+
+    .github-content {
+      flex: 1;
+      min-height: 100px;
+      overflow: auto;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 6px;
+      padding: 16px;
+    }
+
+    /* Scrollbar trough for warning markers */
+    .github-content-wrapper {
+      flex: 1;
+      min-height: 100px;
+      position: relative;
+    }
+
+    .github-content-scroll {
+      height: 100%;
+      overflow: auto;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 6px;
+      padding: 0px 16px 0px 16px;
+    }
+
+    .github-content-scroll pre {
+      margin: 0;
+      font-family: var(--term-mono);
+      font-size: 12px;
+      color: var(--term-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+   /* Trough overlays the scrollbar track area */
+   .github-trough {
+     position: absolute;
+     top: 18px;       /* Below top scroll button */
+     bottom: 32px;    /* Above horizontal scrollbar + bottom scroll button */
+     right: 3px;      /* Over the scrollbar track */
+     width: 8px;
+     pointer-events: none;
+     z-index: 10;
+   }
+
+    .trough-marker {
+      position: absolute;
+      left: 1px;
+      right: 1px;
+      min-height: 2px;
+      border-radius: 1px;
+      pointer-events: none;
+    }
+
+    .trough-marker-warning {
+      background: var(--term-warning);
+      box-shadow: 0 0 4px var(--term-warning);
+    }
+
+    .trough-marker-danger {
+      background: var(--term-danger);
+      box-shadow: 0 0 4px var(--term-danger);
+    }
+
+    .github-content-scroll .pushstate-highlight-line {
+      display: inline;
+      background: var(--term-warning-dim);
+      box-shadow: -8px 0 0 var(--term-warning-dim), -11px 0 0 var(--term-warning);
+    }
+
+   .github-content-scroll .osexecute-highlight-line {
+     display: inline;
+     background: var(--term-danger-dim, rgba(220, 53, 69, 0.2));
+     box-shadow: -8px 0 0 var(--term-danger-dim, rgba(220, 53, 69, 0.2)), -11px 0 0 var(--term-danger, #dc3545);
+   }
+
+   .github-content-scroll .pushstate-group {
+     display: block;
+     /*outline: 1px solid var(--term-warning);
+     outline-offset: 2px;*/
+     border-left: 3px solid var(--term-warning);
+     padding-left: 4px;
+     margin-left: -7px;
+   }
+
+   .github-content-scroll .osexecute-group {
+     display: block;
+     /*outline: 1px solid var(--term-danger, #dc3545);
+     outline-offset: 2px;*/
+     border-left: 3px solid var(--term-danger, #dc3545);
+     padding-left: 4px;
+     margin-left: -7px;
+   }
+
+    .github-safety-message {
+      flex-shrink: 0;
+    }
+
+    .github-safety-message sl-alert {
+      background: var(--term-warning-dim);
+      border: 1px solid var(--term-warning);
+    }
+
+    .github-safety-message code {
+      background: var(--term-warning);
+      color: var(--term-bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
     }
 
     /* Delete confirmation */
@@ -868,6 +1089,15 @@
       color: var(--term-danger);
     }
 
+    .app-list-panel sl-button[variant="success"]::part(base),
+    .normal-detail sl-button[variant="success"]::part(base),
+    .chat-panel sl-button[variant="success"]::part(base),
+    .github-form sl-button[variant="success"]::part(base) {
+      background: var(--term-success-dim);
+      border-color: var(--term-success);
+      color: var(--term-success);
+    }
+
     sl-icon-button::part(base) {
       color: var(--term-text-dim);
     }
@@ -900,7 +1130,7 @@
     .hidden { display: none !important; }
   </style>
 
-  <div class="apps-dashboard">
+  <div class="apps-dashboard" ui-code="github.markerRefresh?priority=low">
     <!-- Main content area -->
     <div class="main-content">
       <!-- App List Panel -->
@@ -910,6 +1140,7 @@
           <div>
             <sl-icon-button name="arrow-clockwise" label="Refresh" ui-action="refresh()"></sl-icon-button>
             <sl-icon-button name="plus-lg" label="New App" ui-action="openNewForm()"></sl-icon-button>
+            <sl-icon-button name="github" label="Download from GitHub" ui-action="openGitHubForm()"></sl-icon-button>
           </div>
         </div>
         <div class="app-list" ui-view="apps()?wrapper=lua.ViewList"></div>
@@ -934,6 +1165,11 @@
           <div class="detail-content" ui-class-hidden="hideDetail()">
             <div class="panel-header-left detail-header">
               <h2 ui-value="selected.name"></h2>
+              <div class="source-url-row" ui-class-hidden="selected.noSourceUrl()">
+                <span class="source-url" ui-value="selected.sourceUrl"></span>
+                <a ui-attr-href="selected.sourceUrl" target="_blank" title="Open source"><sl-icon name="link-45deg"></sl-icon></a>
+                <span ui-html="selected.readmeLinkHtml()" ui-class-hidden="selected.noReadme()"></span>
+              </div>
               <div class="detail-description" ui-value="selected.description"></div>
             </div>
 
@@ -1051,6 +1287,62 @@
               <sl-button variant="primary" ui-action="createApp()">Create</sl-button>
             </div>
           </div>
+
+          <!-- GitHub Download Form -->
+          <div class="github-form" ui-class-hidden="github.isHidden()">
+            <div class="github-header">
+              <h2>// DOWNLOAD FROM GITHUB</h2>
+              <sl-button variant="default" style="margin-right: 48px" ui-action="cancelGitHubForm()">Cancel</sl-button>
+            </div>
+            <div class="github-url-row">
+              <sl-input label="GitHub URL" placeholder="https://github.com/user/repo/tree/main/path" ui-value="github.url?keypress"></sl-input>
+              <sl-button variant="primary" ui-attr-disabled="github.investigateDisabled()" ui-action="investigateGitHub()">Investigate</sl-button>
+              <sl-button variant="success" ui-class-hidden="github.hideTabs()" ui-attr-disabled="github.approveDisabled()" ui-action="approveGitHub()">Approve</sl-button>
+            </div>
+
+            <!-- Error message -->
+            <div class="github-error" ui-class-hidden="github.noError()">
+              <sl-alert variant="warning" open>
+                <sl-icon slot="icon" name="exclamation-triangle"></sl-icon>
+                <span ui-value="github.error"></span>
+              </sl-alert>
+            </div>
+
+            <!-- Conflict warning (app already exists) -->
+            <div class="github-conflict" ui-class-hidden="github.hideConflict()">
+              <sl-alert variant="danger" open>
+                <sl-icon slot="icon" name="exclamation-octagon"></sl-icon>
+                <strong>Name conflict</strong><br>
+                <span ui-value="github.conflictMessage()"></span>
+              </sl-alert>
+            </div>
+
+            <!-- File tabs and content (shown when validated) -->
+            <div class="github-tabs" ui-class-hidden="github.hideTabs()">
+              <div ui-view="github.tabs?wrapper=lua.ViewList"></div>
+            </div>
+
+            <!-- Safety message (shown when validated but no file selected yet) -->
+            <div class="github-safety-message" ui-class-hidden="github.hideSafetyMessage()">
+              <sl-alert variant="warning" open>
+                <sl-icon slot="icon" name="shield-exclamation"></sl-icon>
+                <strong>Review before approving</strong><br>
+                Click each file tab to review its contents. The tab label shows detected warnings.
+                <p style="margin: 8px 0 4px 0;"><strong>Color-coded highlights:</strong></p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  <li><span style="color: var(--term-warning);">Orange</span> — <code>pushState</code> calls can send events to Claude</li>
+                  <li><span style="color: var(--term-danger, #dc3545);">Red</span> — <code style="background: rgba(220, 53, 69, 0.4); border-color: var(--term-danger, #dc3545);">os.execute</code>/<code style="background: rgba(220, 53, 69, 0.4); border-color: var(--term-danger, #dc3545);">io.popen</code> run shell commands on your system</li>
+                </ul>
+              </sl-alert>
+            </div>
+
+            <div class="github-content-wrapper" ui-class-hidden="github.noContent()">
+              <div class="github-content-scroll">
+                <pre ui-html="github.contentHtml()"></pre>
+              </div>
+              <div class="github-trough" ui-class-hidden="github.noTroughMarkers()" ui-html="github.troughMarkersHtml()"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1131,6 +1423,48 @@
         document.removeEventListener('mousemove', onDrag);
         document.removeEventListener('mouseup', onRelease);
       }
+    })();
+
+    // Position trough markers based on actual span positions, aligned to scroll position
+    (function() {
+      const dashboardId = document.querySelector('.apps-dashboard')?.id;
+
+      document.querySelector('.apps-dashboard').positionMarkers = function() {
+        const dashboard = document.getElementById(dashboardId);
+        if (!dashboard) return;
+
+        const scrollEl = dashboard.querySelector('.github-content-scroll');
+        const trough = dashboard.querySelector('.github-trough');
+        const pre = scrollEl?.querySelector('pre');
+        if (!scrollEl || !trough || !pre) return;
+
+        const scrollHeight = scrollEl.scrollHeight;
+        const clientHeight = scrollEl.clientHeight;
+        const maxScroll = scrollHeight - clientHeight;
+        if (maxScroll <= 0) return;
+
+        trough.innerHTML = '';
+
+        const groupSpans = pre.querySelectorAll('.pushstate-group, .osexecute-group');
+        if (groupSpans.length === 0) return;
+
+        const scrollRect = scrollEl.getBoundingClientRect();
+
+        groupSpans.forEach(group => {
+          const isDanger = group.classList.contains('osexecute-group');
+          const rect = group.getBoundingClientRect();
+          const offsetTop = rect.top - scrollRect.top + scrollEl.scrollTop;
+          const height = rect.height;
+          const topPercent = Math.min((offsetTop / maxScroll) * 100, 100);
+          const heightPercent = (height / maxScroll) * 100;
+
+          const marker = document.createElement('div');
+          marker.className = 'trough-marker ' + (isDanger ? 'trough-marker-danger' : 'trough-marker-warning');
+          marker.style.top = topPercent.toFixed(2) + '%';
+          marker.style.height = Math.max(heightPercent, 0.3).toFixed(2) + '%';
+          trough.appendChild(marker);
+        });
+      };
     })();
   </script>
 </template>

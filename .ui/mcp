@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
 prog="$1"
@@ -85,8 +86,8 @@ checkpoint_save() {
         # Notify UI of checkpoint change
         "$dir/mcp" run "if appConsole then appConsole._checkpointsTime = 0 end" >/dev/null 2>&1
     else
-        # Add any new files first, then check for changes
-        "$FOSSIL_BIN" add . >/dev/null 2>&1
+        # Add new files and remove deleted files, then check for changes
+        "$FOSSIL_BIN" addremove >/dev/null 2>&1
         if "$FOSSIL_BIN" changes --quiet | grep -q .; then
             "$FOSSIL_BIN" commit -m "${msg:-checkpoint}" --no-warnings >/dev/null
             echo "Saved checkpoint: ${msg:-checkpoint}"
@@ -321,6 +322,10 @@ case "$prog" in
              -d "$(jq -n --arg code "$code" '{code: $code}')"
         ;;
     run)
+        if [ -n "$FRICTIONLESS_MCP" ]; then
+            # if being called from inside the MCP, do nothing
+            exit
+        fi
         code="${1:?Usage: run '<lua code>'}"
         exec curl -s -X POST "http://127.0.0.1:$port/api/ui_run" \
              -H "Content-Type: application/json" \

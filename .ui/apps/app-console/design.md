@@ -9,7 +9,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 ### Normal View (app list + details)
 ```
 +------------------+-----------------------------+
-| Frictionless [R][+] | contacts                    |
+| Frictionless [R][+][G] | contacts                    |
 |------------------|  A contact manager with...  |
 | > contacts 17/21 | [Open] [Test] [Fix Issues]  |
 |   tasks    5/5   |-----------------------------|
@@ -63,6 +63,7 @@ When "Open" is clicked, the embedded app replaces the detail panel:
 Legend:
 - `[R]` = Refresh button
 - `[+]` = New app button
+- `[G]` = GitHub download button
 - `>` = Selected app indicator
 - `████░` = Build progress bar (80%) with hover tooltip showing stage name
 - `--` = No tests
@@ -107,6 +108,52 @@ Legend:
 +------------------+-----------------------------+
 ```
 
+### GitHub Download Form (replaces details)
+```
++------------------+--------------------------------------+
+| Frictionless [R][+][G] | // DOWNLOAD FROM GITHUB   [Cancel] |
+|------------------|--------------------------------------|
+|   contacts 17/21 | URL: [____________________________]  |
+|   tasks    5/5   |                    [Investigate] [✓] |
+|                  |--------------------------------------|
+|                  | [requirements.md] [design.md] [app.lua] |
+|                  |--------------------------------------|
+|                  | ⚠ Review before approving           |
+|                  |   Click each file tab to review...  |
+|                  |--------------------------------------|
+|                  | +----------------------------------+▓|
+|                  | | (file content preview)           |░|
+|                  | | pushState highlighted in orange  |▓|
+|                  | | os.execute highlighted in red    |░|
+|                  | +----------------------------------+░|
++------------------+--------------------------------------+
+```
+
+The trough (▓/░ on right side) shows warning positions:
+- Orange markers (▓) for pushState call groups
+- Red markers for os.execute/io.popen calls
+- Position uses DOM measurement (getBoundingClientRect on group spans)
+- Markers align with scrollbar thumb position
+- Refreshed via `markerRefresh` binding when tab is selected
+
+**Group spans:** Consecutive warning lines are wrapped in `pushstate-group` or `osexecute-group` spans. JavaScript measures these spans to position markers accurately, using the DOM Measurement Bridge pattern (see `.ui/patterns/dom-measurement-bridge.md`).
+
+**GitHub form flow:**
+1. User enters GitHub tree URL (e.g., `https://github.com/user/repo/tree/main/apps/my-app`)
+2. "Investigate" button fetches directory listing and validates structure
+3. If invalid, shows error message (missing files, bad URL format)
+4. If name conflicts with existing app, shows danger alert with conflict message
+5. If valid, shows file tabs for inspection
+6. User must click each tab to mark it as "viewed" (security review)
+7. Lua files show warning counts in tab labels (e.g., "app.lua (3 events, 1 shell)")
+8. File content shows syntax highlighting for dangerous calls
+9. "Approve" button (enabled after all tabs viewed) downloads and installs the app
+
+**Tab button variants:**
+- `warning` — unviewed tab (yellow, draws attention)
+- `default` — viewed tab
+- `primary` — selected tab
+
 ### Status Badge Colors
 
 | Condition | Color | Variant |
@@ -142,6 +189,34 @@ Legend:
 | _currentStep | number | Current in_progress step (1-based), 0 if none |
 | _todoApp | string | App name for progress reporting during todo steps |
 | _checkpointsTime | number | Unix timestamp of last checkpoint status refresh |
+| github | GitHubDownloader | GitHub download form state |
+
+### GitHubDownloader (GitHub download form state)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| visible | boolean | Whether form is visible |
+| url | string | URL input value |
+| validated | boolean | Whether URL has been validated |
+| error | string | Error message if invalid |
+| activeTab | string | Currently selected tab filename |
+| tabs | GitHubTab[] | File tabs for inspection |
+| viewedTabs | table | Tracks which tabs user has clicked (filename → true) |
+| markerRefresh | string | JS code to trigger trough marker positioning (changes on tab select) |
+| _conflict | boolean | Cached: whether app name conflicts with existing app |
+| _conflictCheckTime | number | Last time conflict was checked |
+| _markerCounter | number | Counter for markerRefresh changes (ensures value updates) |
+
+### GitHubTab (file tab for GitHub download)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| filename | string | Display name and tab key (e.g., "requirements.md", "app.lua") |
+| pushStateCount | number | Count of pushState calls (for Lua files) |
+| dangerCount | number | Count of dangerous calls (shell, file, code loading) |
+| _contentHtml | string | Cached HTML content (generated once on first click) |
+| _totalLines | number | Total line count (for trough marker positioning) |
+| _warningLines | table[] | Warning line data: {line=n, type="pushstate"\|"osexecute"} |
 
 ### TodoItem (Claude Code task)
 
@@ -174,6 +249,10 @@ Legend:
 | _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
 | _checkpointCount | number | Cached count of checkpoints (refreshed with _hasCheckpoints) |
 | confirmDelete | boolean | Show delete confirmation dialog |
+| _isDownloaded | boolean | Has original.fossil (downloaded from GitHub) |
+| _hasLocalChanges | boolean | Has local modifications vs original |
+| sourceUrl | string | GitHub URL from source.txt |
+| readmePath | string | GitHub readme URL (constructed from sourceUrl) |
 
 ### Issue
 
@@ -222,6 +301,13 @@ Legend:
 
 ## Methods
 
+**Dynamic Method Creation:**
+Some methods are created dynamically using helper patterns:
+- `makeCollapsible(proto, fieldName)` — Creates `toggle{Field}()`, `{field}Hidden()`, `{field}Icon()` for collapsible sections
+- `AppInfo.isBuilt = AppInfo.canOpen` — Alias creation for semantic clarity
+
+These methods are documented below but created at runtime, so they don't appear as explicit `function Proto:method()` definitions in app.lua.
+
 ### AppConsole
 
 | Method | Description |
@@ -245,9 +331,13 @@ Legend:
 | noEmbeddedApp() | Returns true if embeddedApp is nil |
 | showDetail() | Returns true if selected and not showNewForm |
 | hideDetail() | Returns not showDetail() |
-| showPlaceholder() | Returns true if no selection and not showNewForm |
+| showPlaceholder() | Returns true if no selection, not showNewForm, and github is hidden |
 | hidePlaceholder() | Returns not showPlaceholder() |
 | hideNewForm() | Returns not showNewForm |
+| openGitHubForm() | Show GitHub download form (delegates to github:show()) |
+| cancelGitHubForm() | Cancel and hide GitHub form (delegates to github:cancel()) |
+| investigateGitHub() | Validate URL and fetch file list (delegates to github:investigate()) |
+| approveGitHub() | Download and install app (delegates to github:approve()) |
 | showChatPanel() | Set panelMode to "chat" |
 | showLuaPanel() | Set panelMode to "lua" |
 | notChatPanel() | Returns panelMode ~= "chat" |
@@ -288,6 +378,59 @@ Legend:
 | Method | Description |
 |--------|-------------|
 | copyToInput() | Copy this line's text to appConsole.luaInput, focus input, position cursor at end |
+
+### GitHubDownloader
+
+| Method | Description |
+|--------|-------------|
+| new() | Create instance with empty tabs and viewedTabs |
+| show() | Set visible=true, hide new form, clear selection |
+| hide() | Set visible=false |
+| cancel() | Reset all state (url, validated, error, tabs, viewedTabs), hide form |
+| isHidden() | Returns not visible |
+| hasUrl() | Returns true if url is non-empty |
+| parseUrl() | Parse GitHub URL, return {user, repo, branch, path} or nil |
+| getAppName() | Extract app name from URL path (last segment) |
+| checkConflict() | Check if app name conflicts with existing app (cached 1 second) |
+| hasConflict() | Returns cached conflict status (triggers refresh if stale) |
+| investigateDisabled() | Returns true if conflict exists (disables Investigate button) |
+| conflictMessage() | Returns conflict warning message |
+| showConflict() | Returns true if conflict and has URL |
+| hideConflict() | Returns not showConflict() |
+| fetchFile(filename) | Fetch file content from GitHub raw URL |
+| listDir() | Fetch directory listing from GitHub API |
+| investigate() | Validate URL, fetch directory, create tabs if valid |
+| selectTab(filename) | Set activeTab, mark as viewed, load content, trigger marker refresh |
+| getActiveTab() | Returns GitHubTab for activeTab |
+| isTabViewed(filename) | Returns true if tab has been clicked |
+| allTabsViewed() | Returns true if all tabs have been viewed |
+| approveDisabled() | Returns true if not all tabs viewed |
+| hasError() | Returns true if error is non-empty |
+| noError() | Returns not hasError() |
+| hideTabs() | Returns not validated |
+| hasContent() | Returns true if active tab has loaded content |
+| noContent() | Returns not hasContent() |
+| showSafetyMessage() | Returns true if validated but no content loaded yet |
+| hideSafetyMessage() | Returns not showSafetyMessage() |
+| contentHtml() | Returns active tab's HTML content |
+| troughMarkersHtml() | Returns active tab's trough markers HTML |
+| noTroughMarkers() | Returns true if active tab has no warning lines |
+| approve() | Download app zip, extract, link, refresh app list |
+
+### GitHubTab
+
+| Method | Description |
+|--------|-------------|
+| selectMe() | Call appConsole.github:selectTab(self.filename) |
+| isSelected() | Returns true if this is the active tab |
+| buttonVariant() | Returns "primary" if selected, "default" if viewed, "warning" otherwise |
+| buttonLabel() | Returns filename with warning counts (e.g., "app.lua (3 events, 1 shell)") |
+| isLuaFile() | Returns true if filename ends with .lua |
+| tooltipText() | Returns warning explanation for Lua files |
+| loadContent() | Fetch file, count dangerous calls, generate HTML |
+| generateHtml(content) | HTML-escape content, highlight dangerous calls, wrap groups in spans for Lua files |
+| contentHtml() | Returns cached _contentHtml |
+| troughMarkersHtml() | Returns HTML for scrollbar trough markers showing warning positions |
 
 ### AppConsole.AppInfo
 
@@ -331,6 +474,20 @@ Legend:
 | checkpointTooltip() | Returns "N pending changes" for tooltip |
 | consolidateButtonText() | Returns "Make it thorough (N)" for button text |
 | checkpointIcon() | Returns "rocket" if hasCheckpoints, "gem" otherwise |
+| localChangesIcon() | Returns "pencil" if hasLocalChanges, "" otherwise |
+| showLocalChangesIcon() | Returns true if hasLocalChanges |
+| hideLocalChangesIcon() | Returns not hasLocalChanges |
+| isDownloaded() | Returns _isDownloaded |
+| hasLocalChanges() | Returns _hasLocalChanges |
+| noLocalChanges() | Returns not hasLocalChanges |
+| hasSourceUrl() | Returns sourceUrl is not empty |
+| noSourceUrl() | Returns not hasSourceUrl |
+| hasReadme() | Returns readmePath is not empty |
+| noReadme() | Returns not hasReadme |
+| readmeLinkHtml() | Returns cached HTML anchor for MCP readme endpoint (/app/NAME/readme) |
+| openReadme() | Opens readmePath in browser (legacy) |
+| openSourceUrl() | Opens sourceUrl in browser |
+| checkLocalChanges() | Compares current state to original.fossil, updates _hasLocalChanges |
 | requestConsolidate() | Call pushEvent("consolidate_request", {target = self.name}) |
 | requestReviewGaps() | Call pushEvent("review_gaps_request", {target = self.name}) |
 | requestAnalyze() | Call pushEvent("analyze_request", {target = self.name}) |
@@ -343,6 +500,7 @@ Legend:
 | cancelDelete() | Set confirmDelete to false |
 | hideDeleteConfirm() | Returns confirmDelete == false |
 | confirmDeleteApp() | Delete the app: set globals to nil, remove prototype and nested prototypes from registry, unlink app, delete directory, remove from list |
+| populateFromTestData(testData) | DRY helper: populate tests, knownIssues, fixedIssues, gapsContent from parsed TESTING.md data |
 
 ### TestItem
 
@@ -370,6 +528,7 @@ Legend:
 | AppConsole.ChatMessage.list-item.html | AppConsole.ChatMessage | Chat message bubble |
 | AppConsole.OutputLine.list-item.html | AppConsole.OutputLine | Clickable Lua output line |
 | AppConsole.TodoItem.list-item.html | AppConsole.TodoItem | Todo item with status icon |
+| AppConsole.GitHubTab.list-item.html | AppConsole.GitHubTab | GitHub file tab button with tooltip |
 
 ## Events
 

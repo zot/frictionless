@@ -629,3 +629,125 @@ function Test:isVisible() end`,
 		t.Errorf("Expected no violations (except missing_method), got %d other violations", otherViolations)
 	}
 }
+
+// ============================================================================
+// R23: Factory Method Pattern Tests
+// Test Design: test-Auditor.md (Test: factory method pattern)
+// ============================================================================
+
+// TestAuditFactoryMethodsNotDead tests that methods created by factory functions at outer scope are not flagged as dead
+func TestAuditFactoryMethodsNotDead(t *testing.T) {
+	tempDir := t.TempDir()
+	createTestApp(t, tempDir, "test-app",
+		`local function makeCollapsible(proto, fieldName)
+    local showField = "show" .. fieldName
+    proto["toggle" .. fieldName] = function(self)
+        self[showField] = not self[showField]
+    end
+    proto[fieldName:sub(1,1):lower() .. fieldName:sub(2) .. "Hidden"] = function(self)
+        return not self[showField]
+    end
+    proto[fieldName:sub(1,1):lower() .. fieldName:sub(2) .. "Icon"] = function(self)
+        return self[showField] and "chevron-down" or "chevron-right"
+    end
+end
+
+local AppInfo = {}
+function AppInfo:new() return {} end
+
+makeCollapsible(AppInfo, "KnownIssues")
+makeCollapsible(AppInfo, "FixedIssues")
+
+-- These methods are dynamically created by makeCollapsible:
+-- toggleKnownIssues, knownIssuesHidden, knownIssuesIcon
+-- toggleFixedIssues, fixedIssuesHidden, fixedIssuesIcon
+-- They should NOT be flagged as dead methods
+`,
+		map[string]string{
+			"Test.DEFAULT.html": `<template><div>Test</div></template>`,
+		})
+
+	result, err := AuditApp(tempDir, "test-app")
+	if err != nil {
+		t.Fatalf("AuditApp returned error: %v", err)
+	}
+
+	// Should have no dead_method violations for methods on AppInfo
+	// since AppInfo has factory functions called on it
+	for _, v := range result.Violations {
+		if v.Type == "dead_method" && strings.Contains(v.Detail, "AppInfo:") {
+			t.Errorf("Expected no dead_method violation for factory-created methods, got: %s", v.Detail)
+		}
+	}
+}
+
+// TestAuditFactoryFunctionNotCalledStillDead tests that methods are still flagged if factory is defined but not called
+func TestAuditFactoryFunctionNotCalledStillDead(t *testing.T) {
+	tempDir := t.TempDir()
+	createTestApp(t, tempDir, "test-app",
+		`local function makeCollapsible(proto, fieldName)
+    proto["toggle" .. fieldName] = function(self) end
+end
+
+local MyType = {}
+function MyType:new() return {} end
+function MyType:unusedMethod() end
+
+-- Factory defined but NOT called on MyType
+-- So unusedMethod should still be flagged as dead
+`,
+		map[string]string{
+			"Test.DEFAULT.html": `<template><div>Test</div></template>`,
+		})
+
+	result, err := AuditApp(tempDir, "test-app")
+	if err != nil {
+		t.Fatalf("AuditApp returned error: %v", err)
+	}
+
+	// Should flag unusedMethod as dead since no factory was called on MyType
+	if !hasViolationWithDetail(result, "dead_method", "MyType:unusedMethod") {
+		t.Error("Expected dead_method violation for MyType:unusedMethod since factory was not called on MyType")
+	}
+}
+
+// TestAuditRegularMethodsStillDeadWithFactory tests that methods on OTHER types are still checked
+func TestAuditRegularMethodsStillDeadWithFactory(t *testing.T) {
+	tempDir := t.TempDir()
+	createTestApp(t, tempDir, "test-app",
+		`local function makeCollapsible(proto, fieldName)
+    proto["toggle" .. fieldName] = function(self) end
+end
+
+local AppInfo = {}
+function AppInfo:new() return {} end
+
+local OtherType = {}
+function OtherType:new() return {} end
+function OtherType:unusedMethod() end
+
+makeCollapsible(AppInfo, "Test")
+
+-- Factory called on AppInfo, but OtherType:unusedMethod should still be flagged
+`,
+		map[string]string{
+			"Test.DEFAULT.html": `<template><div>Test</div></template>`,
+		})
+
+	result, err := AuditApp(tempDir, "test-app")
+	if err != nil {
+		t.Fatalf("AuditApp returned error: %v", err)
+	}
+
+	// Should flag OtherType:unusedMethod as dead
+	if !hasViolationWithDetail(result, "dead_method", "OtherType:unusedMethod") {
+		t.Error("Expected dead_method violation for OtherType:unusedMethod (factory not called on OtherType)")
+	}
+
+	// Should NOT flag AppInfo methods as dead
+	for _, v := range result.Violations {
+		if v.Type == "dead_method" && strings.Contains(v.Detail, "AppInfo:") {
+			t.Errorf("Should NOT flag AppInfo methods as dead, got: %s", v.Detail)
+		}
+	}
+}

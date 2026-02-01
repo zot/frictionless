@@ -1,5 +1,7 @@
 # Project Instructions
 
+When the user asks you to do something, don't undo it without permission.
+
 Use the `/ui` skill to run frictionless UIs.
 Use the `/ui-builder` skill whenever you need to explore, change, or audit specs, design, or code for **frictionless UIs**.
 ### mini-spec

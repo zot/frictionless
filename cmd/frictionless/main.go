@@ -73,6 +73,7 @@ Examples:
 
 // runMCP runs the MCP server on Stdio.
 func runMCP(args []string) int {
+	os.Setenv("FRICTIONLESS_MCP", "true")
 	// Load config using the same parser as serve command
 	cfg, err := cli.Load(args)
 	if err != nil {
@@ -443,6 +444,7 @@ func runTheme(args []string) int {
 
 // runServe runs the standalone server with HTTP UI and SSE MCP endpoints.
 func runServe(args []string) int {
+	os.Setenv("FRICTIONLESS_MCP", "true")
 	// Extract --mcp-port from args (not part of standard cli.Load flags)
 	mcpPort := 8001
 	var filteredArgs []string

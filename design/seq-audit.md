@@ -21,7 +21,9 @@ Agent                    Server                   Auditor                  FS
   |                        |                        |                       |
   |                        |                        |-- analyzeLua() ------>|
   |                        |                        |   (extract defs,      |
-  |                        |                        |    calls, guards)     |
+  |                        |                        |    calls, guards,     |
+  |                        |                        |    factory functions, |
+  |                        |                        |    outer scope calls) |
   |                        |                        |                       |
   |                        |                        |-- ReadDir viewdefs -->|
   |                        |                        |<-- file list ---------|
@@ -34,7 +36,9 @@ Agent                    Server                   Auditor                  FS
   |                        |                        |   (check violations)  |
   |                        |                        |                       |
   |                        |                        |-- findDeadMethods() ->|
-  |                        |                        |   (lua defs unused)   |
+  |                        |                        |   (lua defs unused,   |
+  |                        |                        |    excludes factory-  |
+  |                        |                        |    created methods)   |
   |                        |                        |                       |
   |                        |                        |-- findMissingMethods()|
   |                        |                        |   (viewdef calls w/o  |

@@ -24,22 +24,24 @@
 - **R19:** Hot-reload Lua and viewdef files on change
 - **R20:** Redirect Lua print/io to log files
 - **R21:** Provide HTTP Tool API for spawned agents (GET/POST /api/*)
+- **R38:** Provide GET /app/{app}/readme endpoint returning app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
 
 ## Feature: UI Audit
 **Source:** specs/ui-audit.md
 
-- **R22:** Detect dead methods (defined but never called)
-- **R23:** Detect missing reloading guard on instance creation
-- **R24:** Detect global name mismatch with app directory
-- **R25:** Detect malformed HTML in viewdefs
-- **R26:** Detect style tags in list-item viewdefs
-- **R27:** Detect item. prefix in list-item bindings
-- **R28:** Detect ui-action on non-button elements
-- **R29:** Detect wrong hidden syntax (ui-class vs ui-class-hidden)
-- **R30:** Detect ui-value on checkbox/switch elements
-- **R31:** Detect operators in binding paths (excludes ui-namespace which is a viewdef namespace, not a path)
-- **R32:** Detect missing Lua methods referenced in viewdefs
-- **R33:** Return JSON with violations, warnings, and summary
-- **R34:** Detect ui-value on sl-badge elements (must use span with ui-value inside badge)
-- **R35:** Detect non-empty method args in paths (only `method()` or `method(_)` allowed)
-- **R36:** Validate path syntax against grammar as final check
+- **R22:** Detect dead methods (defined but never called from Lua code, viewdefs, or factory functions)
+- **R23:** Recognize factory method pattern: methods created by local factory functions called at outer scope are not dead
+- **R24:** Detect missing reloading guard on instance creation
+- **R25:** Detect global name mismatch with app directory
+- **R26:** Detect malformed HTML in viewdefs
+- **R27:** Detect style tags in list-item viewdefs
+- **R28:** Detect item. prefix in list-item bindings
+- **R29:** Detect ui-action on non-button elements
+- **R30:** Detect wrong hidden syntax (ui-class vs ui-class-hidden)
+- **R31:** Detect ui-value on checkbox/switch elements
+- **R32:** Detect operators in binding paths (excludes ui-namespace which is a viewdef namespace, not a path)
+- **R33:** Detect missing Lua methods referenced in viewdefs
+- **R34:** Return JSON with violations, warnings, and summary
+- **R35:** Detect ui-value on sl-badge elements (must use span with ui-value inside badge)
+- **R36:** Detect non-empty method args in paths (only `method()` or `method(_)` allowed)
+- **R37:** Validate path syntax against grammar as final check
