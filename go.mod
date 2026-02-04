@@ -8,7 +8,7 @@ require (
 	github.com/yuin/goldmark v1.7.16
 	github.com/yuin/gopher-lua v1.1.1
 	github.com/zot/change-tracker v0.0.0-20260201045121-447986f276d7
-	github.com/zot/ui-engine v0.16.0
+	github.com/zot/ui-engine v0.16.2
 	golang.org/x/net v0.49.0
 )
 

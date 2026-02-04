@@ -47,8 +47,7 @@ github.com/yuin/gopher-lua v1.1.1 h1:kYKnWBjvbNP4XLT3+bPEwAXJx262OhaHDWDVOPjL46M
 github.com/yuin/gopher-lua v1.1.1/go.mod h1:GBR0iDaNXjAgGg9zfCvksxSRnQx76gclCIb7kdAd1Pw=
 github.com/zot/change-tracker v0.0.0-20260201045121-447986f276d7 h1:zlbH0jPq4+bgV1TACPmZRZr/hNEYuHpl5Uii6bnWt2I=
 github.com/zot/change-tracker v0.0.0-20260201045121-447986f276d7/go.mod h1:V9pUIOLAIfmi+oNDrI2ObW2dHkkTXs/OzoYQ0VybnQQ=
-github.com/zot/ui-engine v0.16.0 h1:4NmCFLs+y//H0uhRefRRQwmNzEx+i1Qs6XCdZWcQgkA=
-github.com/zot/ui-engine v0.16.0/go.mod h1:NMIjDMoakctThUHakddJuHMV/x40sKyDyKAu//rfuhs=
+github.com/zot/ui-engine v0.16.2 h1:rcL9jDJTQj3IrgUBerZovm1ew0DzfkT5TlaEWJm5E0o=
 golang.org/x/net v0.49.0 h1:eeHFmOGUTtaaPSGNmjBKpbng9MulQsJURQUAfUwY++o=
 golang.org/x/net v0.49.0/go.mod h1:/ysNB2EvaqvesRkuLAyjI1ycPZlQHM3q01F02UY/MV8=
 golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=

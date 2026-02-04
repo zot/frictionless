@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.14.0**
+**Version: 0.15.0**
 
 **An app ecosystem for Claude. Share the love—or steal it.**
 
@@ -55,6 +55,26 @@ Or display an existing app:
 ```
 /ui show contacts
 ```
+
+### Using the App Console
+
+The app-console is your home base for managing Frictionless apps. Use `/ui show` to open it.
+
+**Downloading apps from GitHub:**
+
+Click the GitHub icon in the header to download apps directly from GitHub repositories.
+
+![Download from GitHub](docs/images/download-from-github.jpg)
+
+**Viewing app details:**
+
+Select an app to see its requirements, open it, test it, or analyze it with Claude.
+
+![App view](docs/images/app-view.jpg)
+
+The bottom panel has two tabs:
+- **Chat** — talk to Claude about the selected app
+- **Lua** — run Lua code directly in your app's environment
 
 ### Standalone Mode
 

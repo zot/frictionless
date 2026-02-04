@@ -66,9 +66,8 @@ $(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 		echo "Copied agents"; \
 	fi
 	@# Copy html files to install/html for bundling
-	@rm -rf install/html
+	@rm -f install/html/*.js
 	@mkdir -p install/html
-	@rm install/html/*.js
 	@cp -r $(CACHE_DIR)/html/* install/html/
 	@echo "Copied html files to install/html/"
 	@touch $(CACHE_DIR)/.cached

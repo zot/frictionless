@@ -858,8 +858,17 @@
       font-size: 11px;
     }
 
+    /* Chat panel content wrapper */
+    .chat-panel-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
     /* Chat messages */
     .chat-messages,
+    .chat-panel-content > .view-list,
     .chat-lua-column > .view-list {
       flex: 1;
       min-height: 0;
@@ -924,7 +933,8 @@
       min-height: 0;
     }
 
-    .lua-output {
+    .lua-output,
+    .lua-panel > .view-list {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
@@ -1350,7 +1360,9 @@
           </div>
 
           <!-- Chat Panel Content -->
-          <div class="chat-messages" ui-class-hidden="notChatPanel()" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          <div class="chat-panel-content" ui-class-hidden="notChatPanel()">
+            <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          </div>
           <div class="input-area chat-input-row" ui-class-hidden="notChatPanel()">
             <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
             <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>

@@ -122,7 +122,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 | `ui-attr-*` | HTML attribute | `<sl-alert ui-attr-open="hasError">` |
 | `ui-class-*` | CSS class toggle | `<div ui-class-active="isActive">` |
 | `ui-style-*` | CSS style | `<div ui-style-color="textColor">` |
-| `ui-code` | Run JS on update | `<div ui-code="jsCode">` |
+| `ui-code` | Run JS from property | `<div ui-code="myJsCode">` — binds to a property containing JS, not inline code |
 | `ui-namespace` | Set viewdef namespace | `<div ui-namespace="COMPACT">` |
 
 ## Common Mistakes
