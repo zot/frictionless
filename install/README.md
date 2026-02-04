@@ -106,7 +106,7 @@ Download these from the app-console's GitHub panel:
 
 | App | Description |
 |-----|-------------|
-| [Job Tracker](https://github.com/zot/frictionless/tree/main/apps/job-tracker) | Track job applications through the hiring pipeline. Paste a URL and Claude scrapes the details. |
+| [Job&nbsp;Tracker](https://github.com/zot/frictionless/tree/main/apps/job-tracker) | Track job applications through the hiring pipeline. Paste a URL and Claude scrapes the details. |
 
 ## Documentation (in .ui by default)
 
