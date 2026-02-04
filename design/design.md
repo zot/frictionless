@@ -14,6 +14,9 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-MCPTool.md → `internal/mcp/tools.go`
 - [x] crc-Auditor.md → `internal/mcp/audit.go`
 - [x] crc-ThemeManager.md → `internal/mcp/theme.go`
+- [x] crc-MCPScript.md → `install/mcp`
+- [x] crc-CheckpointManager.md → `install/mcp`
+- [x] crc-LinkappScript.md → `install/linkapp`
 
 ### Sequences
 - [x] seq-mcp-lifecycle.md → `internal/mcp/server.go`, `internal/mcp/tools.go`

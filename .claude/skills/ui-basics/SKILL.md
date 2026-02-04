@@ -259,6 +259,35 @@ This keeps theming swappable while preserving app-specific needs.
 
 ---
 
+# JavaScript API
+
+After initialization, `window.uiApp` provides programmatic access:
+
+| Method | Description |
+|--------|-------------|
+| `getStore()` | Get VariableStore for direct variable access |
+| `getBinding()` | Get BindingEngine for widget lookup |
+| `updateValue(elementId, value?)` | Update element's `ui-value` binding |
+
+**`updateValue(elementId, value?)`** - Update a binding from JavaScript:
+
+```javascript
+// Update with specific value
+window.uiApp.updateValue('my-input', 'new value')
+
+// Update from element's current value
+window.uiApp.updateValue('my-input')
+```
+
+Use cases:
+- Custom components that need to notify backend of value changes
+- File upload bridges (FileReader → base64 → Lua)
+- Integration with third-party libraries
+
+See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
+
+---
+
 # MCP Methods
 
 | Method | Description |

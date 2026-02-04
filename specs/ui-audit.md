@@ -90,6 +90,7 @@ JSON response with:
 - `app`: The app name that was audited
 - `violations`: Array of issues that must be fixed
 - `warnings`: Array of potential issues (like external methods)
+- `reminders`: Array of behavioral checks that cannot be automated (agent should verify manually)
 - `summary`: Counts of total methods, dead methods, and viewdef violations
 
 Each violation/warning includes:
@@ -107,6 +108,11 @@ Each violation/warning includes:
   ],
   "warnings": [
     {"type": "external_method", "location": "app.lua", "detail": "MyApp:onProgress (called by Claude)"}
+  ],
+  "reminders": [
+    "Check for missing `min-height: 0` on scrollable flex children",
+    "Check that Cancel buttons revert changes",
+    "Check for slow function bindings that need caching (e.g., methods calling io.popen/os.execute)"
   ],
   "summary": {
     "total_methods": 25,
@@ -127,3 +133,11 @@ The ui-builder skill's audit phase (step 6) should call `ui_audit` instead of ma
 3. Report warnings to the user but don't block completion
 
 This replaces the manual violation checklist in the skill with automated enforcement.
+
+## Reminders
+
+Reminders are behavioral checks that cannot be automated. The audit tool includes them in every response to prompt agents to verify manually:
+
+- **min-height: 0**: Scrollable flex children need `min-height: 0` to allow shrinking below content size
+- **Cancel buttons revert changes**: Cancel buttons should restore original state, not just close dialogs
+- **Slow function bindings**: Methods called from viewdef bindings that use `io.popen`, `os.execute`, or similar slow operations, or that build large lists should cache results to avoid UI lag

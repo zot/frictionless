@@ -136,8 +136,9 @@ Checkpoints are **ephemeral** - they exist during rapid prototyping, then get cl
 
 When switching to `/ui-thorough` or when user says "update the design":
 
-1. Review changes: `checkpoint list` and `checkpoint diff`
-2. Update `requirements.md` and `design.md` to reflect the changes
-3. Clear checkpoints: `checkpoint clear <app>`
+1. `checkpoint save`
+2. Review changes: `checkpoint list` and `checkpoint diff`
+3. Update `requirements.md` and `design.md` to reflect the changes
+4. Clear checkpoints: `checkpoint clear <app>`
 
 The `/ui-thorough` skill automatically checks for existing checkpoints and consolidates them before proceeding.

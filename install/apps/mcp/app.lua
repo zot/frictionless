@@ -168,11 +168,75 @@ function mcp:backgroundTooltip()
     end
 end
 
--- Open help documentation in new browser tab
-function mcp:openHelp()
-    local status = self:status()
-    local port = status and status.mcp_port or 8000
-    self.code = string.format("window.open('http://localhost:%d/api/resource/', '_blank')", port)
+-- Generate HTML link for variables endpoint (opens in new tab)
+-- Cached since the port doesn't change during a session
+function mcp:variablesLinkHtml()
+    if not self._variablesLinkHtml then
+        local status = self:status()
+        local port = status and status.mcp_port or 8000
+        self._variablesLinkHtml = string.format('<a href="http://localhost:%d/variables" target="_blank" title="Variables"><sl-icon name="braces"></sl-icon></a>', port)
+    end
+    return self._variablesLinkHtml
+end
+
+-- Generate HTML link for help documentation (opens in new tab)
+-- Cached since the port doesn't change during a session
+function mcp:helpLinkHtml()
+    if not self._helpLinkHtml then
+        local status = self:status()
+        local port = status and status.mcp_port or 8000
+        self._helpLinkHtml = string.format('<a href="http://localhost:%d/api/resource/" target="_blank" title="Documentation"><sl-icon name="question-circle"></sl-icon></a>', port)
+    end
+    return self._helpLinkHtml
+end
+
+-- Get the kebab-case name of the current app from mcp.value.type
+function mcp:currentAppName()
+    if self.value and self.value.type then
+        local typeName = self.value.type
+        -- Convert PascalCase to kebab-case: "AppConsole" -> "app-console"
+        return typeName:gsub("(%u)", "-%1"):lower():gsub("^-", "")
+    end
+    return nil
+end
+
+-- Check if current app has checkpoints
+function mcp:currentAppHasCheckpoints()
+    local name = self:currentAppName()
+    if name and appConsole then
+        local app = appConsole:findApp(name)
+        if app then
+            return app:hasCheckpoints()
+        end
+    end
+    return false
+end
+
+function mcp:currentAppNoCheckpoints()
+    return not self:currentAppHasCheckpoints()
+end
+
+function mcp:toolsTooltip()
+    if self:currentAppHasCheckpoints() then
+        return "Go to App - fast coded"
+    else
+        return "Go to App"
+    end
+end
+
+-- Open tools panel (app-console) and select the current app
+function mcp:openTools()
+    local currentApp = self:currentAppName()
+
+    mcp:display("app-console")
+
+    -- Select the current app in app-console after it loads
+    if currentApp and appConsole then
+        local app = appConsole:findApp(currentApp)
+        if app then
+            appConsole:select(app)
+        end
+    end
 end
 
 function mcp:notify(message, variant)

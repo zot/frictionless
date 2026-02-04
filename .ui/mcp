@@ -1,4 +1,5 @@
 #!/bin/bash
+# CRC: crc-MCPScript.md, crc-CheckpointManager.md
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
 prog="$1"

@@ -213,8 +213,6 @@ The tool checks Lua code AND viewdefs for:
 **AI-based checks** (require reading comprehension):
 - Compare design.md against requirements.md
 - Compare implementation against design.md
-- Check for missing `min-height: 0` on scrollable flex children
-- Check that Cancel buttons revert changes
 
 **Fix violations:**
 1. Dead methods NOT in design.md → Delete from `app.lua`

@@ -103,6 +103,140 @@
       background: var(--term-bg-elevated);
     }
 
+    .jt-header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Attachment Warning Dialog */
+    .jt-warning-dialog::part(panel) {
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-top: 3px solid var(--term-accent);
+      border-radius: 4px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(224, 122, 71, 0.1);
+    }
+
+    .jt-warning-dialog::part(header) {
+      background: var(--term-bg-elevated);
+      border-bottom: 1px solid var(--term-border);
+      padding: 12px 16px;
+    }
+
+    .jt-warning-dialog::part(title) {
+      font-family: var(--term-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--term-accent);
+    }
+
+    .jt-warning-dialog::part(body) {
+      padding: 20px 16px;
+      background: var(--term-bg);
+    }
+
+    .jt-warning-dialog::part(footer) {
+      background: var(--term-bg-elevated);
+      border-top: 1px solid var(--term-border);
+      padding: 12px 16px;
+    }
+
+    .jt-warning-dialog::part(close-button) {
+      color: var(--term-text-dim);
+    }
+
+    .jt-warning-dialog::part(close-button):hover {
+      color: var(--term-text);
+    }
+
+    .jt-warning-content {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .jt-warning-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--term-accent-dim);
+      border-radius: 50%;
+      color: var(--term-accent);
+      font-size: 1.25rem;
+    }
+
+    .jt-warning-text {
+      flex: 1;
+    }
+
+    .jt-warning-title {
+      font-family: var(--term-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--term-text);
+      margin-bottom: 6px;
+    }
+
+    .jt-warning-desc {
+      font-size: 0.85rem;
+      color: var(--term-text-dim);
+      line-height: 1.5;
+    }
+
+    .jt-dialog-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .jt-dialog-footer sl-button::part(base) {
+      font-family: var(--term-mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .jt-btn-cancel::part(base) {
+      background: transparent;
+      border: 1px solid var(--term-border);
+      color: var(--term-text-dim);
+    }
+
+    .jt-btn-cancel::part(base):hover {
+      background: var(--term-bg-elevated);
+      color: var(--term-text);
+      border-color: var(--term-text-dim);
+    }
+
+    .jt-btn-revert::part(base) {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ef4444;
+    }
+
+    .jt-btn-revert::part(base):hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+
+    .jt-btn-save::part(base) {
+      background: var(--term-accent);
+      border: 1px solid var(--term-accent);
+      color: #0a0a0f;
+      font-weight: 600;
+    }
+
+    .jt-btn-save::part(base):hover {
+      background: #f08a57;
+      border-color: #f08a57;
+    }
+
     .jt-detail-info {
       padding: 16px;
       border-left: 4px solid var(--term-accent);
@@ -135,6 +269,121 @@
       display: flex;
       align-items: center;
       gap: 4px;
+    }
+
+    /* Notes section */
+    .jt-notes-section {
+      margin-top: 12px;
+    }
+
+    .jt-notes-section::part(base) {
+      border: 1px solid var(--term-border);
+      border-radius: 4px;
+      background: var(--term-bg);
+    }
+
+    .jt-notes-section::part(header) {
+      font-family: var(--term-mono);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--term-text-dim);
+      padding: 8px 12px;
+    }
+
+    .jt-notes-section::part(content) {
+      padding: 0 12px 12px;
+    }
+
+    .jt-notes-content {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      color: var(--term-text);
+    }
+
+    .jt-notes-empty-tag {
+      font-size: 0.8rem;
+      color: var(--term-text-dim);
+      font-style: italic;
+      font-weight: 400;
+    }
+
+    /* Attachments section */
+    .jt-attachments {
+      border-top: 1px solid var(--term-border);
+      background: var(--term-bg-elevated);
+    }
+
+    .jt-attachments-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-attachments-header span {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .jt-attachments-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .jt-attachments-drop {
+      min-height: 60px;
+      padding: 8px 16px;
+      border: 2px dashed var(--term-border);
+      border-radius: 4px;
+      margin: 8px 16px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .jt-attachments-drop.drag-over {
+      border-color: var(--term-accent);
+      background: var(--term-accent-dim);
+    }
+
+    .jt-attachments-list {
+      padding: 0;
+    }
+
+    .jt-attachments-empty {
+      text-align: center;
+      color: var(--term-text-dim);
+      padding: 16px;
+      font-style: italic;
+    }
+
+    .jt-attachment-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-attachment-item:last-child {
+      border-bottom: none;
+    }
+
+    .jt-attachment-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .jt-attachment-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .jt-file-input {
+      display: none;
     }
 
     /* Iframe area */
@@ -499,10 +748,15 @@
     <div class="jt-view-content" ui-class-hidden="notListView()">
       <div class="jt-header">
         <h1>Job Tracker</h1>
-        <sl-button variant="primary" size="small" ui-action="showAddForm()">
-          <sl-icon slot="prefix" name="plus-lg"></sl-icon>
-          Add
-        </sl-button>
+        <div style="display: flex; gap: 8px;">
+          <sl-button variant="default" size="small" ui-action="reload()" title="Reload data from disk">
+            <sl-icon name="arrow-clockwise"></sl-icon>
+          </sl-button>
+          <sl-button variant="primary" size="small" ui-action="showAddForm()">
+            <sl-icon slot="prefix" name="plus-lg"></sl-icon>
+            Add
+          </sl-button>
+        </div>
       </div>
 
       <div class="jt-filters">
@@ -541,7 +795,18 @@
           <sl-icon slot="prefix" name="arrow-left"></sl-icon>
           Back
         </sl-button>
-        <div>
+        <div class="jt-header-actions">
+          <!-- Attachment change indicators (shown when attachments modified) -->
+          <sl-tooltip content="Attachments changed - click to save" ui-class-hidden="selected.noAttachmentsChanged()">
+            <sl-button variant="success" size="small" ui-action="saveAttachments()" ui-class-hidden="selected.noAttachmentsChanged()">
+              <sl-icon name="check-lg"></sl-icon>
+            </sl-button>
+          </sl-tooltip>
+          <sl-tooltip content="Attachments changed - click to revert" ui-class-hidden="selected.noAttachmentsChanged()">
+            <sl-button variant="warning" size="small" ui-action="revertAttachments()" ui-class-hidden="selected.noAttachmentsChanged()">
+              <sl-icon name="arrow-counterclockwise"></sl-icon>
+            </sl-button>
+          </sl-tooltip>
           <sl-button variant="default" size="small" ui-action="showEditForm()">
             <sl-icon slot="prefix" name="pencil"></sl-icon>
             Edit
@@ -557,7 +822,7 @@
         <div class="jt-detail-position" ui-value="selected.position"></div>
 
         <div class="jt-status-select">
-          <sl-select size="small" ui-value="selected.status" ui-event-sl-change="changeStatus(selected.status)">
+          <sl-select size="small" ui-value="selectedStatus" ui-event-sl-change="changeStatus()">
             <sl-option value="bookmarked">Bookmarked</sl-option>
             <sl-option value="applied">Applied</sl-option>
             <sl-option value="phone">Phone Screen</sl-option>
@@ -588,16 +853,66 @@
             <span ui-value="selected.hqAddress"></span>
           </span>
         </div>
+
+        <!-- Notes Section -->
+        <sl-details class="jt-notes-section" ui-attr-disabled="selected.noNotes()">
+          <span slot="summary">Notes <span class="jt-notes-empty-tag" ui-class-hidden="selected.hasNotes()">(empty)</span></span>
+          <div class="jt-notes-content">
+            <span ui-value="selected.notes"></span>
+          </div>
+        </sl-details>
       </div>
 
-      <div class="jt-iframe-area">
-        <div class="jt-iframe-link" ui-class-hidden="selected.noUrl()">
-          <a ui-attr-href="selected.url" target="_blank">Open in new tab</a>
+      <!-- Attachments Section -->
+      <div class="jt-attachments">
+        <div class="jt-attachments-header">
+          <span>Attachments</span>
+          <div class="jt-attachments-actions">
+            <sl-button size="small" variant="default" onclick="window.jtOpenFilePicker()">
+              <sl-icon slot="prefix" name="file-earmark-plus"></sl-icon>
+              File
+            </sl-button>
+            <sl-button size="small" variant="default" ui-action="promptAttachUrl()">
+              <sl-icon slot="prefix" name="link-45deg"></sl-icon>
+              URL
+            </sl-button>
+          </div>
         </div>
-        <iframe class="jt-iframe" ui-attr-src="selected.url" ui-class-hidden="selected.noUrl()"></iframe>
-        <div class="jt-no-url" ui-class-hidden="selected.hasUrl()">No job posting URL</div>
+        <input type="file" class="jt-file-input" multiple onchange="window.jtHandleFiles(this.files); this.value='';" />
+        <!-- JS-to-Lua bridge for file uploads using updateValue API -->
+        <span id="jt-file-bridge" style="display:none" ui-value="_fileUploadData?access=rw"></span>
+        <span style="display:none" ui-value="processFileUpload()"></span>
+        <div class="jt-attachments-drop"
+             ondragover="event.preventDefault(); this.classList.add('drag-over');"
+             ondragleave="this.classList.remove('drag-over');"
+             ondrop="event.preventDefault(); this.classList.remove('drag-over'); window.jtHandleFiles(event.dataTransfer.files);">
+          <div class="jt-attachments-list" ui-view="selected.attachments()?wrapper=lua.ViewList"></div>
+          <div class="jt-attachments-empty" ui-class-hidden="selected.hasAttachments()">Drop files here to attach</div>
+        </div>
       </div>
-
+      <script>
+        window.jtOpenFilePicker = function() {
+          const input = document.querySelector('.jt-file-input');
+          if (input) input.click();
+        };
+        window.jtHandleFiles = async function(files) {
+          for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              const base64 = e.target.result.split(',')[1];
+              const payload = file.name + ':' + base64;
+              if (window.uiApp) {
+                window.uiApp.updateValue('jt-file-bridge', payload);
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+      </script>
+      <div class="jt-iframe-link" ui-class-hidden="selected.noUrl()">
+        <a ui-attr-href="selected.url" target="_blank">View job posting <sl-icon name="box-arrow-up-right"></sl-icon></a>
+      </div>
+      <div class="jt-no-url" ui-class-hidden="selected.hasUrl()">No job posting URL</div>
       <div class="jt-timeline">
         <div class="jt-timeline-header">
           <span>Timeline</span>
@@ -685,8 +1000,8 @@
             placeholder="Chat with Claude..."
             rows="1"
             resize="auto"
-            ui-value="chatInput?keypress"
-            ui-event-keypress-enter="submitChat()"
+            ui-value="chatInput"
+            ui-event-keypress-enter="submitChat()?priority=low"
           ></sl-textarea>
         </div>
         <div class="jt-chat-actions">
@@ -699,5 +1014,31 @@
         </div>
       </div>
     </div>
+
+    <!-- Attachment Changes Warning Dialog -->
+    <sl-dialog label="Unsaved Changes" class="jt-warning-dialog" ui-attr-open="isAttachmentWarningVisible()">
+      <div class="jt-warning-content">
+        <div class="jt-warning-icon">
+          <sl-icon name="exclamation-triangle"></sl-icon>
+        </div>
+        <div class="jt-warning-text">
+          <div class="jt-warning-title">Attachment changes not saved</div>
+          <div class="jt-warning-desc">
+            You've modified attachments for this application. Choose to save your changes or revert to the previous state.
+          </div>
+        </div>
+      </div>
+      <div slot="footer" class="jt-dialog-footer">
+        <sl-button class="jt-btn-cancel" ui-action="hideAttachmentWarning()">Cancel</sl-button>
+        <sl-button class="jt-btn-revert" ui-action="revertAttachmentsAndBack()">
+          <sl-icon slot="prefix" name="arrow-counterclockwise"></sl-icon>
+          Revert
+        </sl-button>
+        <sl-button class="jt-btn-save" ui-action="saveAttachmentsAndBack()">
+          <sl-icon slot="prefix" name="check-lg"></sl-icon>
+          Save Changes
+        </sl-button>
+      </div>
+    </sl-dialog>
   </div>
 </template>

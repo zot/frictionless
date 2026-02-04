@@ -1,7 +1,7 @@
 # Auditor
 
 **Source Spec:** specs/ui-audit.md
-**Requirements:** R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R35, R36, R37, R38
+**Requirements:** R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R35, R36, R37, R38, R39
 
 Analyzes frictionless apps for code quality violations.
 
@@ -14,6 +14,7 @@ Analyzes frictionless apps for code quality violations.
 - namespaceAttrs: Attributes excluded from path checks (`ui-namespace` - viewdef namespace identifier)
 - factoryFunctions: Map of local function names that create prototype methods (detected dynamically)
 - calledFactories: Set of factory functions called at outer scope (outside any function definition)
+- behavioralReminders: Static list of manual checks (min-height: 0, Cancel buttons, slow function caching)
 
 ## Does
 

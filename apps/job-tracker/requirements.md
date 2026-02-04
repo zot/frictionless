@@ -31,15 +31,24 @@ Each application tracks:
 - Salary range (min/max)
 - Location / Remote status
 - Company HQ address
-- Notes (free text)
+- Notes (free text, shown in collapsible section)
+- File attachments (resumes, cover letters, etc.)
 
 ### Detail View
 When an application is selected:
 - Show all application fields
-- Embed job posting URL in an iframe
-- "Open in new tab" link as fallback for sites blocking iframes
+- Notes shown in collapsible section (disabled when empty)
+- File attachments section with:
+  - Drag-and-drop zone for uploading files
+  - File picker button
+  - URL attachment button (placeholder)
+  - List of attached files with delete button
+  - Save/Revert buttons when attachments are modified
+  - Warning dialog when leaving with unsaved attachment changes
+- "View job posting" link to open URL in new tab
 - Back button to return to list
 - Edit button to modify fields
+- Delete button to remove application
 
 ### Add Application
 - Manual add form with all fields
@@ -56,7 +65,7 @@ Each application has a timeline:
 ### List View (Default)
 ```
 +------------------------------------------+
-|  Job Tracker                    [+ Add]  |
+|  Job Tracker              [Reload][+ Add]|
 +------------------------------------------+
 | [All] [Active] [Offers] [Archived]       |
 +------------------------------------------+
@@ -111,7 +120,7 @@ Each application has a timeline:
 
 ## Data Persistence
 
-Store data in `.ui/apps/job-tracker/data.json`. Load on app start, save after each modification.
+Store data in `.ui/storage/job-tracker/data/data.json`. Load on app start, save after each modification. Attachments are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is a zero-padded 4-digit application ID. Changes are tracked with fossil SCM for version control.
 
 ### Claude Chat Panel
 

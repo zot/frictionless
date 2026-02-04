@@ -1,7 +1,7 @@
 # ThemeManager
 
 **Source Spec:** specs/pluggable-themes.md
-**Requirements:** R39, R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52
+**Requirements:** R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53
 
 Manages theme CSS files and index.html injection.
 

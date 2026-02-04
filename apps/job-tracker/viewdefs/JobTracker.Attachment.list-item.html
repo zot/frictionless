@@ -1,0 +1,14 @@
+<template>
+  <div class="jt-attachment-item">
+    <sl-icon ui-attr-name="icon()"></sl-icon>
+    <span class="jt-attachment-name" ui-value="filename"></span>
+    <div class="jt-attachment-actions">
+      <sl-button size="small" variant="text" ui-attr-href="downloadUrl()" download title="Download">
+        <sl-icon name="download"></sl-icon>
+      </sl-button>
+      <sl-button size="small" variant="text" ui-action="deleteMe()" title="Delete">
+        <sl-icon name="trash"></sl-icon>
+      </sl-button>
+    </div>
+  </div>
+</template>

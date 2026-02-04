@@ -7,6 +7,24 @@ description: UI engine reference - bindings, state management, patterns. Foundat
 
 Reference material for ui-engine apps. Load this once, then use `/ui-fast` or `/ui-thorough` for actual work.
 
+Make sure `/frontend-design` is loaded if available.
+
+## On Skill Load
+
+**Run this command immediately:**
+
+```bash
+.ui/mcp patterns
+```
+
+This shows available patterns in `.ui/patterns/` - reusable solutions for common ui-engine problems.
+
+## Core Principles
+
+1. **Use SOLID principles**
+2. **Use Object-oriented principles**
+3. **Write idiomatic Lua code** 
+
 ## Helper Script
 
 ```bash
@@ -16,6 +34,7 @@ Reference material for ui-engine apps. Load this once, then use `/ui-fast` or `/
 .ui/mcp browser             # Open browser to UI session
 .ui/mcp linkapp add myapp   # Create symlinks
 .ui/mcp audit myapp         # Run code quality audit
+.ui/mcp patterns            # List available patterns
 ```
 
 ## File Operations
@@ -194,50 +213,9 @@ Viewdef (`lua.ViewListItem.my-option.html`):
 
 ---
 
-# Patterns
+# Common Patterns
 
-## Edit/Cancel Pattern
-
-```lua
-function Item:openEditor()
-    self._snapshot = { name = self.name }
-    self.editing = true
-end
-
-function Item:save()
-    self._snapshot = nil
-    self.editing = false
-end
-
-function Item:cancel()
-    if self._snapshot then
-        self.name = self._snapshot.name
-        self._snapshot = nil
-    end
-    self.editing = false
-end
-```
-
-## Viewport Fitting
-
-```css
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-}
-.my-app {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-}
-.scrollable-area {
-  flex: 1;
-  min-height: 0;  /* CRITICAL */
-  overflow-y: auto;
-}
-```
+**Run `.ui/mcp patterns` to see available patterns** in `.ui/patterns/`.
 
 ---
 
@@ -278,6 +256,35 @@ html, body {
 This keeps theming swappable while preserving app-specific needs.
 
 **Auditing theme usage:** Run `.ui/mcp theme audit myapp` to check which classes are documented vs app-specific.
+
+---
+
+# JavaScript API
+
+After initialization, `window.uiApp` provides programmatic access:
+
+| Method | Description |
+|--------|-------------|
+| `getStore()` | Get VariableStore for direct variable access |
+| `getBinding()` | Get BindingEngine for widget lookup |
+| `updateValue(elementId, value?)` | Update element's `ui-value` binding |
+
+**`updateValue(elementId, value?)`** - Update a binding from JavaScript:
+
+```javascript
+// Update with specific value
+window.uiApp.updateValue('my-input', 'new value')
+
+// Update from element's current value
+window.uiApp.updateValue('my-input')
+```
+
+Use cases:
+- Custom components that need to notify backend of value changes
+- File upload bridges (FileReader → base64 → Lua)
+- Integration with third-party libraries
+
+See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
 
 ---
 

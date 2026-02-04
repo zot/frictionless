@@ -1,4 +1,5 @@
 #!/bin/bash
+# CRC: crc-LinkappScript.md
 # linkapp - Create or remove symlinks for a ui-engine app
 #
 # Usage:
@@ -40,11 +41,15 @@ add_app() {
     # Create directories if needed
     mkdir -p "$LUA_DIR" "$VIEWDEFS_DIR"
 
-    # Link lua file
+    # Link lua file (main app file for ui-engine)
     if [[ -f "$APPS_DIR/$app/app.lua" ]]; then
         ln -sf "../apps/$app/app.lua" "$LUA_DIR/$app.lua"
         echo "Linked: $LUA_DIR/$app.lua"
     fi
+
+    # Link app directory (enables require("{app}.module"))
+    ln -sfn "../apps/$app" "$LUA_DIR/$app"
+    echo "Linked: $LUA_DIR/$app"
 
     # Link viewdefs
     if [[ -d "$APPS_DIR/$app/viewdefs" ]]; then
@@ -62,10 +67,16 @@ add_app() {
 remove_app() {
     local app="$1"
 
-    # Remove lua file
+    # Remove lua file symlink
     if [[ -L "$LUA_DIR/$app.lua" ]]; then
         rm "$LUA_DIR/$app.lua"
         echo "Removed: $LUA_DIR/$app.lua"
+    fi
+
+    # Remove app directory symlink
+    if [[ -L "$LUA_DIR/$app" ]]; then
+        rm "$LUA_DIR/$app"
+        echo "Removed: $LUA_DIR/$app"
     fi
 
     # Remove viewdefs that point to this app

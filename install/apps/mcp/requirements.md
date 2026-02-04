@@ -89,12 +89,19 @@ A status bar at the bottom of the viewport:
 - Maintains consistent height even when empty
 - Compact padding (6px horizontal)
 
-### Help Icon
+### Status Bar Icons
 
-A help icon (question mark) at the right edge of the status bar, before the build toggles:
-- Clicking opens `localhost:{MCP-PORT}/api/resource/` in a new browser tab
-- Shows resources documentation index
-- Tooltip: "Documentation"
+Icons at the right edge of the status bar, grouped tightly together from left to right:
+
+| Icon | Action | Description |
+|------|--------|-------------|
+| `{}` braces | variablesLinkHtml() | Opens `/variables` in new tab - shows variable tree |
+| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab - documentation |
+| 🔧 tools | openTools() | Opens app-console, selects current app |
+| 🚀/💎 | toggleBuildMode() | fast / thorough |
+| ⏳/🔄 | toggleBackground() | foreground / background |
+
+The braces and question mark icons use `ui-html` to generate anchor tags that open in new tabs. They are styled in purple (#bb88ff) with a brighter hover state (#dd99ff).
 
 ### Build Settings Toggles
 

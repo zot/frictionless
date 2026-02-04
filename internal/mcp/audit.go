@@ -17,6 +17,7 @@ type AuditResult struct {
 	App        string       `json:"app"`
 	Violations []Violation  `json:"violations"`
 	Warnings   []Violation  `json:"warnings"`
+	Reminders  []string     `json:"reminders"`
 	Summary    AuditSummary `json:"summary"`
 }
 
@@ -29,9 +30,9 @@ type Violation struct {
 
 // AuditSummary provides counts of findings
 type AuditSummary struct {
-	TotalMethods       int `json:"total_methods"`
-	DeadMethods        int `json:"dead_methods"`
-	ViewdefViolations  int `json:"viewdef_violations"`
+	TotalMethods      int `json:"total_methods"`
+	DeadMethods       int `json:"dead_methods"`
+	ViewdefViolations int `json:"viewdef_violations"`
 }
 
 // Known method lists
@@ -120,13 +121,14 @@ func AuditApp(baseDir, appName string) (*AuditResult, error) {
 		App:        appName,
 		Violations: []Violation{},
 		Warnings:   []Violation{},
+		Reminders:  []string{},
 	}
 
 	// Scan all .lua files in the app directory
 	methodDefs := make(map[string]string)
 	luaCalls := make(map[string]bool)
-	factoryFunctions := make(map[string]bool)       // factory function names
-	factoryTargetTypes := make(map[string]bool)     // types passed to factory calls at outer scope
+	factoryFunctions := make(map[string]bool)   // factory function names
+	factoryTargetTypes := make(map[string]bool) // types passed to factory calls at outer scope
 	foundAppLua := false
 
 	luaFiles, err := filepath.Glob(filepath.Join(appPath, "*.lua"))
@@ -228,16 +230,23 @@ func AuditApp(baseDir, appName string) (*AuditResult, error) {
 		}
 	}
 
+	// Add behavioral reminders (manual checks the agent should perform)
+	result.Reminders = []string{
+		"Check for missing `min-height: 0` on scrollable flex children",
+		"Check that Cancel buttons revert changes",
+		"Check for slow function bindings that need caching (e.g., methods calling io.popen/os.execute or building large lists)",
+	}
+
 	return result, nil
 }
 
 // analyzeLua extracts method definitions, calls, factory functions, and outer-scope factory call targets.
 // CRC: crc-Auditor.md
 func analyzeLua(content, appName string, result *AuditResult) (defs map[string]string, calls map[string]bool, factories map[string]bool, outerCallTargets map[string]string) {
-	defs = make(map[string]string)             // method name -> "Type:method"
-	calls = make(map[string]bool)              // method names called anywhere
+	defs = make(map[string]string)              // method name -> "Type:method"
+	calls = make(map[string]bool)               // method names called anywhere
 	factories = detectFactoryFunctions(content) // local function names that are factories
-	outerCallTargets = make(map[string]string) // funcName -> targetType for outer-scope calls
+	outerCallTargets = make(map[string]string)  // funcName -> targetType for outer-scope calls
 
 	for _, line := range strings.Split(content, "\n") {
 		trimmed := strings.TrimSpace(line)

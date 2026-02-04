@@ -1,4 +1,5 @@
 -- Job Tracker - Track job applications through the hiring pipeline
+local json = require('job-tracker.json')
 
 local STATUS_CONFIG = {
     bookmarked = { display = "Bookmarked", variant = "neutral" },
@@ -12,7 +13,8 @@ local STATUS_CONFIG = {
     archived = { display = "Archived", variant = "neutral" },
 }
 
-local DATA_FILE = ".ui/apps/job-tracker/data.json"
+local STORAGE_DIR = ".ui/storage/job-tracker/data"
+local DATA_FILE = STORAGE_DIR .. "/data.json"
 
 local INACTIVE_STATUSES = {
     archived = true,
@@ -20,13 +22,15 @@ local INACTIVE_STATUSES = {
     withdrawn = true,
 }
 
--- Helper: generate UUID
-local function uuid()
-    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and math.random(0, 0xf) or math.random(8, 0xb)
-        return string.format('%x', v)
-    end)
+-- Helper: generate next ID (max existing + 1)
+local function nextId(applications)
+    local maxId = 0
+    for _, app in ipairs(applications) do
+        if type(app.id) == "number" and app.id > maxId then
+            maxId = app.id
+        end
+    end
+    return maxId + 1
 end
 
 -- Helper: today's date
@@ -72,65 +76,49 @@ local function writeFile(path, content)
     return true
 end
 
--- Simple JSON encoder
-local function encodeJSON(val, indent, level)
-    indent = indent or "  "
-    level = level or 0
-    local prefix = string.rep(indent, level)
-    local nextPrefix = string.rep(indent, level + 1)
+-- Commit data.json changes to fossil using shell script
+local function commitData(message)
+    message = message or "Update data"
+    local cmd = string.format('.ui/apps/job-tracker/data-commit.sh "%s" 2>/dev/null', message:gsub('"', '\\"'))
+    os.execute(cmd)
+end
 
-    if val == nil then
-        return "null"
-    elseif type(val) == "boolean" then
-        return val and "true" or "false"
-    elseif type(val) == "number" then
-        return tostring(val)
-    elseif type(val) == "string" then
-        return string.format("%q", val)
-    elseif type(val) == "table" then
-        -- Check if array
-        local isArray = #val > 0 or next(val) == nil
-        if isArray then
-            local items = {}
-            for i, v in ipairs(val) do
-                items[i] = nextPrefix .. encodeJSON(v, indent, level + 1)
-            end
-            if #items == 0 then return "[]" end
-            return "[\n" .. table.concat(items, ",\n") .. "\n" .. prefix .. "]"
-        else
-            local items = {}
-            for k, v in pairs(val) do
-                if type(k) == "string" and not k:match("^_") then
-                    table.insert(items, nextPrefix .. string.format("%q", k) .. ": " .. encodeJSON(v, indent, level + 1))
-                end
-            end
-            if #items == 0 then return "{}" end
-            return "{\n" .. table.concat(items, ",\n") .. "\n" .. prefix .. "}"
+-- Base64 decoding table (keyed by byte value for efficiency)
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local b64decode = {}
+for i = 1, #b64chars do
+    b64decode[string.byte(b64chars, i)] = i - 1
+end
+b64decode[string.byte('=')] = 0
+
+-- Decode base64 and write directly to file handle (avoids registry overflow)
+local function decodeBase64ToFile(data, handle)
+    local eq = string.byte('=')
+    local i = 1
+    handle:setvbuf('full', 4096)
+    while i <= #data do
+        local b1, b2, b3, b4 = string.byte(data, i, i+3)
+        local c1 = b64decode[b1] or 0
+        local c2 = b64decode[b2] or 0
+        local c3 = b64decode[b3] or 0
+        local c4 = b64decode[b4] or 0
+
+        local n = c1 * 262144 + c2 * 4096 + c3 * 64 + c4
+
+        handle:write(string.char(math.floor(n / 65536) % 256))
+        if b3 ~= eq then
+            handle:write(string.char(math.floor(n / 256) % 256))
         end
+        if b4 ~= eq then
+            handle:write(string.char(n % 256))
+        end
+        i = i + 4
     end
-    return "null"
 end
 
--- Simple JSON decoder
-local function decodeJSON(str)
-    if not str then return nil end
-    -- Transform JSON to Lua table syntax
-    local luaStr = str
-        :gsub("%[", "{")
-        :gsub("%]", "}")
-        :gsub(":null", "=nil")
-        :gsub(":(%s*)", "=%1")
-        :gsub('"([^"]-)"=', "[%1]=")
-    -- Fix the key quoting
-    luaStr = luaStr:gsub('%[([^%]]+)%]=', function(key)
-        return '["' .. key .. '"]='
-    end)
-    local chunk = "return " .. luaStr
-    local f = loadstring(chunk)
-    if not f then return nil end
-    local ok, result = pcall(f)
-    return ok and result or nil
-end
+-- Simple JSON encoder
+local encodeJSON = json.encode
+local decodeJSON = json.decode
 
 -- Prototypes
 JobTracker = session:prototype("JobTracker", {
@@ -147,6 +135,8 @@ JobTracker = session:prototype("JobTracker", {
     chatPanelOpen = false,
     sortColumn = "date",  -- "company", "position", "status", "date"
     sortDirection = "desc",  -- "asc" or "desc"
+    _fileUploadData = "",  -- JS-to-Lua bridge for file uploads
+    showAttachmentWarning = false,  -- Show warning dialog when leaving with unsaved attachments
 })
 
 JobTracker.Application = session:prototype("JobTracker.Application", {
@@ -163,6 +153,8 @@ JobTracker.Application = session:prototype("JobTracker.Application", {
     salaryMax = 0,
     notes = "",
     timeline = EMPTY,
+    _attachmentsCache = EMPTY,  -- Internal cache for attachments list
+    attachmentsChanged = false,  -- Track if attachments have been modified
 })
 local Application = JobTracker.Application
 
@@ -180,6 +172,13 @@ JobTracker.ChatMessage = session:prototype("JobTracker.ChatMessage", {
     content = "",
 })
 local ChatMessage = JobTracker.ChatMessage
+
+JobTracker.Attachment = session:prototype("JobTracker.Attachment", {
+    filename = "",
+    path = "",
+    applicationId = 0,
+})
+local Attachment = JobTracker.Attachment
 
 JobTracker.FormData = session:prototype("JobTracker.FormData", {
     company = "",
@@ -260,6 +259,11 @@ function JobTracker:loadData()
     end
 end
 
+-- Reload data from disk (for when user edits data.json externally)
+function JobTracker:reload()
+    self:loadData()
+end
+
 function JobTracker:saveData()
     local data = { applications = {} }
     for _, app in ipairs(self._applications) do
@@ -278,6 +282,7 @@ function JobTracker:saveData()
         table.insert(data.applications, appData)
     end
     writeFile(DATA_FILE, encodeJSON(data))
+    commitData("Update applications")
 end
 
 function JobTracker:applications()
@@ -327,20 +332,18 @@ function JobTracker:toggleSort(column)
 end
 
 -- Sort indicator methods for viewdef binding
-function JobTracker:sortCompany() self:toggleSort("company") end
-function JobTracker:sortPosition() self:toggleSort("position") end
-function JobTracker:sortStatus() self:toggleSort("status") end
-function JobTracker:sortDate() self:toggleSort("date") end
-
 function JobTracker:sortIcon(column)
     if self.sortColumn ~= column then return "" end
     return self.sortDirection == "asc" and "▲" or "▼"
 end
 
-function JobTracker:companyIcon() return self:sortIcon("company") end
-function JobTracker:positionIcon() return self:sortIcon("position") end
-function JobTracker:statusIcon() return self:sortIcon("status") end
-function JobTracker:dateIcon() return self:sortIcon("date") end
+-- Generated sort methods for viewdef binding
+for _, col in ipairs({"company", "position", "status", "date"}) do
+    local sortName = "sort" .. col:sub(1,1):upper() .. col:sub(2)
+    local iconName = col .. "Icon"
+    JobTracker[sortName] = function(self) self:toggleSort(col) end
+    JobTracker[iconName] = function(self) return self:sortIcon(col) end
+end
 
 function JobTracker:allApplications()
     return self._applications
@@ -353,13 +356,27 @@ end
 
 function JobTracker:selectApp(app)
     self.selected = app
+    self.selectedStatus = app.status
     self.view = "detail"
 end
 
 function JobTracker:showList()
+    -- Check if selected app has unsaved attachment changes
+    if self.selected and self.selected.attachmentsChanged then
+        self.showAttachmentWarning = true
+        return
+    end
     self.view = "list"
     self.selected = nil
 end
+
+-- Hide the attachment warning dialog
+function JobTracker:hideAttachmentWarning()
+    self.showAttachmentWarning = false
+end
+
+function JobTracker:isAttachmentWarningVisible() return self.showAttachmentWarning end
+function JobTracker:isAttachmentWarningHidden() return not self.showAttachmentWarning end
 
 function JobTracker:showAddForm()
     self.formMode = "add"
@@ -370,31 +387,23 @@ end
 function JobTracker:showEditForm()
     if not self.selected then return end
     self.formMode = "edit"
+    local app = self.selected
     local data = {
-        company = self.selected.company,
-        position = self.selected.position,
-        url = self.selected.url,
-        status = self.selected.status,
-        location = self.selected.location,
-        hqAddress = self.selected.hqAddress,
-        salaryMin = tostring(self.selected.salaryMin or ""),
-        salaryMax = tostring(self.selected.salaryMax or ""),
-        notes = self.selected.notes,
-        dateApplied = self.selected.dateApplied or "",
+        company = app.company,
+        position = app.position,
+        url = app.url,
+        status = app.status,
+        location = app.location,
+        hqAddress = app.hqAddress,
+        salaryMin = tostring(app.salaryMin or ""),
+        salaryMax = tostring(app.salaryMax or ""),
+        notes = app.notes,
+        dateApplied = app.dateApplied or "",
     }
-    -- Store original values for change tracking
-    data._original = {
-        company = data.company,
-        position = data.position,
-        url = data.url,
-        status = data.status,
-        location = data.location,
-        hqAddress = data.hqAddress,
-        salaryMin = data.salaryMin,
-        salaryMax = data.salaryMax,
-        notes = data.notes,
-        dateApplied = data.dateApplied,
-    }
+    -- Copy data for change tracking (shallow copy of string/number values)
+    local original = {}
+    for k, v in pairs(data) do original[k] = v end
+    data._original = original
     self.formData = session:create(FormData, data)
     self.view = "form"
 end
@@ -403,7 +412,7 @@ function JobTracker:saveForm()
     local fd = self.formData
     if self.formMode == "add" then
         local app = session:create(Application, {
-            id = uuid(),
+            id = nextId(self._applications),
             company = fd.company,
             position = fd.position,
             url = fd.url,
@@ -464,10 +473,11 @@ function JobTracker:_addStatusChange(app, newStatus)
     table.insert(app.timeline, 1, evt)
 end
 
-function JobTracker:changeStatus(status)
-    if not self.selected then return end
-    self:_addStatusChange(self.selected, status)
-    self:saveData()
+function JobTracker:changeStatus()
+   if not self.selected then return end
+   if self.selectedStatus == self.selected.status then return end
+   self:_addStatusChange(self.selected, self.selectedStatus)
+   self:saveData()
 end
 
 function JobTracker:addNote()
@@ -552,49 +562,124 @@ function JobTracker:clearChat()
     self.chatMessages = {}
 end
 
-function JobTracker:chatPanelHidden()
-    return not self.chatPanelOpen
+function JobTracker:chatPanelHidden() return not self.chatPanelOpen end
+
+-- Attachment handling
+function JobTracker:uploadFile(filename, content)
+    if not self.selected then return end
+    local dir = self.selected:attachmentsDir()
+    os.execute('mkdir -p "' .. dir .. '"')
+    local path = dir .. "/" .. filename
+    local handle = io.open(path, "wb")
+    if handle then
+        handle:write(content)
+        handle:close()
+        self.selected:clearAttachmentsCache()
+        self.selected.attachmentsChanged = true  -- Mark as changed, don't commit yet
+    end
 end
 
-function JobTracker:hasChatMessages()
-    return #self.chatMessages > 0
+function JobTracker:deleteAttachment(attachment)
+    os.execute('rm -f "' .. attachment.path .. '"')
+    if self.selected then
+        self.selected:clearAttachmentsCache()
+        self.selected.attachmentsChanged = true  -- Mark as changed, don't commit yet
+    end
 end
 
-function JobTracker:noChatMessages()
-    return not self:hasChatMessages()
+-- Save attachment changes (commit to fossil)
+function JobTracker:saveAttachments()
+    if self.selected and self.selected.attachmentsChanged then
+        commitData("Update attachments")
+        self.selected.attachmentsChanged = false
+    end
+    self.showAttachmentWarning = false
 end
 
--- Filter methods
-function JobTracker:filterAll() self:setFilter("all") end
-function JobTracker:filterActive() self:setFilter("active") end
-function JobTracker:filterOffers() self:setFilter("offers") end
-function JobTracker:filterArchived() self:setFilter("archived") end
-
-function JobTracker:isFilterAll() return self.filter == "all" end
-function JobTracker:isFilterActive() return self.filter == "active" end
-function JobTracker:isFilterOffers() return self.filter == "offers" end
-function JobTracker:isFilterArchived() return self.filter == "archived" end
-
--- View methods
-function JobTracker:isListView() return self.view == "list" end
-function JobTracker:isDetailView() return self.view == "detail" end
-function JobTracker:isFormView() return self.view == "form" end
-function JobTracker:notListView() return not self:isListView() end
-function JobTracker:notDetailView() return not self:isDetailView() end
-function JobTracker:notFormView() return not self:isFormView() end
-
--- Filter button variants (helper to reduce repetition)
-local function filterVariant(tracker, filterName)
-    return tracker.filter == filterName and "primary" or "default"
+-- Revert attachment changes (revert from fossil)
+function JobTracker:revertAttachments()
+   local app = self.selected
+    if app then
+       app.attachmentsChanged = false
+        -- Revert directory using fossil
+       os.execute('cd "' .. STORAGE_DIR .. '" && "$HOME/.claude/bin/fossil" revert "jobs/' .. app:idDir() .. '" 2>/dev/null')
+        app:clearAttachmentsCache()
+    end
+    self.showAttachmentWarning = false
 end
 
-function JobTracker:allVariant() return filterVariant(self, "all") end
-function JobTracker:activeVariant() return filterVariant(self, "active") end
-function JobTracker:offersVariant() return filterVariant(self, "offers") end
-function JobTracker:archivedVariant() return filterVariant(self, "archived") end
+-- Helper for going back to list after attachment action
+local function goBackToList(tracker)
+    tracker.view = "list"
+    tracker.selected = nil
+end
+
+function JobTracker:saveAttachmentsAndBack()
+    self:saveAttachments()
+    goBackToList(self)
+end
+
+function JobTracker:revertAttachmentsAndBack()
+    self:revertAttachments()
+    goBackToList(self)
+end
+
+-- Placeholder for URL attachment (not implemented)
+function JobTracker:promptAttachUrl()
+    -- TODO: Implement URL attachment dialog
+end
+
+-- Process file upload from JS-to-Lua bridge
+function JobTracker:processFileUpload()
+    if self._fileUploadData == "" or not self.selected then return end
+
+    local upload = self._fileUploadData
+    self._fileUploadData = ""  -- Clear immediately
+
+    -- Parse filename:base64content
+    local colonPos = upload:find(":")
+    if not colonPos then return end
+
+    local filename = upload:sub(1, colonPos - 1)
+    local base64 = upload:sub(colonPos + 1)
+
+    -- Decode and write file
+    local dir = self.selected:attachmentsDir()
+    os.execute('mkdir -p "' .. dir .. '"')
+    local path = dir .. "/" .. filename
+
+    local handle = io.open(path, "wb")
+    if handle then
+        decodeBase64ToFile(base64, handle)
+        handle:close()
+        self.selected:clearAttachmentsCache()
+        self.selected.attachmentsChanged = true  -- Mark as changed, don't commit yet
+    end
+end
+
+function JobTracker:hasChatMessages() return #self.chatMessages > 0 end
+function JobTracker:noChatMessages() return #self.chatMessages == 0 end
+
+-- Generated filter methods for viewdef binding
+for _, name in ipairs({"all", "active", "offers", "archived"}) do
+    local capName = name:sub(1,1):upper() .. name:sub(2)
+    JobTracker["filter" .. capName] = function(self) self:setFilter(name) end
+    JobTracker["isFilter" .. capName] = function(self) return self.filter == name end
+    JobTracker[name .. "Variant"] = function(self)
+        return self.filter == name and "primary" or "default"
+    end
+end
+
+-- Generated view methods for viewdef binding
+for _, name in ipairs({"list", "detail", "form"}) do
+    local capName = name:sub(1,1):upper() .. name:sub(2)
+    JobTracker["is" .. capName .. "View"] = function(self) return self.view == name end
+    JobTracker["not" .. capName .. "View"] = function(self) return self.view ~= name end
+end
 
 -- Application methods
 function Application:selectMe()
+   self._attachmentsCache = nil
     jobTracker:selectApp(self)
 end
 
@@ -628,17 +713,94 @@ function Application:salaryDisplay()
     return min or max or ""
 end
 
-function Application:hasUrl() return isPresent(self.url) end
-function Application:noUrl() return not self:hasUrl() end
-function Application:hasLocation() return isPresent(self.location) end
-function Application:noLocation() return not self:hasLocation() end
+-- Generated has/no methods for optional fields
+for _, field in ipairs({"url", "location", "hqAddress", "notes"}) do
+    local capField = field:sub(1,1):upper() .. field:sub(2)
+    -- Use short names for hqAddress
+    local shortName = field == "hqAddress" and "Hq" or capField
+    Application["has" .. shortName] = function(self) return isPresent(self[field]) end
+    Application["no" .. shortName] = function(self) return not isPresent(self[field]) end
+end
+
 function Application:hasSalary() return self:salaryDisplay() ~= "" end
 function Application:noSalary() return not self:hasSalary() end
-function Application:hasHq() return isPresent(self.hqAddress) end
-function Application:noHq() return not self:hasHq() end
+
+-- Helper: format ID as 4-digit directory name
+function Application:idDir()
+    return string.format("%04d", self.id)
+end
+
+-- Attachments: directory for this application's files
+function Application:attachmentsDir()
+   return STORAGE_DIR .. "/jobs/" .. self:idDir()
+end
+
+-- List attachment files for this application (cached to avoid repeated ls calls)
+function Application:attachments()
+    -- Use cached result if available (cache cleared on file operations)
+    if self._attachmentsCache then
+        return self._attachmentsCache
+    end
+
+    local dir = self:attachmentsDir()
+    local result = {}
+    local handle = io.popen('ls -1 "' .. dir .. '" 2>/dev/null')
+    if handle then
+        for filename in handle:lines() do
+            if filename ~= "" then
+                table.insert(result, session:create(Attachment, {
+                    filename = filename,
+                    path = dir .. "/" .. filename,
+                    applicationId = self.id,
+                }))
+            end
+        end
+        handle:close()
+    end
+    self._attachmentsCache = result
+    return result
+end
+
+-- Clear attachment cache (call after adding/removing files)
+function Application:clearAttachmentsCache()
+    self._attachmentsCache = nil
+end
+
+function Application:hasAttachments() return #self:attachments() > 0 end
+function Application:noAttachments() return #self:attachments() == 0 end
+function Application:hasAttachmentsChanged() return self.attachmentsChanged == true end
+function Application:noAttachmentsChanged() return not self.attachmentsChanged end
 
 function Application:appliedDateDisplay()
     return formatDate(self.dateApplied)
+end
+
+-- Attachment methods
+function Attachment:deleteMe()
+    jobTracker:deleteAttachment(self)
+end
+
+local EXTENSION_ICONS = {
+    pdf = "file-earmark-pdf",
+    doc = "file-earmark-word",
+    docx = "file-earmark-word",
+    md = "file-earmark-text",
+    txt = "file-earmark-text",
+    png = "file-earmark-image",
+    jpg = "file-earmark-image",
+    jpeg = "file-earmark-image",
+    gif = "file-earmark-image",
+}
+
+function Attachment:icon()
+    local ext = self.filename:match("%.([^%.]+)$")
+    if ext then ext = ext:lower() end
+    return EXTENSION_ICONS[ext] or "file-earmark"
+end
+
+function Attachment:downloadUrl()
+    -- Return a file:// URL for download
+    return "file://" .. self.path
 end
 
 -- TimelineEvent methods
@@ -661,13 +823,8 @@ function TimelineEvent:description()
 end
 
 -- ChatMessage methods
-function ChatMessage:isUser()
-    return self.role == "user"
-end
-
-function ChatMessage:isAssistant()
-    return self.role == "assistant"
-end
+function ChatMessage:isUser() return self.role == "user" end
+function ChatMessage:isAssistant() return self.role == "assistant" end
 
 function ChatMessage:copyToInput()
     jobTracker.chatInput = self.content

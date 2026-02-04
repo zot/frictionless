@@ -16,7 +16,7 @@ Display all apps found in the apps directory. For each app show:
 - Visual indicator (green if all passing, yellow if partial, gray if not built/no tests)
 - Build progress shows hover help with the current phase name (e.g., "designing", "writing code")
 
-A "+" button in the header opens the new app form.
+A "+" button in the header opens the new app form. A GitHub icon button opens the GitHub download form.
 
 Clicking an app selects it and shows details in the adjacent panel.
 
@@ -24,15 +24,18 @@ Clicking an app selects it and shows details in the adjacent panel.
 
 When an app is selected, show:
 - App name as header
+- Source URL row (for downloaded apps): GitHub URL with link icons to open source and readme in new tabs
 - Description (first paragraph from requirements.md, parsed by Lua)
 - Build progress and phase (when app is building) - shows progress bar and stage label
+- Requirements section (expandable, collapsed by default) - shows full requirements.md content
 - Action buttons based on state:
   - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
   - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
-  - Make it thorough (when has checkpoints) - sends consolidate_request to invoke `/ui-thorough` skill
+  - Make it thorough (N) (when has checkpoints) - shows count of pending changes, tooltip says "N pending changes", sends consolidate_request to invoke `/ui-thorough` skill
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
   - Review Gaps (when has gaps) - sends review_gaps_request to invoke `/ui-thorough` skill
+  - Analyze (when built) - sends analyze_request for full gap analysis even without existing gaps
   - Delete App (when not protected) - shows confirmation dialog, then removes the app entirely
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
@@ -48,6 +51,102 @@ When the "Open" button is clicked, the selected app replaces the detail panel (r
 - User can interact with the embedded app while still chatting with Claude
 
 Clicking the close button `[X]` closes the embedded view and restores the normal detail panel.
+
+## GitHub Download
+
+Download apps from GitHub repositories. The form validates the URL, lets the user inspect files for security, and downloads the app.
+
+### GitHub Icon Button
+A GitHub icon button in the header opens the download form (replaces the detail panel, like the new app form).
+
+### URL Input
+- Input field for GitHub tree URL (e.g., `https://github.com/user/repo/tree/main/apps/my-app`)
+- "Investigate" button validates the URL and fetches directory contents
+- Shows error if URL is invalid or directory doesn't contain a valid app
+
+### Name Conflict Detection
+When the user enters a URL, check if an app with the same name already exists:
+- Parse app name from the URL path (last segment)
+- Check if `{base_dir}/apps/{name}` directory exists
+- If conflict exists, show a danger alert: "App 'name' already exists in .ui/apps/. Delete or rename it before downloading."
+- Disable the Investigate button when there's a conflict
+
+### Validation
+A valid app directory must contain:
+- `requirements.md`
+- `design.md`
+- `app.lua`
+- `viewdefs/` directory
+
+### File Inspection (Security Review)
+After validation, show tabs for each file:
+- `requirements.md`, `design.md`, `app.lua`, plus any other `.lua` files
+- User must click each tab to mark it as "viewed"
+- Unviewed tabs shown with warning variant (yellow)
+- Viewed tabs shown with default variant
+- Selected tab shown with primary variant
+
+### Security Warnings for Lua Files
+Lua files are analyzed for potentially dangerous code:
+- **pushState calls** (orange): Count occurrences of `pushState` - these can send events to Claude
+- **Dangerous calls** (red): Count occurrences of dangerous patterns:
+  - Shell execution: `os.execute`, `io.popen`
+  - Code loading: `dofile`, `load`, `loadfile`, `loadstring`
+  - File operations: `io.open`, `io.input`
+  - OS operations: `os.exit`, `os.remove`, `os.rename`, `os.tmpname`
+  - Dynamic require: `require(variable)` (but NOT `require("constant")`)
+
+Tab labels show warning counts: `app.lua (3 events, 2 danger)`
+
+Tooltips explain the warnings:
+- "N pushState call(s) - can send events to Claude"
+- "N os.execute/io.popen call(s) - runs shell commands"
+
+### Syntax Highlighting
+In the file content viewer, highlight dangerous code:
+- **Orange highlight**: Lines containing `pushState` calls (with orange left border)
+- **Red highlight**: Lines containing `os.execute(` or `io.popen(` calls (with red left border)
+
+### Scrollbar Trough Markers
+A narrow trough next to the scrollbar shows the positions of all warnings in the file:
+- Orange markers indicate pushState call locations
+- Red markers indicate os.execute/io.popen locations
+- Markers use DOM measurement (getBoundingClientRect) for accurate positioning
+- Marker position aligns with scrollbar thumb when warning is at viewport top
+- Consecutive warning lines are wrapped in group spans for accurate bounding boxes
+- Helps users quickly see where warnings are in long files
+
+### Warning Group Styling
+Warning blocks (consecutive pushState lines or single os.execute lines) are visually grouped:
+- Group spans wrap consecutive warning lines
+- Left border bar in the warning color (orange for pushState, red for os.execute)
+- Block display to ensure proper line grouping
+
+### Safety Message
+Before any tab is clicked, show a warning alert:
+- "Review before approving"
+- Instructions to click each tab and review contents
+- Explains the color-coded highlights
+
+### Approve Button
+- Only enabled after ALL tabs have been viewed
+- Downloads the app from GitHub:
+  1. Fetch repository zip from GitHub
+  2. Extract the app directory to `{base_dir}/apps/{name}/`
+  3. Save the source URL to `{base_dir}/apps/{name}/source.txt`
+  4. Create `original.fossil` baseline for local changes tracking
+  5. Link the app using `.ui/mcp linkapp add {name}`
+  6. Refresh the app list and select the new app
+
+### Downloaded App Tracking
+Downloaded apps are tracked for local modifications:
+- `source.txt` stores the original GitHub URL
+- `original.fossil` stores the original code state (copy of checkpoint.fossil baseline)
+- Local changes are detected by comparing current state to original.fossil
+- Apps with local changes show a pencil icon in the app list
+
+### Cancel Button
+Closes the form and clears all state.
 
 ## New App Form
 
@@ -278,7 +377,12 @@ Fix known issues in an app. Can also use a background agent pattern.
 Invoke the `/ui-thorough` skill to integrate checkpointed changes from `/ui-fast` into requirements.md and design.md. Always invokes `/ui-thorough` regardless of the build mode toggle. After consolidation, checkpoints are cleared.
 
 ### `review_gaps_request`
-Invoke the `/ui-thorough` skill to review and clean up fast code gaps listed in TESTING.md. Always invokes `/ui-thorough` regardless of the build mode toggle.
+Review the `## Gaps` section in the target app's TESTING.md. For each gap item:
+1. Verify the feature is properly documented in design.md
+2. If documented correctly, remove the item from gaps
+3. If not documented, add documentation to design.md then remove from gaps
+
+After processing, the `## Gaps` section should be **empty** (no placeholder text). Always invokes `/ui-thorough` regardless of the build mode toggle.
 
 ## Data Flow
 
@@ -360,6 +464,16 @@ Apps can have checkpoints from `/ui-fast` prototyping sessions. Show checkpoint 
 - Gem icon (💎) next to apps WITHOUT checkpoints (stable/thorough)
 
 The icon is shown in the app list item, before the app name.
+
+## Local Changes Indicator
+
+Downloaded apps (from GitHub) track local modifications:
+
+- Pencil icon (✏️) next to apps with local changes vs original download
+- No icon if app matches original state
+- Tooltip: "Modified since download"
+
+The icon appears after the checkpoint icon in the app list item.
 
 ## Make it Thorough Button
 

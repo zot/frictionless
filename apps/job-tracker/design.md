@@ -9,7 +9,7 @@ Track job applications through the hiring pipeline. View application list, see d
 ### List View (Default)
 ```
 +------------------------------------------+
-|  Job Tracker                    [+ Add]  |
+|  Job Tracker              [Reload][+ Add]|
 +------------------------------------------+
 | [All] [Active] [Offers] [Archived]       |
 +------------------------------------------+
@@ -51,7 +51,7 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 ### Detail View
 ```
 +------------------------------------------+
-| <- Back                           [Edit] |
+| <- Back           [✓][↺][Edit][Delete]   |
 +------------------------------------------+
 | Acme Corp                                |
 | Senior Software Engineer                 |
@@ -60,18 +60,28 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | Applied: Jan 15 | Remote | $180-220k     |
 | HQ: San Francisco, CA                    |
 +------------------------------------------+
-| [Open in new tab]                        |
-+==========================================+
-|                                          |
-|        (iframe showing job URL)          |
-|                                          |
-+==========================================+
+| [Notes (empty)]  <- collapsible section  |
++------------------------------------------+
+| ATTACHMENTS              [+ File][+ URL] |
+| +--------------------------------------+ |
+| | resume.pdf                    [x]    | |
+| | cover-letter.docx             [x]    | |
+| +--------------------------------------+ |
+| | Drop files here to attach            | |
++------------------------------------------+
+| [View job posting ↗]                     |
++------------------------------------------+
 | TIMELINE                         [+ Note]|
 | ---------------------------------------- |
 | Jan 20 - Status: Phone Screen            |
 | Jan 15 - Added application               |
 +------------------------------------------+
 ```
+
+Legend:
+- `[✓]` = Save attachments (shown when attachments changed)
+- `[↺]` = Revert attachments (shown when attachments changed)
+- `[x]` = Delete attachment button
 
 ### Add/Edit Form
 ```
@@ -109,12 +119,15 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | chatPanelOpen | boolean | Whether output panel is open |
 | sortColumn | string | Current sort column: "company", "position", "status", "date" |
 | sortDirection | string | Sort direction: "asc" or "desc" |
+| selectedStatus | string | Status value for detail view dropdown (synced with selected.status) |
+| _fileUploadData | string | JS-to-Lua bridge for file uploads |
+| showAttachmentWarning | boolean | Show warning dialog when leaving with unsaved attachments |
 
 ### Application
 
 | Field | Type | Description |
 |-------|------|-------------|
-| id | string | UUID |
+| id | number | Sequential numeric ID |
 | company | string | Company name |
 | position | string | Position title |
 | url | string | Job posting URL |
@@ -127,6 +140,8 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | salaryMax | number | Salary range max |
 | notes | string | Free text notes |
 | timeline | TimelineEvent[] | Activity timeline |
+| _attachmentsCache | Attachment[] | Cached list of attachments |
+| attachmentsChanged | boolean | Whether attachments have been modified |
 
 ### FormData
 
@@ -176,6 +191,22 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | isAssistant() | Returns role == "assistant" |
 | copyToInput() | Copy message content to jobTracker.chatInput |
 
+### Attachment
+
+| Field | Type | Description |
+|-------|------|-------------|
+| filename | string | File name |
+| path | string | Full path to file |
+| applicationId | number | Parent application ID |
+
+### Attachment Methods
+
+| Method | Description |
+|--------|-------------|
+| deleteMe() | Delete this attachment |
+| icon() | Returns icon name based on file extension |
+| downloadUrl() | Returns file:// URL for download |
+
 ## Status Values
 
 | Status | Display | Badge Variant |
@@ -196,20 +227,32 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 
 | Method | Description |
 |--------|-------------|
-| applications() | Returns filtered applications based on current filter |
+| applications() | Returns filtered and sorted applications |
 | allApplications() | Returns _applications for binding |
 | loadData() | Load from data.json |
 | saveData() | Save to data.json |
+| reload() | Reload data from disk (for external edits) |
 | setFilter(f) | Set filter and clear selection |
-| selectApp(app) | Select application, show detail view |
-| showList() | Return to list view |
+| selectApp(app) | Select application, set selectedStatus, show detail view |
+| showList() | Return to list view (warns if unsaved attachments) |
+| hideAttachmentWarning() | Hide the attachment warning dialog |
+| isAttachmentWarningVisible() | Returns showAttachmentWarning |
+| isAttachmentWarningHidden() | Returns not showAttachmentWarning |
 | showAddForm() | Show add form with empty formData |
 | showEditForm() | Show edit form with selected app data |
 | saveForm() | Save form data as new or updated application |
 | cancelForm() | Cancel form, return to previous view |
 | addNote() | Add note to selected application timeline |
 | deleteApp() | Delete selected application |
-| changeStatus(status) | Change selected application status |
+| changeStatus() | Change selected application status from selectedStatus |
+| uploadFile(filename, content) | Upload file attachment to selected app |
+| deleteAttachment(attachment) | Delete attachment file |
+| saveAttachments() | Commit attachment changes to fossil |
+| revertAttachments() | Revert attachment changes from fossil |
+| saveAttachmentsAndBack() | Save attachments and return to list |
+| revertAttachmentsAndBack() | Revert attachments and return to list |
+| processFileUpload() | Process file upload from JS-to-Lua bridge |
+| promptAttachUrl() | Placeholder for URL attachment (not implemented) |
 | submitUrl() | Send urlInput to Claude for scraping via pushState |
 | filterAll() | Set filter to "all" |
 | filterActive() | Set filter to "active" |
@@ -262,6 +305,17 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | noSalary() | Returns salary display is empty |
 | hasHq() | Returns hqAddress is not empty |
 | noHq() | Returns hqAddress is empty |
+| hasNotes() | Returns notes is not empty |
+| noNotes() | Returns notes is empty |
+| idDir() | Returns zero-padded 4-digit ID string |
+| attachmentsDir() | Returns path to attachments directory |
+| attachments() | Returns cached list of Attachment objects |
+| clearAttachmentsCache() | Clear attachment cache (after file operations) |
+| hasAttachments() | Returns attachments count > 0 |
+| noAttachments() | Returns attachments count == 0 |
+| hasAttachmentsChanged() | Returns attachmentsChanged |
+| noAttachmentsChanged() | Returns not attachmentsChanged |
+| appliedDateDisplay() | Returns formatted date applied |
 
 ### TimelineEvent
 
@@ -278,6 +332,7 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 | JobTracker.Application.list-item.html | Application | Row in application list |
 | JobTracker.TimelineEvent.list-item.html | TimelineEvent | Row in timeline |
 | JobTracker.ChatMessage.list-item.html | ChatMessage | Message in chat output panel |
+| JobTracker.Attachment.list-item.html | Attachment | Row in attachments list |
 
 ## Events
 
@@ -306,26 +361,47 @@ When the chat text is a URL (job posting link):
    jobTracker.formData.url = "<the URL>"
    jobTracker.formData.location = "..."
    ```
-3. **If hqAddress is empty**, search for company HQ:
+3. **If salary is empty**, web search for typical salary range:
+   - Search for "{company} {position} salary range"
+   - Use data from sources like Glassdoor, Levels.fyi, LinkedIn, or similar
+   - Fill in salaryMin and salaryMax with the found range
+   - Note in chat that salary was estimated from market data
+4. **If hqAddress is empty**, search for company HQ:
    - First try: US headquarters
    - Fallback: international HQ if no US location
    - Update the formData
-4. **Reply in chat** with confirmation of what was found
+5. **Reply in chat** with confirmation of what was found
 
 ## File I/O
 
+### Storage Structure
+```
+.ui/storage/job-tracker/
+├── data/
+│   ├── data.json           # Application data
+│   └── jobs/
+│       ├── 0001/           # Attachments for app ID 1
+│       │   ├── resume.pdf
+│       │   └── cover.docx
+│       └── 0002/           # Attachments for app ID 2
+└── data.fossil             # Fossil repo for version control
+```
+
 ### Loading
-On app init, call `loadData()` which reads `.ui/apps/job-tracker/data.json` using Lua `io.open`.
+On app init, call `loadData()` which reads `.ui/storage/job-tracker/data/data.json` using Lua `io.open`.
 
 ### Saving
-After any modification (add, edit, delete, status change, note), call `saveData()` which writes to `data.json` using Lua `io.open`.
+After any modification (add, edit, delete, status change, note), call `saveData()` which writes to `data.json` and commits to fossil.
+
+### Attachments
+Files are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is the zero-padded 4-digit application ID. Attachment changes are tracked separately and must be explicitly saved or reverted.
 
 ### JSON Format
 ```json
 {
   "applications": [
     {
-      "id": "uuid",
+      "id": 1,
       "company": "Acme Corp",
       "position": "Senior Engineer",
       "url": "https://...",
