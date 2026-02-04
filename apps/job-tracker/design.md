@@ -346,7 +346,7 @@ Legend:
 
 | Event | Action |
 |-------|--------|
-| `chat` | Handle as URL or general chat (see below) |
+| `chat` | Handle as URL or general chat (see below). **Note:** Lua already adds the user message to chat history, so Claude only adds the assistant response. |
 
 #### URL Chat Handling
 

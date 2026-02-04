@@ -147,4 +147,4 @@ A chat field at the very bottom of the app for communicating with Claude:
 | `note` | `{id, text}` | Add note to timeline |
 | `delete` | `{id}` | Delete application |
 | `filter` | `{filter}` | Filter list |
-| `chat` | `{text}` | Send to Claude; if URL, scrape and pre-fill add form |
+| `chat` | `{text}` | Send to Claude; Lua already adds user message to chat, Claude only adds assistant response |
