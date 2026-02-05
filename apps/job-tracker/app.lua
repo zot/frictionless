@@ -1,5 +1,5 @@
 -- Job Tracker - Track job applications through the hiring pipeline
-local json = require('job-tracker.json')
+local json = require('mcp.json')
 
 local STATUS_CONFIG = {
     bookmarked = { display = "Bookmarked", variant = "neutral" },
@@ -15,6 +15,8 @@ local STATUS_CONFIG = {
 
 local STORAGE_DIR = ".ui/storage/job-tracker/data"
 local DATA_FILE = STORAGE_DIR .. "/data.json"
+local RESUMES_DIR = STORAGE_DIR .. "/resumes"
+local MASTER_RESUME_FILE = STORAGE_DIR .. "/master-resume.md"
 
 local INACTIVE_STATUSES = {
     archived = true,
@@ -23,11 +25,11 @@ local INACTIVE_STATUSES = {
 }
 
 -- Helper: generate next ID (max existing + 1)
-local function nextId(applications)
+local function nextId(items)
     local maxId = 0
-    for _, app in ipairs(applications) do
-        if type(app.id) == "number" and app.id > maxId then
-            maxId = app.id
+    for _, item in ipairs(items) do
+        if type(item.id) == "number" and item.id > maxId then
+            maxId = item.id
         end
     end
     return maxId + 1
@@ -81,6 +83,26 @@ local function commitData(message)
     message = message or "Update data"
     local cmd = string.format('.ui/apps/job-tracker/data-commit.sh "%s" 2>/dev/null', message:gsub('"', '\\"'))
     os.execute(cmd)
+end
+
+-- Ensure HTML serving symlink exists for markdown preview
+local function ensureStorageSymlink()
+    local target = "../storage/job-tracker/data"
+    local link = ".ui/html/job-tracker-storage"
+    -- Check if symlink already exists and points to correct target
+    local handle = io.popen('readlink "' .. link .. '" 2>/dev/null')
+    if handle then
+        local current = handle:read("*l")
+        handle:close()
+        if current == target then return end  -- Already correct
+    end
+    -- Create or fix symlink
+    os.execute('ln -sfn "' .. target .. '" "' .. link .. '"')
+end
+
+-- Ensure resumes directory exists
+local function ensureResumesDir()
+    os.execute('mkdir -p "' .. RESUMES_DIR .. '"')
 end
 
 -- Base64 decoding table (keyed by byte value for efficiency)
@@ -137,6 +159,15 @@ JobTracker = session:prototype("JobTracker", {
     sortDirection = "desc",  -- "asc" or "desc"
     _fileUploadData = "",  -- JS-to-Lua bridge for file uploads
     showAttachmentWarning = false,  -- Show warning dialog when leaving with unsaved attachments
+    -- Resume management
+    _resumes = EMPTY,
+    selectedResume = EMPTY,
+    showMasterResume = false,
+    resumeChatInput = "",
+    resumeChatMessages = EMPTY,
+    resumeChatPanelOpen = false,
+    showDeleteResumeDialog = false,
+    showLinkPicker = false,
 })
 
 JobTracker.Application = session:prototype("JobTracker.Application", {
@@ -155,8 +186,26 @@ JobTracker.Application = session:prototype("JobTracker.Application", {
     timeline = EMPTY,
     _attachmentsCache = EMPTY,  -- Internal cache for attachments list
     attachmentsChanged = false,  -- Track if attachments have been modified
+    resumeId = EMPTY,  -- Linked resume ID
+    selectedResumeId = "",  -- Dropdown value for resume selection
 })
 local Application = JobTracker.Application
+
+JobTracker.Resume = session:prototype("JobTracker.Resume", {
+    id = 0,
+    name = "",
+    filename = "",
+    applicationIds = EMPTY,
+    dateCreated = "",
+    dateModified = "",
+})
+local Resume = JobTracker.Resume
+
+JobTracker.ResumeBadge = session:prototype("JobTracker.ResumeBadge", {
+    app = EMPTY,
+    resume = EMPTY,
+})
+local ResumeBadge = JobTracker.ResumeBadge
 
 JobTracker.TimelineEvent = session:prototype("JobTracker.TimelineEvent", {
     date = "",
@@ -196,19 +245,15 @@ JobTracker.FormData = session:prototype("JobTracker.FormData", {
 })
 local FormData = JobTracker.FormData
 
+local FORM_FIELDS = {"company", "position", "url", "status", "location", "hqAddress", "salaryMin", "salaryMax", "notes", "dateApplied"}
+
 -- Check if form has unsaved changes
 function FormData:hasChanges()
     if not self._original then return true end  -- New form always has changes
-    return self.company ~= self._original.company
-        or self.position ~= self._original.position
-        or self.url ~= self._original.url
-        or self.status ~= self._original.status
-        or self.location ~= self._original.location
-        or self.hqAddress ~= self._original.hqAddress
-        or self.salaryMin ~= self._original.salaryMin
-        or self.salaryMax ~= self._original.salaryMax
-        or self.notes ~= self._original.notes
-        or self.dateApplied ~= self._original.dateApplied
+    for _, field in ipairs(FORM_FIELDS) do
+        if self[field] ~= self._original[field] then return true end
+    end
+    return false
 end
 
 function FormData:noChanges()
@@ -219,17 +264,24 @@ end
 local APP_FIELDS = {
     "id", "company", "position", "url", "status",
     "dateAdded", "dateApplied", "location", "hqAddress",
-    "salaryMin", "salaryMax", "notes"
+    "salaryMin", "salaryMax", "notes", "resumeId"
 }
 
 local TIMELINE_FIELDS = {"date", "event", "note", "fromStatus", "toStatus"}
+
+local RESUME_FIELDS = {"id", "name", "filename", "applicationIds", "dateCreated", "dateModified"}
 
 -- JobTracker methods
 function JobTracker:new(instance)
     instance = session:create(JobTracker, instance)
     instance._applications = instance._applications or {}
+    instance._resumes = instance._resumes or {}
     instance.chatMessages = instance.chatMessages or {}
+    instance.resumeChatMessages = instance.resumeChatMessages or {}
     instance.formData = session:create(FormData, {})
+    -- Ensure storage setup
+    ensureStorageSymlink()
+    ensureResumesDir()
     instance:loadData()
     return instance
 end
@@ -239,6 +291,12 @@ function JobTracker:mutate()
     if self.chatMessages == nil then
         self.chatMessages = {}
     end
+    if self._resumes == nil then
+        self._resumes = {}
+    end
+    if self.resumeChatMessages == nil then
+        self.resumeChatMessages = {}
+    end
 end
 
 function JobTracker:loadData()
@@ -246,26 +304,109 @@ function JobTracker:loadData()
     if not content then return end
 
     local data = decodeJSON(content)
-    if not data or not data.applications then return end
+    if not data then return end
 
+    -- Load applications
     self._applications = {}
-    for _, appData in ipairs(data.applications) do
-        local app = session:create(Application, appData)
-        app.timeline = app.timeline or {}
-        for i, evt in ipairs(app.timeline) do
-            app.timeline[i] = session:create(TimelineEvent, evt)
+    if data.applications then
+        for _, appData in ipairs(data.applications) do
+            local app = session:create(Application, appData)
+            app.timeline = app.timeline or {}
+            for i, evt in ipairs(app.timeline) do
+                app.timeline[i] = session:create(TimelineEvent, evt)
+            end
+            -- Initialize selectedResumeId for dropdown binding
+            app.selectedResumeId = app.resumeId and tostring(app.resumeId) or ""
+            table.insert(self._applications, app)
         end
-        table.insert(self._applications, app)
+    end
+
+    -- Load resumes
+    self._resumes = {}
+    if data.resumes then
+        for _, resumeData in ipairs(data.resumes) do
+            local resume = session:create(Resume, resumeData)
+            resume.applicationIds = resume.applicationIds or {}
+            table.insert(self._resumes, resume)
+        end
     end
 end
 
 -- Reload data from disk (for when user edits data.json externally)
 function JobTracker:reload()
     self:loadData()
+    self:syncResumesWithDisk()
 end
 
+-- Sync _resumes with actual files in RESUMES_DIR
+function JobTracker:syncResumesWithDisk()
+    -- Get list of .md files in resumes directory
+    local filesOnDisk = {}
+    local handle = io.popen('ls -1 "' .. RESUMES_DIR .. '"/*.md 2>/dev/null')
+    if handle then
+        for line in handle:lines() do
+            local filename = line:match("([^/]+)$")
+            if filename then
+                filesOnDisk[filename] = true
+            end
+        end
+        handle:close()
+    end
+
+    -- Build map of existing resume filenames
+    local existingFiles = {}
+    for _, resume in ipairs(self._resumes) do
+        existingFiles[resume.filename] = resume
+    end
+
+    -- Add new files not in _resumes
+    local changed = false
+    for filename, _ in pairs(filesOnDisk) do
+        if not existingFiles[filename] then
+            -- Create new resume entry
+            local name = filename:gsub("%.md$", ""):gsub("-", " "):gsub("(%a)([%w_']*)", function(a, b) return a:upper() .. b end)
+            local resume = session:create(Resume, {
+                id = nextId(self._resumes),
+                name = name,
+                filename = filename,
+                applicationIds = {},
+                dateCreated = os.date("%Y-%m-%d"),
+                dateModified = os.date("%Y-%m-%d"),
+            })
+            table.insert(self._resumes, resume)
+            changed = true
+        end
+    end
+
+    -- Remove entries for deleted files
+    local i = 1
+    while i <= #self._resumes do
+        local resume = self._resumes[i]
+        if not filesOnDisk[resume.filename] then
+            -- Unlink from all applications
+            for _, app in ipairs(self._applications) do
+                if app.resumeId == resume.id then
+                    app.resumeId = nil
+                    app.selectedResumeId = ""
+                end
+            end
+            table.remove(self._resumes, i)
+            changed = true
+        else
+            i = i + 1
+        end
+    end
+
+    if changed then
+        self:saveData()
+    end
+end
+
+
 function JobTracker:saveData()
-    local data = { applications = {} }
+    local data = { applications = {}, resumes = {} }
+
+    -- Save applications
     for _, app in ipairs(self._applications) do
         local appData = {}
         for _, field in ipairs(APP_FIELDS) do
@@ -281,41 +422,49 @@ function JobTracker:saveData()
         end
         table.insert(data.applications, appData)
     end
+
+    -- Save resumes
+    for _, resume in ipairs(self._resumes) do
+        local resumeData = {}
+        for _, field in ipairs(RESUME_FIELDS) do
+            resumeData[field] = resume[field]
+        end
+        table.insert(data.resumes, resumeData)
+    end
+
     writeFile(DATA_FILE, encodeJSON(data))
-    commitData("Update applications")
+    commitData("Update data")
+end
+
+-- Helper: check if app matches filter
+local function matchesFilter(app, filter)
+    if filter == "all" then return true end
+    if filter == "active" then return not INACTIVE_STATUSES[app.status] end
+    if filter == "offers" then return app.status == "offer" end
+    if filter == "archived" then return app.status == "archived" end
+    return false
+end
+
+-- Helper: get sort value for an application
+local function getSortValue(app, col)
+    if col == "company" then return (app.company or ""):lower() end
+    if col == "position" then return (app.position or ""):lower() end
+    if col == "status" then return app.status or "" end
+    return app.dateApplied or app.dateAdded or ""  -- date (default)
 end
 
 function JobTracker:applications()
     local result = {}
     for _, app in ipairs(self._applications) do
-        local include = self.filter == "all"
-            or (self.filter == "active" and not INACTIVE_STATUSES[app.status])
-            or (self.filter == "offers" and app.status == "offer")
-            or (self.filter == "archived" and app.status == "archived")
-        if include then
+        if matchesFilter(app, self.filter) then
             table.insert(result, app)
         end
     end
 
-    -- Sort the result
-    local col = self.sortColumn
-    local asc = self.sortDirection == "asc"
+    local col, asc = self.sortColumn, self.sortDirection == "asc"
     table.sort(result, function(a, b)
-        local va, vb
-        if col == "company" then
-            va, vb = (a.company or ""):lower(), (b.company or ""):lower()
-        elseif col == "position" then
-            va, vb = (a.position or ""):lower(), (b.position or ""):lower()
-        elseif col == "status" then
-            va, vb = a.status or "", b.status or ""
-        else  -- date
-            va, vb = a.dateApplied or a.dateAdded or "", b.dateApplied or b.dateAdded or ""
-        end
-        if asc then
-            return va < vb
-        else
-            return va > vb
-        end
+        local va, vb = getSortValue(a, col), getSortValue(b, col)
+        return asc and va < vb or va > vb
     end)
 
     return result
@@ -355,6 +504,10 @@ function JobTracker:setFilter(f)
 end
 
 function JobTracker:selectApp(app)
+    -- Sync dropdown value with actual resumeId BEFORE setting selected
+    -- This ensures the binding sees the correct value when selected changes
+    app.selectedResumeId = app.resumeId and tostring(app.resumeId) or ""
+
     self.selected = app
     self.selectedStatus = app.status
     self.view = "detail"
@@ -377,6 +530,10 @@ end
 
 function JobTracker:isAttachmentWarningVisible() return self.showAttachmentWarning end
 function JobTracker:isAttachmentWarningHidden() return not self.showAttachmentWarning end
+function JobTracker:isDeleteResumeDialogVisible() return self.showDeleteResumeDialog end
+function JobTracker:isDeleteResumeDialogHidden() return not self.showDeleteResumeDialog end
+function JobTracker:isLinkPickerVisible() return self.showLinkPicker end
+function JobTracker:isLinkPickerHidden() return not self.showLinkPicker end
 
 function JobTracker:showAddForm()
     self.formMode = "add"
@@ -388,19 +545,17 @@ function JobTracker:showEditForm()
     if not self.selected then return end
     self.formMode = "edit"
     local app = self.selected
-    local data = {
-        company = app.company,
-        position = app.position,
-        url = app.url,
-        status = app.status,
-        location = app.location,
-        hqAddress = app.hqAddress,
-        salaryMin = tostring(app.salaryMin or ""),
-        salaryMax = tostring(app.salaryMax or ""),
-        notes = app.notes,
-        dateApplied = app.dateApplied or "",
-    }
-    -- Copy data for change tracking (shallow copy of string/number values)
+    -- Build form data from application, converting numbers to strings for salary fields
+    local data = {}
+    for _, field in ipairs(FORM_FIELDS) do
+        local value = app[field]
+        if field == "salaryMin" or field == "salaryMax" then
+            data[field] = tostring(value or "")
+        else
+            data[field] = value or ""
+        end
+    end
+    -- Copy data for change tracking
     local original = {}
     for k, v in pairs(data) do original[k] = v end
     data._original = original
@@ -550,12 +705,14 @@ function JobTracker:toggleChatPanel()
     self.chatPanelOpen = not self.chatPanelOpen
 end
 
+-- Helper: create and add a chat message to a list
+local function addMessageToList(messages, role, content)
+    local msg = session:create(ChatMessage, { role = role, content = content })
+    table.insert(messages, msg)
+end
+
 function JobTracker:addChatMessage(role, content)
-    local msg = session:create(ChatMessage, {
-        role = role,
-        content = content,
-    })
-    table.insert(self.chatMessages, msg)
+    addMessageToList(self.chatMessages, role, content)
 end
 
 function JobTracker:clearChat()
@@ -660,6 +817,182 @@ end
 function JobTracker:hasChatMessages() return #self.chatMessages > 0 end
 function JobTracker:noChatMessages() return #self.chatMessages == 0 end
 
+-- Resume view methods
+function JobTracker:showResumeView()
+    self.view = "resume"
+    self.showMasterResume = false
+    self.selectedResume = nil
+end
+
+function JobTracker:isResumeView() return self.view == "resume" end
+function JobTracker:notResumeView() return self.view ~= "resume" end
+
+function JobTracker:resumes() return self._resumes end
+
+function JobTracker:selectResume(resume)
+    self.selectedResume = resume
+    self.showMasterResume = false
+    self.showLinkPicker = false
+end
+
+function JobTracker:showMaster()
+    self.selectedResume = nil
+    self.showMasterResume = true
+    self.showLinkPicker = false
+end
+
+function JobTracker:isShowingMaster() return self.showMasterResume end
+function JobTracker:notShowingMaster() return not self.showMasterResume end
+function JobTracker:hasSelectedResume() return self.selectedResume ~= nil end
+function JobTracker:noSelectedResume() return self.selectedResume == nil end
+
+
+-- Helper: slugify name for filename
+local function slugify(name)
+    return name:lower():gsub("[^%w]+", "-"):gsub("^-+", ""):gsub("-+$", "")
+end
+
+function JobTracker:createResume()
+    -- Create new resume from master template
+    local name = "New Resume " .. os.date("%Y-%m-%d")
+    local filename = slugify(name) .. ".md"
+    local id = nextId(self._resumes)
+
+    -- Copy master resume content
+    local masterContent = readFile(MASTER_RESUME_FILE) or "# Resume\n\nEdit this resume."
+    os.execute('mkdir -p "' .. RESUMES_DIR .. '"')
+    writeFile(RESUMES_DIR .. "/" .. filename, masterContent)
+
+    local resume = session:create(Resume, {
+        id = id,
+        name = name,
+        filename = filename,
+        applicationIds = {},
+        dateCreated = today(),
+        dateModified = today(),
+    })
+    table.insert(self._resumes, 1, resume)
+    self:saveData()
+    self:selectResume(resume)
+end
+
+function JobTracker:deleteSelectedResume()
+    if not self.selectedResume then return end
+    self.showDeleteResumeDialog = true
+end
+
+function JobTracker:confirmDeleteResume()
+    if not self.selectedResume then return end
+    local resume = self.selectedResume
+
+    -- Remove file
+    os.execute('rm -f "' .. RESUMES_DIR .. '/' .. resume.filename .. '"')
+
+    -- Remove from list
+    for i, r in ipairs(self._resumes) do
+        if r.id == resume.id then
+            table.remove(self._resumes, i)
+            break
+        end
+    end
+
+    -- Clear links from applications
+    for _, app in ipairs(self._applications) do
+        if app.resumeId == resume.id then
+            app.resumeId = nil
+            app.selectedResumeId = ""
+        end
+    end
+
+    self.selectedResume = nil
+    self.showDeleteResumeDialog = false
+    self:saveData()
+end
+
+function JobTracker:cancelDeleteResume()
+    self.showDeleteResumeDialog = false
+end
+
+-- Link picker
+function JobTracker:toggleLinkPicker()
+    self.showLinkPicker = not self.showLinkPicker
+end
+
+function JobTracker:unlinkableApps()
+    if not self.selectedResume then return {} end
+    local linked = {}
+    for _, id in ipairs(self.selectedResume.applicationIds or {}) do
+        linked[id] = true
+    end
+    local result = {}
+    for _, app in ipairs(self._applications) do
+        if not linked[app.id] then
+            table.insert(result, app)
+        end
+    end
+    return result
+end
+
+function JobTracker:linkAppToResume(app)
+    if not self.selectedResume or not app then return end
+    local resume = self.selectedResume
+    resume.applicationIds = resume.applicationIds or {}
+    table.insert(resume.applicationIds, app.id)
+    resume.dateModified = today()
+    self.showLinkPicker = false
+    self:saveData()
+end
+
+-- Resume chat methods
+function JobTracker:submitResumeChat()
+    if self.resumeChatInput == "" then return end
+    local text = self.resumeChatInput
+    self.resumeChatInput = ""
+    self:addResumeChatMessage("user", text)
+    mcp.pushState({
+        app = "job-tracker",
+        event = "resume_chat",
+        text = text,
+        resumeId = self.selectedResume and self.selectedResume.id or nil,
+    })
+end
+
+function JobTracker:toggleResumeChatPanel()
+    self.resumeChatPanelOpen = not self.resumeChatPanelOpen
+end
+
+function JobTracker:addResumeChatMessage(role, content)
+    addMessageToList(self.resumeChatMessages, role, content)
+end
+
+function JobTracker:clearResumeChat()
+    self.resumeChatMessages = {}
+end
+
+function JobTracker:resumeChatPanelHidden() return not self.resumeChatPanelOpen end
+function JobTracker:hasResumeChatMessages() return #self.resumeChatMessages > 0 end
+function JobTracker:noResumeChatMessages() return #self.resumeChatMessages == 0 end
+
+-- Helper methods for viewdef bindings (avoid operators in paths)
+function JobTracker:isFormModeAdd() return self.formMode == "add" end
+function JobTracker:isFormModeEdit() return self.formMode == "edit" end
+function JobTracker:hasResumes() return #self._resumes > 0 end
+function JobTracker:noResumes() return #self._resumes == 0 end
+function JobTracker:hasUnlinkableApps() return #self:unlinkableApps() > 0 end
+function JobTracker:noUnlinkableApps() return #self:unlinkableApps() == 0 end
+function JobTracker:showResumePreview() return self.selectedResume ~= nil or self.showMasterResume end
+function JobTracker:hideResumePreview() return self.selectedResume == nil and not self.showMasterResume end
+function JobTracker:hideChatFabForResume() return self.chatPanelOpen or self.view == "resume" end
+
+function JobTracker:currentResumePreviewUrl()
+    if self.showMasterResume then
+        return "/job-tracker-storage/master-resume.md"
+    elseif self.selectedResume then
+        return "/job-tracker-storage/resumes/" .. self.selectedResume.filename
+    end
+    return ""
+end
+
 -- Generated filter methods for viewdef binding
 for _, name in ipairs({"all", "active", "offers", "archived"}) do
     local capName = name:sub(1,1):upper() .. name:sub(2)
@@ -671,7 +1004,7 @@ for _, name in ipairs({"all", "active", "offers", "archived"}) do
 end
 
 -- Generated view methods for viewdef binding
-for _, name in ipairs({"list", "detail", "form"}) do
+for _, name in ipairs({"list", "detail", "form", "resume"}) do
     local capName = name:sub(1,1):upper() .. name:sub(2)
     JobTracker["is" .. capName .. "View"] = function(self) return self.view == name end
     JobTracker["not" .. capName .. "View"] = function(self) return self.view ~= name end
@@ -775,6 +1108,48 @@ function Application:appliedDateDisplay()
     return formatDate(self.dateApplied)
 end
 
+-- Resume linking methods
+function Application:linkedResume()
+    if not self.resumeId then return nil end
+    for _, resume in ipairs(jobTracker._resumes) do
+        if resume.id == self.resumeId then
+            return resume
+        end
+    end
+    return nil
+end
+
+function Application:hasLinkedResume() return self.resumeId ~= nil end
+function Application:noLinkedResume() return self.resumeId == nil end
+
+function Application:resumeOptions()
+    local result = {}
+    for _, resume in ipairs(jobTracker._resumes) do
+        table.insert(result, {
+            value = tostring(resume.id),
+            label = resume.name,
+        })
+    end
+    return result
+end
+
+function Application:changeResume()
+    local newId = self.selectedResumeId
+    if newId == "" then
+        self.resumeId = nil
+    else
+        self.resumeId = tonumber(newId)
+    end
+    jobTracker:saveData()
+end
+
+-- Link this application to the currently selected resume
+function Application:linkToSelectedResume()
+    if jobTracker.selectedResume then
+        jobTracker:linkAppToResume(self)
+    end
+end
+
 -- Attachment methods
 function Attachment:deleteMe()
     jobTracker:deleteAttachment(self)
@@ -801,6 +1176,119 @@ end
 function Attachment:downloadUrl()
     -- Return a file:// URL for download
     return "file://" .. self.path
+end
+
+-- Resume methods
+function Resume:idStr()
+    return tostring(self.id)
+end
+
+function Resume:selectMe()
+    jobTracker:selectResume(self)
+end
+
+function Resume:isSelected()
+    return self == jobTracker.selectedResume
+end
+
+function Resume:linkedApps()
+    local result = {}
+    local appIds = self.applicationIds or {}
+    for _, appId in ipairs(appIds) do
+        for _, app in ipairs(jobTracker._applications) do
+            if app.id == appId then
+                table.insert(result, app)
+                break
+            end
+        end
+    end
+    return result
+end
+
+-- Helper: create badge list with max count
+local function createBadgeList(resume, maxCount)
+    local apps = resume:linkedApps()
+    local result = {}
+    for i = 1, math.min(#apps, maxCount) do
+        table.insert(result, session:create(ResumeBadge, {
+            app = apps[i],
+            resume = resume,
+        }))
+    end
+    return result
+end
+
+-- For list-item display (5 max badges)
+function Resume:linkedAppsBadges5()
+    return createBadgeList(self, 5)
+end
+
+-- For detail display (10 max badges)
+function Resume:linkedAppsBadges()
+    return createBadgeList(self, 10)
+end
+
+function Resume:hasMoreApps()
+    return #(self.applicationIds or {}) > 5
+end
+
+function Resume:noMoreApps()
+    return not self:hasMoreApps()
+end
+
+function Resume:moreAppsCount()
+    local total = #(self.applicationIds or {})
+    return total - 5
+end
+
+function Resume:previewUrl()
+    return "/job-tracker-storage/resumes/" .. self.filename
+end
+
+function Resume:filePath()
+    return RESUMES_DIR .. "/" .. self.filename
+end
+
+function Resume:unlinkApp(app)
+    if not app then return end
+    local newIds = {}
+    for _, id in ipairs(self.applicationIds or {}) do
+        if id ~= app.id then
+            table.insert(newIds, id)
+        end
+    end
+    self.applicationIds = newIds
+    self.dateModified = today()
+    jobTracker:saveData()
+end
+
+function Resume:linkApp(app)
+    if not app then return end
+    self.applicationIds = self.applicationIds or {}
+    table.insert(self.applicationIds, app.id)
+    self.dateModified = today()
+    jobTracker:saveData()
+end
+
+function Resume:deleteMe()
+    jobTracker:deleteSelectedResume()
+end
+
+-- ResumeBadge methods
+function ResumeBadge:company()
+    return self.app and self.app.company or ""
+end
+
+function ResumeBadge:goToApp()
+    if self.app then
+        jobTracker:selectApp(self.app)
+    end
+end
+
+function ResumeBadge:unlinkMe()
+    if self.resume and self.app then
+        self.resume:unlinkApp(self.app)
+    end
 end
 
 -- TimelineEvent methods

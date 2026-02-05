@@ -28,3 +28,4 @@ node_modules
 /.ui/apps/*/.fslckout
 /.ui/.eventpid
 /apps/job-tracker/data.json
+/.ui/html/*-storage

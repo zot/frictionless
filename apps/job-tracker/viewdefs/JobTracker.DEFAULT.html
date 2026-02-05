@@ -40,6 +40,14 @@
       text-transform: uppercase;
     }
 
+    .jt-header-title {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--term-text);
+    }
+
     /* Filter bar */
     .jt-filters {
       display: flex;
@@ -515,6 +523,185 @@
       width: 200px;
     }
 
+    /* Resume select in detail view */
+    .jt-resume-select {
+      margin-top: 12px;
+    }
+
+    .jt-resume-select sl-select {
+      width: 250px;
+    }
+
+    .jt-resume-select sl-select::part(listbox) {
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+    }
+
+    .jt-resume-select sl-option::part(base) {
+      background: var(--term-bg);
+      color: var(--term-text);
+    }
+
+    .jt-resume-select sl-option::part(base):hover {
+      background: var(--term-bg-hover);
+    }
+
+    .jt-resume-select sl-option[aria-selected="true"]::part(base) {
+      background: var(--term-accent-dim);
+      color: var(--term-text);
+    }
+
+    /* Resume View */
+    .jt-resume-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .jt-resume-list {
+      height: 210px;
+      min-height: 210px;
+      max-height: 210px;
+      overflow-y: auto;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-resume-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--term-border);
+      transition: background 0.15s;
+    }
+
+    .jt-resume-item:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .jt-resume-item.selected {
+      background: linear-gradient(90deg, var(--term-accent-dim) 0%, transparent 100%);
+      border-left: 4px solid var(--term-accent);
+    }
+
+    .jt-resume-name {
+      flex: 1;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .jt-resume-badges {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .jt-resume-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 6px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    .jt-resume-badge-company {
+      cursor: pointer;
+    }
+
+    .jt-resume-badge-company:hover {
+      color: var(--term-accent);
+    }
+
+    .jt-resume-badge-remove {
+      cursor: pointer;
+      color: var(--term-text-dim);
+      margin-left: 2px;
+    }
+
+    .jt-resume-badge-remove:hover {
+      color: var(--term-danger, #c00);
+    }
+
+    .jt-resume-links-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--term-bg-elevated);
+      border-bottom: 1px solid var(--term-border);
+      flex-wrap: wrap;
+    }
+
+    .jt-resume-link-picker {
+      position: relative;
+    }
+
+    .jt-resume-link-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 10;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .jt-resume-link-option {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--term-border);
+    }
+
+    .jt-resume-link-option:last-child {
+      border-bottom: none;
+    }
+
+    .jt-resume-link-option:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .jt-resume-preview {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .jt-resume-preview iframe {
+      flex: 1;
+      border: none;
+      background: #fff;
+    }
+
+    .jt-resume-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--term-text-dim);
+      font-style: italic;
+    }
+
+    .jt-resume-chat-area {
+      flex-shrink: 0;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      background: var(--term-bg-elevated);
+    }
+
     /* Application list items */
     .jt-app-item {
       display: grid;
@@ -752,9 +939,11 @@
           <sl-button variant="default" size="small" ui-action="reload()" title="Reload data from disk">
             <sl-icon name="arrow-clockwise"></sl-icon>
           </sl-button>
+          <sl-button variant="default" size="small" ui-action="showResumeView()" title="Manage resumes">
+            <sl-icon name="file-earmark-person"></sl-icon>
+          </sl-button>
           <sl-button variant="primary" size="small" ui-action="showAddForm()">
-            <sl-icon slot="prefix" name="plus-lg"></sl-icon>
-            Add
+            <sl-icon name="plus-lg"></sl-icon>
           </sl-button>
         </div>
       </div>
@@ -791,10 +980,13 @@
     <!-- Detail View -->
     <div class="jt-detail jt-view-content" ui-class-hidden="notDetailView()">
       <div class="jt-detail-header">
-        <sl-button variant="text" size="small" ui-action="showList()">
-          <sl-icon slot="prefix" name="arrow-left"></sl-icon>
-          Back
-        </sl-button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <sl-button variant="text" size="small" ui-action="showList()">
+            <sl-icon slot="prefix" name="arrow-left"></sl-icon>
+            Back
+          </sl-button>
+          <span class="jt-header-title" ui-value="selected.company"></span>
+        </div>
         <div class="jt-header-actions">
           <!-- Attachment change indicators (shown when attachments modified) -->
           <sl-tooltip content="Attachments changed - click to save" ui-class-hidden="selected.noAttachmentsChanged()">
@@ -818,7 +1010,6 @@
       </div>
 
       <div class="jt-detail-info">
-        <div class="jt-detail-company" ui-value="selected.company"></div>
         <div class="jt-detail-position" ui-value="selected.position"></div>
 
         <div class="jt-status-select">
@@ -852,6 +1043,14 @@
             <sl-icon name="building"></sl-icon>
             <span ui-value="selected.hqAddress"></span>
           </span>
+        </div>
+
+        <!-- Resume Link -->
+        <div class="jt-resume-select">
+          <sl-select size="small" placeholder="Link resume..." ui-value="selected.selectedResumeId" ui-event-sl-input="selected.changeResume()" clearable>
+            <sl-icon slot="prefix" name="file-earmark-person"></sl-icon>
+            <span ui-view="resumes()?wrapper=lua.ViewList" ui-namespace="resume-option"></span>
+          </sl-select>
         </div>
 
         <!-- Notes Section -->
@@ -931,10 +1130,14 @@
     <!-- Form View -->
     <div class="jt-form jt-view-content" ui-class-hidden="notFormView()">
       <div class="jt-form-header">
-        <sl-button variant="text" size="small" ui-action="cancelForm()">
-          <sl-icon slot="prefix" name="x-lg"></sl-icon>
-          Cancel
-        </sl-button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <sl-button variant="text" size="small" ui-action="cancelForm()">
+            <sl-icon slot="prefix" name="arrow-left"></sl-icon>
+            Back
+          </sl-button>
+          <span class="jt-header-title" ui-class-hidden="isFormModeEdit()">ADD APPLICATION</span>
+          <span class="jt-header-title" ui-class-hidden="isFormModeAdd()">EDIT APPLICATION</span>
+        </div>
         <sl-button variant="primary" size="small" ui-action="saveForm()" ui-attr-disabled="formData.noChanges()">
           <sl-icon slot="prefix" name="check-lg"></sl-icon>
           Save
@@ -983,8 +1186,124 @@
       </div>
     </div>
 
-    <!-- Chat FAB (visible on all screens when chat closed) -->
-    <div class="jt-chat-fab" ui-class-hidden="chatPanelOpen" ui-event-click="toggleChatPanel()">
+    <!-- Resume View -->
+    <div class="jt-resume-view jt-view-content" ui-class-hidden="notResumeView()">
+      <div class="jt-detail-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <sl-button variant="text" size="small" ui-action="showList()">
+            <sl-icon slot="prefix" name="arrow-left"></sl-icon>
+            Back
+          </sl-button>
+          <span class="jt-header-title">RESUMES</span>
+        </div>
+        <div class="jt-header-actions">
+          <sl-button variant="default" size="small" ui-action="reload()" title="Reload data from disk">
+            <sl-icon name="arrow-clockwise"></sl-icon>
+          </sl-button>
+          <sl-button variant="default" size="small" ui-action="createResume()">
+            <sl-icon slot="prefix" name="plus-lg"></sl-icon>
+            New
+          </sl-button>
+          <sl-button variant="default" size="small" ui-action="showMaster()">
+            <sl-icon slot="prefix" name="file-earmark-text"></sl-icon>
+            Master
+          </sl-button>
+        </div>
+      </div>
+
+      <!-- Resume List (6 items visible) -->
+      <div class="jt-resume-list">
+        <div ui-view="resumes()?wrapper=lua.ViewList"></div>
+        <div class="jt-empty" ui-class-hidden="hasResumes()">No resumes yet. Click "New" to create one from the master template.</div>
+      </div>
+
+      <!-- Linked Apps Badges Bar (shown when resume selected) -->
+      <div class="jt-resume-links-bar" ui-class-hidden="noSelectedResume()">
+        <div ui-view="selectedResume.linkedAppsBadges()?wrapper=lua.ViewList"></div>
+        <div class="jt-resume-link-picker">
+          <sl-button size="small" variant="text" ui-action="toggleLinkPicker()">
+            <sl-icon slot="prefix" name="link-45deg"></sl-icon>
+            Link
+          </sl-button>
+          <div class="jt-resume-link-dropdown" ui-class-hidden="isLinkPickerHidden()">
+            <div class="jt-resume-link-option" ui-repeat="unlinkableApps()" ui-event-click="linkToSelectedResume()">
+              <span ui-value="company"></span> - <span ui-value="position"></span>
+            </div>
+            <div class="jt-resume-link-option" ui-class-hidden="hasUnlinkableApps()" style="color: var(--term-text-dim); cursor: default;">
+              No unlinked applications
+            </div>
+          </div>
+        </div>
+        <sl-button size="small" variant="danger" ui-action="deleteSelectedResume()" style="margin-left: auto;">
+          <sl-icon name="trash"></sl-icon>
+        </sl-button>
+      </div>
+
+      <!-- Preview Area -->
+      <div class="jt-resume-preview">
+        <iframe ui-attr-src="currentResumePreviewUrl()" ui-class-hidden="hideResumePreview()"></iframe>
+        <div class="jt-resume-empty" ui-class-hidden="showResumePreview()">
+          Select a resume to preview, or click "Master" to view the master resume.
+        </div>
+      </div>
+
+      <!-- Resume Chat Area -->
+      <div class="jt-resume-chat-area" ui-class-hidden="resumeChatPanelHidden()">
+        <div class="jt-chat-output">
+          <div ui-view="resumeChatMessages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          <div class="jt-chat-empty" ui-class-hidden="hasResumeChatMessages()">No messages yet</div>
+        </div>
+        <div class="jt-chat-input-row">
+          <div class="jt-chat-input">
+            <sl-textarea
+              placeholder="Chat with Claude about this resume..."
+              rows="1"
+              resize="auto"
+              ui-value="resumeChatInput"
+              ui-event-keypress-enter="submitResumeChat()?priority=low"
+            ></sl-textarea>
+          </div>
+          <div class="jt-chat-actions">
+            <sl-button variant="text" size="large" ui-action="clearResumeChat()" title="Clear chat">
+              <sl-icon name="trash"></sl-icon>
+            </sl-button>
+            <div class="jt-chat-close" ui-event-click="toggleResumeChatPanel()" title="Close chat">
+              <sl-icon name="x-lg"></sl-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resume Chat FAB -->
+      <div class="jt-chat-fab" ui-class-hidden="resumeChatPanelOpen" ui-event-click="toggleResumeChatPanel()">
+        <sl-icon name="chat-dots"></sl-icon>
+      </div>
+    </div>
+
+    <!-- Delete Resume Confirmation Dialog -->
+    <sl-dialog label="Delete Resume" class="jt-warning-dialog" ui-attr-open="isDeleteResumeDialogVisible()">
+      <div class="jt-warning-content">
+        <div class="jt-warning-icon">
+          <sl-icon name="exclamation-triangle"></sl-icon>
+        </div>
+        <div class="jt-warning-text">
+          <div class="jt-warning-title">Delete this resume?</div>
+          <div class="jt-warning-desc">
+            This will permanently delete the resume file. Any applications linked to it will be unlinked.
+          </div>
+        </div>
+      </div>
+      <div slot="footer" class="jt-dialog-footer">
+        <sl-button class="jt-btn-cancel" ui-action="cancelDeleteResume()">Cancel</sl-button>
+        <sl-button class="jt-btn-revert" ui-action="confirmDeleteResume()">
+          <sl-icon slot="prefix" name="trash"></sl-icon>
+          Delete
+        </sl-button>
+      </div>
+    </sl-dialog>
+
+    <!-- Chat FAB (visible on all screens when chat closed, except resume view) -->
+    <div class="jt-chat-fab" ui-class-hidden="hideChatFabForResume()" ui-event-click="toggleChatPanel()">
       <sl-icon name="chat-dots"></sl-icon>
     </div>
 

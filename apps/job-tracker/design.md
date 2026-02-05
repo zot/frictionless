@@ -2,14 +2,26 @@
 
 ## Intent
 
-Track job applications through the hiring pipeline. View application list, see details with embedded job posting, manage status, and maintain activity timeline.
+Track job applications through the hiring pipeline. View application list, see details with embedded job posting, manage status, and maintain activity timeline. Manage resume variants linked to applications.
+
+## UI Convention: Header Titles
+
+Context/title goes in the header bar after the back button, not in a separate row below.
+
+**Pattern:** `<- Back  TITLE  [actions]`
+
+Examples:
+- List view: `Job Tracker  [Reload][Resume][+]`
+- Detail view: `<- Back  Acme Corp  [Edit][Delete]`
+- Form view: `<- Back  ADD APPLICATION  [Save]`
+- Resume view: `<- Back  RESUMES  [+ New][Master]`
 
 ## Layout
 
 ### List View (Default)
 ```
 +------------------------------------------+
-|  Job Tracker              [Reload][+ Add]|
+| Job Tracker           [Reload][Resume][+]|
 +------------------------------------------+
 | [All] [Active] [Offers] [Archived]       |
 +------------------------------------------+
@@ -51,14 +63,14 @@ A floating action button (FAB) appears in the bottom-right corner above the stat
 ### Detail View
 ```
 +------------------------------------------+
-| <- Back           [✓][↺][Edit][Delete]   |
+| <- Back  Acme Corp  [✓][↺][Edit][Delete] |
 +------------------------------------------+
-| Acme Corp                                |
 | Senior Software Engineer                 |
 | Status: [Phone Screen v]                 |
 +------------------------------------------+
 | Applied: Jan 15 | Remote | $180-220k     |
 | HQ: San Francisco, CA                    |
+| Resume: [AI Engineer 2026 v]             |
 +------------------------------------------+
 | [Notes (empty)]  <- collapsible section  |
 +------------------------------------------+
@@ -82,11 +94,12 @@ Legend:
 - `[✓]` = Save attachments (shown when attachments changed)
 - `[↺]` = Revert attachments (shown when attachments changed)
 - `[x]` = Delete attachment button
+- Resume dropdown shows all resumes + "(none)" option
 
 ### Add/Edit Form
 ```
 +------------------------------------------+
-| <- Cancel                        [Save]  |
+| <- Back  ADD APPLICATION         [Save]  |
 +------------------------------------------+
 | Company: [_______________]               |
 | Position: [______________]               |
@@ -99,6 +112,48 @@ Legend:
 | [                                      ] |
 +------------------------------------------+
 ```
+
+Title shows "ADD APPLICATION" or "EDIT APPLICATION" based on formMode.
+
+### Resume View
+```
++------------------------------------------+
+| <- Back  RESUMES          [+ New][Master]|
++------------------------------------------+
+| > AI Engineer        [Anthropic][Google] |
+|   Full Stack 2026    [JuliaHub][Stripe]  |
+|   Backend Focused                        |
+|   Startup Generalist [Acme]              |
+|   ...                                    |
+|   (scrollable, 6 visible)                |
++------------------------------------------+
+| [Anthropic x][Google x][Meta x] [+ Link] |
++------------------------------------------+
+|  ┌────────────────────────────────────┐  |
+|  │  Bill Burdick                      │  |
+|  │  Software Architect...             │  |
+|  │                                    │  |
+|  │  (HTML preview of selected .md)    │  |
+|  │  (rendered via iframe)             │  |
+|  └────────────────────────────────────┘  |
++------------------------------------------+
+| [Chat with Claude about this resume...]  |
++==========================================+
+|  Claude: I can help tailor this...       |
++------------------------------------------+
+| [Type here...]                           |
++------------------------------------------+
+```
+
+Legend:
+- List shows 6 resumes, scrollable
+- Each resume shows name + up to 5 company badges (linked apps)
+- Selected resume shows all linked app badges above preview
+- `[x]` in badge removes the link
+- `[+ Link]` opens picker to add application link
+- `[+ New]` creates resume from master template
+- `[Master]` shows master resume in preview
+- Chat panel for Claude-assisted editing
 
 ## Data Model
 
@@ -122,6 +177,14 @@ Legend:
 | selectedStatus | string | Status value for detail view dropdown (synced with selected.status) |
 | _fileUploadData | string | JS-to-Lua bridge for file uploads |
 | showAttachmentWarning | boolean | Show warning dialog when leaving with unsaved attachments |
+| _resumes | Resume[] | All resume instances |
+| selectedResume | Resume | Currently selected resume (nil for master) |
+| showMasterResume | boolean | Whether showing master resume in preview |
+| resumeChatInput | string | Chat input for resume view |
+| resumeChatMessages | ChatMessage[] | Chat history for resume view |
+| resumeChatPanelOpen | boolean | Whether resume chat panel is open |
+| showDeleteResumeDialog | boolean | Show confirm dialog for resume deletion |
+| showLinkPicker | boolean | Show application link picker |
 
 ### Application
 
@@ -142,6 +205,18 @@ Legend:
 | timeline | TimelineEvent[] | Activity timeline |
 | _attachmentsCache | Attachment[] | Cached list of attachments |
 | attachmentsChanged | boolean | Whether attachments have been modified |
+| resumeId | number | Linked resume ID (nil if none) |
+
+### Resume
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | number | Sequential ID |
+| name | string | Display name (e.g., "AI Engineer 2026") |
+| filename | string | Markdown filename (e.g., "ai-engineer-2026.md") |
+| applicationIds | number[] | Linked application IDs |
+| dateCreated | string | Date created (ISO) |
+| dateModified | string | Date modified (ISO) |
 
 ### FormData
 
@@ -206,6 +281,35 @@ Legend:
 | deleteMe() | Delete this attachment |
 | icon() | Returns icon name based on file extension |
 | downloadUrl() | Returns file:// URL for download |
+
+### Resume
+
+| Method | Description |
+|--------|-------------|
+| selectMe() | Select this resume in jobTracker |
+| isSelected() | Returns self == jobTracker.selectedResume |
+| linkedApps() | Returns array of linked Application objects |
+| linkedAppsBadges(max) | Returns up to max linked apps for display |
+| hasMoreApps(max) | Returns true if more than max linked apps |
+| moreAppsCount(max) | Returns count of apps beyond max |
+| previewUrl() | Returns URL for iframe preview |
+| filePath() | Returns full path to markdown file |
+| unlinkApp(app) | Remove app from applicationIds |
+| linkApp(app) | Add app to applicationIds |
+| deleteMe() | Delete resume (with confirmation) |
+
+### ResumeBadge
+
+| Field | Type | Description |
+|-------|------|-------------|
+| app | Application | The linked application |
+| resume | Resume | Parent resume |
+
+| Method | Description |
+|--------|-------------|
+| company() | Returns app.company |
+| goToApp() | Navigate to application detail view |
+| unlinkMe() | Remove this app from resume's links |
 
 ## Status Values
 
@@ -286,6 +390,37 @@ Legend:
 | positionIcon() | Returns sortIcon("position") |
 | statusIcon() | Returns sortIcon("status") |
 | dateIcon() | Returns sortIcon("date") |
+| showResumeView() | Show resume view |
+| isResumeView() | Returns view == "resume" |
+| notResumeView() | Returns view ~= "resume" |
+| resumes() | Returns _resumes array |
+| selectResume(resume) | Select a resume for preview |
+| showMaster() | Show master resume in preview |
+| isShowingMaster() | Returns showMasterResume |
+| notShowingMaster() | Returns not showMasterResume |
+| createResume() | Create new resume from master template |
+| deleteSelectedResume() | Delete selected resume (shows confirm) |
+| confirmDeleteResume() | Confirm and delete resume |
+| cancelDeleteResume() | Cancel delete dialog |
+| isDeleteResumeDialogVisible() | Returns showDeleteResumeDialog |
+| isDeleteResumeDialogHidden() | Returns not showDeleteResumeDialog |
+| toggleLinkPicker() | Toggle application link picker |
+| isLinkPickerVisible() | Returns showLinkPicker |
+| isLinkPickerHidden() | Returns not showLinkPicker |
+| unlinkableApps() | Returns apps not linked to selected resume |
+| linkAppToResume(app) | Link app to selected resume |
+| submitResumeChat() | Send resumeChatInput to Claude via pushState |
+| toggleResumeChatPanel() | Toggle resumeChatPanelOpen |
+| clearResumeChat() | Clear resume chat messages |
+| addResumeChatMessage(role, content) | Add message to resumeChatMessages |
+| resumeChatPanelHidden() | Returns not resumeChatPanelOpen |
+| hasResumeChatMessages() | Returns resumeChatMessages has items |
+| noResumeChatMessages() | Returns resumeChatMessages is empty |
+| currentResumePreviewUrl() | Returns URL for current preview (selected or master) |
+| hasSelectedResume() | Returns selectedResume ~= nil |
+| noSelectedResume() | Returns selectedResume == nil |
+| loadResumes() | Load resumes from data.json |
+| saveResumes() | Save resumes to data.json |
 
 ### Application
 
@@ -316,6 +451,12 @@ Legend:
 | hasAttachmentsChanged() | Returns attachmentsChanged |
 | noAttachmentsChanged() | Returns not attachmentsChanged |
 | appliedDateDisplay() | Returns formatted date applied |
+| linkedResume() | Returns Resume linked to this app (or nil) |
+| hasLinkedResume() | Returns resumeId ~= nil |
+| noLinkedResume() | Returns resumeId == nil |
+| resumeOptions() | Returns all resumes for dropdown |
+| changeResume() | Update resumeId from selectedResumeId dropdown |
+| selectedResumeId | string | Dropdown value for resume selection |
 
 ### TimelineEvent
 
@@ -328,11 +469,13 @@ Legend:
 
 | File | Type | Purpose |
 |------|------|---------|
-| JobTracker.DEFAULT.html | JobTracker | Main layout with list/detail/form views |
+| JobTracker.DEFAULT.html | JobTracker | Main layout with list/detail/form/resume views |
 | JobTracker.Application.list-item.html | Application | Row in application list |
 | JobTracker.TimelineEvent.list-item.html | TimelineEvent | Row in timeline |
 | JobTracker.ChatMessage.list-item.html | ChatMessage | Message in chat output panel |
 | JobTracker.Attachment.list-item.html | Attachment | Row in attachments list |
+| JobTracker.Resume.list-item.html | Resume | Row in resume list (with badges) |
+| JobTracker.ResumeBadge.list-item.html | ResumeBadge | Badge showing linked app |
 
 ## Events
 
@@ -347,6 +490,27 @@ Legend:
 | Event | Action |
 |-------|--------|
 | `chat` | Handle as URL or general chat (see below). **Note:** Lua already adds the user message to chat history, so Claude only adds the assistant response. |
+| `resume_chat` | Chat about a resume (see below). **Note:** Lua already adds the user message to resumeChatMessages, so Claude only adds the assistant response. |
+
+#### Resume Chat Handling
+
+When receiving a `resume_chat` event:
+
+1. **Read context:**
+   - `resumeId` - The resume being discussed (nil for master)
+   - `text` - The user's message
+   - Read the resume markdown file (master or specific)
+   - If resume has linked apps, read their details for context
+
+2. **Handle request:**
+   - If user asks to edit, modify the markdown file directly
+   - If user asks to tailor for a job, read the linked application details
+   - Provide suggestions, make edits, answer questions
+
+3. **Respond:**
+   ```lua
+   jobTracker:addResumeChatMessage("assistant", "response text")
+   ```
 
 #### URL Chat Handling
 
@@ -378,7 +542,11 @@ When the chat text is a URL (job posting link):
 ```
 .ui/storage/job-tracker/
 ├── data/
-│   ├── data.json           # Application data
+│   ├── data.json           # Application data + resume metadata
+│   ├── master-resume.md    # Master resume template
+│   ├── resumes/            # Resume variants
+│   │   ├── ai-engineer-2026.md
+│   │   └── full-stack-2026.md
 │   └── jobs/
 │       ├── 0001/           # Attachments for app ID 1
 │       │   ├── resume.pdf
@@ -386,6 +554,21 @@ When the chat text is a URL (job posting link):
 │       └── 0002/           # Attachments for app ID 2
 └── data.fossil             # Fossil repo for version control
 ```
+
+### HTML Serving Symlinks
+
+To render markdown as HTML in iframes, a symlink is created on app initialization:
+```
+.ui/html/job-tracker-storage -> .ui/storage/job-tracker/data
+```
+
+Preview URLs:
+- Master resume: `/job-tracker-storage/master-resume.md`
+- Resume variant: `/job-tracker-storage/resumes/ai-engineer-2026.md`
+
+The ui-engine auto-renders `.md` files as HTML when served.
+
+**Implementation:** The symlink is created in the app's init code (not manually) so it works for all users who install the app. The `JobTracker:new()` method calls `ensureStorageSymlink()` which creates the symlink if it doesn't exist.
 
 ### Loading
 On app init, call `loadData()` which reads `.ui/storage/job-tracker/data/data.json` using Lua `io.open`.
@@ -413,9 +596,20 @@ Files are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is th
       "salaryMin": 180000,
       "salaryMax": 220000,
       "notes": "",
+      "resumeId": 1,
       "timeline": [
         {"date": "2025-01-15", "event": "added", "note": "Added application"}
       ]
+    }
+  ],
+  "resumes": [
+    {
+      "id": 1,
+      "name": "AI Engineer 2026",
+      "filename": "ai-engineer-2026.md",
+      "applicationIds": [1, 3, 5],
+      "dateCreated": "2026-01-15",
+      "dateModified": "2026-01-20"
     }
   ]
 }
