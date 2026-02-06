@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><title>Redirecting...</title></head>
+<body>
+<script>
+localStorage.setItem('playwright', 'true');
+var target = new URLSearchParams(window.location.search).get('url');
+if (target) {
+    window.location.replace(target);
+} else {
+    document.body.textContent = 'Missing ?url= parameter';
+}
+</script>
+</body>
+</html>

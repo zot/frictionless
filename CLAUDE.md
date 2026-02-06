@@ -22,6 +22,9 @@ make build                    # Creates build/frictionless with bundled files
 From the project directory, this command runs the mcp `./build/frictionless mcp --port 8000 --dir .ui -vvvv`
 You can use the playwright browser to connect to it.
 
+### JSON parsing
+Use `jq` for parsing JSON from tool outputs and command results. Don't use python3 one-liners for JSON extraction.
+
 ## When committing
 1. Check git status and diff to analyze changes
 2. Ask about any new files to ensure test/temp files aren't added accidentally

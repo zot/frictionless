@@ -1192,6 +1192,16 @@ function Application:changeResume()
     jobTracker:saveData()
 end
 
+function Application:goToResume()
+    if self.resumeId then
+        local resume = jobTracker:findResumeById(self.resumeId)
+        if resume then
+            jobTracker:showResumeView()
+            jobTracker:selectResume(resume)
+        end
+    end
+end
+
 -- Link this application to the currently selected resume
 function Application:linkToSelectedResume()
     if jobTracker.selectedResume then

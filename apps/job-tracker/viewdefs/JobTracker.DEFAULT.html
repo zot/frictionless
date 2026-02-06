@@ -8,6 +8,7 @@
       background: var(--term-bg);
       color: var(--term-text);
       font-family: var(--term-mono);
+      position: relative;
     }
 
     .jt-view-content {
@@ -526,6 +527,9 @@
     /* Resume select in detail view */
     .jt-resume-select {
       margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .jt-resume-select sl-select {
@@ -860,10 +864,10 @@
      border-bottom: 1px solid var(--term-border);
    }
 
-   /* Chat FAB - fixed position */
+   /* Chat FAB - absolute within job-tracker container */
    .jt-chat-fab {
-     position: fixed;
-     bottom: 52px;
+     position: absolute;
+     bottom: 12px;
      right: 20px;
      width: 48px;
      height: 48px;
@@ -1050,6 +1054,9 @@
             <sl-icon slot="prefix" name="file-earmark-person"></sl-icon>
             <span ui-view="resumes()?wrapper=lua.ViewList" ui-namespace="resume-option"></span>
           </sl-select>
+          <sl-button size="small" variant="text" ui-event-click="selected.goToResume()" ui-class-hidden="selected.noLinkedResume()" title="Go to resume">
+            <sl-icon name="box-arrow-up-right"></sl-icon>
+          </sl-button>
         </div>
 
         <!-- Notes Section -->
