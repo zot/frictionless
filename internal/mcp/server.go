@@ -420,10 +420,15 @@ func (s *Server) Start() (string, error) {
 		return "", err
 	}
 
-	// Inject theme block into index.html
+	// Inject theme block into index.html and watch for external overwrites
 	// Seq: seq-theme-inject.md
 	if err := InjectThemeBlock(s.baseDir); err != nil {
 		s.cfg.Log(0, "Warning: failed to inject theme block: %v", err)
+	}
+	if stopWatch, err := WatchIndexHTML(s.baseDir, s.cfg.Log); err != nil {
+		s.cfg.Log(0, "Warning: failed to watch index.html: %v", err)
+	} else {
+		_ = stopWatch // Watcher runs for server lifetime
 	}
 
 	// Update state after successful start

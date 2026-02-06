@@ -2,10 +2,8 @@
   <div class="jt-resume-item" ui-class-selected="isSelected()" ui-event-click="selectMe()">
     <span class="jt-resume-name" ui-value="name"></span>
     <div class="jt-resume-badges">
-      <span class="jt-resume-badge" ui-repeat="linkedAppsBadges5()">
-        <span class="jt-resume-badge-company" ui-value="company()"></span>
-      </span>
-      <span class="jt-resume-badge" ui-class-hidden="noMoreApps()">
+      <span ui-view="linkedAppsBadges5()?wrapper=lua.ViewList"></span>
+      <span class="jt-badge-more" ui-class-hidden="noMoreApps()">
         +<span ui-value="moreAppsCount()"></span>
       </span>
     </div>

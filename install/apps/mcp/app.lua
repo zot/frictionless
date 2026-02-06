@@ -2,6 +2,8 @@
 -- Outer shell for all ui-mcp apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
+local json = require('mcp.json')
+
 -- Filesystem helpers
 
 local function fileExists(path)

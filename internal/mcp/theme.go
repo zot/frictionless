@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // ThemeFrontmatter represents theme metadata parsed from CSS comments
@@ -253,6 +255,67 @@ func InjectThemeBlock(baseDir string) error {
 	newHTML := html[:insertPos] + "\n" + block + html[insertPos:]
 
 	return os.WriteFile(indexPath, []byte(newHTML), 0644)
+}
+
+// HasThemeBlock checks if index.html already contains the frictionless theme block.
+// Seq: seq-theme-inject.md
+func HasThemeBlock(baseDir string) bool {
+	indexPath := filepath.Join(baseDir, "html", "index.html")
+	content, err := os.ReadFile(indexPath)
+	if err != nil {
+		return false
+	}
+	return frictionlessBlockPattern.Match(content)
+}
+
+// WatchIndexHTML watches index.html for external writes and re-injects the theme block if missing.
+// Seq: seq-theme-inject.md
+func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ...interface{})) (func(), error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("creating watcher: %w", err)
+	}
+
+	indexPath := filepath.Join(baseDir, "html", "index.html")
+
+	// Watch the directory (not the file) because editors and build tools
+	// often replace files atomically (write tmp + rename), which removes the watch.
+	watchDir := filepath.Join(baseDir, "html")
+	if err := watcher.Add(watchDir); err != nil {
+		watcher.Close()
+		return nil, fmt.Errorf("watching %s: %w", watchDir, err)
+	}
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Name != indexPath {
+					continue
+				}
+				if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+					continue
+				}
+				if HasThemeBlock(baseDir) {
+					continue
+				}
+				logFn(2, "index.html changed without theme block, re-injecting")
+				if err := InjectThemeBlock(baseDir); err != nil {
+					logFn(0, "Warning: failed to re-inject theme block: %v", err)
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				logFn(0, "Warning: index.html watcher error: %v", err)
+			}
+		}
+	}()
+
+	return func() { watcher.Close() }, nil
 }
 
 // GenerateThemeBlock creates the HTML block to inject into index.html

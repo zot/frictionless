@@ -67,9 +67,41 @@ Server startup injects theme support into index.html.
 <!-- /frictionless -->
 ```
 
+## Scenario 2: File Watcher Re-injection
+
+After startup, the server watches `index.html` for writes. When an external process
+(e.g., `make cache`) overwrites the file, the watcher re-injects the theme block.
+
+```
+┌──────────┐    ┌──────────────┐    ┌────────────┐
+│ fsnotify │    │ThemeManager  │    │ FileSystem │
+└────┬─────┘    └──────┬───────┘    └─────┬──────┘
+     │                 │                  │
+     │ Write event     │                  │
+     ├────────────────>│                  │
+     │                 │                  │
+     │                 │ Read index.html  │
+     │                 ├─────────────────>│
+     │                 │<─────────────────┤
+     │                 │                  │
+     │                 │ Has #frictionless│
+     │                 │ block?           │
+     │                 ├─┐                │
+     │                 │ │ No             │
+     │                 │<┘                │
+     │                 │                  │
+     │                 │ InjectThemeBlock │
+     │                 ├─────────────────>│
+     │                 │<─────────────────┤
+     │                 │                  │
+```
+
+If block is already present, the watcher does nothing.
+
 ## Notes
 
 - Block injected at start of `<head>` (after opening tag)
 - Script runs before CSS loads to prevent flash
 - base.css always first, then themes alphabetically
 - Existing block removed before injection (idempotent)
+- File watcher ensures block survives external overwrites (e.g., ui-engine updates)

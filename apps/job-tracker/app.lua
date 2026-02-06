@@ -330,6 +330,32 @@ function JobTracker:loadData()
             table.insert(self._resumes, resume)
         end
     end
+
+    -- Repair bidirectional links: ensure resume.applicationIds matches app.resumeId
+    self:repairResumeLinks()
+end
+
+-- Repair bidirectional links between apps and resumes
+function JobTracker:repairResumeLinks()
+    local dirty = false
+    for _, app in ipairs(self._applications) do
+        if app.resumeId then
+            local resume = self:findResumeById(app.resumeId)
+            if resume then
+                -- Check if app is already in resume's list
+                local found = false
+                for _, id in ipairs(resume.applicationIds or {}) do
+                    if id == app.id then found = true; break end
+                end
+                if not found then
+                    resume.applicationIds = resume.applicationIds or {}
+                    table.insert(resume.applicationIds, app.id)
+                    dirty = true
+                end
+            end
+        end
+    end
+    if dirty then self:saveData() end
 end
 
 -- Reload data from disk (for when user edits data.json externally)
@@ -829,6 +855,13 @@ function JobTracker:notResumeView() return self.view ~= "resume" end
 
 function JobTracker:resumes() return self._resumes end
 
+function JobTracker:findResumeById(id)
+    for _, resume in ipairs(self._resumes) do
+        if resume.id == id then return resume end
+    end
+    return nil
+end
+
 function JobTracker:selectResume(resume)
     self.selectedResume = resume
     self.showMasterResume = false
@@ -1135,10 +1168,26 @@ end
 
 function Application:changeResume()
     local newId = self.selectedResumeId
+    local oldResumeId = self.resumeId
+
+    -- Unlink from old resume if any
+    if oldResumeId then
+        local oldResume = jobTracker:findResumeById(oldResumeId)
+        if oldResume then
+            oldResume:unlinkApp(self)
+        end
+    end
+
+    -- Set new resumeId
     if newId == "" then
         self.resumeId = nil
     else
         self.resumeId = tonumber(newId)
+        -- Link to new resume
+        local newResume = jobTracker:findResumeById(self.resumeId)
+        if newResume then
+            newResume:linkApp(self)
+        end
     end
     jobTracker:saveData()
 end
@@ -1265,6 +1314,10 @@ end
 function Resume:linkApp(app)
     if not app then return end
     self.applicationIds = self.applicationIds or {}
+    -- Check for duplicates
+    for _, id in ipairs(self.applicationIds) do
+        if id == app.id then return end
+    end
     table.insert(self.applicationIds, app.id)
     self.dateModified = today()
     jobTracker:saveData()

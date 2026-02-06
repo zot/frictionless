@@ -132,6 +132,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 | `ui-action="fn()"` on div | `ui-event-click="fn()"` on div |
 | `ui-class="hidden:expr"` | `ui-class-hidden="expr"` |
 | `<sl-checkbox ui-value="done">` | `<sl-checkbox ui-attr-checked="done">` |
+| `<sl-select ui-event-sl-change="...">` | `<sl-select ui-event-sl-input="...">` (sl-change doesn't fire) |
 | `<style>` in list-item viewdef | Put styles in top-level viewdef |
 | Operators in paths (`!value`) | Use methods (`isHidden()`) |
 
@@ -165,7 +166,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 <!-- Input --> <sl-input ui-value="email" label="Email"></sl-input>
 <!-- Live --> <sl-input ui-value="search?keypress">
 <!-- Button --> <sl-button ui-action="save()">Save</sl-button>
-<!-- Select or Dropdown --> <sl-select ui-value="status"><sl-option value="a">A</sl-option></sl-select>
+<!-- Select or Dropdown --> <sl-select ui-value="status" ui-event-sl-input="onStatusChange()"><sl-option value="a">A</sl-option></sl-select>
 <!-- Check --> <sl-checkbox ui-attr-checked="agreed">Agree</sl-checkbox>
 <!-- Switch --> <sl-switch ui-attr-checked="dark">Dark</sl-switch>
 <!-- Rating --> <sl-rating ui-value="stars"></sl-rating>

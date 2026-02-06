@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.15.0**
+**Version: 0.16.0**
 
 **An app ecosystem for Claude. Share the love—or steal it.**
 

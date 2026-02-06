@@ -53,7 +53,7 @@
 - **R40:** Store themes as CSS files in `.ui/html/themes/` with `.theme-{name}` class prefix
 - **R41:** Parse theme metadata from CSS comments (`@theme`, `@class`, `@description`, `@usage`, `@elements`)
 - **R42:** Provide `base.css` with `:root` fallbacks, transitions, and global styles
-- **R43:** On server startup, inject `<!-- #frictionless -->` block into index.html with theme links
+- **R43:** Inject `<!-- #frictionless -->` block into index.html with theme links at startup and whenever the file is overwritten by external processes
 - **R44:** Remove existing frictionless block before injection (idempotent)
 - **R45:** Scan `.ui/html/themes/*.css` for theme files (excluding base.css)
 - **R46:** Generate theme restore script that reads localStorage and sets `<html>` class

@@ -21,14 +21,16 @@ Manages theme CSS files and index.html injection.
 - **ParseThemeCSS(cssContent)**: Extracts all metadata from CSS comment block:
   - `@theme`, `@description` for theme-level metadata
   - `@class` blocks with `@description`, `@usage`, `@elements` attributes
-- **InjectThemeBlock(baseDir)**: Updates index.html with frictionless block
+- **InjectThemeBlock(baseDir)**: Updates index.html with frictionless block (skips if block already present)
 - **GenerateThemeBlock(themes, defaultTheme)**: Generates HTML with script + link elements
+- **WatchIndexHTML(baseDir, log)**: Watches index.html for writes; re-injects theme block if missing
 
 ## Collaborators
 
 - **os/filepath**: File path operations
 - **regexp**: CSS comment parsing
 - **strings**: HTML manipulation
+- **fsnotify**: File system watcher for index.html changes
 
 ## Sequences
 

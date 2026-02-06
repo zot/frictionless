@@ -278,6 +278,37 @@ The spec is the **source of truth**.
 
 ---
 
+# Architecture Balance
+
+Two spectrums to balance:
+- Objects: God Object ←→ Ravioli Objects
+- Viewdefs: Monolithic ←→ Ravioli Viewdefs
+
+**God object signs** (time to extract):
+- 15+ methods mixing concerns on root object
+- Multiple "current selections" (selected, selectedResume, editingItem)
+- Many `selected.X` paths in viewdef (Law of Demeter smell)
+- Proliferating show/hide/is*View methods
+
+**Ravioli signs** (over-factored):
+- Jumping between 5+ files to trace a simple flow
+- Objects/viewdefs with only 2-3 members
+- Factoring for purity rather than benefit
+
+**Extract when:**
+- Sub-object has 10+ bindings in viewdef
+- View has distinct state that should reset on navigation
+- Clear separation of concerns improves maintainability
+
+**Keep together when:**
+- Views share most state
+- UI is tightly coupled to parent layout
+- Separation adds files without clarity
+
+See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
+
+---
+
 # Behavior Location
 
 | Location | Use For | Trade-offs |

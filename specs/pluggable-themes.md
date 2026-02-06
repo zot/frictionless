@@ -43,9 +43,9 @@ A `base.css` file provides:
 - Smooth transition rules between themes
 - Global styles independent of theme
 
-## Server Startup Injection
+## Theme Block Injection
 
-On startup, frictionless injects a `<!-- #frictionless -->` block into `.ui/html/index.html`:
+Frictionless injects a `<!-- #frictionless -->` block into `.ui/html/index.html`:
 
 1. Read index.html
 2. Remove any existing `<!-- #frictionless -->...<!-- /frictionless -->` block
@@ -56,7 +56,12 @@ On startup, frictionless injects a `<!-- #frictionless -->` block into `.ui/html
 5. Inject block at start of `<head>`
 6. Write updated index.html
 
-This approach survives ui-engine updates that replace index.html.
+### When Injection Runs
+
+- **Server startup:** inject once on start (existing behavior)
+- **File watcher:** watch `.ui/html/index.html` for writes and re-inject when modified by external processes (e.g., `make cache` updating ui-engine assets)
+
+The watcher must avoid infinite loops: when InjectThemeBlock itself writes the file, the watcher should not re-trigger. Use a guard flag or check whether the block is already present before injecting.
 
 ## Theme Switching
 
