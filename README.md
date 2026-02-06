@@ -1,11 +1,12 @@
-![App view](docs/images/app-view.jpg)
 # Frictionless
 
 **Version: 0.16.0**
 
-**An app ecosystem for Claude. Share the love—or steal it.**
+**An app ecosystem for Claude. Share the love. Or steal it.**
 
-Chat with Claude, get **fully hot-loadable apps**. Lua backend, HTML templates. No recompiles. No restarts.
+Chat with Claude to build apps. Use them together. Evolve them live. Claude runs parts of your app. Your code and Claude talk to each other. Ask Claude for improvements and Claude makes them appear; the app just stays running. Paste a job URL: Claude scrapes the details, fills the form, finds the salary and HQ even when they're not listed.
+
+Frictionless apps are **fully hot-loadable**. Lua backend, HTML templates. No recompiles. No restarts.
 
 And your apps can even **integrate with Claude**: your apps poke Claude and Claude pokes back. Right in the state.
 
