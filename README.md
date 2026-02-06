@@ -1,3 +1,4 @@
+![App view](docs/images/app-view.jpg)
 # Frictionless
 
 **Version: 0.16.0**
