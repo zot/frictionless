@@ -10,6 +10,8 @@ Frictionless apps are **fully hot-loadable**. Lua backend, HTML templates. No re
 
 And your apps can even **integrate with Claude**: your apps poke Claude and Claude pokes back. Right in the state.
 
+In other words, Claude has full access to the running app. It can access state, call functions, even update the app as it runs without needing reloads.
+
 Apps for
 
 - **Quality of life** — tame complex tasks with forms and buttons
