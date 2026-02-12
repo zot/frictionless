@@ -302,9 +302,15 @@ case "$prog" in
             if [ -n "$out" ]; then
                 echo "$out"
                 rm "$dir/.eventpid"
+                echo '{"note":"Restart the event loop in the background: .ui/mcp event"}'
                 break
             elif [ $status != 0 ]; then
                 rm "$dir/.eventpid"
+                if [ $status = 127 ]; then
+                    echo '{"note":"Event loop timed out. Restart: .ui/mcp event"}'
+                else
+                    echo '{"note":"Event exited with an error. Restart: .ui/mcp event"}'
+                fi
                 exit $status
             fi
         done

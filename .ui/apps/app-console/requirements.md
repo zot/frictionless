@@ -26,24 +26,24 @@ When an app is selected, show:
 - App name as header
 - Source URL row (for downloaded apps): GitHub URL with link icons to open source and readme in new tabs
 - Description (first paragraph from requirements.md, parsed by Lua)
-- Build progress and phase (when app is building) - shows progress bar and stage label
-- Requirements section (expandable, collapsed by default) - shows full requirements.md content
-- Action buttons based on state:
+- Action buttons based on state (shown above requirements/progress sections):
   - Build (when no viewdefs) - sets progress to `0, "pondering"` then sends build_request to Claude
-  - Open (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
+  - Show (when has viewdefs) - opens the app in the embedded app view (disabled for "app-console" and "mcp")
   - Make it thorough (N) (when has checkpoints) - shows count of pending changes, tooltip says "N pending changes", sends consolidate_request to invoke `/ui-thorough` skill
   - Test (when has app.lua)
   - Fix Issues (when has known issues)
   - Review Gaps (when has gaps) - sends review_gaps_request to invoke `/ui-thorough` skill
   - Analyze (when built) - sends analyze_request for full gap analysis even without existing gaps
   - Delete App (when not protected) - shows confirmation dialog, then removes the app entirely
+- Requirements section (expandable, collapsed by default) - shows full requirements.md content
+- Build progress and phase (when app is building) - shows progress bar and stage label
 - Test checklist from TESTING.md with checkboxes (read-only, parsed by Lua)
 - Known Issues section (expandable)
 - Fixed Issues section (collapsed by default)
 
 ## Embedded App View
 
-When the "Open" button is clicked, the selected app replaces the detail panel (right side):
+When the "Show" button is clicked, the selected app replaces the detail panel (right side):
 - App list remains visible on the left
 - The embedded view displays `embeddedValue` directly (not an iframe)
 - Header shows app name and close button `[X]`

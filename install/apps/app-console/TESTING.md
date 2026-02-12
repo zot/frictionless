@@ -39,17 +39,3 @@
 - [ ] GitHub approve downloads and installs app
 
 ## Gaps
-
-### Fast Code
-
-The following were added via `/ui-fast` checkpoints and may need review:
-
-- `_isDownloaded`, `_hasLocalChanges`, `sourceUrl`, `readmePath` fields - downloaded app tracking
-- `localChangesIcon()`, `showLocalChangesIcon()`, `hideLocalChangesIcon()` - local changes indicator
-- `isDownloaded()`, `hasLocalChanges()`, `noLocalChanges()` - downloaded app state
-- `hasSourceUrl()`, `noSourceUrl()`, `hasReadme()`, `noReadme()` - source URL state
-- `readmeLinkHtml()` - HTML anchor for MCP readme endpoint
-- `openReadme()`, `openSourceUrl()`, `checkLocalChanges()` - actions
-- `findReadme()` - constructs readme URL from GitHub source URL
-- Source URL row in detail header with link icons
-- Pencil icon for apps with local changes

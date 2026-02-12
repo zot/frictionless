@@ -56,6 +56,26 @@ Or display an existing app:
 /ui show contacts
 ```
 
+### Using the App Console
+
+The app-console is your home base for managing Frictionless apps. Use `/ui show` to open it.
+
+**Downloading apps from GitHub:**
+
+Click the GitHub icon in the header to download apps directly from GitHub repositories.
+
+![Download from GitHub](docs/images/download-from-github.jpg)
+
+**Viewing app details:**
+
+Select an app to see its requirements, open it, test it, or analyze it with Claude.
+
+![App view](docs/images/app-view.jpg)
+
+The bottom panel has two tabs:
+- **Chat** — talk to Claude about the selected app
+- **Lua** — run Lua code directly in your app's environment
+
 ### Standalone Mode
 
 Run frictionless independently for development or testing changes to Frictionless itself:
@@ -80,6 +100,14 @@ frictionless cp '*.lua' scripts/         # Copy matching files
 frictionless extract output/             # Extract all bundled files to current directory
 ```
 
+## Available Apps
+
+Download these from the app-console's GitHub panel:
+
+| App | Description |
+|-----|-------------|
+| [Job&nbsp;Tracker](https://github.com/zot/frictionless/tree/main/apps/job-tracker) | Track job applications through the hiring pipeline. Paste a URL and Claude scrapes the details. |
+
 ## Documentation (in .ui by default)
 
 - **[Intro](install/resources/intro.md)** — Introduction and overview
@@ -87,6 +115,7 @@ frictionless extract output/             # Extract all bundled files to current 
 - **[Viewdef Syntax](install/resources/viewdefs.md)** — HTML template bindings (`ui-*` attributes)
 - **[Lua API](install/resources/lua.md)** — Class patterns and globals
 - **[Agent Workflow](install/resources/mcp.md)** — Best practices for AI agents
+- **[Themes](install/resources/themes.md)** — Theme switching and customization
 
 ## Installation
 

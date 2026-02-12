@@ -64,7 +64,6 @@ function ChatMessage:isThinking()
 end
 
 function ChatMessage:mutate()
-    -- Initialize style for existing instances
     if self.style == nil then
         self.style = "normal"
     end
@@ -119,7 +118,6 @@ AppConsole.OutputLine = session:prototype("AppConsole.OutputLine", {
 local OutputLine = AppConsole.OutputLine
 
 function OutputLine:copyToInput()
-    -- Strip leading "> " from command lines when copying
     local text = self.text
     if text:match("^> ") then
         text = text:sub(3)
@@ -959,44 +957,19 @@ function AppInfo:readmeLinkHtml()
 end
 
 function AppInfo:openReadme()
-    if self.readmePath and self.readmePath ~= "" then
+    if self:hasReadme() then
         os.execute('xdg-open "' .. self.readmePath .. '" 2>/dev/null &')
     end
 end
 
 function AppInfo:openSourceUrl()
-    if self.sourceUrl and self.sourceUrl ~= "" then
+    if self:hasSourceUrl() then
         os.execute('xdg-open "' .. self.sourceUrl .. '" 2>/dev/null &')
     end
 end
 
 function AppInfo:noLocalChanges()
     return not self:hasLocalChanges()
-end
-
--- Check for local changes by comparing current state to original.fossil
-function AppInfo:checkLocalChanges()
-    if not self._isDownloaded then return end
-
-    local status = mcp:status()
-    local baseDir = status and status.base_dir
-    if not baseDir then return end
-
-    local appDir = baseDir .. "/apps/" .. self.name
-    local originalFossil = appDir .. "/original.fossil"
-    local fossilBin = os.getenv("HOME") .. "/.claude/bin/fossil"
-
-    -- Use fossil diff against original to check for changes
-    local cmd = string.format(
-        'cd "%s" && "%s" diff --from original --brief 2>/dev/null | head -1',
-        appDir, fossilBin
-    )
-    local handle = io.popen(cmd)
-    if handle then
-        local output = handle:read("*a")
-        handle:close()
-        self._hasLocalChanges = output and output:match("%S") ~= nil
-    end
 end
 
 -- Push an event with common fields (app, mcp_port, note) plus custom fields
@@ -1017,9 +990,9 @@ function AppInfo:pushEvent(eventType, extra)
 end
 
 function AppInfo:requestBuild()
-   self.buildProgress = 0
-   self.buildStage = "pondering"
-   self:pushEvent("build_request", { target = self.name })
+    self.buildProgress = 0
+    self.buildStage = "pondering"
+    self:pushEvent("build_request", { target = self.name })
 end
 
 function AppInfo:requestTest()
@@ -1172,26 +1145,15 @@ local function dirHasFiles(path)
     return false
 end
 
--- Find readme file (case-insensitive search)
+-- Construct GitHub readme URL from a repo URL
 local function findReadme(appPath, repoUrl)
-    -- For GitHub URLs, construct the readme URL
-    if repoUrl and repoUrl ~= "" then
-        local user, repo, branch, path = repoUrl:match("github%.com/([^/]+)/([^/]+)/tree/([^/]+)/?(.*)")
-        if user and repo and branch then
-            -- Try common readme patterns
-            local patterns = {"README.md", "readme.md", "Readme.md", "README.MD"}
-            for _, pattern in ipairs(patterns) do
-                local readmeUrl
-                if path and path ~= "" then
-                    readmeUrl = string.format("https://github.com/%s/%s/blob/%s/%s/%s", user, repo, branch, path, pattern)
-                else
-                    readmeUrl = string.format("https://github.com/%s/%s/blob/%s/%s", user, repo, branch, pattern)
-                end
-                return readmeUrl
-            end
-        end
+    if not repoUrl or repoUrl == "" then return nil end
+    local user, repo, branch, path = repoUrl:match("github%.com/([^/]+)/([^/]+)/tree/([^/]+)/?(.*)")
+    if not user or not repo or not branch then return nil end
+    if path and path ~= "" then
+        return string.format("https://github.com/%s/%s/blob/%s/%s/README.md", user, repo, branch, path)
     end
-    return nil
+    return string.format("https://github.com/%s/%s/blob/%s/README.md", user, repo, branch)
 end
 
 -- List directories in a path
@@ -1432,7 +1394,6 @@ end
 
 -- Handle app updated event from Claude (re-parse single app)
 function AppConsole:onAppUpdated(name)
-    -- Rescan just this app from disk
     self:rescanApp(name)
 end
 
@@ -1446,47 +1407,49 @@ end
 function AppConsole:refreshCheckpoints()
     local status = mcp:status()
     local baseDir = status and status.base_dir
-    local fossilBin = os.getenv("HOME") .. "/.claude/bin/fossil"
-    for _, app in ipairs(self._apps) do
-        if baseDir then
-            local appDir = baseDir .. "/apps/" .. app.name
-
-            -- Use mcp checkpoint count (returns 0 if no repo, excludes baseline)
-            local cmd = baseDir .. "/mcp checkpoint count " .. app.name .. " 2>/dev/null"
-            local countHandle = io.popen(cmd)
-            local count = 0
-            if countHandle then
-                count = tonumber(countHandle:read("*a")) or 0
-                countHandle:close()
-            end
-            app._hasCheckpoints = count > 0
-            app._checkpointCount = count
-
-            -- Check if this is a downloaded app (has original.fossil)
-            local originalFossil = appDir .. "/original.fossil"
-            local originalCheck = io.open(originalFossil, "r")
-            if originalCheck then
-                originalCheck:close()
-                app._isDownloaded = true
-
-                -- Check for local changes vs original
-                local diffCmd = string.format(
-                    'cd "%s" && "%s" diff --from original --brief 2>/dev/null | head -1',
-                    appDir, fossilBin
-                )
-                local diffHandle = io.popen(diffCmd)
-                if diffHandle then
-                    local diffOutput = diffHandle:read("*a")
-                    diffHandle:close()
-                    app._hasLocalChanges = diffOutput and diffOutput:match("%S") ~= nil
-                end
-            else
-                app._isDownloaded = false
-                app._hasLocalChanges = false
-            end
-        else
+    if not baseDir then
+        for _, app in ipairs(self._apps) do
             app._hasCheckpoints = false
             app._checkpointCount = 0
+            app._isDownloaded = false
+            app._hasLocalChanges = false
+        end
+        self._checkpointsTime = os.time()
+        return
+    end
+
+    local fossilBin = os.getenv("HOME") .. "/.claude/bin/fossil"
+    for _, app in ipairs(self._apps) do
+        local appDir = baseDir .. "/apps/" .. app.name
+
+        local cmd = baseDir .. "/mcp checkpoint count " .. app.name .. " 2>/dev/null"
+        local countHandle = io.popen(cmd)
+        local count = 0
+        if countHandle then
+            count = tonumber(countHandle:read("*a")) or 0
+            countHandle:close()
+        end
+        app._hasCheckpoints = count > 0
+        app._checkpointCount = count
+
+        -- Check if this is a downloaded app (has original.fossil)
+        local originalCheck = io.open(appDir .. "/original.fossil", "r")
+        if originalCheck then
+            originalCheck:close()
+            app._isDownloaded = true
+
+            -- Check for local changes vs original
+            local diffCmd = string.format(
+                'cd "%s" && "%s" diff --from original --brief 2>/dev/null | head -1',
+                appDir, fossilBin
+            )
+            local diffHandle = io.popen(diffCmd)
+            if diffHandle then
+                local diffOutput = diffHandle:read("*a")
+                diffHandle:close()
+                app._hasLocalChanges = diffOutput and diffOutput:match("%S") ~= nil
+            end
+        else
             app._isDownloaded = false
             app._hasLocalChanges = false
         end
@@ -1574,66 +1537,14 @@ function AppConsole:sendChat()
 
     local reminder = "Show todos and thinking messages while working"
     if self.selected then
-        -- quality and handler are injected by mcp.pushState override
         self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, reminder = reminder })
     else
-       mcp.pushState({
-             app = "app-console",
-             event = "chat",
-             text = self.chatInput,
-             reminder = reminder
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-             
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-       })
+        mcp.pushState({
+            app = "app-console",
+            event = "chat",
+            text = self.chatInput,
+            reminder = reminder
+        })
     end
 
     self.chatInput = ""
@@ -1763,10 +1674,13 @@ function AppConsole:runLua()
 
     local code = self.luaInput
 
-    -- Try as expression first, then as statement
-    local fn = code:match("^%s*return%s") and loadstring(code)
-        or loadstring("return " .. code)
-        or loadstring(code)
+    -- If code already has 'return', use as-is; otherwise try as expression, then as statement
+    local fn
+    if code:match("^%s*return%s") then
+        fn = loadstring(code)
+    else
+        fn = loadstring("return " .. code) or loadstring(code)
+    end
 
     if not fn then
         local _, err = loadstring(code)

@@ -11,10 +11,11 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 +------------------+-----------------------------+
 | Frictionless [R][+][G] | contacts                    |
 |------------------|  A contact manager with...  |
-| > contacts 17/21 | [Open] [Test] [Fix Issues]  |
+| > contacts 17/21 | [Show] [Test] [Fix Issues]  |
 |   tasks    5/5   |-----------------------------|
 |   my-app   ████░ | > Requirements              |
-|   new-app  --    |-----------------------------|
+|   new-app  --    | ████░ 40% writing code      |
+|                  |-----------------------------|
 |                  | Tests (17/21)               |
 |                  | [✓] Badge shows count       |
 |                  | [ ] Delete removes contact  |
@@ -36,6 +37,8 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 +------------------------------------------------+
 ```
 
+Note: Action buttons appear above Requirements and Build Progress sections.
+
 ### Embedded App View (in detail area)
 ```
 +------------------+-----------------------------+
@@ -54,7 +57,7 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 +------------------------------------------------+
 ```
 
-When "Open" is clicked, the embedded app replaces the detail panel:
+When "Show" is clicked, the embedded app replaces the detail panel:
 - App list remains visible on the left
 - Embedded view displays `embeddedValue` in the detail area
 - Header shows app name and close button `[X]`
@@ -74,20 +77,24 @@ Legend:
 - `[▼]` = Collapse todos button
 - `[🗑]` = Clear todos button
 
-**Build progress** (when app is building):
-- Progress bar showing 0-100%
-- Stage label (e.g., "designing", "writing code")
-- Shown between description and action buttons
-
-**Action buttons** (based on app state):
+**Action buttons** (based on app state, shown below description and above requirements/progress):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
-- `[Open]` — shown when app has viewdefs (canOpen), disabled for "app-console" and "mcp"
+- `[Show]` — shown when app has viewdefs (canOpen), disabled for "app-console" and "mcp" (eye icon)
 - `[Make it thorough (N)]` — shown when app has checkpoints (hasCheckpoints), shows count and tooltip "N pending changes"
 - `[Test]` — shown when app has viewdefs
 - `[Fix Issues]` — shown when app has known issues
 - `[Review Gaps]` — shown when app has gaps (hasGaps), reviews and documents fast code gaps
 - `[Analyze]` — shown when app is built (isBuilt), performs full gap analysis even without existing gaps
 - `[Delete App]` — shown when app is not protected; shows confirmation dialog before deletion
+
+**Detail sections** (shown below action buttons):
+- Requirements section (expandable, collapsed by default)
+- Build progress bar with stage label (when building)
+- Delete confirmation dialog (when delete requested)
+- Gaps section (when gaps exist)
+- Tests section (when tests exist)
+- Known Issues section (when issues exist)
+- Fixed Issues section (when fixed issues exist)
 
 **App list icons:**
 - 🔨 (hammer) — shown for unbuilt apps (needsBuild)

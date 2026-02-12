@@ -1159,29 +1159,14 @@
               <div class="detail-description" ui-value="selected.description"></div>
             </div>
 
-            <!-- Requirements Section -->
-            <div class="requirements-section">
-              <div class="section-header" ui-event-click="selected.toggleRequirements()">
-                <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
-                <h3>Requirements</h3>
-              </div>
-              <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
-            </div>
-
-            <!-- Build Progress -->
-            <div class="build-progress" ui-class-hidden="selected.notBuilding()">
-              <sl-progress-bar ui-attr-value="selected.buildProgress"></sl-progress-bar>
-              <span class="build-stage" ui-value="selected.buildStage"></span>
-            </div>
-
             <div class="detail-actions">
               <sl-button variant="primary" ui-class-hidden="selected.canOpen()" ui-action="selected.requestBuild()">
                 <sl-icon slot="prefix" name="hammer"></sl-icon>
                 Build
               </sl-button>
               <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-attr-disabled="selected.openButtonDisabled()" ui-action="selected.openApp()">
-                <sl-icon slot="prefix" name="box-arrow-up-right"></sl-icon>
-                Open
+                <sl-icon slot="prefix" name="eye"></sl-icon>
+                Show
               </sl-button>
               <sl-tooltip ui-attr-content="selected.checkpointTooltip()">
                 <sl-button variant="default" ui-class-hidden="selected.noCheckpoints()" ui-class-pulsating="selected.shouldPulsate()" ui-action="selected.requestConsolidate()">
@@ -1209,6 +1194,21 @@
                 <sl-icon slot="prefix" name="trash"></sl-icon>
                 Delete
               </sl-button>
+            </div>
+
+            <!-- Requirements Section -->
+            <div class="requirements-section">
+              <div class="section-header" ui-event-click="selected.toggleRequirements()">
+                <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
+                <h3>Requirements</h3>
+              </div>
+              <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
+            </div>
+
+            <!-- Build Progress -->
+            <div class="build-progress" ui-class-hidden="selected.notBuilding()">
+              <sl-progress-bar ui-attr-value="selected.buildProgress"></sl-progress-bar>
+              <span class="build-stage" ui-value="selected.buildStage"></span>
             </div>
 
             <!-- Delete Confirmation -->

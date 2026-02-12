@@ -98,7 +98,9 @@ As soon as you receive events, create a task to restart the event loop using Tas
 This is the most responsive approach - events are handled immediately.
 
 **Background event loop (alternative):**
-Run `.ui/mcp event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
+Run `.ui/mcp event` in background if you need to do other work while waiting.
+
+**CRITICAL: When a background `.ui/mcp event` task completes, ALWAYS read the output file immediately.** Do NOT assume it was a timeout — always read the file and check for events. Failing to read the output means silently dropping user events.
 
 **CRITICAL: Kill previous event listener before restarting.**
 If the event call runs in background or times out, the old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
@@ -112,8 +114,7 @@ If the event call runs in background or times out, the old listener may still be
 Failure to kill the old listener means it will consume events intended for the new one.
 
 **Exit codes:**
-- 0 + empty output = timeout, no events (kill old task, restart)
-- 0 + JSON output = events received
+- 0 + JSON output = events received (may be empty array `[]` for timeout)
 - 52 = server restarted (restart both server and event loop)
 
 ## Quick Start: Show an Existing App

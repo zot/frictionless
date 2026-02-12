@@ -1018,10 +1018,11 @@ function JobTracker:hideResumePreview() return self.selectedResume == nil and no
 function JobTracker:hideChatFabForResume() return self.chatPanelOpen or self.view == "resume" end
 
 function JobTracker:currentResumePreviewUrl()
+    local ts = "?" .. os.time()
     if self.showMasterResume then
-        return "/job-tracker-storage/master-resume.md"
+        return "/job-tracker-storage/master-resume.md" .. ts
     elseif self.selectedResume then
-        return "/job-tracker-storage/resumes/" .. self.selectedResume.filename
+        return "/job-tracker-storage/resumes/" .. self.selectedResume.filename .. ts
     end
     return ""
 end
@@ -1301,7 +1302,7 @@ function Resume:moreAppsCount()
 end
 
 function Resume:previewUrl()
-    return "/job-tracker-storage/resumes/" .. self.filename
+    return "/job-tracker-storage/resumes/" .. self.filename .. "?" .. os.time()
 end
 
 function Resume:filePath()
