@@ -22,8 +22,6 @@ The following methods are defined but not directly called from viewdefs. They ar
 - `JobTracker:noUnlinkableApps` - Paired with hasUnlinkableApps
 - `JobTracker:isDeleteResumeDialogHidden` - Paired with isDeleteResumeDialogVisible
 - `JobTracker:isAttachmentWarningHidden` - Paired with isAttachmentWarningVisible
-- `JobTracker:noResumeChatMessages` - Paired with hasResumeChatMessages
-- `JobTracker:noChatMessages` - Paired with hasChatMessages
 - `JobTracker:allApplications` - Returns raw _applications array
 - `JobTracker:uploadFile` - Used by file upload JS bridge
 - `JobTracker:prefillFromScrape` - Called by Claude when scraping job URLs

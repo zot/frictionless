@@ -152,9 +152,6 @@ JobTracker = session:prototype("JobTracker", {
     formData = EMPTY,
     noteInput = "",
     urlInput = "",
-    chatInput = "",
-    chatMessages = EMPTY,
-    chatPanelOpen = false,
     sortColumn = "date",  -- "company", "position", "status", "date"
     sortDirection = "desc",  -- "asc" or "desc"
     _fileUploadData = "",  -- JS-to-Lua bridge for file uploads
@@ -163,9 +160,6 @@ JobTracker = session:prototype("JobTracker", {
     _resumes = EMPTY,
     selectedResume = EMPTY,
     showMasterResume = false,
-    resumeChatInput = "",
-    resumeChatMessages = EMPTY,
-    resumeChatPanelOpen = false,
     showDeleteResumeDialog = false,
     showLinkPicker = false,
 })
@@ -215,12 +209,6 @@ JobTracker.TimelineEvent = session:prototype("JobTracker.TimelineEvent", {
     toStatus = "",
 })
 local TimelineEvent = JobTracker.TimelineEvent
-
-JobTracker.ChatMessage = session:prototype("JobTracker.ChatMessage", {
-    role = "",
-    content = "",
-})
-local ChatMessage = JobTracker.ChatMessage
 
 JobTracker.Attachment = session:prototype("JobTracker.Attachment", {
     filename = "",
@@ -276,8 +264,6 @@ function JobTracker:new(instance)
     instance = session:create(JobTracker, instance)
     instance._applications = instance._applications or {}
     instance._resumes = instance._resumes or {}
-    instance.chatMessages = instance.chatMessages or {}
-    instance.resumeChatMessages = instance.resumeChatMessages or {}
     instance.formData = session:create(FormData, {})
     -- Ensure storage setup
     ensureStorageSymlink()
@@ -288,14 +274,8 @@ end
 
 -- Hot-reload mutation: initialize new fields on existing instances
 function JobTracker:mutate()
-    if self.chatMessages == nil then
-        self.chatMessages = {}
-    end
     if self._resumes == nil then
         self._resumes = {}
-    end
-    if self.resumeChatMessages == nil then
-        self.resumeChatMessages = {}
     end
 end
 
@@ -714,39 +694,6 @@ function JobTracker:submitUrl()
     })
 end
 
--- Chat methods
-function JobTracker:submitChat()
-    if self.chatInput == "" then return end
-    local text = self.chatInput
-    self.chatInput = ""
-    self:addChatMessage("user", text)
-    mcp.pushState({
-        app = "job-tracker",
-        event = "chat",
-        text = text,
-    })
-end
-
-function JobTracker:toggleChatPanel()
-    self.chatPanelOpen = not self.chatPanelOpen
-end
-
--- Helper: create and add a chat message to a list
-local function addMessageToList(messages, role, content)
-    local msg = session:create(ChatMessage, { role = role, content = content })
-    table.insert(messages, msg)
-end
-
-function JobTracker:addChatMessage(role, content)
-    addMessageToList(self.chatMessages, role, content)
-end
-
-function JobTracker:clearChat()
-    self.chatMessages = {}
-end
-
-function JobTracker:chatPanelHidden() return not self.chatPanelOpen end
-
 -- Attachment handling
 function JobTracker:uploadFile(filename, content)
     if not self.selected then return end
@@ -839,9 +786,6 @@ function JobTracker:processFileUpload()
         self.selected.attachmentsChanged = true  -- Mark as changed, don't commit yet
     end
 end
-
-function JobTracker:hasChatMessages() return #self.chatMessages > 0 end
-function JobTracker:noChatMessages() return #self.chatMessages == 0 end
 
 -- Resume view methods
 function JobTracker:showResumeView()
@@ -976,36 +920,6 @@ function JobTracker:linkAppToResume(app)
     self:saveData()
 end
 
--- Resume chat methods
-function JobTracker:submitResumeChat()
-    if self.resumeChatInput == "" then return end
-    local text = self.resumeChatInput
-    self.resumeChatInput = ""
-    self:addResumeChatMessage("user", text)
-    mcp.pushState({
-        app = "job-tracker",
-        event = "resume_chat",
-        text = text,
-        resumeId = self.selectedResume and self.selectedResume.id or nil,
-    })
-end
-
-function JobTracker:toggleResumeChatPanel()
-    self.resumeChatPanelOpen = not self.resumeChatPanelOpen
-end
-
-function JobTracker:addResumeChatMessage(role, content)
-    addMessageToList(self.resumeChatMessages, role, content)
-end
-
-function JobTracker:clearResumeChat()
-    self.resumeChatMessages = {}
-end
-
-function JobTracker:resumeChatPanelHidden() return not self.resumeChatPanelOpen end
-function JobTracker:hasResumeChatMessages() return #self.resumeChatMessages > 0 end
-function JobTracker:noResumeChatMessages() return #self.resumeChatMessages == 0 end
-
 -- Helper methods for viewdef bindings (avoid operators in paths)
 function JobTracker:isFormModeAdd() return self.formMode == "add" end
 function JobTracker:isFormModeEdit() return self.formMode == "edit" end
@@ -1015,8 +929,6 @@ function JobTracker:hasUnlinkableApps() return #self:unlinkableApps() > 0 end
 function JobTracker:noUnlinkableApps() return #self:unlinkableApps() == 0 end
 function JobTracker:showResumePreview() return self.selectedResume ~= nil or self.showMasterResume end
 function JobTracker:hideResumePreview() return self.selectedResume == nil and not self.showMasterResume end
-function JobTracker:hideChatFabForResume() return self.chatPanelOpen or self.view == "resume" end
-
 function JobTracker:currentResumePreviewUrl()
     local ts = "?" .. os.time()
     if self.showMasterResume then
@@ -1372,14 +1284,6 @@ function TimelineEvent:description()
         return "Added application"
     end
     return self.note or ""
-end
-
--- ChatMessage methods
-function ChatMessage:isUser() return self.role == "user" end
-function ChatMessage:isAssistant() return self.role == "assistant" end
-
-function ChatMessage:copyToInput()
-    jobTracker.chatInput = self.content
 end
 
 -- Instance creation
