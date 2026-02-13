@@ -47,7 +47,7 @@ When the "Show" button is clicked, the selected app replaces the detail panel (r
 - App list remains visible on the left
 - The embedded view displays `embeddedValue` directly (not an iframe)
 - Header shows app name and close button `[X]`
-- The chat panel remains visible below
+- The MCP shell's chat panel remains visible below
 - User can interact with the embedded app while still chatting with Claude
 
 Clicking the close button `[X]` closes the embedded view and restores the normal detail panel.
@@ -173,7 +173,7 @@ When Claude receives the `app_created` event, it should show both progress (in t
 | 2    | 66%      | "Fleshing out requirements..."    | Expand requirements with proper structure and detail based on the description |
 | 3    | (clear)  | (final message)                   | Write the expanded requirements.md to disk, clear progress                    |
 
-Use `mcp:appProgress(name, percent, stage)` for the progress bar, `appConsole:addAgentThinking(text)` for chat panel updates, then `appConsole:addAgentMessage(text)` for the final response. Call `appConsole:updateRequirements(name, content)` to populate the requirements in the UI, then `mcp:appProgress(name, nil, nil)` to clear the progress bar.
+Use `mcp:appProgress(name, percent, stage)` for the progress bar, `mcp:addAgentThinking(text)` for chat panel updates, then `mcp:addAgentMessage(text)` for the final response. Call `appConsole:updateRequirements(name, content)` to populate the requirements in the UI, then `mcp:appProgress(name, nil, nil)` to clear the progress bar.
 
 ## Delete App
 
@@ -196,20 +196,16 @@ Allow users to delete apps that are not protected. Protected apps include: `app-
 4. Remove the app from the apps list
 5. Clear selection
 
-## Chat Panel
+## Chat Panel, Todo List, Lua Console
 
-Always visible at the bottom. User can chat with Claude about the selected app:
-- Ask questions about the app
-- Request actions (test, build, fix)
-- General development discussion
+These features live in the **MCP shell** (not app-console). The MCP shell provides:
+- Chat panel for conversing with Claude (with selected app context from app-console)
+- Todo list showing Claude's current build progress
+- Lua console REPL for debugging
 
-Selected app provides context for the conversation.
+The chat panel's `sendChat()` reads `appConsole.selected` to provide app context when sending messages. The todo system calls `appConsole:onAppProgress()` to update build progress in the app list.
 
-**Layout:**
-- Chat area should be vertically resizable (drag handle at top edge)
-- Messages auto-scroll to bottom on new output
-- Messages display in reverse order (newest at bottom, like Claude Code terminal)
-- User messages prefixed with `>` character
+See the MCP shell's design.md for details on these features.
 
 **Build Mode:**
 
@@ -217,77 +213,13 @@ Build mode is controlled globally via the status bar toggle (rocket=fast, diamon
 
 See `/ui` skill's "Build Mode" section for how Claude should handle the `handler` field.
 
-## Claude Code Todo List
-
-The bottom panel displays Claude's current todo list alongside the Chat/Lua panel:
-
-**Layout:**
-- Bottom resizable section has two columns: Todo List (left) | Chat/Lua (right)
-- Todo list is a narrow column (200px) showing current task status
-- Todo items don't wrap; column scrolls horizontally if text overflows
-- Collapse button hides the column horizontally (shrinks to icon-only 32px width)
-
-**Display:**
-- Show todo items with status indicators:
-  - ⏳ pending (gray)
-  - 🔄 in_progress (blue, highlighted)
-  - ✓ completed (green, muted)
-- The in_progress item is shown prominently at the top
-- Completed items can be collapsed/hidden
-
-**MCP Todo API (in init.lua):**
-
-Two methods simplify todo management for background agents:
-
-```lua
--- Create todo list at the start of a build
-mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify'})
-
--- Advance to step n (completes previous step, starts step n)
-mcp:startTodoStep(2)  -- starts "Requirements", completes "Read requirements"
-```
-
-**`mcp:createTodos(steps)`** - Creates todo items from an array of step labels. Uses hardcoded progress percentages for ui-builder workflow:
-
-| Step | Label | Progress | Thinking |
-|------|-------|----------|----------|
-| 1 | Read requirements | 5% | "Reading requirements..." |
-| 2 | Requirements | 10% | "Updating requirements..." |
-| 3 | Design | 20% | "Designing..." |
-| 4 | Write code | 40% | "Writing code..." |
-| 5 | Write viewdefs | 60% | "Writing viewdefs..." |
-| 6 | Link and audit | 90% | "Auditing..." |
-| 7 | Simplify | 95% | "Simplifying..." |
-
-**`mcp:startTodoStep(n)`** - Advances to step n:
-- Marks the previous in_progress step as completed
-- Marks step n as in_progress
-- Updates progress bar via `mcp:appProgress(currentApp, step.progress, step.label)`
-- Updates statusLine with thinking message
-- Requires `mcp:createTodos()` to have been called first
-
-**`mcp:completeTodos()`** - Marks all steps complete and clears progress (call at end of build).
-
-**Legacy API:** `mcp:setTodos(todos)` still works for full control over todo state.
-
-## Lua Console
-
-The bottom panel has Chat/Lua tabs. The Lua tab provides a REPL for executing Lua code:
-- Output area shows command history and results
-- Input textarea for multi-line Lua code
-- Run button (or Ctrl+Enter) executes the code
-- Clear button clears output history
-- Clicking an output line copies it to the input area, focuses the input, and positions cursor at the end
-
-Useful for debugging, inspecting app state, and testing Lua expressions.
-
 ## Build Progress
 
 When Claude is building an app, Lua tracks progress state:
 - Progress bar (0-100%)
 - Stage label (designing, writing code, creating viewdefs, linking)
 
-Claude pushes progress updates via `.ui/mcp run` calling `appConsole:onAppProgress()` when building.
+Claude pushes progress updates via `.ui/mcp run` calling `mcp:appProgress()` which delegates to `appConsole:onAppProgress()` when building.
 
 ## Events to Claude
 
@@ -310,13 +242,13 @@ User message with selected app as context. Respond conversationally.
 
 **Handler dispatch:** See `/ui` skill's "Build Mode" section for how to handle the `handler` field. Always respect it.
 
-**Interstitial thinking messages:** While working on a request, send progress updates via `appConsole:addAgentThinking(text)`. These:
-- Appear in chat log styled differently (italic, muted)
+**Interstitial thinking messages:** While working on a request, send progress updates via `mcp:addAgentThinking(text)`. These:
+- Appear in the MCP shell's chat log styled differently (italic, muted)
 - Update `mcp.statusLine` and set `mcp.statusClass = "thinking"` (orange bold-italic in MCP shell status bar)
 
 Before sending a thinking message, check for new events first. If there's an event, handle it immediately and save the thinking message as a todo.
 
-Use `appConsole:addAgentMessage(text)` for the final response (clears status bar).
+Use `mcp:addAgentMessage(text)` for the final response (clears status bar).
 
 ### `build_request`
 Build, complete, or update an app. **Spawn a background ui-builder agent** to handle this.
@@ -416,20 +348,7 @@ Claude uses `.ui/mcp run` to call these mcp methods.
 
 ### App Initialization (`init.lua`)
 
-The app-console app provides `init.lua` which adds convenience methods to the `mcp` global:
-
-```lua
-function mcp:appProgress(name, progress, stage)
-    if appConsole then appConsole:onAppProgress(name, progress, stage) end
-end
-
-function mcp:appUpdated(name)
-    mcp:scanAvailableApps()  -- rescan all apps from disk
-    if appConsole then appConsole:onAppUpdated(name) end
-end
-```
-
-This allows Claude to call `mcp:appProgress()` and `mcp:appUpdated()` without needing to check if the apps-console is loaded. The `mcp:scanAvailableApps()` call ensures the MCP server's app list stays in sync with disk.
+The app-console's `init.lua` provides a hot-load test function. All MCP convenience methods (`mcp:appProgress`, `mcp:appUpdated`, `mcp:addAgentMessage`, `mcp:createTodos`, etc.) now live directly in the MCP shell's `app.lua`.
 
 ## Refresh
 

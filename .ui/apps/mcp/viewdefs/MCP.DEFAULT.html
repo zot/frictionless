@@ -317,6 +317,393 @@
       background: var(--term-bg-elevated);
       border: 1px solid var(--term-border);
     }
+
+    /* Chat/Lua/Todo Panel */
+    .mcp-chat-panel {
+      border-top: 1px solid var(--term-border);
+      display: flex;
+      flex-direction: column;
+      height: 220px;
+      min-height: 120px;
+      max-height: 60vh;
+      flex-shrink: 0;
+      background: var(--term-bg-panel);
+    }
+
+    .mcp-chat-resize-handle {
+      height: 4px;
+      background: var(--term-border);
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .mcp-chat-resize-handle:hover {
+      background: var(--term-accent);
+    }
+
+    .mcp-chat-resize-handle::after {
+      content: '';
+      width: 32px;
+      height: 2px;
+      background: var(--term-text-muted);
+      border-radius: 1px;
+    }
+
+    .mcp-bottom-panel-content {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Todo column */
+    .mcp-todo-column {
+      width: 200px;
+      border-right: 1px solid var(--term-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: var(--term-bg);
+    }
+
+    .mcp-todo-column.collapsed {
+      width: 32px;
+    }
+
+    .mcp-todo-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 3px solid var(--term-accent);
+      border-radius: 0 0 6px 0;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .mcp-todo-header:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .mcp-todo-header h4 {
+      margin: 0;
+      font-family: var(--term-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--term-text-dim);
+    }
+
+    .mcp-todo-header-buttons {
+      display: flex;
+      gap: 2px;
+    }
+
+    .mcp-todo-header-buttons sl-icon-button {
+      color: var(--term-text-muted);
+    }
+
+    .mcp-todo-header-buttons sl-icon-button:hover {
+      color: var(--term-accent);
+    }
+
+    .mcp-todo-column.collapsed .mcp-todo-header h4,
+    .mcp-todo-column.collapsed .mcp-todo-header-buttons sl-icon-button:first-child {
+      display: none;
+    }
+
+    .mcp-todo-column.collapsed .mcp-todo-header {
+      justify-content: center;
+      padding: 8px 4px;
+    }
+
+    .mcp-todo-column.collapsed .mcp-todo-header-buttons {
+      justify-content: center;
+    }
+
+    .mcp-todo-column.collapsed .mcp-collapse-toggle {
+      transform: rotate(180deg);
+    }
+
+    .mcp-collapse-toggle {
+      transition: transform 0.2s ease;
+    }
+
+    .mcp-todo-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 8px;
+    }
+
+    .mcp-todo-column.collapsed .mcp-todo-list {
+      display: none;
+    }
+
+    /* Todo item styles */
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 4px 0;
+      font-family: var(--term-mono);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .todo-icon {
+      flex-shrink: 0;
+      width: 1.2em;
+      text-align: center;
+    }
+
+    .todo-item.pending { color: var(--term-text-muted); }
+    .todo-item.in-progress {
+      color: var(--term-accent);
+      font-weight: 500;
+    }
+    .todo-item.completed {
+      color: var(--term-success);
+      opacity: 0.6;
+    }
+
+    .todo-text {
+      white-space: nowrap;
+    }
+
+    /* Chat/Lua column */
+    .mcp-chat-lua-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 12px 16px 16px;
+    }
+
+    .mcp-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 0 0 8px;
+      padding-left: 12px;
+    }
+
+    .mcp-panel-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .mcp-panel-tabs sl-button {
+      font-family: var(--term-mono);
+      font-size: 11px;
+    }
+
+    /* Chat panel content */
+    .mcp-chat-panel-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .mcp-chat-messages,
+    .mcp-chat-panel-content > .view-list,
+    .mcp-chat-lua-column > .view-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .mcp-chat-input-row {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+      border-top: 3px solid var(--term-accent);
+      border-radius: 8px 0 0 0;
+      padding-top: 12px;
+    }
+
+    .mcp-chat-input-row sl-input {
+      flex: 1;
+      font-family: var(--term-mono);
+    }
+
+    .mcp-chat-input-row sl-input::part(input) {
+      font-family: var(--term-mono);
+      font-size: 13px;
+    }
+
+    /* Chat message styles */
+    .chat-message {
+      margin-bottom: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .chat-message.user-message {
+      color: var(--term-text);
+    }
+
+    .chat-message.user-message .chat-prefix {
+      color: var(--term-accent);
+      font-family: var(--term-mono);
+      font-weight: 600;
+    }
+
+    .chat-message.thinking-message {
+      font-style: italic;
+      color: var(--term-text-muted);
+    }
+
+    .chat-message-text {
+      white-space: pre-wrap;
+    }
+
+    /* Lua console */
+    .mcp-lua-panel {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .mcp-lua-output,
+    .mcp-lua-panel > .view-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: var(--term-bg);
+      border: 1px solid var(--term-border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+      font-family: var(--term-mono);
+      font-size: 12px;
+      color: var(--term-text);
+    }
+
+    .lua-output-line {
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .lua-output-line:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .lua-output-line.command {
+      color: var(--term-accent);
+    }
+
+    .lua-output-line.command::before {
+      content: '> ';
+      color: var(--term-text-muted);
+    }
+
+    .lua-output-line.error {
+      color: var(--term-danger);
+    }
+
+    .mcp-lua-input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .mcp-lua-input-area sl-textarea::part(textarea) {
+      font-family: var(--term-mono);
+      font-size: 12px;
+      background: var(--term-bg);
+      color: var(--term-text);
+    }
+
+    .mcp-lua-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Chat panel button styles */
+    .mcp-chat-panel sl-button[variant="default"]::part(base) {
+      background: var(--term-bg-elevated);
+      border-color: var(--term-border);
+      color: var(--term-text);
+    }
+
+    .mcp-chat-panel sl-button[variant="default"]::part(base):hover {
+      background: var(--term-bg-hover);
+      border-color: var(--term-accent);
+      color: var(--term-accent);
+    }
+
+    .mcp-chat-panel sl-button[variant="primary"]::part(base) {
+      background: var(--term-accent);
+      border-color: var(--term-accent);
+      color: var(--term-bg);
+    }
+
+    .mcp-chat-panel sl-button[variant="primary"]::part(base):hover {
+      background: var(--term-accent-bright);
+      box-shadow: 0 0 12px var(--term-accent-glow);
+    }
+
+    /* Shoelace overrides for chat panel inputs */
+    .mcp-chat-panel sl-input::part(base),
+    .mcp-chat-panel sl-textarea::part(base) {
+      background: var(--term-bg);
+      border-color: var(--term-border);
+      color: var(--term-text);
+    }
+
+    .mcp-chat-panel sl-input::part(input),
+    .mcp-chat-panel sl-textarea::part(textarea) {
+      color: var(--term-text);
+    }
+
+    .mcp-chat-panel sl-input::part(base):hover,
+    .mcp-chat-panel sl-textarea::part(base):hover {
+      border-color: var(--term-accent);
+    }
+
+    .mcp-chat-panel sl-input::part(base):focus-within,
+    .mcp-chat-panel sl-textarea::part(base):focus-within {
+      border-color: var(--term-accent);
+      box-shadow: 0 0 0 3px var(--term-accent-glow);
+    }
+
+    .mcp-chat-panel sl-icon-button::part(base) {
+      color: var(--term-text-dim);
+    }
+
+    .mcp-chat-panel sl-icon-button::part(base):hover {
+      color: var(--term-accent);
+    }
+
+    /* Chat toggle active state */
+    .mcp-build-mode-toggle.panel-active sl-icon {
+      color: var(--term-accent);
+    }
+
+    .hidden { display: none !important; }
   </style>
 
   <script>
@@ -346,6 +733,57 @@
     <!-- Current app content -->
     <div class="mcp-app-container" ui-view="value"></div>
 
+    <!-- Chat/Lua/Todo Panel -->
+    <div class="mcp-chat-panel" id="mcp-chat-panel" ui-class-hidden="panelHidden()">
+      <div class="mcp-chat-resize-handle" id="mcp-chat-resize-handle"></div>
+      <div class="mcp-bottom-panel-content">
+        <!-- Todo Column -->
+        <div class="mcp-todo-column" ui-class-collapsed="todosCollapsed">
+          <div class="mcp-todo-header">
+            <h4 ui-event-click="toggleTodos()">Todos</h4>
+            <div class="mcp-todo-header-buttons">
+              <sl-icon-button name="trash" label="Clear" ui-action="clearTodos()"></sl-icon-button>
+              <sl-icon-button class="mcp-collapse-toggle" name="chevron-left" label="Collapse" ui-event-click="toggleTodos()"></sl-icon-button>
+            </div>
+          </div>
+          <div class="mcp-todo-list" ui-view="todos?wrapper=lua.ViewList"></div>
+        </div>
+
+        <!-- Chat/Lua Column -->
+        <div class="mcp-chat-lua-column">
+          <div class="mcp-panel-header">
+            <div class="mcp-panel-tabs">
+              <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
+              <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
+            </div>
+            <sl-button size="small" ui-action="clearPanel()">Clear</sl-button>
+          </div>
+
+          <!-- Chat Panel Content -->
+          <div class="mcp-chat-panel-content" ui-class-hidden="notChatPanel()">
+            <div class="mcp-chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
+          </div>
+          <div class="mcp-chat-input-row" ui-class-hidden="notChatPanel()">
+            <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
+            <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+          </div>
+
+          <!-- Lua Panel Content -->
+          <div class="mcp-lua-panel" ui-class-hidden="notLuaPanel()">
+            <div class="mcp-lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
+            <div class="mcp-lua-input-area">
+              <sl-textarea id="lua-input" rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
+              <div style="display:none" ui-code="_luaInputFocusTrigger"></div>
+              <div class="mcp-lua-buttons">
+                <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
+                <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Status bar -->
     <div class="mcp-status-bar">
       <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine"></span>
@@ -362,6 +800,9 @@
         <span class="mcp-build-mode-toggle" ui-event-click="toggleBackground()" ui-attr-title="backgroundTooltip()">
           <sl-icon name="hourglass-split" ui-class-hidden="isBackground()"></sl-icon>
           <sl-icon name="arrow-repeat" ui-class-hidden="isForeground()"></sl-icon>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
+          <sl-icon ui-attr-name="panelIcon()"></sl-icon>
         </span>
       </span>
     </div>
@@ -389,4 +830,34 @@
     <!-- Hidden element for JavaScript execution -->
     <div style="display:none;" ui-code="code"></div>
   </div>
+
+  <script>
+    // Chat panel resize handle
+    (function() {
+      const panel = document.getElementById('mcp-chat-panel');
+      const handle = document.getElementById('mcp-chat-resize-handle');
+      if (!panel || !handle) return;
+
+      let startY, startHeight;
+
+      handle.addEventListener('mousedown', (e) => {
+        startY = e.clientY;
+        startHeight = panel.offsetHeight;
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', onRelease);
+        e.preventDefault();
+      });
+
+      function onDrag(e) {
+        const delta = startY - e.clientY;
+        const newHeight = Math.max(120, Math.min(window.innerHeight * 0.6, startHeight + delta));
+        panel.style.height = newHeight + 'px';
+      }
+
+      function onRelease() {
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', onRelease);
+      }
+    })();
+  </script>
 </template>

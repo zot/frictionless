@@ -9,122 +9,10 @@ AppConsole = session:prototype("AppConsole", {
     showNewForm = false,
     newAppName = "",
     newAppDesc = "",
-    messages = EMPTY,
-    chatInput = "",
     embeddedApp = EMPTY,  -- Name of embedded app, or nil
     embeddedValue = EMPTY, -- App global loaded via mcp:app, or nil
-    panelMode = "chat",   -- "chat" or "lua" (bottom panel mode)
-    luaOutputLines = EMPTY,
-    luaInput = "",
-    github = EMPTY,  -- GitHubDownloader instance
-    _luaInputFocusTrigger = 0,  -- Incremented to trigger focus on Lua input
-    todos = EMPTY,           -- Claude Code todo list items
-    todosCollapsed = false,  -- Whether todo column is collapsed
-    _todoSteps = EMPTY,      -- Step definitions for createTodos/startTodoStep
-    _currentStep = 0,        -- Current in_progress step (1-based), 0 if none
-    _todoApp = EMPTY         -- App name for progress reporting
+    github = EMPTY  -- GitHubDownloader instance
 })
-
--- Hardcoded ui-thorough step definitions
-local UI_THOROUGH_STEPS = {
-    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
-    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
-    {label = "Design", progress = 20, thinking = "Designing..."},
-    {label = "Write code", progress = 40, thinking = "Writing code..."},
-    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
-    {label = "Link and audit", progress = 85, thinking = "Auditing..."},
-    {label = "Simplify", progress = 92, thinking = "Simplifying..."},
-    {label = "Set baseline", progress = 98, thinking = "Setting baseline..."},
-
-    {label = "Fast Design", progress = 20, thinking = "Designing..."},
-    {label = "Fast code", progress = 40, thinking = "Writing code..."},
-    {label = "Fast viewdefs", progress = 60, thinking = "Writing viewdefs..."},
-    {label = "Fast verify", progress = 60, thinking = "Verifying requirements..."},
-    {label = "Fast finish", progress = 80, thinking = "Finishing..."},
-}
-
--- Nested prototype: Chat message model
-AppConsole.ChatMessage = session:prototype("AppConsole.ChatMessage", {
-    sender = "",
-    text = "",
-    style = "normal"  -- "normal" or "thinking"
-})
-local ChatMessage = AppConsole.ChatMessage
-
-function ChatMessage:new(sender, text, style)
-    return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
-end
-
-function ChatMessage:isUser()
-    return self.sender == "You"
-end
-
-function ChatMessage:isThinking()
-    return self.style == "thinking"
-end
-
-function ChatMessage:mutate()
-    if self.style == nil then
-        self.style = "normal"
-    end
-end
-
-function ChatMessage:prefix()
-    return self.sender == "You" and "> " or ""
-end
-
--- Nested prototype: TodoItem model (Claude Code task)
-AppConsole.TodoItem = session:prototype("AppConsole.TodoItem", {
-    content = "",
-    status = "pending",  -- "pending", "in_progress", or "completed"
-    activeForm = ""
-})
-local TodoItem = AppConsole.TodoItem
-
-function TodoItem:displayText()
-    if self.status == "in_progress" then
-        return self.activeForm ~= "" and self.activeForm or self.content
-    end
-    return self.content
-end
-
-function TodoItem:isPending()
-    return self.status == "pending"
-end
-
-function TodoItem:isInProgress()
-    return self.status == "in_progress"
-end
-
-function TodoItem:isCompleted()
-    return self.status == "completed"
-end
-
-local TODO_STATUS_ICONS = {
-    in_progress = "🔄",
-    completed = "✓",
-    pending = "⏳"
-}
-
-function TodoItem:statusIcon()
-    return TODO_STATUS_ICONS[self.status] or "⏳"
-end
-
--- Nested prototype: Output line model (for Lua console)
-AppConsole.OutputLine = session:prototype("AppConsole.OutputLine", {
-    text = "",
-    panel = EMPTY
-})
-local OutputLine = AppConsole.OutputLine
-
-function OutputLine:copyToInput()
-    local text = self.text
-    if text:match("^> ") then
-        text = text:sub(3)
-    end
-    self.panel.luaInput = text
-    self.panel:focusLuaInput()
-end
 
 -- HTML escape helper for safe display
 local function escapeHtml(str)
@@ -187,14 +75,24 @@ function GitHubTab:buttonVariant()
     return "warning"  -- Unviewed tabs shown as warning to draw attention
 end
 
-function GitHubTab:buttonLabel()
+-- Build a warnings list from pushState/danger counts
+-- labelFn(count, type) returns the string for each warning
+local function collectWarnings(tab, labelFn)
     local warnings = {}
-    if self.pushStateCount > 0 then
-        table.insert(warnings, self.pushStateCount .. " events")
+    if tab.pushStateCount > 0 then
+        table.insert(warnings, labelFn(tab.pushStateCount, "pushState"))
     end
-    if self.dangerCount > 0 then
-        table.insert(warnings, self.dangerCount .. " danger")
+    if tab.dangerCount > 0 then
+        table.insert(warnings, labelFn(tab.dangerCount, "danger"))
     end
+    return warnings
+end
+
+function GitHubTab:buttonLabel()
+    local warnings = collectWarnings(self, function(count, wtype)
+        if wtype == "pushState" then return count .. " events" end
+        return count .. " danger"
+    end)
     if #warnings == 0 then return self.filename end
     return self.filename .. " (" .. table.concat(warnings, ", ") .. ")"
 end
@@ -205,13 +103,10 @@ end
 
 function GitHubTab:tooltipText()
     if not self:isLuaFile() then return self.filename end
-    local warnings = {}
-    if self.pushStateCount > 0 then
-        table.insert(warnings, self.pushStateCount .. " pushState call(s) - can send events to Claude")
-    end
-    if self.dangerCount > 0 then
-        table.insert(warnings, self.dangerCount .. " dangerous call(s) - shell, file, or code loading")
-    end
+    local warnings = collectWarnings(self, function(count, wtype)
+        if wtype == "pushState" then return count .. " pushState call(s) - can send events to Claude" end
+        return count .. " dangerous call(s) - shell, file, or code loading"
+    end)
     if #warnings == 0 then return "Lua file - no dangerous calls found" end
     return table.concat(warnings, "\n")
 end
@@ -226,35 +121,12 @@ function GitHubTab:loadContent()
         return
     end
 
-    -- Count pushState and dangerous calls for Lua files
-    if self:isLuaFile() then
-        local pushCount = 0
-        for _ in content:gmatch("pushState") do
-            pushCount = pushCount + 1
-        end
-        self.pushStateCount = pushCount
-
-        -- Count all dangerous patterns
-        local dangerCount = 0
-        for _, pat in ipairs(DANGER_PATTERNS) do
-            for _ in content:gmatch(pat.pattern) do
-                dangerCount = dangerCount + 1
-            end
-        end
-        -- Count dangerous require calls (non-constant strings)
-        for line in content:gmatch("[^\n]+") do
-            if isDangerousRequire(line) then
-                dangerCount = dangerCount + 1
-            end
-        end
-        self.dangerCount = dangerCount
-    end
-
-    -- Generate HTML
+    -- generateHtml computes pushStateCount and dangerCount for Lua files
     self._contentHtml = self:generateHtml(content)
 end
 
--- Generate HTML with highlighting for Lua files (pushState and shell commands)
+-- Generate HTML with highlighting for Lua files (pushState and shell commands).
+-- Also computes pushStateCount and dangerCount during the line iteration.
 function GitHubTab:generateHtml(content)
     if not self:isLuaFile() then
         local lineCount = 1
@@ -264,13 +136,6 @@ function GitHubTab:generateHtml(content)
         return escapeHtml(content)
     end
 
-    -- Lua files: highlight pushState blocks and dangerous calls
-    local lines = {}
-    local warningLines = {}
-    local inPushState = false
-    local braceDepth = 0
-    local lineNum = 0
-
     -- Helper to check if line matches any danger pattern
     local function isDangerLine(line)
         for _, pat in ipairs(DANGER_PATTERNS) do
@@ -278,6 +143,15 @@ function GitHubTab:generateHtml(content)
         end
         return isDangerousRequire(line)
     end
+
+    -- Lua files: highlight pushState blocks and dangerous calls
+    local lines = {}
+    local warningLines = {}
+    local inPushState = false
+    local braceDepth = 0
+    local lineNum = 0
+    local pushCount = 0
+    local dangerCount = 0
 
     for line in (content .. "\n"):gmatch("([^\n]*)\n") do
         lineNum = lineNum + 1
@@ -287,13 +161,13 @@ function GitHubTab:generateHtml(content)
         if not inPushState and line:match("pushState%s*%(") then
             inPushState = true
             braceDepth = 0
+            pushCount = pushCount + 1
         end
 
         if inPushState then
             for _ in line:gmatch("{") do braceDepth = braceDepth + 1 end
             for _ in line:gmatch("}") do braceDepth = braceDepth - 1 end
             local innerSpan = '<span class="pushstate-highlight-line">' .. escaped .. '</span>'
-            -- Add group start tag on first line, end tag on last line
             if not wasInPushState then
                 innerSpan = '<span class="pushstate-group">' .. innerSpan
             end
@@ -306,6 +180,7 @@ function GitHubTab:generateHtml(content)
         elseif isDangerLine(line) then
             escaped = '<span class="osexecute-group"><span class="osexecute-highlight-line">' .. escaped .. '</span></span>'
             table.insert(warningLines, {line = lineNum, type = "danger"})
+            dangerCount = dangerCount + 1
         end
 
         table.insert(lines, escaped)
@@ -313,16 +188,13 @@ function GitHubTab:generateHtml(content)
 
     self._totalLines = lineNum
     self._warningLines = warningLines
+    self.pushStateCount = pushCount
+    self.dangerCount = dangerCount
     return table.concat(lines, "\n")
 end
 
 function GitHubTab:contentHtml()
     return self._contentHtml or ""
-end
-
--- Returns empty; JS in viewdef positions markers by measuring actual span positions
-function GitHubTab:troughMarkersHtml()
-    return ""
 end
 
 -- Nested prototype: GitHub downloader (owns all GitHub download state)
@@ -613,9 +485,9 @@ function GitHubDownloader:contentHtml()
     return tab and tab:contentHtml() or ""
 end
 
+-- Returns empty; JS in viewdef positions markers by measuring actual span positions
 function GitHubDownloader:troughMarkersHtml()
-    local tab = self:getActiveTab()
-    return tab and tab:troughMarkersHtml() or ""
+    return ""
 end
 
 function GitHubDownloader:noTroughMarkers()
@@ -650,14 +522,9 @@ function GitHubDownloader:approve()
 
     local targetDir = baseDir .. "/apps/" .. appName
 
-    local existsCheck = io.popen('test -d "' .. targetDir .. '" && echo "exists"')
-    if existsCheck then
-        local result = existsCheck:read("*a")
-        existsCheck:close()
-        if result:match("exists") then
-            self.error = "App '" .. appName .. "' already exists. Delete it first to reinstall."
-            return
-        end
+    if self:hasConflict() then
+        self.error = "App '" .. appName .. "' already exists. Delete it first to reinstall."
+        return
     end
 
     local tempDir = "/tmp/github-download-" .. os.time()
@@ -913,7 +780,7 @@ end
 
 function AppInfo:shouldPulsate()
     -- Clear the flag when todos are empty
-    if not appConsole:hasTodos() then
+    if not mcp:hasTodos() then
         self._consolidatePending = false
     end
     return self._consolidatePending
@@ -1146,7 +1013,7 @@ local function dirHasFiles(path)
 end
 
 -- Construct GitHub readme URL from a repo URL
-local function findReadme(appPath, repoUrl)
+local function findReadme(repoUrl)
     if not repoUrl or repoUrl == "" then return nil end
     local user, repo, branch, path = repoUrl:match("github%.com/([^/]+)/([^/]+)/tree/([^/]+)/?(.*)")
     if not user or not repo or not branch then return nil end
@@ -1242,18 +1109,12 @@ end
 function AppConsole:new(instance)
     instance = session:create(AppConsole, instance)
     instance._apps = instance._apps or {}
-    instance.messages = instance.messages or {}
-    instance.luaOutputLines = instance.luaOutputLines or {}
     instance.github = GitHubDownloader:new()
     return instance
 end
 
 -- Hot-load mutation: initialize new fields on existing instances
 function AppConsole:mutate()
-    self.todos = self.todos or {}
-    self.todosCollapsed = self.todosCollapsed or false
-    self._todoSteps = self._todoSteps or {}
-    self._currentStep = self._currentStep or 0
     if not self.github then
         self.github = GitHubDownloader:new()
     end
@@ -1310,7 +1171,7 @@ function AppConsole:scanAppsFromDisk()
             local sourceContent = readFile(appPath .. "/source.txt")
             if sourceContent then
                 app.sourceUrl = sourceContent:gsub("%s+$", "")  -- trim trailing whitespace
-                app.readmePath = findReadme(appPath, app.sourceUrl)
+                app.readmePath = findReadme(app.sourceUrl)
             end
 
             -- Parse TESTING.md and populate test data
@@ -1368,7 +1229,7 @@ function AppConsole:rescanApp(name)
     local sourceContent = readFile(appPath .. "/source.txt")
     if sourceContent then
         app.sourceUrl = sourceContent:gsub("%s+$", "")  -- trim trailing whitespace
-        app.readmePath = findReadme(appPath, app.sourceUrl)
+        app.readmePath = findReadme(app.sourceUrl)
     else
         app.sourceUrl = ""
         app.readmePath = ""
@@ -1529,42 +1390,6 @@ function AppConsole:createApp()
     self.newAppDesc = ""
 end
 
--- Send chat message
-function AppConsole:sendChat()
-    if self.chatInput == "" then return end
-
-    table.insert(self.messages, ChatMessage:new("You", self.chatInput))
-
-    local reminder = "Show todos and thinking messages while working"
-    if self.selected then
-        self.selected:pushEvent("chat", { text = self.chatInput, context = self.selected.name, reminder = reminder })
-    else
-        mcp.pushState({
-            app = "app-console",
-            event = "chat",
-            text = self.chatInput,
-            reminder = reminder
-        })
-    end
-
-    self.chatInput = ""
-end
-
--- Add agent message (called by Claude)
-function AppConsole:addAgentMessage(text)
-    table.insert(self.messages, ChatMessage:new("Agent", text))
-    mcp.statusLine = ""  -- Clear status bar when sending a real message
-    mcp.statusClass = ""
-end
-
--- Add thinking/progress message (called by Claude while working)
--- text: appears in chat log, status: appears in MCP status bar (orange bold-italic)
-function AppConsole:addAgentThinking(text)
-    table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
-    mcp.statusLine = text
-    mcp.statusClass = "thinking"
-end
-
 function AppConsole:showDetail()
     return self.selected ~= nil and not self.showNewForm
 end
@@ -1640,190 +1465,6 @@ function AppConsole:updateRequirements(name)
             app.description = parseRequirements(content)
         end
     end
-end
-
-function AppConsole:showChatPanel()
-    self.panelMode = "chat"
-end
-
-function AppConsole:showLuaPanel()
-    self.panelMode = "lua"
-end
-
-function AppConsole:notChatPanel()
-    return self.panelMode ~= "chat"
-end
-
-function AppConsole:notLuaPanel()
-    return self.panelMode ~= "lua"
-end
-
-function AppConsole:chatTabVariant()
-    return self.panelMode == "chat" and "primary" or "default"
-end
-
-function AppConsole:luaTabVariant()
-    return self.panelMode == "lua" and "primary" or "default"
-end
-
-function AppConsole:runLua()
-    if self.luaInput == "" then return end
-
-    local cmdLine = session:create(OutputLine, { text = "> " .. self.luaInput, panel = self })
-    table.insert(self.luaOutputLines, cmdLine)
-
-    local code = self.luaInput
-
-    -- If code already has 'return', use as-is; otherwise try as expression, then as statement
-    local fn
-    if code:match("^%s*return%s") then
-        fn = loadstring(code)
-    else
-        fn = loadstring("return " .. code) or loadstring(code)
-    end
-
-    if not fn then
-        local _, err = loadstring(code)
-        local errLine = session:create(OutputLine, { text = "Syntax error: " .. tostring(err), panel = self })
-        table.insert(self.luaOutputLines, errLine)
-        return
-    end
-
-    local ok, result = pcall(fn)
-    if ok then
-        if result ~= nil then
-            local resultLine = session:create(OutputLine, { text = tostring(result), panel = self })
-            table.insert(self.luaOutputLines, resultLine)
-        end
-        self.luaInput = ""
-    else
-        local errLine = session:create(OutputLine, { text = "Error: " .. tostring(result), panel = self })
-        table.insert(self.luaOutputLines, errLine)
-    end
-end
-
-function AppConsole:clearLuaOutput()
-    self.luaOutputLines = {}
-end
-
-function AppConsole:focusLuaInput()
-    -- Set JS code to focus input. Changing the value triggers execution.
-    self._luaInputFocusTrigger = string.format([[
-        var input = document.getElementById('lua-input');
-        if (input) {
-            input.focus();
-            setTimeout(function() {
-                var textarea = input.shadowRoot && input.shadowRoot.querySelector('textarea');
-                if (textarea) {
-                    var len = textarea.value.length;
-                    textarea.setSelectionRange(len, len);
-                }
-            }, 0);
-        }
-        // %d
-    ]], os.time())
-end
-
-function AppConsole:clearChat()
-    self.messages = {}
-end
-
-function AppConsole:clearPanel()
-    if self.panelMode == "chat" then
-        self:clearChat()
-    else
-        self:clearLuaOutput()
-    end
-end
-
-function AppConsole:setTodos(todos)
-    self.todos = {}
-    for _, t in ipairs(todos or {}) do
-        local item = session:create(TodoItem, {
-            content = t.content or "",
-            status = t.status or "pending",
-            activeForm = t.activeForm or ""
-        })
-        table.insert(self.todos, item)
-    end
-end
-
-function AppConsole:toggleTodos()
-    self.todosCollapsed = not self.todosCollapsed
-end
-
-function AppConsole:hasTodos()
-    return self.todos and #self.todos > 0
-end
-
-function AppConsole:createTodos(steps, appName)
-    self._todoApp = appName
-    self._currentStep = 0
-    self._todoSteps = {}
-    self.todos = {}
-
-    for _, label in ipairs(steps or {}) do
-        -- Look up step definition from UI_THOROUGH_STEPS by label
-        local stepDef = nil
-        for _, def in ipairs(UI_THOROUGH_STEPS) do
-            if def.label == label then
-                stepDef = def
-                break
-            end
-        end
-        -- Default if not found in predefined steps
-        if not stepDef then
-            stepDef = {label = label, progress = #self._todoSteps * 15 + 10, thinking = label .. "..."}
-        end
-        table.insert(self._todoSteps, stepDef)
-
-        -- Create TodoItem (all pending initially)
-        local item = session:create(TodoItem, {
-            content = stepDef.label,
-            status = "pending",
-            activeForm = stepDef.thinking
-        })
-        table.insert(self.todos, item)
-    end
-end
-
-function AppConsole:startTodoStep(n)
-    if n < 1 or n > #self._todoSteps then return end
-
-    if self._currentStep > 0 and self._currentStep <= #self.todos then
-        self.todos[self._currentStep].status = "completed"
-    end
-
-    self._currentStep = n
-    local step = self._todoSteps[n]
-
-    if n <= #self.todos then
-        self.todos[n].status = "in_progress"
-    end
-
-    if self._todoApp then
-        self:onAppProgress(self._todoApp, step.progress, step.thinking:gsub("%.%.%.$", ""))
-    end
-    self:addAgentThinking(step.thinking)
-end
-
-function AppConsole:completeTodos()
-    for _, todo in ipairs(self.todos or {}) do
-        todo.status = "completed"
-    end
-    if self._todoApp then
-        self:onAppProgress(self._todoApp, nil, nil)
-    end
-    self._currentStep = 0
-end
-
-function AppConsole:clearTodos()
-    self.todos = {}
-    self._todoSteps = {}
-    self._currentStep = 0
-    self._todoApp = nil
-    mcp.statusLine = ""
-    mcp.statusClass = ""
 end
 
 if not session.reloading then

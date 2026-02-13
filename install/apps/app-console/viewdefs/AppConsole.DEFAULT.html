@@ -668,331 +668,6 @@
       overflow: hidden;
     }
 
-    /* Bottom panel - Chat/Lua */
-    .chat-panel {
-      border-top: 1px solid var(--term-border);
-      display: flex;
-      flex-direction: column;
-      height: 220px;
-      min-height: 120px;
-      max-height: 60vh;
-      flex-shrink: 0;
-      background: var(--term-bg-panel);
-    }
-
-    .chat-resize-handle {
-      height: 4px;
-      background: var(--term-border);
-      cursor: ns-resize;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-    }
-
-    .chat-resize-handle:hover {
-      background: var(--term-accent);
-    }
-
-    .chat-resize-handle::after {
-      content: '';
-      width: 32px;
-      height: 2px;
-      background: var(--term-text-muted);
-      border-radius: 1px;
-    }
-
-    .bottom-panel-content {
-      flex: 1;
-      display: flex;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    /* Todo column */
-    .todo-column {
-      width: 200px;
-      border-right: 1px solid var(--term-border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      flex-shrink: 0;
-      background: var(--term-bg);
-    }
-
-    .todo-column.collapsed {
-      width: 32px;
-    }
-
-    .todo-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      border-bottom: 3px solid var(--term-accent);
-      border-radius: 0 0 6px 0;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .todo-header:hover {
-      background: var(--term-bg-hover);
-    }
-
-    .todo-header h4 {
-      margin: 0;
-      font-family: var(--term-mono);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--term-text-dim);
-    }
-
-    .todo-header-buttons {
-      display: flex;
-      gap: 2px;
-    }
-
-    .todo-header-buttons sl-icon-button {
-      color: var(--term-text-muted);
-    }
-
-    .todo-header-buttons sl-icon-button:hover {
-      color: var(--term-accent);
-    }
-
-    .todo-column.collapsed .todo-header h4,
-    .todo-column.collapsed .todo-header-buttons sl-icon-button:first-child {
-      display: none;
-    }
-
-    .todo-column.collapsed .todo-header {
-      justify-content: center;
-      padding: 8px 4px;
-    }
-
-    .todo-column.collapsed .todo-header-buttons {
-      justify-content: center;
-    }
-
-    .todo-column.collapsed .collapse-toggle {
-      transform: rotate(180deg);
-    }
-
-    .collapse-toggle {
-      transition: transform 0.2s ease;
-    }
-
-    .todo-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: auto;
-      padding: 8px;
-    }
-
-    .todo-column.collapsed .todo-list {
-      display: none;
-    }
-
-    /* Todo item styles */
-    .todo-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      padding: 4px 0;
-      font-family: var(--term-mono);
-      font-size: 11px;
-      line-height: 1.4;
-    }
-
-    .todo-icon {
-      flex-shrink: 0;
-      width: 1.2em;
-      text-align: center;
-    }
-
-    .todo-item.pending { color: var(--term-text-muted); }
-    .todo-item.in-progress {
-      color: var(--term-accent);
-      font-weight: 500;
-    }
-    .todo-item.completed {
-      color: var(--term-success);
-      opacity: 0.6;
-    }
-
-    .todo-text {
-      white-space: nowrap;
-    }
-
-    /* Chat/Lua column */
-    .chat-lua-column {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      padding: 12px 16px 16px;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      flex-shrink: 0;
-      border-left: 4px solid var(--term-accent);
-      border-radius: 0 0 0 8px;
-      padding-left: 12px;
-    }
-
-    .panel-tabs {
-      display: flex;
-      gap: 4px;
-    }
-
-    .panel-tabs sl-button {
-      font-family: var(--term-mono);
-      font-size: 11px;
-    }
-
-    /* Chat panel content wrapper */
-    .chat-panel-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    /* Chat messages */
-    .chat-messages,
-    .chat-panel-content > .view-list,
-    .chat-lua-column > .view-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      background: var(--term-bg);
-      border: 1px solid var(--term-border);
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .chat-input-row {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-      border-top: 3px solid var(--term-accent);
-      border-radius: 8px 0 0 0;
-      padding-top: 12px;
-    }
-
-    .chat-input-row sl-input {
-      flex: 1;
-      font-family: var(--term-mono);
-    }
-
-    .chat-input-row sl-input::part(input) {
-      font-family: var(--term-mono);
-      font-size: 13px;
-    }
-
-    /* Chat message styles */
-    .chat-message {
-      margin-bottom: 8px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .chat-message.user-message {
-      color: var(--term-text);
-    }
-
-    .chat-message.user-message .chat-prefix {
-      color: var(--term-accent);
-      font-family: var(--term-mono);
-      font-weight: 600;
-    }
-
-    .chat-message.thinking-message {
-      font-style: italic;
-      color: var(--term-text-muted);
-    }
-
-    .chat-message-text {
-      white-space: pre-wrap;
-    }
-
-    /* Lua console */
-    .lua-panel {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .lua-output,
-    .lua-panel > .view-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      background: var(--term-bg);
-      border: 1px solid var(--term-border);
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-      font-family: var(--term-mono);
-      font-size: 12px;
-      color: var(--term-text);
-    }
-
-    .lua-output-line {
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 3px;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-
-    .lua-output-line:hover {
-      background: var(--term-bg-hover);
-    }
-
-    .lua-output-line.command {
-      color: var(--term-accent);
-    }
-
-    .lua-output-line.command::before {
-      content: '> ';
-      color: var(--term-text-muted);
-    }
-
-    .lua-output-line.error {
-      color: var(--term-danger);
-    }
-
-    .lua-input-area {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .lua-input-area sl-textarea::part(textarea) {
-      font-family: var(--term-mono);
-      font-size: 12px;
-      background: var(--term-bg);
-      color: var(--term-text);
-    }
-
-    .lua-buttons {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
     /* Shoelace dark theme overrides */
     sl-input::part(base),
     sl-textarea::part(base),
@@ -1029,47 +704,41 @@
 
     /* Button styles for app-console chrome (not embedded apps) */
     .app-list-panel sl-button[variant="default"]::part(base),
-    .normal-detail sl-button[variant="default"]::part(base),
-    .chat-panel sl-button[variant="default"]::part(base) {
+    .normal-detail sl-button[variant="default"]::part(base) {
       background: var(--term-bg-elevated);
       border-color: var(--term-border);
       color: var(--term-text);
     }
 
     .app-list-panel sl-button[variant="default"]::part(base):hover,
-    .normal-detail sl-button[variant="default"]::part(base):hover,
-    .chat-panel sl-button[variant="default"]::part(base):hover {
+    .normal-detail sl-button[variant="default"]::part(base):hover {
       background: var(--term-bg-hover);
       border-color: var(--term-accent);
       color: var(--term-accent);
     }
 
     .app-list-panel sl-button[variant="primary"]::part(base),
-    .normal-detail sl-button[variant="primary"]::part(base),
-    .chat-panel sl-button[variant="primary"]::part(base) {
+    .normal-detail sl-button[variant="primary"]::part(base) {
       background: var(--term-accent);
       border-color: var(--term-accent);
       color: var(--term-bg);
     }
 
     .app-list-panel sl-button[variant="primary"]::part(base):hover,
-    .normal-detail sl-button[variant="primary"]::part(base):hover,
-    .chat-panel sl-button[variant="primary"]::part(base):hover {
+    .normal-detail sl-button[variant="primary"]::part(base):hover {
       background: var(--term-accent-bright);
       box-shadow: 0 0 12px var(--term-accent-glow);
     }
 
     .app-list-panel sl-button[variant="warning"]::part(base),
-    .normal-detail sl-button[variant="warning"]::part(base),
-    .chat-panel sl-button[variant="warning"]::part(base) {
+    .normal-detail sl-button[variant="warning"]::part(base) {
       background: var(--term-warning-dim);
       border-color: var(--term-warning);
       color: var(--term-warning);
     }
 
     .app-list-panel sl-button[variant="danger"]::part(base),
-    .normal-detail sl-button[variant="danger"]::part(base),
-    .chat-panel sl-button[variant="danger"]::part(base) {
+    .normal-detail sl-button[variant="danger"]::part(base) {
       background: var(--term-danger-dim);
       border-color: var(--term-danger);
       color: var(--term-danger);
@@ -1077,7 +746,6 @@
 
     .app-list-panel sl-button[variant="success"]::part(base),
     .normal-detail sl-button[variant="success"]::part(base),
-    .chat-panel sl-button[variant="success"]::part(base),
     .github-form sl-button[variant="success"]::part(base) {
       background: var(--term-success-dim);
       border-color: var(--term-success);
@@ -1333,86 +1001,9 @@
       </div>
     </div>
 
-    <!-- Chat/Lua Panel -->
-    <div class="chat-panel" id="chat-panel">
-      <div class="chat-resize-handle" id="chat-resize-handle"></div>
-      <div class="bottom-panel-content">
-        <!-- Todo Column -->
-        <div class="todo-column" ui-class-collapsed="todosCollapsed">
-          <div class="panel-header todo-header">
-            <h4 ui-event-click="toggleTodos()">Todos</h4>
-            <div class="todo-header-buttons">
-              <sl-icon-button name="trash" label="Clear" ui-action="clearTodos()"></sl-icon-button>
-              <sl-icon-button class="collapse-toggle" name="chevron-left" label="Collapse" ui-event-click="toggleTodos()"></sl-icon-button>
-            </div>
-          </div>
-          <div class="todo-list" ui-view="todos?wrapper=lua.ViewList"></div>
-        </div>
-
-        <!-- Chat/Lua Column -->
-        <div class="chat-lua-column">
-          <div class="panel-header">
-            <div class="panel-tabs">
-              <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
-              <sl-button size="small" ui-attr-variant="luaTabVariant()" ui-action="showLuaPanel()">Lua</sl-button>
-            </div>
-            <sl-button size="small" ui-action="clearPanel()">Clear</sl-button>
-          </div>
-
-          <!-- Chat Panel Content -->
-          <div class="chat-panel-content" ui-class-hidden="notChatPanel()">
-            <div class="chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
-          </div>
-          <div class="input-area chat-input-row" ui-class-hidden="notChatPanel()">
-            <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-            <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
-          </div>
-
-          <!-- Lua Panel Content -->
-          <div class="lua-panel" ui-class-hidden="notLuaPanel()">
-            <div class="lua-output" ui-view="luaOutputLines?wrapper=lua.ViewList&scrollOnOutput"></div>
-            <div class="lua-input-area">
-              <sl-textarea id="lua-input" rows="3" placeholder="Enter Lua code..." ui-value="luaInput?keypress" ui-event-keypress-ctrl-enter="runLua()"></sl-textarea>
-              <div style="display:none" ui-code="_luaInputFocusTrigger"></div>
-              <div class="lua-buttons">
-                <sl-button size="small" ui-action="clearLuaOutput()">Clear</sl-button>
-                <sl-button size="small" variant="primary" ui-action="runLua()">Run</sl-button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
-    (function() {
-      const panel = document.getElementById('chat-panel');
-      const handle = document.getElementById('chat-resize-handle');
-      if (!panel || !handle) return;
-
-      let startY, startHeight;
-
-      handle.addEventListener('mousedown', (e) => {
-        startY = e.clientY;
-        startHeight = panel.offsetHeight;
-        document.addEventListener('mousemove', onDrag);
-        document.addEventListener('mouseup', onRelease);
-        e.preventDefault();
-      });
-
-      function onDrag(e) {
-        const delta = startY - e.clientY;
-        const newHeight = Math.max(120, Math.min(window.innerHeight * 0.6, startHeight + delta));
-        panel.style.height = newHeight + 'px';
-      }
-
-      function onRelease() {
-        document.removeEventListener('mousemove', onDrag);
-        document.removeEventListener('mouseup', onRelease);
-      }
-    })();
-
     // Position trough markers based on actual span positions, aligned to scroll position
     (function() {
       const dashboardId = document.querySelector('.apps-dashboard')?.id;

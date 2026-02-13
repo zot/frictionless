@@ -78,7 +78,9 @@ A hidden element binds to `mcp.code` via `ui-code`:
 
 ## Events
 
-This app does not send events to Claude. App switching is handled entirely in Lua via `mcp:display()`.
+App switching is handled entirely in Lua via `mcp:display()`.
+
+The chat panel's `sendChat()` sends `chat` events to Claude via `mcp.pushState()`, with the selected app context from `appConsole.selected` when available. The event uses `app: "app-console"` for compatibility with the app-console event handler.
 
 ## Status Bar
 
@@ -100,8 +102,11 @@ Icons at the right edge of the status bar, grouped tightly together from left to
 | 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
+| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel |
 
 The braces and question mark icons use `ui-html` to generate anchor tags that open in new tabs. They are styled in purple (#bb88ff) with a brighter hover state (#dd99ff).
+
+The chat-dots icon is the rightmost status bar item. It shows `chat-dots-fill` when open, `chat-dots` when closed.
 
 ### Build Settings Toggles
 
@@ -127,6 +132,50 @@ Agents can display notifications to alert users of important events (errors, war
 - Multiple notifications stack vertically
 - Each notification has a close button for manual dismissal
 - Notifications appear in top-right corner, below the menu button
+
+## Chat Panel
+
+A toggleable panel between the app content and status bar. The chat-dots icon in the status bar opens/closes it.
+
+**Layout:**
+- Resizable via drag handle at top edge (min 120px, max 60vh, initial 220px)
+- Two columns: Todo List (left, 200px collapsible) | Chat/Lua (right)
+- Messages auto-scroll to bottom on new output (`scrollOnOutput`)
+
+**Chat tab:**
+- Messages display with user messages prefixed with `>`
+- Thinking messages shown italic/muted
+- Input field + Send button (or Enter key)
+- `sendChat()` reads `appConsole.selected` for app context when sending events
+
+**Lua tab:**
+- REPL for executing Lua code
+- Output area shows command history and results
+- Input textarea for multi-line code (Ctrl+Enter to run)
+- Clicking an output line copies it to input and focuses
+
+**Todo column:**
+- Shows Claude's current build progress (⏳ pending, 🔄 in-progress, ✓ completed)
+- Collapse button shrinks to 32px icon-only width
+- Clear button removes all todos
+
+### MCP Chat/Todo API
+
+Methods available to Claude via `.ui/mcp run`:
+
+```lua
+mcp:addAgentMessage(text)        -- Add agent message, clear status
+mcp:addAgentThinking(text)       -- Add thinking message, update status
+mcp:createTodos(steps, appName)  -- Create todos from step labels
+mcp:startTodoStep(n)             -- Complete previous, start step n
+mcp:completeTodos()              -- Mark all complete, clear progress
+mcp:appProgress(name, pct, stage) -- Update app build progress
+mcp:appUpdated(name)             -- Trigger rescan after file changes
+```
+
+`createTodos` uses hardcoded step definitions mapping labels to progress percentages. Unknown labels get auto-calculated percentages.
+
+`startTodoStep` also calls `appConsole:onAppProgress()` to update the build progress bar in the app list.
 
 ## Styling
 

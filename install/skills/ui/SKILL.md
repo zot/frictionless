@@ -37,7 +37,7 @@ When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright 
 
 When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
 
-When the user says `events` it means to start the event loop in the foreground, but not use `.ui/mcp display` or `.ui/mcp browser` as in Quick Start.
+When the user says `events` it means to start the event loop, but not use `.ui/mcp display` or `.ui/mcp browser` as in Quick Start.
 
 ## Helper Script Reference
 
@@ -83,37 +83,33 @@ This returns one JSON array per line containing one or more events:
 [{"app":"claude-panel","event":"chat","text":"Hello"},{"app":"claude-panel","event":"action","action":"commit"}]
 ```
 
-As soon as you receive events, create a task to restart the event loop using TaskCreate—but only if there isn't already a pending restart task. Stacking multiple restart tasks just creates confusion.
-
 **Remember:** Read the design.md for the `app` field (see "Before Handling ANY Event" above). Other fields like `context` or `note` provide data but do NOT change which design file you read.
 
-### Running in Foreground or Background
+### Background Event Loop
 
-**Foreground event loop (recommended):**
-1. Run `.ui/mcp event` with Bash (blocking, ~2 min timeout)
-2. When it returns, parse JSON array. If non-empty, handle each event
-   - use `.ui/mcp run` to alter app state and reflect changes to the user
-3. Restart the event loop
+**Always run `.ui/mcp event` in the background.** This frees you to do other work while waiting for user interactions.
 
-This is the most responsive approach - events are handled immediately.
+**Task lifecycle for the event loop:**
+1. Complete any existing "Restart event loop" task before starting `.ui/mcp event` (so it doesn't linger while listening)
+2. Run `.ui/mcp event` with Bash(run_in_background=true), track the task_id
+3. When the background task completes, read the output file and check for events
+4. If events were received, immediately create a "Restart event loop" task as a reminder — then handle the events
+5. After handling, kill the old listener and restart the loop (go to step 1)
 
-**Background event loop (alternative):**
-Run `.ui/mcp event` in background if you need to do other work while waiting. Note: this adds latency since you must poll the output file.
+**CRITICAL: When the background task completes, ALWAYS read the output file immediately.** Do NOT assume it was a timeout — always read the file and check for events. Failing to read the output means silently dropping user events.
 
 **CRITICAL: Kill previous event listener before restarting.**
-If the event call runs in background or times out, the old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
+The old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
 
 ```
-1. Track the task_id from `.ui/mcp event` (returned when running in background or via TaskOutput)
-2. Before restarting: TaskStop(task_id=<previous_task_id>)
-3. Then start new: `.ui/mcp event`
+1. Before restarting: TaskStop(task_id=<previous_task_id>)
+2. Then start new: Bash(.ui/mcp event, run_in_background=true)
 ```
 
 Failure to kill the old listener means it will consume events intended for the new one.
 
 **Exit codes:**
-- 0 + empty output = timeout, no events (kill old task, restart)
-- 0 + JSON output = events received
+- 0 + JSON output = events received (may be empty array `[]` for timeout)
 - 52 = server restarted (restart both server and event loop)
 
 ## Quick Start: Show an Existing App
@@ -136,18 +132,18 @@ To display an app (e.g., `claude-panel`):
    - Otherwise, run `.ui/mcp browser`
    - `.ui/mcp status` to verify sessions > 0 (confirms browser connected)
 
-3. IMMEDIATELY start the event loop:
-   .ui/mcp event
+3. IMMEDIATELY start the event loop in the background:
+   Bash(.ui/mcp event, run_in_background=true)
 
    The UI will NOT respond to clicks until the event loop is running!
 
-4. When events arrive, handle according to design.md, then restart the loop:
+4. When the background task completes, read the output and handle events:
    - Parse JSON: [{"app":"app-console","event":"select","name":"contacts"}]
    - Check design.md's "Events" section for how to handle each event type
    - **For UI changes**: Check event's `handler` field and invoke that skill (see Handler Dispatch Rule above)
    - Simple state changes: use `.ui/mcp run` directly
    - Some events require spawning a background agent (see Build Settings below)
-   - Restart: `.ui/mcp event`
+   - Kill the old task, then restart: Bash(.ui/mcp event, run_in_background=true)
 ```
 
 **Background Agent Events:**

@@ -26,17 +26,9 @@ Command center for UI development with Claude. Browse apps, see testing status, 
 |                  |   2. Cancel doesn't revert  |
 |                  | > Fixed Issues (1)          |
 +------------------+-----------------------------+
-| ═══════════════ drag handle ════════════════  |
-| Todos [▼][🗑] | [Chat] [Lua]              [⬆]  |
-|--------------|----------------------------------|
-| 🔄 Reading   | (Chat Panel - when Chat tab)    |
-| ⏳ Update    | Agent: Which app would you like |
-| ⏳ Test      | You: Test the contacts app      |
-| ✓ Design     | [____________________________]  |
-|              |                          [Send] |
-+------------------------------------------------+
 ```
 
+Note: The chat/todo/Lua panel is in the MCP shell below this app.
 Note: Action buttons appear above Requirements and Build Progress sections.
 
 ### Embedded App View (in detail area)
@@ -51,17 +43,13 @@ Note: Action buttons appear above Requirements and Build Progress sections.
 |                  |                             |
 |                  |                             |
 +------------------+-----------------------------+
-| ═══════════════ drag handle ════════════════  |
-| Todos [▼]    | [Chat] [Lua]                   |
-| ...          | ...                             |
-+------------------------------------------------+
 ```
 
 When "Show" is clicked, the embedded app replaces the detail panel:
 - App list remains visible on the left
 - Embedded view displays `embeddedValue` in the detail area
 - Header shows app name and close button `[X]`
-- Chat panel remains visible below
+- MCP shell's chat panel remains visible below
 
 Legend:
 - `[R]` = Refresh button
@@ -73,9 +61,6 @@ Legend:
 - `17/21` = Tests passing/total (green if all pass, yellow if partial)
 - `v` = Expanded section, `>` = Collapsed section
 - `[✓]` = Test passed, `[ ]` = Untested, `[✗]` = Test failed
-- Todo: `🔄` = in_progress (blue), `⏳` = pending (gray), `✓` = completed (green/muted)
-- `[▼]` = Collapse todos button
-- `[🗑]` = Clear todos button
 
 **Action buttons** (based on app state, shown below description and above requirements/progress):
 - `[Build]` — shown when app has no viewdefs (needsBuild)
@@ -181,20 +166,8 @@ The trough (▓/░ on right side) shows warning positions:
 | showNewForm | boolean | Show new app form vs details |
 | newAppName | string | Name input for new app |
 | newAppDesc | string | Description input for new app |
-| messages | ChatMessage[] | Chat history |
-| chatInput | string | Current chat input |
 | embeddedApp | string | Name of embedded app, or nil |
 | embeddedValue | object | App global loaded via mcp:app, or nil |
-| panelMode | string | "chat" or "lua" (bottom panel mode) |
-| luaOutputLines | OutputLine[] | Lua console output history |
-| luaInput | string | Current Lua code input |
-| _luaInputFocusTrigger | number | Incremented to trigger focus on Lua input (via ui-code) |
-| (removed) | | Build mode now in global mcp.buildMode |
-| todos | TodoItem[] | Claude Code todo list items |
-| todosCollapsed | boolean | Whether todo column is collapsed |
-| _todoSteps | table[] | Step definitions for createTodos/startTodoStep |
-| _currentStep | number | Current in_progress step (1-based), 0 if none |
-| _todoApp | string | App name for progress reporting during todo steps |
 | _checkpointsTime | number | Unix timestamp of last checkpoint status refresh |
 | github | GitHubDownloader | GitHub download form state |
 
@@ -224,14 +197,6 @@ The trough (▓/░ on right side) shows warning positions:
 | _contentHtml | string | Cached HTML content (generated once on first click) |
 | _totalLines | number | Total line count (for trough marker positioning) |
 | _warningLines | table[] | Warning line data: {line=n, type="pushstate"\|"osexecute"} |
-
-### TodoItem (Claude Code task)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| content | string | Task description (shown for pending/completed) |
-| status | string | "pending", "in_progress", or "completed" |
-| activeForm | string | Present tense form (shown for in_progress) |
 
 ### AppInfo (app metadata)
 
@@ -275,37 +240,6 @@ The trough (▓/░ on right side) shows warning positions:
 | text | string | Test description |
 | status | string | "passed", "failed", or "untested" |
 
-### ChatMessage
-
-| Field | Type | Description |
-|-------|------|-------------|
-| sender | string | "You" or "Agent" |
-| text | string | Message content |
-| style | string | "normal" (default) or "thinking" for interstitial progress |
-
-### OutputLine
-
-| Field | Type | Description |
-|-------|------|-------------|
-| text | string | Line content |
-| panel | ref | Reference to AppConsole for copyToInput |
-
-## Chat Panel Features
-
-### Resizable
-- Drag handle at top edge of chat panel
-- Drag up to increase height, down to decrease
-- Minimum height: 120px, Maximum: 60vh
-- Initial height: 200px
-
-### Auto-scroll
-- Messages container uses `scrollOnOutput` variable property
-- New messages automatically scroll into view
-
-### User Message Styling
-- User messages prefixed with `>` character
-- CSS class `user-message` applied for distinct styling
-
 ## Methods
 
 **Dynamic Method Creation:**
@@ -329,7 +263,6 @@ These methods are documented below but created at runtime, so they don't appear 
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
 | createApp() | Create app dir, write requirements.md, rescan, select new app, start progress at "pondering, 0%", send app_created event |
-| sendChat() | Send chat event with selected app context |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
@@ -345,46 +278,12 @@ These methods are documented below but created at runtime, so they don't appear 
 | cancelGitHubForm() | Cancel and hide GitHub form (delegates to github:cancel()) |
 | investigateGitHub() | Validate URL and fetch file list (delegates to github:investigate()) |
 | approveGitHub() | Download and install app (delegates to github:approve()) |
-| showChatPanel() | Set panelMode to "chat" |
-| showLuaPanel() | Set panelMode to "lua" |
-| notChatPanel() | Returns panelMode ~= "chat" |
-| notLuaPanel() | Returns panelMode ~= "lua" |
-| chatTabVariant() | Returns "primary" if chat, else "default" |
-| luaTabVariant() | Returns "primary" if lua, else "default" |
-| runLua() | Execute luaInput, append output to luaOutputLines |
-| clearLuaOutput() | Clear luaOutputLines |
-| focusLuaInput() | Increment _luaInputFocusTrigger to focus input via ui-code |
-| (build mode methods removed) | Handler injected by mcp.pushState override |
-| toggleTodos() | Toggle todosCollapsed state |
-| clearTodos() | Clear todos list and reset step state |
 
 **External methods (called by Claude via `.ui/mcp run`):**
 
 | Method | Description |
 |--------|-------------|
-| addAgentMessage(text) | Add agent message to chat, clear mcp.statusLine |
-| addAgentThinking(text) | Add thinking message to chat, update mcp.statusLine |
 | updateRequirements(name) | Re-read an app's requirements.md from disk and update requirementsContent |
-| setTodos(todos) | Replace todo list with new items (legacy API) |
-| createTodos(steps, appName) | Create todos from step labels, store appName for progress |
-| startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
-| completeTodos() | Mark all steps complete, clear progress bar |
-
-### TodoItem
-
-| Method | Description |
-|--------|-------------|
-| displayText() | Returns activeForm if in_progress, else content |
-| isPending() | Returns status == "pending" |
-| isInProgress() | Returns status == "in_progress" |
-| isCompleted() | Returns status == "completed" |
-| statusIcon() | Returns "🔄" for in_progress, "⏳" for pending, "✓" for completed |
-
-### OutputLine
-
-| Method | Description |
-|--------|-------------|
-| copyToInput() | Copy this line's text to appConsole.luaInput, focus input, position cursor at end |
 
 ### GitHubDownloader
 
@@ -516,25 +415,14 @@ These methods are documented below but created at runtime, so they don't appear 
 | icon() | Returns "✓", "✗", or " " based on status |
 | iconClass() | Returns "passed", "failed", or "untested" for CSS styling |
 
-### ChatMessage
-
-| Method | Description |
-|--------|-------------|
-| isUser() | Returns true if sender == "You" |
-| isThinking() | Returns true if style == "thinking" |
-| prefix() | Returns "> " for user messages, "" for agent |
-
 ## ViewDefs
 
 | File | Type | Purpose |
 |------|------|---------|
-| AppConsole.DEFAULT.html | AppConsole | Main layout with list, details, chat/lua panels |
+| AppConsole.DEFAULT.html | AppConsole | Main layout with list and details panels |
 | AppConsole.AppInfo.list-item.html | AppConsole.AppInfo | App row in list with status badge |
 | AppConsole.TestItem.list-item.html | AppConsole.TestItem | Test checkbox row |
 | AppConsole.Issue.list-item.html | AppConsole.Issue | Issue row |
-| AppConsole.ChatMessage.list-item.html | AppConsole.ChatMessage | Chat message bubble |
-| AppConsole.OutputLine.list-item.html | AppConsole.OutputLine | Clickable Lua output line |
-| AppConsole.TodoItem.list-item.html | AppConsole.TodoItem | Todo item with status icon |
 | AppConsole.GitHubTab.list-item.html | AppConsole.GitHubTab | GitHub file tab button with tooltip |
 
 ## Events
@@ -656,12 +544,12 @@ Show both progress (in app list) and thinking messages (in chat panel) while pro
 ```lua
 -- Step 1: Show progress and thinking, then read
 mcp:appProgress("{name}", 0, "reading initial requirements")
-appConsole:addAgentThinking("Reading initial requirements...")
+mcp:addAgentThinking("Reading initial requirements...")
 -- Read {base_dir}/apps/{name}/requirements.md
 
 -- Step 2: Show progress and thinking, then expand
 mcp:appProgress("{name}", 50, "fleshing out requirements")
-appConsole:addAgentThinking("Fleshing out requirements...")
+mcp:addAgentThinking("Fleshing out requirements...")
 -- Expand the brief description into full, human-readable requirements
 -- do not use the `/ui-builder` skill for this, do not do a design
 -- just make requirements
@@ -670,7 +558,7 @@ appConsole:addAgentThinking("Fleshing out requirements...")
 -- Write expanded requirements.md to disk, then re-read into UI
 appConsole:updateRequirements("{name}")
 mcp:appProgress("{name}", nil, nil)  -- Clear progress bar
-appConsole:addAgentMessage("Created requirements for {name}. Click Build to generate the app.")
+mcp:addAgentMessage("Created requirements for {name}. Click Build to generate the app.")
 ```
 
 ### Chat Events
@@ -679,19 +567,19 @@ appConsole:addAgentMessage("Created requirements for {name}. Click Build to gene
 
 **Handler dispatch:** See `/ui` skill's "Build Settings" section. The `handler` and `background` fields are injected by the MCP layer based on the status bar toggles.
 
-**Reply:** `appConsole:addAgentMessage(text)` when done.
+**Reply:** `mcp:addAgentMessage(text)` when done.
 
 ### Progress Feedback
 
-Send thinking updates via `appConsole:addAgentThinking(text)`:
-- Appears in chat (italic, muted)
+Send thinking updates via `mcp:addAgentThinking(text)`:
+- Appears in MCP shell's chat (italic, muted)
 - Updates `mcp.statusLine` with `mcp.statusClass = "thinking"` (orange bold-italic)
 
 Examples: "Reading the design...", "Found the issue, fixing...", "Running tests..."
 
 **Before sending:** Check for new events first. Handle events immediately; save thinking message for after.
 
-Final response via `appConsole:addAgentMessage(text)` clears `mcp.statusLine`.
+Final response via `mcp:addAgentMessage(text)` clears `mcp.statusLine`.
 
 ### MCP Convenience Methods
 
@@ -702,68 +590,13 @@ mcp:appUpdated("contacts")
 
 ## App Initialization (`init.lua`)
 
-The app-console app provides `init.lua` which adds convenience methods to the `mcp` global:
+The app-console's `init.lua` provides a hot-load test function. All MCP convenience methods (`mcp:appProgress`, `mcp:appUpdated`, `mcp:addAgentMessage`, `mcp:createTodos`, etc.) now live directly in the MCP shell's `app.lua`.
 
 ```lua
-function mcp:appProgress(name, progress, stage)
-    if appConsole then appConsole:onAppProgress(name, progress, stage) end
-end
-
-function mcp:appUpdated(name)
-    mcp:scanAvailableApps()  -- rescan all apps from disk
-    if appConsole then appConsole:onAppUpdated(name) end
-end
-
-function mcp:setTodos(todos)
-    if appConsole then appConsole:setTodos(todos) end
-end
-
-function mcp:createTodos(steps, appName)
-    if appConsole then appConsole:createTodos(steps, appName) end
-end
-
-function mcp:startTodoStep(n)
-    if appConsole then appConsole:startTodoStep(n) end
-end
-
-function mcp:completeTodos()
-    if appConsole then appConsole:completeTodos() end
+function mcp:hotLoadTest()
+    return "hot-load works!"
 end
 ```
-
-This allows Claude to call these methods without checking if app-console is loaded.
-
-### Todo Step API (AppConsole methods)
-
-The `AppConsole` class implements the todo step logic:
-
-**Internal state:**
-| Field | Type | Description |
-|-------|------|-------------|
-| _todoSteps | table[] | Step definitions: {label, progress, thinking} |
-| _currentStep | number | Current in_progress step (1-based), 0 if none |
-| _todoApp | string | App name for progress reporting |
-
-**Hardcoded ui-thorough steps (in AppConsole):**
-```lua
-local UI_BUILDER_STEPS = {
-    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
-    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
-    {label = "Design", progress = 20, thinking = "Designing..."},
-    {label = "Write code", progress = 40, thinking = "Writing code..."},
-    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
-    {label = "Link and audit", progress = 90, thinking = "Auditing..."},
-    {label = "Simplify", progress = 95, thinking = "Simplifying..."},
-}
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| createTodos(steps, appName) | Create todo items from step labels, store appName for progress |
-| startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
-| completeTodos() | Mark all complete, clear progress bar |
 
 ## File Parsing (Lua)
 
@@ -799,4 +632,3 @@ Inherits terminal aesthetic from MCP shell via CSS variables.
 - Selected app shows orange left border (4px solid `--term-accent`)
 - Progress bars use accent color with glow
 - Collapsible sections have chevron indicators
-- Todo column collapse: chevron rotates 180° when collapsed, header centers vertically, shrinks to 32px width

@@ -15,10 +15,20 @@ Outer shell for all frictionless apps. Displays the current app full-viewport an
 |                                                  |
 |                                                  |
 +--------------------------------------------------+
-| Status: mcp.statusLine (with mcp.statusClass)    | <- status bar (always visible)
+| ═══════════ drag handle ══════════════════════  | <- chat panel (toggleable)
+| Todos [▼][🗑] | [Chat] [Lua]              [Clear]|
+|--------------|-----------------------------------|
+| 🔄 Reading   | Agent: Reading the design...     |
+| ⏳ Update    | You: Build the contacts app      |
+| ✓ Design     | [____________________________]   |
+|              |                          [Send]  |
++--------------------------------------------------+
+| Status: mcp.statusLine        [{} ❓ 🔧 🚀 ⏳ 💬] | <- status bar
 +--------------------------------------------------+
 [hidden: ui-code element]
 ```
+
+Chat panel is between the app content and status bar. Toggled by the 💬 icon (rightmost in status bar).
 
 ### Status Bar
 
@@ -33,6 +43,7 @@ At the right end of the status bar are icons grouped tightly together in a `.mcp
 | 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
+| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel (rightmost) |
 
 Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows dynamic tooltip.
 
@@ -116,6 +127,18 @@ The global `mcp` object is provided by the server. This app adds:
 | buildMode | string | "fast" or "thorough" - global build mode setting |
 | runInBackground | boolean | Whether to run builds in background |
 | _notifiedForDisconnect | boolean | Whether disconnect warning has been shown (prevents duplicate notifications) |
+| panelOpen | boolean | Whether chat/lua/todo panel is visible |
+| messages | ChatMessage[] | Chat message history |
+| chatInput | string | Current chat input text |
+| panelMode | string | "chat" or "lua" (bottom panel tab) |
+| luaOutputLines | OutputLine[] | Lua console output history |
+| luaInput | string | Current Lua code input |
+| _luaInputFocusTrigger | string | JS code to focus Lua input (changes trigger ui-code) |
+| todos | TodoItem[] | Claude Code todo list items |
+| todosCollapsed | boolean | Whether todo column is collapsed |
+| _todoSteps | table[] | Step definitions for createTodos/startTodoStep |
+| _currentStep | number | Current in_progress step (1-based), 0 if none |
+| _todoApp | string | App name for progress reporting during todo steps |
 
 ## Methods
 
@@ -153,6 +176,32 @@ The global `mcp` object is provided by the server. This app adds:
 | isBackground() | Returns true if runInBackground is true |
 | isForeground() | Returns true if runInBackground is false |
 | backgroundTooltip() | Returns tooltip text for current execution mode |
+| togglePanel() | Toggle panelOpen state |
+| panelHidden() | Returns not panelOpen |
+| panelIcon() | Returns "chat-dots-fill" if open, "chat-dots" if closed |
+| showChatPanel() | Set panelMode to "chat" |
+| showLuaPanel() | Set panelMode to "lua" |
+| notChatPanel() | Returns panelMode ~= "chat" |
+| notLuaPanel() | Returns panelMode ~= "lua" |
+| chatTabVariant() | Returns "primary" if chat, else "default" |
+| luaTabVariant() | Returns "primary" if lua, else "default" |
+| sendChat() | Send chat event with appConsole.selected context |
+| addAgentMessage(text) | Add agent message to chat, clear statusLine/statusClass |
+| addAgentThinking(text) | Add thinking message to chat, update statusLine/statusClass |
+| clearChat() | Clear messages list |
+| clearPanel() | Clear chat or lua output based on panelMode |
+| runLua() | Execute luaInput, append output to luaOutputLines |
+| clearLuaOutput() | Clear luaOutputLines |
+| focusLuaInput() | Set _luaInputFocusTrigger to JS that focuses input |
+| setTodos(todos) | Replace todo list with new items (legacy API) |
+| toggleTodos() | Toggle todosCollapsed state |
+| hasTodos() | Returns true if todos is non-empty |
+| createTodos(steps, appName) | Create todos from step labels with progress percentages |
+| startTodoStep(n) | Complete previous step, start step n, update progress/thinking |
+| completeTodos() | Mark all steps complete, clear progress bar |
+| clearTodos() | Clear todos list and reset step state |
+| appProgress(name, progress, stage) | Update app build progress (delegates to appConsole:onAppProgress) |
+| appUpdated(name) | Rescan apps and delegate to appConsole:onAppUpdated |
 
 ### MCP.Notification (notification toast)
 
@@ -180,17 +229,101 @@ The global `mcp` object is provided by the server. This app adds:
 | iconHtml() | Returns the icon HTML content |
 | select() | Calls mcp:selectApp(self._name) |
 
+### MCP.ChatMessage (chat message)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| sender | string | "You" or "Agent" |
+| text | string | Message content |
+| style | string | "normal" (default) or "thinking" for interstitial progress |
+
+| Method | Description |
+|--------|-------------|
+| new(sender, text, style) | Create a new ChatMessage |
+| isUser() | Returns true if sender == "You" |
+| isThinking() | Returns true if style == "thinking" |
+| mutate() | Initialize style if nil (hot-load migration) |
+| prefix() | Returns "> " for user messages, "" for agent |
+
+### MCP.TodoItem (build progress item)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| content | string | Task description (shown for pending/completed) |
+| status | string | "pending", "in_progress", or "completed" |
+| activeForm | string | Present tense form (shown for in_progress) |
+
+| Method | Description |
+|--------|-------------|
+| displayText() | Returns activeForm if in_progress, else content |
+| isPending() | Returns status == "pending" |
+| isInProgress() | Returns status == "in_progress" |
+| isCompleted() | Returns status == "completed" |
+| statusIcon() | Returns "🔄" for in_progress, "⏳" for pending, "✓" for completed |
+
+### MCP.OutputLine (Lua console output)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| text | string | Line content |
+
+| Method | Description |
+|--------|-------------|
+| copyToInput() | Copy text to mcp.luaInput, focus input |
+
+## Chat Panel Features
+
+### Resizable
+- Drag handle at top edge (JavaScript mousedown/mousemove/mouseup)
+- Min height: 120px, Max: 60vh, Initial: 220px
+- CSS `flex-shrink: 0` prevents panel from being squished
+
+### Auto-scroll
+- Chat messages and Lua output use `scrollOnOutput` variable property
+- New content automatically scrolls into view
+
+### Todo Step Definitions
+
+Hardcoded step definitions map labels to progress percentages:
+
+```lua
+local UI_THOROUGH_STEPS = {
+    {label = "Read requirements", progress = 5, thinking = "Reading requirements..."},
+    {label = "Requirements", progress = 10, thinking = "Updating requirements..."},
+    {label = "Design", progress = 20, thinking = "Designing..."},
+    {label = "Write code", progress = 40, thinking = "Writing code..."},
+    {label = "Write viewdefs", progress = 60, thinking = "Writing viewdefs..."},
+    {label = "Link and audit", progress = 85, thinking = "Auditing..."},
+    {label = "Simplify", progress = 92, thinking = "Simplifying..."},
+    {label = "Set baseline", progress = 98, thinking = "Setting baseline..."},
+    -- Also includes Fast-prefixed variants
+}
+```
+
+Unknown labels get auto-calculated percentages based on position.
+
 ## ViewDefs
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, menu button, icon grid dropdown, notifications, status bar |
+| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
+| MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix and text |
+| MCP.TodoItem.list-item.html | MCP.TodoItem | Todo item with status icon and text |
+| MCP.OutputLine.list-item.html | MCP.OutputLine | Clickable Lua output line (copies to input) |
 
 ## Events
 
-None. App switching is handled entirely in Lua via `mcp:display()`.
+App switching is handled entirely in Lua via `mcp:display()`.
+
+The chat panel's `sendChat()` sends events via `mcp.pushState()`:
+
+```json
+{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "mcp_port": 37067, "note": "...", "reminder": "Show todos and thinking messages while working"}
+```
+
+The `app` field is `"app-console"` for compatibility with the app-console event handler. The `context` field is the selected app name from `appConsole.selected` (if available).
 
 ## App Discovery (Lua)
 

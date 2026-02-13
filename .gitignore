@@ -24,8 +24,8 @@ node_modules
 /obsolete/
 /old-apps/
 /.ui/.write-test-*
-/.ui/apps/*/checkpoint.fossil
 /.ui/apps/*/.fslckout
 /.ui/.eventpid
 /apps/job-tracker/data.json
 /.ui/html/*-storage
+*.fossil

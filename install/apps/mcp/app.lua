@@ -2,8 +2,6 @@
 -- Outer shell for all ui-mcp apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
-local json = require('mcp.json')
-
 -- Filesystem helpers
 
 local function fileExists(path)
@@ -50,6 +48,105 @@ function Notification:dismiss()
     end
 end
 
+-- Step definitions keyed by label for lookup in createTodos
+local UI_STEP_DEFS = {
+    ["Read requirements"]  = {progress = 5,  thinking = "Reading requirements..."},
+    ["Requirements"]       = {progress = 10, thinking = "Updating requirements..."},
+    ["Design"]             = {progress = 20, thinking = "Designing..."},
+    ["Write code"]         = {progress = 40, thinking = "Writing code..."},
+    ["Write viewdefs"]     = {progress = 60, thinking = "Writing viewdefs..."},
+    ["Link and audit"]     = {progress = 85, thinking = "Auditing..."},
+    ["Simplify"]           = {progress = 92, thinking = "Simplifying..."},
+    ["Set baseline"]       = {progress = 98, thinking = "Setting baseline..."},
+    ["Fast Design"]        = {progress = 20, thinking = "Designing..."},
+    ["Fast code"]          = {progress = 40, thinking = "Writing code..."},
+    ["Fast viewdefs"]      = {progress = 60, thinking = "Writing viewdefs..."},
+    ["Fast verify"]        = {progress = 60, thinking = "Verifying requirements..."},
+    ["Fast finish"]        = {progress = 80, thinking = "Finishing..."},
+}
+
+-- Nested prototype: Chat message model
+MCP.ChatMessage = session:prototype("MCP.ChatMessage", {
+    sender = "",
+    text = "",
+    style = "normal"  -- "normal" or "thinking"
+})
+local ChatMessage = MCP.ChatMessage
+
+function ChatMessage:new(sender, text, style)
+    return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
+end
+
+function ChatMessage:isUser()
+    return self.sender == "You"
+end
+
+function ChatMessage:isThinking()
+    return self.style == "thinking"
+end
+
+function ChatMessage:mutate()
+    if self.style == nil then
+        self.style = "normal"
+    end
+end
+
+function ChatMessage:prefix()
+    return self.sender == "You" and "> " or ""
+end
+
+-- Nested prototype: TodoItem model (Claude Code task)
+MCP.TodoItem = session:prototype("MCP.TodoItem", {
+    content = "",
+    status = "pending",  -- "pending", "in_progress", or "completed"
+    activeForm = ""
+})
+local TodoItem = MCP.TodoItem
+
+function TodoItem:displayText()
+    if self.status == "in_progress" then
+        return self.activeForm ~= "" and self.activeForm or self.content
+    end
+    return self.content
+end
+
+function TodoItem:isPending()
+    return self.status == "pending"
+end
+
+function TodoItem:isInProgress()
+    return self.status == "in_progress"
+end
+
+function TodoItem:isCompleted()
+    return self.status == "completed"
+end
+
+local TODO_STATUS_ICONS = {
+    in_progress = "🔄",
+    completed = "✓",
+    pending = "⏳"
+}
+
+function TodoItem:statusIcon()
+    return TODO_STATUS_ICONS[self.status] or "⏳"
+end
+
+-- Nested prototype: Output line model (for Lua console)
+MCP.OutputLine = session:prototype("MCP.OutputLine", {
+    text = ""
+})
+local OutputLine = MCP.OutputLine
+
+function OutputLine:copyToInput()
+    local text = self.text
+    if text:match("^> ") then
+        text = text:sub(3)
+    end
+    mcp.luaInput = text
+    mcp:focusLuaInput()
+end
+
 -- Nested prototype: App menu item (wraps app info for list binding)
 MCP.AppMenuItem = session:prototype("MCP.AppMenuItem", {
     _name = "",
@@ -81,6 +178,20 @@ mcp.menuOpen = mcp.menuOpen or false
 mcp._notifications = mcp._notifications or {}
 mcp.buildMode = mcp.buildMode or "fast"  -- "fast" or "thorough"
 mcp.runInBackground = mcp.runInBackground or false  -- foreground or background execution
+
+-- Chat/Lua/Todo panel state
+mcp.panelOpen = mcp.panelOpen or false
+mcp.messages = mcp.messages or {}
+mcp.chatInput = mcp.chatInput or ""
+mcp.panelMode = mcp.panelMode or "chat"  -- "chat" or "lua"
+mcp.luaOutputLines = mcp.luaOutputLines or {}
+mcp.luaInput = mcp.luaInput or ""
+mcp._luaInputFocusTrigger = mcp._luaInputFocusTrigger or 0
+mcp.todos = mcp.todos or {}
+mcp.todosCollapsed = mcp.todosCollapsed or false
+mcp._todoSteps = mcp._todoSteps or {}
+mcp._currentStep = mcp._currentStep or 0
+mcp._todoApp = mcp._todoApp or nil
 
 -- Scan for available apps (built apps with app.lua, excluding mcp shell)
 function mcp:scanAvailableApps()
@@ -126,11 +237,7 @@ end
 
 -- Build mode toggle (fast/thorough)
 function mcp:toggleBuildMode()
-    if self.buildMode == "fast" then
-        self.buildMode = "thorough"
-    else
-        self.buildMode = "fast"
-    end
+    self.buildMode = self.buildMode == "fast" and "thorough" or "fast"
 end
 
 function mcp:isFastMode()
@@ -142,11 +249,7 @@ function mcp:isThoroughMode()
 end
 
 function mcp:buildModeTooltip()
-    if self.buildMode == "fast" then
-        return "Fast mode (click to change)"
-    else
-        return "Thorough mode (click to change)"
-    end
+    return self.buildMode == "fast" and "Fast mode (click to change)" or "Thorough mode (click to change)"
 end
 
 -- Background execution toggle
@@ -163,11 +266,7 @@ function mcp:isForeground()
 end
 
 function mcp:backgroundTooltip()
-    if self.runInBackground then
-        return "Background (click to change)"
-    else
-        return "Foreground (click to change)"
-    end
+    return self.runInBackground and "Background (click to change)" or "Foreground (click to change)"
 end
 
 -- Generate HTML link for variables endpoint (opens in new tab)
@@ -219,11 +318,7 @@ function mcp:currentAppNoCheckpoints()
 end
 
 function mcp:toolsTooltip()
-    if self:currentAppHasCheckpoints() then
-        return "Go to App - fast coded"
-    else
-        return "Go to App"
-    end
+    return self:currentAppHasCheckpoints() and "Go to App - fast coded" or "Go to App"
 end
 
 -- Open tools panel (app-console) and select the current app
@@ -275,18 +370,259 @@ function mcp:isWaiting()
     return self:waitTime() > 0
 end
 
+-- Warn once when Claude appears disconnected for > 5 seconds
+-- requirePending: when true, only warn if there are pending events
+function mcp:warnIfDisconnected(requirePending)
+    local wt = self:waitTime()
+    if wt == 0 then
+        self._notifiedForDisconnect = false
+    elseif not self._notifiedForDisconnect and wt > 5
+           and (not requirePending or self:pendingEventCount() > 0) then
+        self:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
+        self._notifiedForDisconnect = true
+    end
+end
 
 -- Check and notify if Claude appears disconnected (called on UI refresh)
 -- Returns empty string for hidden span binding
 function mcp:checkDisconnectNotify()
-    local wt = self:waitTime()
-    if wt == 0 then
-        self._notifiedForDisconnect = false
-    elseif not self._notifiedForDisconnect and wt > 5 and self:pendingEventCount() > 0 then
-        self:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
-        self._notifiedForDisconnect = true
-    end
+    self:warnIfDisconnected(true)
     return ""
+end
+
+-- Chat panel toggle
+function mcp:togglePanel()
+    self.panelOpen = not self.panelOpen
+end
+
+function mcp:panelHidden()
+    return not self.panelOpen
+end
+
+function mcp:panelIcon()
+    return self.panelOpen and "chat-dots-fill" or "chat-dots"
+end
+
+-- Chat panel mode
+function mcp:showChatPanel()
+    self.panelMode = "chat"
+end
+
+function mcp:showLuaPanel()
+    self.panelMode = "lua"
+end
+
+function mcp:notChatPanel()
+    return self.panelMode ~= "chat"
+end
+
+function mcp:notLuaPanel()
+    return self.panelMode ~= "lua"
+end
+
+function mcp:chatTabVariant()
+    return self.panelMode == "chat" and "primary" or "default"
+end
+
+function mcp:luaTabVariant()
+    return self.panelMode == "lua" and "primary" or "default"
+end
+
+-- Chat messaging
+function mcp:sendChat()
+    if self.chatInput == "" then return end
+
+    table.insert(self.messages, ChatMessage:new("You", self.chatInput))
+
+    local event = {
+        app = "app-console",
+        event = "chat",
+        text = self.chatInput,
+        reminder = "Show todos and thinking messages while working"
+    }
+
+    local context = appConsole and appConsole.selected and appConsole.selected.name
+    if context then
+        local status = self:status()
+        event.context = context
+        event.mcp_port = status.mcp_port
+        event.note = "make sure you have understood the app at " .. status.base_dir .. "/apps/" .. context
+    end
+
+    mcp.pushState(event)
+    self.chatInput = ""
+end
+
+function mcp:addAgentMessage(text)
+    table.insert(self.messages, ChatMessage:new("Agent", text))
+    self.statusLine = ""
+    self.statusClass = ""
+end
+
+function mcp:addAgentThinking(text)
+    table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
+    self.statusLine = text
+    self.statusClass = "thinking"
+end
+
+function mcp:clearChat()
+    self.messages = {}
+end
+
+function mcp:clearPanel()
+    if self.panelMode == "chat" then
+        self:clearChat()
+    else
+        self:clearLuaOutput()
+    end
+end
+
+-- Lua console
+function mcp:appendOutput(text)
+    table.insert(self.luaOutputLines, session:create(OutputLine, { text = text }))
+end
+
+function mcp:runLua()
+    if self.luaInput == "" then return end
+
+    self:appendOutput("> " .. self.luaInput)
+
+    local code = self.luaInput
+
+    local fn
+    if code:match("^%s*return%s") then
+        fn = loadstring(code)
+    else
+        fn = loadstring("return " .. code) or loadstring(code)
+    end
+
+    if not fn then
+        local _, err = loadstring(code)
+        self:appendOutput("Syntax error: " .. tostring(err))
+        return
+    end
+
+    local ok, result = pcall(fn)
+    if ok then
+        if result ~= nil then
+            self:appendOutput(tostring(result))
+        end
+        self.luaInput = ""
+    else
+        self:appendOutput("Error: " .. tostring(result))
+    end
+end
+
+function mcp:clearLuaOutput()
+    self.luaOutputLines = {}
+end
+
+function mcp:focusLuaInput()
+    self._luaInputFocusTrigger = string.format([[
+        var input = document.getElementById('lua-input');
+        if (input) {
+            input.focus();
+            setTimeout(function() {
+                var textarea = input.shadowRoot && input.shadowRoot.querySelector('textarea');
+                if (textarea) {
+                    var len = textarea.value.length;
+                    textarea.setSelectionRange(len, len);
+                }
+            }, 0);
+        }
+        // %d
+    ]], os.time())
+end
+
+-- Todo management
+function mcp:setTodos(todos)
+    self.todos = {}
+    for _, t in ipairs(todos or {}) do
+        local item = session:create(TodoItem, {
+            content = t.content or "",
+            status = t.status or "pending",
+            activeForm = t.activeForm or ""
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+function mcp:toggleTodos()
+    self.todosCollapsed = not self.todosCollapsed
+end
+
+function mcp:hasTodos()
+    return self.todos and #self.todos > 0
+end
+
+function mcp:createTodos(steps, appName)
+    self._todoApp = appName
+    self._currentStep = 0
+    self._todoSteps = {}
+    self.todos = {}
+
+    for _, label in ipairs(steps or {}) do
+        local known = UI_STEP_DEFS[label]
+        local stepDef = known
+            and {label = label, progress = known.progress, thinking = known.thinking}
+            or  {label = label, progress = #self._todoSteps * 15 + 10, thinking = label .. "..."}
+        table.insert(self._todoSteps, stepDef)
+
+        local item = session:create(TodoItem, {
+            content = label,
+            status = "pending",
+            activeForm = stepDef.thinking
+        })
+        table.insert(self.todos, item)
+    end
+end
+
+function mcp:startTodoStep(n)
+    if n < 1 or n > #self._todoSteps then return end
+
+    if self._currentStep > 0 and self._currentStep <= #self.todos then
+        self.todos[self._currentStep].status = "completed"
+    end
+
+    self._currentStep = n
+    local step = self._todoSteps[n]
+
+    if n <= #self.todos then
+        self.todos[n].status = "in_progress"
+    end
+
+    if self._todoApp and appConsole then
+        appConsole:onAppProgress(self._todoApp, step.progress, step.thinking:gsub("%.%.%.$", ""))
+    end
+    self:addAgentThinking(step.thinking)
+end
+
+function mcp:completeTodos()
+    for _, todo in ipairs(self.todos or {}) do
+        todo.status = "completed"
+    end
+    if self._todoApp and appConsole then
+        appConsole:onAppProgress(self._todoApp, nil, nil)
+    end
+    self._currentStep = 0
+end
+
+function mcp:clearTodos()
+    self.todos = {}
+    self._todoSteps = {}
+    self._currentStep = 0
+    self._todoApp = nil
+    self.statusLine = ""
+    self.statusClass = ""
+end
+
+function mcp:appProgress(name, progress, stage)
+    if appConsole then appConsole:onAppProgress(name, progress, stage) end
+end
+
+function mcp:appUpdated(name)
+    mcp:scanAvailableApps()
+    if appConsole then appConsole:onAppUpdated(name) end
 end
 
 -- Override pushState to inject build mode and warn on long wait times (idempotent)
@@ -295,22 +631,9 @@ if not mcp._originalPushState then
 end
 
 function mcp.pushState(event)
-    -- Inject build settings
-    if mcp.buildMode == "thorough" then
-        event.handler = "/ui-thorough"
-    else
-        event.handler = "/ui-fast"
-    end
+    event.handler = mcp.buildMode == "thorough" and "/ui-thorough" or "/ui-fast"
     event.background = mcp.runInBackground
-
-    -- Warn on long wait times
-    local wt = mcp:waitTime()
-    if wt == 0 then
-        mcp._notifiedForDisconnect = false
-    elseif not mcp._notifiedForDisconnect and wt > 5 then
-        mcp:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
-        mcp._notifiedForDisconnect = true
-    end
+    mcp:warnIfDisconnected(false)
     return mcp._originalPushState(event)
 end
 

@@ -258,7 +258,7 @@ This creates a clean baseline that `/ui-fast` checkpoints will build on top of.
 ```bash
 .ui/mcp run "mcp:completeTodos()"
 .ui/mcp run "mcp:appUpdated('APP_NAME')"
-.ui/mcp run "if appConsole then appConsole:addAgentMessage('Done - built APP_NAME') end"
+.ui/mcp run "mcp:addAgentMessage('Done - built APP_NAME')"
 ```
 
 TaskUpdate("Set baseline checkpoint": completed)

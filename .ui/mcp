@@ -322,7 +322,7 @@ case "$prog" in
         app="${1:?Usage: progress <app> <percent> <stage>}"
         percent="${2:?Usage: progress <app> <percent> <stage>}"
         stage="${3:?Usage: progress <app> <percent> <stage>}"
-        code="mcp:appProgress('$app', $percent, '$stage'); if appConsole then appConsole:addAgentThinking('$stage') end"
+        code="mcp:appProgress('$app', $percent, '$stage'); mcp:addAgentThinking('$stage')"
         exec curl -s -X POST "http://127.0.0.1:$port/api/ui_run" \
              -H "Content-Type: application/json" \
              -d "$(jq -n --arg code "$code" '{code: $code}')"
