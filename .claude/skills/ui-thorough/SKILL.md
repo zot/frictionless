@@ -321,6 +321,6 @@ See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
 
 # Examples
 
-See `.claude/skills/ui-builder/examples/` for complete examples:
+See `.ui/apps/app-console` for complete examples:
 - `requirements.md` — Requirements spec
 - `design.md` — Design spec

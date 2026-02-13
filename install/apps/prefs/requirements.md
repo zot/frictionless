@@ -1,7 +1,5 @@
 # Prefs App - Requirements
 
-## Purpose
-
 Preferences app for managing frictionless user settings, starting with theme management. Provides visual theme selection with instant preview.
 
 ## Features

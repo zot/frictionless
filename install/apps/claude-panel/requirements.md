@@ -6,44 +6,24 @@ A universal panel for Claude Code showing project status and quick actions.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
-│ ┌─────────────────────────────┐  ┌──────────────────────────────────────────┐ │
-│ │ Claude Panel                │  │ Chat                                     │ │
-│ ├─────────────────────────────┤  ├──────────────────────────────────────────┤ │
-│ │ [Commit]  [Test]  [Build]   │  │ ┌──────────────────────────────────────┐ │ │
-│ ├─────────────────────────────┤  │ │ Agent: How can I help?               │ │ │
-│ │ Status: Ready               │  │ │ You: Hello                           │ │ │
-│ │ Branch: main                │  │ │ Agent: Hi there!                     │ │ │
-│ │ Changed: 3 files            │  │ │                                      │ │ │
-│ ├─────────────────────────────┤  │ │                                      │ │ │
-│ │ ▼ Agents (4)                │  │ │                                      │ │ │
-│ │   • ui-builder              │  │ │                                      │ │ │
-│ │   • ui-learning             │  │ └──────────────────────────────────────┘ │ │
-│ │ ▶ Commands (12)            │  ├──────────────────────────────────────────┤ │
-│ │ ▶ Skills (3)               │  │ [Type a message...              ] [Send] │ │
-│ └─────────────────────────────┘  └──────────────────────────────────────────┘ │
+│ Claude Panel                                                                  │
 ├───────────────────────────────────────────────────────────────────────────────┤
-│ ▼ Lua Console                                                                 │
-│ ┌───────────────────────────────────────────────────────────────────────────┐ │
-│ │ Output:                                                                   │ │
-│ │ > print("hello")                                                          │ │
-│ │ hello                                                                     │ │
-│ │ > claudePanel.status                                                      │ │
-│ │ Ready                                                                     │ │
-│ └───────────────────────────────────────────────────────────────────────────┘ │
-│ ┌───────────────────────────────────────────────────────────────────────────┐ │
-│ │ local x = 1                                                               │ │
-│ │ local y = 2                                                               │ │
-│ │ print(x + y)                                                              │ │
-│ │ _                                                                         │ │
-│ └───────────────────────────────────────────────────────────────────────────┘ │
-│                                                                   [Run] [Clear]│
+│ [Commit]  [Test]  [Build]                                                     │
+├───────────────────────────────────────────────────────────────────────────────┤
+│ Status: Ready                                                                 │
+│ Branch: main                                                                  │
+│ Changed: 3 files                                                              │
+├───────────────────────────────────────────────────────────────────────────────┤
+│ ▼ Agents (4)                                                                  │
+│   • ui-builder                                                                │
+│   • ui-learning                                                               │
+│ ▶ Commands (12)                                                              │
+│ ▶ Skills (3)                                                                 │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 - No close button (panel is always visible)
-- Left side: Claude Panel (320px fixed width)
-- Right side: Chat panel (flexible width, fills remaining space)
-- Bottom: Collapsible Lua console (full width, collapsed by default)
+- Single column layout, fills available space
 
 ## Quick Actions
 
@@ -88,18 +68,6 @@ Three collapsible sections:
 ### Skills
 - Scan `.claude/skills/*/` directories
 - Click fires `{event:"invoke", type:"skill", name:"..."}`
-
-## Chat Panel
-
-- Messages area: scrollable list of chat messages
-  - **Fixed height container** that fits within viewport (do not stretch off page)
-  - Overflow scrolls vertically
-  - **Auto-scrolls** to show newest messages (scrollOnOutput)
-- Each message shows sender ("Agent" or "You") and text
-- Input field at bottom (always visible, no button)
-- **Pressing Enter sends message and clears input**
-- Send fires `{event:"chat", text:"..."}`
-- Parent Claude responds by calling `app:addAgentMessage(text)`
 
 ## Lua Console
 
@@ -149,8 +117,6 @@ Events pushed to parent Claude for handling:
 |----------|---------------------------------------------------------------------------------|-------------------------|
 | `action` | `{app:"claude-panel", event:"action", action:"commit\|test\|build"}`            | Quick action clicked    |
 | `invoke` | `{app:"claude-panel", event:"invoke", type:"agent\|command\|skill", name:"..."}` | Tree item clicked       |
-| `chat`   | `{app:"claude-panel", event:"chat", text:"..."}`                                | User sends chat message |
-
 **Note:** Lua console does NOT push events - it executes code locally.
 
 ## JavaScript Execution

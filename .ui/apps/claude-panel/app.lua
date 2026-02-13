@@ -8,17 +8,8 @@ ClaudePanel = session:prototype("ClaudePanel", {
     branch = "...",
     changedFiles = 0,
     sections = EMPTY,
-    messages = EMPTY,
-    chatInput = "",
     jsCode = ""
 })
-
--- Nested prototype: Chat message model
-ClaudePanel.ChatMessage = session:prototype("ClaudePanel.ChatMessage", {
-    sender = "",
-    text = ""
-})
-local ChatMessage = ClaudePanel.ChatMessage
 
 -- Nested prototype: Tree item model
 ClaudePanel.TreeItem = session:prototype("ClaudePanel.TreeItem", {
@@ -72,7 +63,6 @@ end
 function ClaudePanel:new(instance)
     instance = session:create(ClaudePanel, instance)
     instance.sections = instance.sections or {}
-    instance.messages = instance.messages or {}
 
     -- Create sections if new instance
     if #instance.sections == 0 then
@@ -89,13 +79,6 @@ end
 function ClaudePanel:initialize()
     self:loadGitStatus()
     self:discoverItems()
-
-    -- Add welcome message if none
-    if #self.messages == 0 then
-        local msg = session:create(ChatMessage, { sender = "Agent", text = "How can I help you today?" })
-        table.insert(self.messages, msg)
-    end
-
     self.status = "Ready"
 end
 
@@ -110,20 +93,6 @@ end
 
 function ClaudePanel:buildAction()
     mcp.pushState({ app = "claude-panel", event = "action", action = "build" })
-end
-
--- Chat
-function ClaudePanel:sendChat()
-    if self.chatInput == "" then return end
-    local msg = session:create(ChatMessage, { sender = "You", text = self.chatInput })
-    table.insert(self.messages, msg)
-    mcp.pushState({ app = "claude-panel", event = "chat", text = self.chatInput })
-    self.chatInput = ""
-end
-
-function ClaudePanel:addAgentMessage(text)
-    local msg = session:create(ChatMessage, { sender = "Agent", text = text })
-    table.insert(self.messages, msg)
 end
 
 -- Git status
@@ -259,6 +228,8 @@ function ClaudePanel:mutate()
     self.consoleExpanded = nil
     self.luaOutputLines = nil
     self.luaInput = nil
+    self.messages = nil
+    self.chatInput = nil
 end
 
 -- Idempotent instance creation

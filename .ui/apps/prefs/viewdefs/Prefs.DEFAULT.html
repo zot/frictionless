@@ -1,19 +1,20 @@
 <template>
   <style>
     .prefs-panel {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
       font-family: var(--term-sans);
       background: var(--term-bg);
       color: var(--term-text);
     }
 
+    .prefs-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
     .prefs-header {
       padding: 16px 20px;
-      border-bottom: 3px solid var(--term-accent);
-      border-radius: 0 0 8px 0;
     }
 
     .prefs-header h1 {
@@ -137,25 +138,27 @@
   </style>
 
   <div class="prefs-panel">
-    <div class="prefs-header panel-header">
-      <h1>Preferences</h1>
-    </div>
-
-    <div class="prefs-content">
-      <div class="prefs-section">
-        <h2>Themes</h2>
-        <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
+    <div class="prefs-inner">
+      <div class="prefs-header panel-header">
+        <h1>Preferences</h1>
       </div>
-    </div>
 
-    <!-- Hidden input for JS→Lua theme sync -->
-    <input type="hidden" class="browser-theme-bridge" ui-value="_browserTheme">
-    <span style="display:none" ui-value="syncFromBrowser()"></span>
+      <div class="prefs-content">
+        <div class="prefs-section">
+          <h2>Themes</h2>
+          <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
+        </div>
+      </div>
+
+      <!-- Hidden input for JS→Lua theme sync -->
+      <input type="hidden" class="browser-theme-bridge" ui-value="_browserTheme">
+      <span style="display:none" ui-value="syncFromBrowser()"></span>
+    </div>
   </div>
 
   <script>
     (function() {
-      const panel = document.querySelector('.prefs-panel');
+      const panel = document.querySelector('.prefs-inner');
       if (!panel) return;
 
       // Store theme functions on the panel element

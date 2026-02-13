@@ -8,13 +8,17 @@ Track job applications through the hiring pipeline. View application list, see d
 
 Context/title goes in the header bar after the back button, not in a separate row below.
 
-**Pattern:** `<- Back  TITLE  [actions]`
+**Pattern:** `[icon]  TITLE  [actions]`
+
+Back navigation uses icon-only buttons:
+- Detail/Resume views: house icon (returns to list)
+- Form view: arrow-left icon (cancels form)
 
 Examples:
-- List view: `Job Tracker  [Reload][Resume][+]`
-- Detail view: `<- Back  Acme Corp  [Edit][Delete]`
-- Form view: `<- Back  ADD APPLICATION  [Save]`
-- Resume view: `<- Back  RESUMES  [+ New][Master]`
+- List view: `Job Tracker (bookmarklet)  [Reload][Resume][+]`
+- Detail view: `[🏠] Acme Corp  [Edit][Delete]`
+- Form view: `[←] ADD APPLICATION  [Save]`
+- Resume view: `[🏠] RESUMES  [↺][+ New][Master]`
 
 ## Layout
 
@@ -33,44 +37,35 @@ Examples:
 +------------------------------------------+
 | [Paste job URL...]                    [>]|
 +------------------------------------------+
-                                        (o) <- FAB
 ```
 
-When chat panel is open:
+When bookmarklet section is expanded:
 ```
 +------------------------------------------+
-| [Paste job URL...]                    [>]|
-+==========================================+
-|  Assistant: I found the job details...   |
-|  (auto-scrolls on new messages)          |
+| Job Tracker (bookmarklet) [Reload][R][+] |
 +------------------------------------------+
-| [Chat with Claude...]         [🗑] [X]   |
+| Drag this to your bookmarks bar: [Add Job]|
 +------------------------------------------+
+| [All] [Active] [Offers] [Archived]       |
 ```
 
 Legend:
 - `>` = Selected application
 - `▼/▲` = Sort indicator (click column header to sort/reverse)
-- `[🗑]` = Clear chat button
-- `[X]` = Close chat panel
 - Filter buttons toggle active state
 - Status shown as badge with variant color
-
-### Chat FAB
-
-A floating action button (FAB) appears in the bottom-right corner above the status bar on all screens when the chat panel is closed. Clicking it opens the chat panel. The FAB uses fixed positioning (`bottom: 52px`, `right: 20px`) with `z-index: 100`. Content areas that could be obscured by the FAB include a spacer element (`.jt-fab-spacer`, 56px wide) to prevent overlap.
 
 ### Detail View
 ```
 +------------------------------------------+
-| <- Back  Acme Corp  [✓][↺][Edit][Delete] |
+| [🏠] Acme Corp     [✓][↺][Edit][Delete]  |
 +------------------------------------------+
 | Senior Software Engineer                 |
 | Status: [Phone Screen v]                 |
 +------------------------------------------+
 | Applied: Jan 15 | Remote | $180-220k     |
 | HQ: San Francisco, CA                    |
-| Resume: [AI Engineer 2026 v]             |
+| Resume: [AI Engineer 2026 v] [↗]         |
 +------------------------------------------+
 | [Notes (empty)]  <- collapsible section  |
 +------------------------------------------+
@@ -94,12 +89,13 @@ Legend:
 - `[✓]` = Save attachments (shown when attachments changed)
 - `[↺]` = Revert attachments (shown when attachments changed)
 - `[x]` = Delete attachment button
-- Resume dropdown shows all resumes + "(none)" option
+- Resume dropdown shows all resumes + "(none)" option (uses `ui-view` with `lua.ViewListItem.resume-option.html`)
+- `[↗]` = Go to linked resume in resume view (hidden when no resume linked)
 
 ### Add/Edit Form
 ```
 +------------------------------------------+
-| <- Back  ADD APPLICATION         [Save]  |
+| [←] ADD APPLICATION              [Save]  |
 +------------------------------------------+
 | Company: [_______________]               |
 | Position: [______________]               |
@@ -118,7 +114,7 @@ Title shows "ADD APPLICATION" or "EDIT APPLICATION" based on formMode.
 ### Resume View
 ```
 +------------------------------------------+
-| <- Back  RESUMES          [+ New][Master]|
+| [🏠] RESUMES      [↺][+ New][Master]     |
 +------------------------------------------+
 | > AI Engineer        [Anthropic][Google] |
 |   Full Stack 2026    [JuliaHub][Stripe]  |
@@ -137,12 +133,6 @@ Title shows "ADD APPLICATION" or "EDIT APPLICATION" based on formMode.
 |  │  (rendered via iframe)             │  |
 |  └────────────────────────────────────┘  |
 +------------------------------------------+
-| [Chat with Claude about this resume...]  |
-+==========================================+
-|  Claude: I can help tailor this...       |
-+------------------------------------------+
-| [Type here...]                           |
-+------------------------------------------+
 ```
 
 Legend:
@@ -153,7 +143,7 @@ Legend:
 - `[+ Link]` opens picker to add application link
 - `[+ New]` creates resume from master template
 - `[Master]` shows master resume in preview
-- Chat panel for Claude-assisted editing
+- `[↺]` = Reload data from disk
 
 ## Data Model
 
@@ -169,9 +159,7 @@ Legend:
 | formData | FormData | Form fields for add/edit |
 | noteInput | string | Input for adding timeline notes |
 | urlInput | string | Input for pasting job URLs to scrape |
-| chatInput | string | Claude chat input field |
-| chatMessages | ChatMessage[] | Chat message history |
-| chatPanelOpen | boolean | Whether output panel is open |
+| showBookmarklet | boolean | Collapsible bookmarklet install section |
 | sortColumn | string | Current sort column: "company", "position", "status", "date" |
 | sortDirection | string | Sort direction: "asc" or "desc" |
 | selectedStatus | string | Status value for detail view dropdown (synced with selected.status) |
@@ -180,9 +168,6 @@ Legend:
 | _resumes | Resume[] | All resume instances |
 | selectedResume | Resume | Currently selected resume (nil for master) |
 | showMasterResume | boolean | Whether showing master resume in preview |
-| resumeChatInput | string | Chat input for resume view |
-| resumeChatMessages | ChatMessage[] | Chat history for resume view |
-| resumeChatPanelOpen | boolean | Whether resume chat panel is open |
 | showDeleteResumeDialog | boolean | Show confirm dialog for resume deletion |
 | showLinkPicker | boolean | Show application link picker |
 
@@ -251,21 +236,6 @@ Legend:
 | fromStatus | string | Previous status (for status_change) |
 | toStatus | string | New status (for status_change) |
 
-### ChatMessage
-
-| Field | Type | Description |
-|-------|------|-------------|
-| role | string | "user" or "assistant" |
-| content | string | Message content |
-
-### ChatMessage Methods
-
-| Method | Description |
-|--------|-------------|
-| isUser() | Returns role == "user" |
-| isAssistant() | Returns role == "assistant" |
-| copyToInput() | Copy message content to jobTracker.chatInput |
-
 ### Attachment
 
 | Field | Type | Description |
@@ -286,13 +256,14 @@ Legend:
 
 | Method | Description |
 |--------|-------------|
+| idStr() | Returns string representation of id (for dropdown value binding) |
 | selectMe() | Select this resume in jobTracker |
 | isSelected() | Returns self == jobTracker.selectedResume |
 | linkedApps() | Returns array of linked Application objects |
 | linkedAppsBadges(max) | Returns up to max linked apps for display |
 | hasMoreApps(max) | Returns true if more than max linked apps |
 | moreAppsCount(max) | Returns count of apps beyond max |
-| previewUrl() | Returns URL for iframe preview |
+| previewUrl() | Returns URL for iframe preview (with cache-busting timestamp) |
 | filePath() | Returns full path to markdown file |
 | unlinkApp(app) | Remove app from applicationIds |
 | linkApp(app) | Add app to applicationIds |
@@ -372,14 +343,11 @@ Legend:
 | notListView() | Returns view ~= "list" |
 | notDetailView() | Returns view ~= "detail" |
 | notFormView() | Returns view ~= "form" |
-| submitChat() | Send chatInput to Claude via pushState, clear input |
-| toggleChatPanel() | Toggle chatPanelOpen state |
-| clearChat() | Clear all chat messages |
-| addChatMessage(role, content) | Add message to chatMessages |
-| chatPanelHidden() | Returns not chatPanelOpen |
-| hasChatMessages() | Returns chatMessages has items |
-| noChatMessages() | Returns chatMessages is empty |
-| mutate() | Hot-reload mutation to initialize chatMessages on existing instances |
+| toggleBookmarklet() | Toggle showBookmarklet state |
+| isBookmarkletHidden() | Returns not showBookmarklet |
+| findResumeById(id) | Find resume by ID in _resumes |
+| repairResumeLinks() | Repair bidirectional links between apps and resumes on load |
+| mutate() | Hot-reload mutation to initialize new fields on existing instances |
 | toggleSort(column) | Toggle sort on column; if same column, reverse direction |
 | sortCompany() | Call toggleSort("company") |
 | sortPosition() | Call toggleSort("position") |
@@ -409,14 +377,7 @@ Legend:
 | isLinkPickerHidden() | Returns not showLinkPicker |
 | unlinkableApps() | Returns apps not linked to selected resume |
 | linkAppToResume(app) | Link app to selected resume |
-| submitResumeChat() | Send resumeChatInput to Claude via pushState |
-| toggleResumeChatPanel() | Toggle resumeChatPanelOpen |
-| clearResumeChat() | Clear resume chat messages |
-| addResumeChatMessage(role, content) | Add message to resumeChatMessages |
-| resumeChatPanelHidden() | Returns not resumeChatPanelOpen |
-| hasResumeChatMessages() | Returns resumeChatMessages has items |
-| noResumeChatMessages() | Returns resumeChatMessages is empty |
-| currentResumePreviewUrl() | Returns URL for current preview (selected or master) |
+| currentResumePreviewUrl() | Returns URL for current preview (selected or master) with cache-busting timestamp |
 | hasSelectedResume() | Returns selectedResume ~= nil |
 | noSelectedResume() | Returns selectedResume == nil |
 | loadResumes() | Load resumes from data.json |
@@ -455,7 +416,8 @@ Legend:
 | hasLinkedResume() | Returns resumeId ~= nil |
 | noLinkedResume() | Returns resumeId == nil |
 | resumeOptions() | Returns all resumes for dropdown |
-| changeResume() | Update resumeId from selectedResumeId dropdown |
+| changeResume() | Update resumeId from selectedResumeId dropdown (unlinks old, links new bidirectionally) |
+| goToResume() | Navigate to resume view and select the linked resume |
 | selectedResumeId | string | Dropdown value for resume selection |
 
 ### TimelineEvent
@@ -472,10 +434,10 @@ Legend:
 | JobTracker.DEFAULT.html | JobTracker | Main layout with list/detail/form/resume views |
 | JobTracker.Application.list-item.html | Application | Row in application list |
 | JobTracker.TimelineEvent.list-item.html | TimelineEvent | Row in timeline |
-| JobTracker.ChatMessage.list-item.html | ChatMessage | Message in chat output panel |
 | JobTracker.Attachment.list-item.html | Attachment | Row in attachments list |
-| JobTracker.Resume.list-item.html | Resume | Row in resume list (with badges) |
+| JobTracker.Resume.list-item.html | Resume | Row in resume list (with badges via ui-view) |
 | JobTracker.ResumeBadge.list-item.html | ResumeBadge | Badge showing linked app |
+| lua.ViewListItem.resume-option.html | ViewListItem | sl-option for resume dropdown in detail view |
 
 ## Events
 
@@ -490,29 +452,8 @@ Legend:
 
 | Event | Action |
 |-------|--------|
-| `chat` | Handle as URL or general chat (see below). **Note:** Lua already adds the user message to chat history, so Claude only adds the assistant response. |
+| `chat` | Handle as URL submission (see below). Chat is handled by MCP shell. |
 | `page_received` | Page content from bookmarklet (see below). Extract structured data from text, prefill add form. No fetching needed — text is pre-rendered `innerText` from the user's browser. |
-| `resume_chat` | Chat about a resume (see below). **Note:** Lua already adds the user message to resumeChatMessages, so Claude only adds the assistant response. |
-
-#### Resume Chat Handling
-
-When receiving a `resume_chat` event:
-
-1. **Read context:**
-   - `resumeId` - The resume being discussed (nil for master)
-   - `text` - The user's message
-   - Read the resume markdown file (master or specific)
-   - If resume has linked apps, read their details for context
-
-2. **Handle request:**
-   - If user asks to edit, modify the markdown file directly
-   - If user asks to tailor for a job, read the linked application details
-   - Provide suggestions, make edits, answer questions
-
-3. **Respond:**
-   ```lua
-   jobTracker:addResumeChatMessage("assistant", "response text")
-   ```
 
 #### URL Chat Handling
 

@@ -92,7 +92,7 @@ Each application has a timeline:
 ### Detail View
 ```
 +------------------------------------------+
-| <- Back  Acme Corp         [Edit][Delete]|
+| [🏠] Acme Corp            [Edit][Delete] |
 +------------------------------------------+
 | Senior Software Engineer                 |
 | Status: [Phone Screen v]                 |
@@ -116,7 +116,7 @@ Each application has a timeline:
 ### Add/Edit Form (replaces detail)
 ```
 +------------------------------------------+
-| <- Back  ADD APPLICATION         [Save]  |
+| [←] ADD APPLICATION              [Save]  |
 +------------------------------------------+
 | Company: [_______________]               |
 | Position: [______________]               |
@@ -133,7 +133,7 @@ Each application has a timeline:
 ### Resume View
 ```
 +------------------------------------------+
-| <- Back  RESUMES          [+ New][Master]|
+| [🏠] RESUMES      [↺][+ New][Master]     |
 +------------------------------------------+
 | > AI Engineer        [Anthropic][Google] |
 |   Full Stack 2026    [JuliaHub][Stripe]  |
@@ -152,28 +152,19 @@ Each application has a timeline:
 |  │  (rendered via iframe)             │  |
 |  └────────────────────────────────────┘  |
 +------------------------------------------+
-| [Chat with Claude about this resume...]  |
-+==========================================+
-|  Claude: I can help tailor this...       |
-+------------------------------------------+
-| [Type here...]                           |
-+------------------------------------------+
 ```
 
 ## Data Persistence
 
 Store data in `.ui/storage/job-tracker/data/data.json`. Load on app start, save after each modification. Attachments are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is a zero-padded 4-digit application ID. Changes are tracked with fossil SCM for version control.
 
-### Claude Chat Panel
+### Bookmarklet
 
-A chat field at the very bottom of the app for communicating with Claude:
-- **Input field**: Multi-line textarea that auto-sizes from 1 line up to 4 lines, then scrolls
-- **No send button**: Press Enter to send, Ctrl-Enter or Shift-Enter for newline
-- **Output panel**: Flip-up panel above the input that shows chat history
-  - Toggle via handle/button to the right of input
-  - Scrollable when content overflows
-  - Shows both user and assistant messages
-  - **Click any message** to copy its content to the input field
+A collapsible section in the list view header provides a "bookmarklet" link:
+- Toggle via "(bookmarklet)" text link next to header title
+- When expanded, shows a draggable "Add Job" button to bookmark bar
+- Bookmarklet sends the current page's URL, title, and text to the publisher endpoint
+- Claude receives a `page_received` event and prefills the add form
 
 ## Events
 
@@ -189,8 +180,8 @@ A chat field at the very bottom of the app for communicating with Claude:
 | `note` | `{id, text}` | Add note to timeline |
 | `delete` | `{id}` | Delete application |
 | `filter` | `{filter}` | Filter list |
-| `chat` | `{text}` | Send to Claude; Lua already adds user message to chat, Claude only adds assistant response |
-| `resume_chat` | `{text, resumeId}` | Chat about a specific resume; Claude can read/edit the resume markdown |
+| `chat` | `{text}` | URL submission to Claude for scraping |
+| `page_received` | `{url, title, text}` | Page content from bookmarklet; Claude extracts data and prefills form |
 
 ### Resume Management
 
@@ -212,13 +203,10 @@ Manage markdown resume variants linked to applications.
 #### Resume Linking
 Bidirectional linking between resumes and applications:
 - In resume view: badges show linked apps, picker adds links, [x] removes links
-- In application detail: dropdown to select/change/unlink resume
-
-#### Resume Chat
-Chat panel for Claude-assisted resume editing:
-- Claude can read the resume markdown file
-- Claude can read linked application details
-- Claude can edit the resume and respond with changes made
+- In application detail: dropdown to select/change/unlink resume, with "go to resume" button
+- Changing resume in dropdown properly unlinks from old resume and links to new
+- Links are repaired on data load to ensure consistency
+- Dropdown uses `ui-view` pattern with themed options
 
 #### Master Resume
 - Always exists at `.ui/storage/job-tracker/data/master-resume.md`

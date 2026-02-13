@@ -40,7 +40,7 @@ end
 function Prefs:applyTheme(name)
     mcp.codeCounter = (mcp.codeCounter or 0) + 1
     mcp.code = string.format([[
-        const panel = document.querySelector('.prefs-panel');
+        const panel = document.querySelector('.prefs-inner');
         if (panel && panel.applyTheme) panel.applyTheme('%s');
         // %d
     ]], name, mcp.codeCounter)

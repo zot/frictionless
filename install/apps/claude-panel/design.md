@@ -2,26 +2,26 @@
 
 ## Intent
 
-A universal panel for Claude Code showing project status, quick actions, collapsible tree sections for discovering Agents/Commands/Skills, and a chat interface for interacting with the agent.
+A universal panel for Claude Code showing project status, quick actions, and collapsible tree sections for discovering Agents/Commands/Skills.
 
 ## Layout
 
 ```
-+----------------------------------+------------------------------------+
-| Claude Panel                     | // CHAT                            |
-+----------------------------------+------------------------------------+
-| [Commit] [Test] [Build]          | +--------------------------------+ |
-+----------------------------------+ | Agent: How can I help?         | |
-| Status: Ready                    | | You: Hello                     | |
-| Branch: main                     | | Agent: Hi there!               | |
-| Changed: 3 files                 | |                                | |
-+----------------------------------+ |                                | |
-| > Agents (4)                     | +--------------------------------+ |
-|   - ui-builder                   | +--------------------------------+ |
-|   - ui-learning                  | | [Type message...]              | |
-| > Commands (12)                  | +--------------------------------+ |
-| > Skills (3)                     |                                    |
-+----------------------------------+------------------------------------+
++----------------------------------+
+| Claude Panel                     |
++----------------------------------+
+| [Commit] [Test] [Build]          |
++----------------------------------+
+| Status: Ready                    |
+| Branch: main                     |
+| Changed: 3 files                 |
++----------------------------------+
+| > Agents (4)                     |
+|   - ui-builder                   |
+|   - ui-learning                  |
+| > Commands (12)                  |
+| > Skills (3)                     |
++----------------------------------+
 ```
 
 ## Data Model
@@ -33,8 +33,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | branch          | string        | Current git branch               |
 | changedFiles    | number        | Count of changed files           |
 | sections        | TreeSection[] | Collapsible sections             |
-| messages        | ChatMessage[] | Chat message history             |
-| chatInput       | string        | Current chat input text          |
 | jsCode          | string        | JavaScript to execute in browser |
 
 ### TreeSection
@@ -51,12 +49,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | name    | string | Item name              |
 | section | ref    | Parent section ref     |
 
-### ChatMessage
-| Field  | Type   | Description          |
-|--------|--------|----------------------|
-| sender | string | "Agent" or "You"     |
-| text   | string | Message content      |
-
 ## Methods
 
 ### ClaudePanel
@@ -65,8 +57,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 | commitAction()       | Push action event for commit                      |
 | testAction()         | Push action event for test                        |
 | buildAction()        | Push action event for build                       |
-| sendChat()           | Send chat message, push event, clear input        |
-| addAgentMessage(t)   | Add agent response to messages                    |
 | loadGitStatus()      | Load branch and changed file count                |
 | discoverItems()      | Scan filesystem for agents/commands/skills        |
 
@@ -86,10 +76,9 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 
 | File                       | Purpose                    |
 |----------------------------|----------------------------|
-| ClaudePanel.DEFAULT.html   | Main two-column layout     |
+| ClaudePanel.DEFAULT.html   | Main single-column layout  |
 | TreeSection.list-item.html | Collapsible section header |
 | TreeItem.list-item.html    | Clickable tree item        |
-| ChatMessage.list-item.html | Chat message display       |
 
 ## Events
 
@@ -107,11 +96,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 {"app":"claude-panel","event":"invoke","type":"skill","name":"plantuml"}
 ```
 
-### chat
-```json
-{"app":"claude-panel","event":"chat","text":"Hello agent"}
-```
-
 ## Parent Response Patterns
 
 **On action event:**
@@ -124,9 +108,6 @@ A universal panel for Claude Code showing project status, quick actions, collaps
 - command: Execute the slash command
 - skill: Apply the skill
 
-**On chat event:**
-- Process message and respond with `app:addAgentMessage(response)`
-
 ## Styling
 
 Inherits terminal aesthetic from MCP shell via CSS variables:
@@ -136,12 +117,9 @@ Inherits terminal aesthetic from MCP shell via CSS variables:
 - Glow effects on interactive elements
 
 Layout:
-- Left panel: fixed 320px width with `--term-bg-panel` background
-- Right panel: flexible, fills remaining space
+- Single column layout, fills available space
 - Section headers: clickable, chevron icon rotates when collapsed
 - Tree items: indented, hover shows `--term-bg-hover`
-- Chat messages: fixed height container, vertical scroll, auto-scroll on new messages
-- Chat input: Enter key sends message
 
 Components:
 - Shoelace components with dark theme overrides (::part selectors)

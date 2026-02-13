@@ -126,10 +126,12 @@ To display an app (e.g., `claude-panel`):
      - if it's not already in mcp.value, use `.ui/mcp display app-name`
    - If Playwright is connected:
      - use browser_evaluate with `function: "() => window.location.href"` to get current URL
-     - if URL does NOT start with {url}/, then browser_navigate to {url}/?conserve=true
+     - if URL does NOT start with {url}/, then browser_navigate to `{url}/mark-playwright.html?url={url}/?conserve=true`
+       This marks `localStorage.playwright = "true"` so the UI can detect Playwright, then redirects to the app.
+       **CRITICAL: ONLY use mark-playwright.html when navigating via Playwright.** Never use it for `.ui/mcp browser` or any non-Playwright path.
      - do not wait for playwright page to display
      - do not check the current state or take a snapshot
-   - Otherwise, run `.ui/mcp browser`
+   - Otherwise, run `.ui/mcp browser` (do NOT use mark-playwright.html here)
    - `.ui/mcp status` to verify sessions > 0 (confirms browser connected)
 
 3. IMMEDIATELY start the event loop in the background:
