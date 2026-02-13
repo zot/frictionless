@@ -1,5 +1,10 @@
 <template>
   <div class="chat-message" ui-class-user-message="isUser()" ui-class-thinking-message="isThinking()">
-    <span class="chat-prefix" ui-value="prefix()"></span><span class="chat-message-text" ui-value="text"></span>
+    <div class="chat-message-content">
+      <span class="chat-prefix" ui-value="prefix()"></span><span class="chat-message-text" ui-value="text"></span>
+    </div>
+    <div class="chat-thumbs" ui-class-hidden="noThumbnails()">
+      <div ui-view="chatThumbnails()?wrapper=lua.ViewList"></div>
+    </div>
   </div>
 </template>

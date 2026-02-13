@@ -148,6 +148,19 @@ A toggleable panel between the app content and status bar. The chat-dots icon in
 - Input field + Send button (or Enter key)
 - `sendChat()` uses `currentAppName()` to set the event's `app` field to the currently displayed app
 
+**Image attachments (drag & drop / paste):**
+- Users can drag & drop images anywhere on the chat panel, or paste with Ctrl+V
+- Drop shows a visual indicator (border glow, "Drop image" overlay)
+- Dropped/pasted images are saved to `{base_dir}/storage/uploads/` as files
+- A thumbnail preview appears above the text input with an [x] button to remove
+- Multiple images supported (each drop/paste adds to the list)
+- Sending includes file paths in the event as `images: ["/path/to/img.png"]`
+- Chat messages show thumbnail previews of attached images on separate lines (not text labels)
+- Clicking a chat thumbnail opens a full-resolution lightbox overlay (click outside or Escape to close)
+- Full image data stays on the backend; only the small thumbnail goes to the browser. Full image is sent on demand when clicked.
+- Image data flows via JS-to-Lua bridge: JS reads file as base64, generates thumbnail and full data URI, sends JSON payload via `updateValue` to Lua, which decodes and writes the file
+- Attachments are cleared after sending (files persist for the agent to read)
+
 **Lua tab:**
 - REPL for executing Lua code
 - Output area shows command history and results

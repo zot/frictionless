@@ -37,11 +37,11 @@ end
 ```html
 <!-- Hidden span for JS→Lua bridge - MUST have an id -->
 <span id="my-bridge" style="display:none" ui-value="browserValue?access=rw"></span>
-<!-- Trigger processing when value changes - MUST use priority=low -->
-<span style="display:none" ui-value="processBrowserValue()?priority=low"></span>
+<!-- Trigger processing - MUST use priority=high -->
+<span style="display:none" ui-value="processBrowserValue()?priority=high"></span>
 ```
 
-**Critical:** The trigger method MUST use `?priority=low` to ensure it fires AFTER the input value has been set. Without this, you'll get race conditions where the trigger fires before the data is available.
+**Critical:** The trigger method MUST use `?priority=high`. Variable evaluation happens *during* change scanning in priority order. High priority ensures the trigger runs (and its side effects like clearing the bridge value and mutating arrays are committed) before dependent variables are scanned. Without this, scan order is non-deterministic and dependents may see stale state.
 
 The `?access=rw` makes the span writable (spans are read-only by default).
 
@@ -97,8 +97,8 @@ end
   <input type="file" class="file-input" multiple
          onchange="window.handleFiles(this.files); this.value='';" />
   <span id="file-bridge" style="display:none" ui-value="fileUploadData?access=rw"></span>
-  <!-- CRITICAL: priority=low ensures trigger fires AFTER value is set -->
-  <span style="display:none" ui-value="processFileUpload()?priority=low"></span>
+  <!-- CRITICAL: priority=high ensures trigger runs before dependents are scanned -->
+  <span style="display:none" ui-value="processFileUpload()?priority=high"></span>
 
   <script>
     window.handleFiles = async function(files) {
@@ -135,7 +135,7 @@ bridge.dispatchEvent(new Event('input', { bubbles: true }));
 - **Use `updateValue` API**: `window.uiApp.updateValue(elementId, value)` is most reliable
 - **Element needs ID**: The target element must have an `id` attribute
 - **Wait for uiApp**: Check `window.uiApp` exists before calling
-- **Trigger with low priority**: Use `ui-value="methodName()?priority=low"` to ensure trigger fires AFTER the value is set
+- **Trigger with high priority**: Use `ui-value="methodName()?priority=high"` to ensure the trigger's side effects are scanned before dependent variables
 - **Clear after processing**: Set the bridge value to "" after handling to allow repeat updates
 
 ## Comparison with Lua-to-JS Bridge

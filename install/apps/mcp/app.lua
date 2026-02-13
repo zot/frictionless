@@ -2,6 +2,8 @@
 -- Outer shell for all ui-mcp apps with app switcher menu
 -- Note: MCP is the type of the server-created mcp object
 
+local json = require("mcp.json")
+
 -- Filesystem helpers
 
 local function fileExists(path)
@@ -69,12 +71,26 @@ local UI_STEP_DEFS = {
 MCP.ChatMessage = session:prototype("MCP.ChatMessage", {
     sender = "",
     text = "",
-    style = "normal"  -- "normal" or "thinking"
+    style = "normal",  -- "normal" or "thinking"
+    _thumbnails = EMPTY
 })
 local ChatMessage = MCP.ChatMessage
 
-function ChatMessage:new(sender, text, style)
-    return session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
+MCP.ChatThumbnail = session:prototype("MCP.ChatThumbnail", {
+    uri = "",
+    fullUri = "",
+    filename = ""
+})
+local ChatThumbnail = MCP.ChatThumbnail
+
+function ChatThumbnail:showFull()
+    mcp.lightboxUri = self.fullUri ~= "" and self.fullUri or self.uri
+end
+
+function ChatMessage:new(sender, text, style, thumbnails)
+    local msg = session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
+    msg._thumbnails = thumbnails or {}
+    return msg
 end
 
 function ChatMessage:isUser()
@@ -85,9 +101,24 @@ function ChatMessage:isThinking()
     return self.style == "thinking"
 end
 
+function ChatMessage:hasThumbnails()
+    return self._thumbnails and #self._thumbnails > 0
+end
+
+function ChatMessage:noThumbnails()
+    return not self:hasThumbnails()
+end
+
+function ChatMessage:chatThumbnails()
+    return self._thumbnails
+end
+
 function ChatMessage:mutate()
     if self.style == nil then
         self.style = "normal"
+    end
+    if self._thumbnails == nil then
+        self._thumbnails = {}
     end
 end
 
@@ -169,6 +200,22 @@ function AppMenuItem:select()
     end
 end
 
+-- Nested prototype: Image attachment (pending image for chat send)
+MCP.ImageAttachment = session:prototype("MCP.ImageAttachment", {
+    path = "",
+    filename = "",
+    thumbnailUri = "",
+    fullUri = "",
+    _mcp = EMPTY
+})
+local ImageAttachment = MCP.ImageAttachment
+
+function ImageAttachment:remove()
+    if self._mcp then
+        self._mcp:removeAttachment(self)
+    end
+end
+
 -- Extend the global mcp object with shell functionality
 -- Note: mcp is created by the server, we just add methods and properties
 
@@ -192,6 +239,11 @@ mcp.todosCollapsed = mcp.todosCollapsed or false
 mcp._todoSteps = mcp._todoSteps or {}
 mcp._currentStep = mcp._currentStep or 0
 mcp._todoApp = mcp._todoApp or nil
+
+-- Image attachment state
+mcp._imageAttachments = mcp._imageAttachments or {}
+mcp.imageUploadData = mcp.imageUploadData or ""
+mcp.lightboxUri = mcp.lightboxUri or ""
 
 -- Scan for available apps (built apps with app.lua, excluding mcp shell)
 function mcp:scanAvailableApps()
@@ -430,9 +482,24 @@ end
 
 -- Chat messaging
 function mcp:sendChat()
-    if self.chatInput == "" then return end
+    if self.chatInput == "" and #self._imageAttachments == 0 then return end
 
-    table.insert(self.messages, ChatMessage:new("You", self.chatInput))
+    -- Collect image paths and thumbnails
+    local imagePaths = nil
+    local thumbnails = nil
+    if #self._imageAttachments > 0 then
+        imagePaths = {}
+        thumbnails = {}
+        for _, att in ipairs(self._imageAttachments) do
+            table.insert(imagePaths, att.path)
+            table.insert(thumbnails, session:create(ChatThumbnail, {
+                uri = att.thumbnailUri,
+                fullUri = att.fullUri,
+                filename = att.filename
+            }))
+        end
+    end
+    table.insert(self.messages, ChatMessage:new("You", self.chatInput, nil, thumbnails))
 
     local currentApp = self:currentAppName() or "app-console"
     local status = self:status()
@@ -441,6 +508,7 @@ function mcp:sendChat()
         app = currentApp,
         event = "chat",
         text = self.chatInput,
+        images = imagePaths,
         reminder = "Show todos and thinking messages while working. **IMPORTANT:** respond with UI chat messages **AND** in the main Claude Code Console!",
         mcp_port = status and status.mcp_port or nil,
         note = status and ("make sure you have understood the app at " .. status.base_dir .. "/apps/" .. currentApp) or nil
@@ -448,6 +516,85 @@ function mcp:sendChat()
 
     mcp.pushState(event)
     self.chatInput = ""
+    self._imageAttachments = {}  -- Clear attachments (files persist for agent)
+end
+
+-- Image attachment handling
+function mcp:processImageUpload()
+    if self.imageUploadData == "" then return end
+    local payload = self.imageUploadData
+    self.imageUploadData = ""
+
+    local ok, data = pcall(json.decode, payload)
+    if not ok or not data then return end
+
+    local filename = data.filename or "image.png"
+    local base64Data = data.base64 or ""
+    local thumbnailUri = data.thumbnail or ""
+    local fullUri = data.fullUri or ""
+
+    if base64Data == "" then return end
+
+    -- Write base64 to temp file, decode to output
+    local status = self:status()
+    local uploadDir = (status and status.base_dir or "/tmp") .. "/storage/uploads"
+    os.execute('mkdir -p "' .. uploadDir .. '"')
+
+    local ext = filename:match("%.(%w+)$") or "png"
+    local outPath = uploadDir .. "/img-" .. os.time() .. "-" .. math.random(10000) .. "." .. ext
+
+    local tmpB64 = os.tmpname()
+    local f = io.open(tmpB64, "wb")
+    if not f then return end
+    f:write(base64Data)
+    f:close()
+    os.execute('base64 -d < "' .. tmpB64 .. '" > "' .. outPath .. '"')
+    os.remove(tmpB64)
+
+    table.insert(self._imageAttachments, session:create(ImageAttachment, {
+        path = outPath,
+        filename = filename,
+        thumbnailUri = thumbnailUri,
+        fullUri = fullUri,
+        _mcp = self
+    }))
+end
+
+function mcp:imageAttachments()
+    return self._imageAttachments
+end
+
+function mcp:hasImages()
+    return #self._imageAttachments > 0
+end
+
+function mcp:noImages()
+    return #self._imageAttachments == 0
+end
+
+function mcp:removeAttachment(att)
+    for i, a in ipairs(self._imageAttachments) do
+        if a == att then
+            table.remove(self._imageAttachments, i)
+            if att.path ~= "" then os.remove(att.path) end
+            break
+        end
+    end
+end
+
+function mcp:clearAttachments()
+    for _, att in ipairs(self._imageAttachments) do
+        if att.path ~= "" then os.remove(att.path) end
+    end
+    self._imageAttachments = {}
+end
+
+function mcp:lightboxVisible()
+    return self.lightboxUri ~= ""
+end
+
+function mcp:hideLightbox()
+    self.lightboxUri = ""
 end
 
 function mcp:addAgentMessage(text)

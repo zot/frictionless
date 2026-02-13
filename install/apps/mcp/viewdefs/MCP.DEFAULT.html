@@ -529,13 +529,16 @@
       margin-bottom: 12px;
     }
 
-    .mcp-chat-input-row {
-      display: flex;
-      gap: 8px;
+    .mcp-chat-input-area {
       flex-shrink: 0;
       border-top: 3px solid var(--term-accent);
       border-radius: 8px 0 0 0;
       padding-top: 12px;
+    }
+
+    .mcp-chat-input-row {
+      display: flex;
+      gap: 8px;
     }
 
     .mcp-chat-input-row sl-input {
@@ -572,6 +575,44 @@
 
     .chat-message-text {
       white-space: pre-wrap;
+    }
+
+    .chat-thumbs {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .chat-thumb-item img {
+      max-width: 150px;
+      max-height: 150px;
+      border-radius: 4px;
+      border: 1px solid var(--term-border);
+      cursor: pointer;
+    }
+
+    .image-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .image-lightbox.visible {
+      display: flex;
+    }
+
+    .image-lightbox img {
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 6px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+      object-fit: contain;
     }
 
     /* Lua console */
@@ -703,6 +744,73 @@
       color: var(--term-accent);
     }
 
+    /* Image drop zone overlay */
+    .mcp-chat-panel.drag-over::after {
+      content: 'Drop image here';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(224, 122, 71, 0.1);
+      border: 2px dashed var(--term-accent);
+      border-radius: 6px;
+      color: var(--term-accent);
+      font-family: var(--term-mono);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .mcp-chat-panel {
+      position: relative;
+    }
+
+    /* Image preview row */
+    .mcp-image-preview-row {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mcp-image-thumb {
+      position: relative;
+      display: inline-flex;
+      border: 1px solid var(--term-accent);
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--term-bg);
+    }
+
+    .mcp-image-thumb img {
+      display: block;
+      max-height: 60px;
+      max-width: 100px;
+      object-fit: contain;
+    }
+
+    .mcp-image-thumb sl-icon-button {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      font-size: 0.7rem;
+      color: var(--term-danger);
+      background: var(--term-bg-elevated);
+      border-radius: 50%;
+    }
+
+    .mcp-image-thumb sl-icon-button::part(base):hover {
+      color: #fff;
+      background: var(--term-danger);
+    }
+
+    .mcp-image-thumb-name {
+      display: none;
+    }
+
     .hidden { display: none !important; }
   </style>
 
@@ -763,10 +871,19 @@
           <div class="mcp-chat-panel-content" ui-class-hidden="notChatPanel()">
             <div class="mcp-chat-messages" ui-view="messages?wrapper=lua.ViewList&scrollOnOutput"></div>
           </div>
-          <div class="mcp-chat-input-row" ui-class-hidden="notChatPanel()">
-            <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
-            <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+          <div class="mcp-chat-input-area" ui-class-hidden="notChatPanel()">
+            <!-- Image preview (below swoosh, above input) -->
+            <div class="mcp-image-preview-row" ui-class-hidden="noImages()">
+              <div ui-view="imageAttachments()?wrapper=lua.ViewList"></div>
+            </div>
+            <div class="mcp-chat-input-row">
+              <sl-input placeholder="Ask about the selected app..." ui-value="chatInput?keypress" ui-event-keypress-enter="sendChat()"></sl-input>
+              <sl-button variant="primary" ui-action="sendChat()">Send</sl-button>
+            </div>
           </div>
+          <!-- Image upload bridge (JS → Lua) -->
+          <span id="image-bridge" style="display:none" ui-value="imageUploadData?access=rw"></span>
+          <span style="display:none" ui-value="processImageUpload()?priority=high"></span>
 
           <!-- Lua Panel Content -->
           <div class="mcp-lua-panel" ui-class-hidden="notLuaPanel()">
@@ -829,7 +946,112 @@
 
     <!-- Hidden element for JavaScript execution -->
     <div style="display:none;" ui-code="code"></div>
+
+    <!-- Image preview lightbox -->
+    <div id="image-lightbox" class="image-lightbox" ui-class-visible="lightboxVisible()" ui-event-click="hideLightbox()">
+      <img ui-attr-src="lightboxUri" alt="Preview">
+    </div>
   </div>
+
+  <script>
+    // Image drag & drop / paste handling
+    (function() {
+      const panel = document.getElementById('mcp-chat-panel');
+      if (!panel) return;
+
+      let dragCounter = 0;
+
+      panel.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        dragCounter++;
+        panel.classList.add('drag-over');
+      });
+
+      panel.addEventListener('dragleave', (e) => {
+        dragCounter--;
+        if (dragCounter <= 0) {
+          dragCounter = 0;
+          panel.classList.remove('drag-over');
+        }
+      });
+
+      panel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      panel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        panel.classList.remove('drag-over');
+        if (e.dataTransfer && e.dataTransfer.files) {
+          handleImageFiles(e.dataTransfer.files);
+        }
+      });
+
+      // Paste handler
+      panel.addEventListener('paste', (e) => {
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        const files = [];
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) files.push(file);
+          }
+        }
+        if (files.length > 0) handleImageFiles(files);
+      });
+
+      function handleImageFiles(files) {
+        for (const file of files) {
+          if (!file.type.startsWith('image/')) continue;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUri = e.target.result;
+            const base64Data = dataUri.split(',')[1];
+            generateThumbnail(dataUri, 150).then((thumbnail) => {
+              const payload = JSON.stringify({
+                filename: file.name || 'image.png',
+                mime: file.type,
+                base64: base64Data,
+                thumbnail: thumbnail,
+                fullUri: dataUri
+              });
+              const tryUpdate = () => {
+                if (window.uiApp) {
+                  window.uiApp.updateValue('image-bridge', payload);
+                } else {
+                  setTimeout(tryUpdate, 50);
+                }
+              };
+              tryUpdate();
+            });
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function generateThumbnail(dataUri, maxDim) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.width, h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+              else { w = Math.round(w * maxDim / h); h = maxDim; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          };
+          img.onerror = () => resolve('');
+          img.src = dataUri;
+        });
+      }
+    })();
+  </script>
 
   <script>
     // Chat panel resize handle
@@ -858,6 +1080,19 @@
         document.removeEventListener('mousemove', onDrag);
         document.removeEventListener('mouseup', onRelease);
       }
+    })();
+  </script>
+
+  <script>
+    // Close lightbox on Escape key
+    (function() {
+      document.addEventListener('keydown', (e) => {
+        const lightbox = document.getElementById('image-lightbox');
+        if (e.key === 'Escape' && lightbox && lightbox.classList.contains('visible')) {
+          // Trigger the hideLightbox() binding by clicking the overlay
+          lightbox.click();
+        }
+      });
     })();
   </script>
 </template>

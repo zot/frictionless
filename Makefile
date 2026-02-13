@@ -45,11 +45,10 @@ $(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 		echo "Run 'make bundle' in ui-engine first, or set UI_ENGINE_DIR"; \
 		exit 1; \
 	fi
-	@mkdir -p $(CACHE_DIR)/html/themes $(CACHE_DIR)/viewdefs $(CACHE_DIR)/lua
+	@mkdir -p $(CACHE_DIR)/html $(CACHE_DIR)/viewdefs $(CACHE_DIR)/lua
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'html/*' $(CACHE_DIR)/html/
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'viewdefs/*' $(CACHE_DIR)/viewdefs/ 2>/dev/null || true
 	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'lua/*' $(CACHE_DIR)/lua/ 2>/dev/null || true
-	$(UI_ENGINE_DIR)/build/ui-engine-bundled cp 'themes/*' $(CACHE_DIR)/html/themes/ 2>/dev/null || true
 	@# Copy frictionless specific viewdefs (e.g., Prompt.DEFAULT.html)
 	@if [ -d "web/viewdefs" ]; then \
 		cp -r web/viewdefs/* $(CACHE_DIR)/viewdefs/ 2>/dev/null || true; \

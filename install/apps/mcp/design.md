@@ -130,6 +130,9 @@ The global `mcp` object is provided by the server. This app adds:
 | panelOpen | boolean | Whether chat/lua/todo panel is visible |
 | messages | ChatMessage[] | Chat message history |
 | chatInput | string | Current chat input text |
+| _imageAttachments | ImageAttachment[] | Pending image attachments for next chat send |
+| imageUploadData | string | JS-to-Lua bridge: JSON payload from drop/paste (cleared after processing) |
+| lightboxUri | string | Full-resolution data URI for the lightbox preview (empty = hidden) |
 | panelMode | string | "chat" or "lua" (bottom panel tab) |
 | luaOutputLines | OutputLine[] | Lua console output history |
 | luaInput | string | Current Lua code input |
@@ -185,7 +188,15 @@ The global `mcp` object is provided by the server. This app adds:
 | notLuaPanel() | Returns panelMode ~= "lua" |
 | chatTabVariant() | Returns "primary" if chat, else "default" |
 | luaTabVariant() | Returns "primary" if lua, else "default" |
-| sendChat() | Send chat event with current app as target |
+| sendChat() | Send chat event with current app as target; includes `images` array if attachments present |
+| processImageUpload() | Bridge trigger: parse JSON from imageUploadData, decode base64, write to storage/uploads/, add to _imageAttachments |
+| imageAttachments() | Returns _imageAttachments for binding |
+| hasImages() | Returns true if _imageAttachments is non-empty |
+| noImages() | Returns true if _imageAttachments is empty (for ui-class-hidden) |
+| removeAttachment(att) | Remove attachment from list, delete file |
+| clearAttachments() | Remove all attachments, delete files |
+| lightboxVisible() | Returns true if lightboxUri is non-empty |
+| hideLightbox() | Clears lightboxUri to close the lightbox |
 | addAgentMessage(text) | Add agent message to chat, clear statusLine/statusClass |
 | addAgentThinking(text) | Add thinking message to chat, update statusLine/statusClass |
 | clearChat() | Clear messages list |
@@ -236,14 +247,30 @@ The global `mcp` object is provided by the server. This app adds:
 | sender | string | "You" or "Agent" |
 | text | string | Message content |
 | style | string | "normal" (default) or "thinking" for interstitial progress |
+| _thumbnails | ChatThumbnail[] | Thumbnail images attached to this message |
 
 | Method | Description |
 |--------|-------------|
-| new(sender, text, style) | Create a new ChatMessage |
+| new(sender, text, style, thumbnails) | Create a new ChatMessage with optional thumbnail list |
 | isUser() | Returns true if sender == "You" |
 | isThinking() | Returns true if style == "thinking" |
-| mutate() | Initialize style if nil (hot-load migration) |
+| hasThumbnails() | Returns true if _thumbnails is non-empty |
+| noThumbnails() | Returns true if _thumbnails is empty |
+| chatThumbnails() | Returns _thumbnails for binding |
+| mutate() | Initialize style and _thumbnails if nil (hot-load migration) |
 | prefix() | Returns "> " for user messages, "" for agent |
+
+### MCP.ChatThumbnail (image thumbnail in chat message)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| uri | string | Thumbnail data URI (150px JPEG) for display |
+| fullUri | string | Full-resolution data URI for lightbox preview |
+| filename | string | Original filename |
+
+| Method | Description |
+|--------|-------------|
+| showFull() | Sets mcp.lightboxUri to fullUri (or uri as fallback) to open lightbox |
 
 ### MCP.TodoItem (build progress item)
 
@@ -261,6 +288,20 @@ The global `mcp` object is provided by the server. This app adds:
 | isCompleted() | Returns status == "completed" |
 | statusIcon() | Returns "🔄" for in_progress, "⏳" for pending, "✓" for completed |
 
+### MCP.ImageAttachment (pending image for chat)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| path | string | File path on disk (in storage/uploads/) |
+| filename | string | Original filename from drop/paste |
+| thumbnailUri | string | Small data URI (JPEG, max 150px) for preview display |
+| fullUri | string | Full-resolution data URI for lightbox preview |
+| _mcp | ref | Reference to mcp for remove callback |
+
+| Method | Description |
+|--------|-------------|
+| remove() | Calls mcp:removeAttachment(self) |
+
 ### MCP.OutputLine (Lua console output)
 
 | Field | Type | Description |
@@ -272,6 +313,36 @@ The global `mcp` object is provided by the server. This app adds:
 | copyToInput() | Copy text to mcp.luaInput, focus input |
 
 ## Chat Panel Features
+
+### Image Drag & Drop
+
+The entire chat panel is a drop zone. Images can also be pasted via Ctrl+V.
+
+**UX flow:**
+1. User drags image over chat panel → border glow, "Drop image here" overlay
+2. User drops → JS reads file via FileReader, generates thumbnail (max 150px JPEG) and keeps full data URI, sends JSON via `updateValue` bridge
+3. Lua receives via `processImageUpload()` (priority=high trigger), decodes base64, writes to `{base_dir}/storage/uploads/img-{time}-{rand}.{ext}`
+4. Thumbnail preview row appears above text input with [x] remove buttons
+5. User types optional text, hits Send
+6. `sendChat()` creates ChatThumbnail objects (with uri + fullUri), attaches to ChatMessage, includes `images: ["/path/to/file"]` in event, clears attachments (files persist for agent)
+7. Chat output shows thumbnail images below the message text (not text labels)
+8. Clicking a chat thumbnail calls `ChatThumbnail:showFull()` which sets `mcp.lightboxUri` to display the full-resolution image in a fixed overlay
+
+**Bridge payload** (JSON via `imageUploadData`):
+```json
+{"filename": "screenshot.png", "mime": "image/png", "base64": "...", "thumbnail": "data:image/jpeg;base64,...", "fullUri": "data:image/png;base64,..."}
+```
+
+**Lightbox:**
+- Fixed overlay (`.image-lightbox`) inside `.mcp-shell`, bound to `lightboxVisible()` / `hideLightbox()`
+- Image source bound to `mcp.lightboxUri` — only sent to browser when a thumbnail is clicked
+- Close via click on overlay (`ui-event-click="hideLightbox()"`) or Escape key (JS triggers overlay click)
+
+**Viewdef structure:**
+- Drop overlay: absolute-positioned div shown via CSS `.drag-over` class on panel
+- Image preview: horizontal row of thumbnails above input, hidden when no images
+- Bridge: hidden span with id `image-bridge` + `processImageUpload()?priority=low` trigger
+- JS: `<script>` block with drag/drop, paste, FileReader, thumbnail generation, updateValue calls
 
 ### Resizable
 - Drag handle at top edge (JavaScript mousedown/mousemove/mouseup)
@@ -309,9 +380,11 @@ Unknown labels get auto-calculated percentages based on position.
 | MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
-| MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix and text |
+| MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |
+| MCP.ChatThumbnail.list-item.html | MCP.ChatThumbnail | Clickable thumbnail image (opens lightbox on click) |
 | MCP.TodoItem.list-item.html | MCP.TodoItem | Todo item with status icon and text |
 | MCP.OutputLine.list-item.html | MCP.OutputLine | Clickable Lua output line (copies to input) |
+| MCP.ImageAttachment.list-item.html | MCP.ImageAttachment | Thumbnail preview with [x] remove button |
 
 ## Events
 
@@ -320,8 +393,10 @@ App switching is handled entirely in Lua via `mcp:display()`.
 The chat panel's `sendChat()` sends events via `mcp.pushState()`:
 
 ```json
-{"app": "contacts", "event": "chat", "text": "...", "mcp_port": 37067, "note": "...", "reminder": "Show todos and thinking messages while working"}
+{"app": "contacts", "event": "chat", "text": "...", "images": ["/path/to/img.png"], "mcp_port": 37067, "note": "...", "reminder": "Show todos and thinking messages while working"}
 ```
+
+The `images` field is an array of file paths, only present when the user attached images. The agent can read these files with its Read tool.
 
 The `app` field is set to `currentAppName()` (the currently displayed app), so the event is routed to the correct app's design.md for handling. Falls back to `"app-console"` if no app is displayed.
 

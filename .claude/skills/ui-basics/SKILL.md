@@ -75,6 +75,8 @@ end
 - `session.reloading` is true during hot-reload
 - Each app creates two globals: `Name` (prototype) and `name` (instance)
 
+**Change detection:** Arrays are compared by-element, not by reference. In-place mutations (`table.insert`, `table.remove`) are detected correctly — no need to reassign the whole array.
+
 ## Hot-Loading
 
 Both Lua and viewdefs hot-load from disk:
@@ -307,6 +309,16 @@ Use cases:
 - Integration with third-party libraries
 
 See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
+
+---
+
+# Debugging
+
+**Variable inspector:** `http://localhost:MCP-PORT/variables` shows the full variable tree with IDs, parents, types, and current values. Curl it for JSON (`curl -s http://localhost:MCP-PORT/variables | jq`), or open in a browser for a formatted page. Invaluable for diagnosing binding issues — you can spot when variables are out of sync (e.g., a ViewList's `items` wrapper not matching the source array).
+
+**Lua logs:** Check `{base_dir}/log/lua.log` for runtime errors.
+
+**Browser console:** `window.uiApp.store` shows all variables in the JS client.
 
 ---
 
