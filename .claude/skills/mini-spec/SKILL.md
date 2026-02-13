@@ -223,6 +223,9 @@ Create `docs/user-manual.md` and `docs/developer-guide.md` with traceability lin
 ```markdown
 # ClassName
 **Requirements:** R1, R3, R7
+
+short description
+
 ## Knows
 - attribute: description
 ## Does

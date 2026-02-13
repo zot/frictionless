@@ -627,6 +627,10 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
+		// Register mcp:subscribe(topic, handler) for publisher integration
+		// CRC: crc-MCPSubscribe.md
+		s.registerSubscribeMethod(vendedID, mcpTable)
+
 		// Load mcp.lua if it exists to extend the mcp global
 		// Use DirectRequireLuaFile to register for hot-loading
 		// Spec: mcp.md Section 4.3 "Extension via mcp.lua"

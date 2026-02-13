@@ -107,3 +107,49 @@
 - **R85:** Link app directory to `lua/{app}` using relative paths (enables `require("{app}.module")`)
 - **R86:** Link all viewdef HTML files individually to `viewdefs/`
 - **R87:** Remove command scans viewdefs/ for symlinks pointing to app and removes them
+
+## Feature: Publisher Server
+**Source:** specs/publisher.md
+
+- **R88:** The publisher is a separate background process that binds to `localhost:25283`
+- **R89:** `POST /publish/{topic}` accepts a JSON body and delivers it to all current subscribers of that topic, returning `{"listeners": N}`
+- **R90:** `GET /subscribe/{topic}` long-polls until data is published (returns 200 with the JSON body) or times out after ~60s (returns 204 No Content)
+- **R91:** `GET /` serves an install page with the bookmarklet link, instructions, and current topic/listener counts
+- **R92:** All endpoints set CORS headers to allow any origin
+- **R93:** Topics are implicit — created on first subscribe or publish, no registration required
+- **R94:** Published messages wait up to 20ms for reconnecting subscribers before being dropped (fan-out with brief TTL)
+- **R95:** After receiving data, a subscriber's long-poll returns; the client must reconnect to receive the next message
+
+## Feature: Publisher Lifecycle
+**Source:** specs/publisher.md
+
+- **R96:** The publisher starts on demand — spawned by MCP servers when a subscribe connection fails
+- **R97:** If the port is already bound, the spawn attempt is silently ignored (another publisher is running)
+- **R98:** The publisher auto-shuts down after an idle timeout (e.g. 5 minutes) with zero active connections
+- **R99:** Each long-poll counts as an active connection; the idle timer resets on any `/subscribe` or `/publish` request
+- **R100:** (inferred) The publisher is started via `frictionless publisher` CLI subcommand
+
+## Feature: MCP Subscribe Integration
+**Source:** specs/publisher.md
+
+- **R101:** Lua apps can subscribe to topics via `mcp:subscribe(topic, handler)` where handler receives the parsed JSON data
+- **R102:** `mcp:subscribe` runs a background goroutine that long-polls the publisher and calls the handler on each received message
+- **R103:** If the long-poll connection fails, `mcp:subscribe` spawns `frictionless publisher` as a detached process and retries
+- **R104:** After calling the handler, the goroutine immediately reconnects to continue listening
+- **R105:** (inferred) The handler function executes in the Lua VM of the session that called `mcp:subscribe`
+
+## Feature: Bookmarklet
+**Source:** specs/publisher.md
+
+- **R106:** The bookmarklet publishes to `/publish/scrape` with JSON containing `url` (location.href), `title` (document.title), and `text` (document.body.innerText, truncated to 50k chars)
+- **R107:** On success, the bookmarklet updates the tab title to show `[Sent to N session(s)]`
+- **R108:** On failure (publisher not running), the bookmarklet shows an alert
+- **R109:** The install page (`GET /`) provides the bookmarklet as a draggable link for one-time setup
+- **R110:** (inferred) Multiple MCP sessions can subscribe to the same topic and all receive a copy of published data
+
+### Topic Favicons
+- **R111:** The subscribe endpoint (`GET /subscribe/{topic}`) accepts an optional `favicon` query parameter containing a data URL
+- **R112:** The publisher stores the favicon per topic; the most recent favicon supplied for a topic wins
+- **R113:** The install page displays per-topic bookmarklet sections with the topic's favicon when available
+- **R114:** `mcp:subscribe(topic, handler, opts)` accepts an optional third argument table with a `favicon` field (a data URL string)
+- **R115:** The subscribe goroutine passes the favicon as a query parameter on its first long-poll request to the publisher

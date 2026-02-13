@@ -483,6 +483,7 @@ Legend:
 
 ```json
 {"app": "job-tracker", "event": "chat", "text": "https://...", "handler": "/ui-fast"}
+{"app": "job-tracker", "event": "page_received", "url": "https://...", "title": "Sr Engineer at Acme", "text": "...rendered page text..."}
 ```
 
 ### Claude Event Handling
@@ -490,6 +491,7 @@ Legend:
 | Event | Action |
 |-------|--------|
 | `chat` | Handle as URL or general chat (see below). **Note:** Lua already adds the user message to chat history, so Claude only adds the assistant response. |
+| `page_received` | Page content from bookmarklet (see below). Extract structured data from text, prefill add form. No fetching needed — text is pre-rendered `innerText` from the user's browser. |
 | `resume_chat` | Chat about a resume (see below). **Note:** Lua already adds the user message to resumeChatMessages, so Claude only adds the assistant response. |
 
 #### Resume Chat Handling
@@ -535,6 +537,31 @@ When the chat text is a URL (job posting link):
    - Fallback: international HQ if no US location
    - Update the formData
 5. **Reply in chat** with confirmation of what was found
+
+#### Page Received Handling (Bookmarklet)
+
+When a `page_received` event arrives (from the publisher bookmarklet via `init.lua`):
+
+The event contains `url`, `title`, and `text` (the page's `innerText`, already clean — no HTML, no fetching needed).
+
+1. **Extract structured data** from the `text` and `title` fields: company, position, location, salary (if available)
+2. **Show add form** with prefilled data:
+   ```lua
+   jobTracker:showAddForm()
+   jobTracker.formData.company = "..."
+   jobTracker.formData.position = "..."
+   jobTracker.formData.url = "<the url from the event>"
+   jobTracker.formData.location = "..."
+   ```
+3. **If salary is empty**, web search for typical salary range (same as URL flow)
+4. **If hqAddress is empty**, search for company HQ (same as URL flow)
+5. **Reply in chat** with confirmation: "Added application for {company} - {position}"
+
+This flow is identical to URL Chat Handling except:
+- The page content is already available (no WebFetch/Playwright needed)
+- The text is `innerText` (clean, no HTML parsing)
+- The `title` field often contains company/position info
+- No "user: {url}" chat message is added (the event is distinct from `chat`)
 
 ## File I/O
 

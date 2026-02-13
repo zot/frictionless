@@ -337,6 +337,9 @@ func GenerateThemeBlock(themes []string, defaultTheme string) string {
 		sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/%s.css\">\n", theme))
 	}
 
+	// Favicon placeholder - set dynamically by each app's DEFAULT viewdef script
+	sb.WriteString("  <link rel=\"icon\" id=\"app-favicon\" href=\"data:,\">\n")
+
 	sb.WriteString("  <!-- /frictionless -->\n")
 
 	return sb.String()

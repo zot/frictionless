@@ -17,6 +17,8 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-MCPScript.md → `install/mcp`
 - [x] crc-CheckpointManager.md → `install/mcp`
 - [x] crc-LinkappScript.md → `install/linkapp`
+- [x] crc-Publisher.md → `internal/publisher/publisher.go`
+- [x] crc-MCPSubscribe.md → `internal/mcp/subscribe.go`
 
 ### Sequences
 - [x] seq-mcp-lifecycle.md → `internal/mcp/server.go`, `internal/mcp/tools.go`
@@ -28,6 +30,8 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-audit.md → `internal/mcp/audit.go`, `internal/mcp/tools.go`
 - [x] seq-theme-inject.md → `internal/mcp/theme.go`, `internal/mcp/server.go`
 - [x] seq-theme-list.md → `internal/mcp/theme.go`
+- [x] seq-publisher-lifecycle.md → `internal/publisher/publisher.go`, `internal/mcp/subscribe.go`
+- [x] seq-publish-subscribe.md → `internal/publisher/publisher.go`, `internal/mcp/subscribe.go`
 
 ### Test Designs
 - [ ] test-MCP.md → `internal/mcp/tools_test.go`
@@ -41,11 +45,17 @@ AI assistant integration via Model Context Protocol
 - seq-mcp-lifecycle.md, seq-mcp-create-session.md
 - seq-mcp-receive-event.md, seq-mcp-run.md, seq-mcp-get-state.md, seq-mcp-state-wait.md
 
+### Publisher System
+Shared pub/sub server for browser-to-MCP data flow (bookmarklets, external tools)
+- crc-Publisher.md, crc-MCPSubscribe.md
+- seq-publisher-lifecycle.md, seq-publish-subscribe.md
+
 ### Transport System
 Support multiple MCP transport modes:
 - **Stdio** (`mcp` command): JSON-RPC 2.0 over stdin/stdout
 - **SSE** (`serve` command): Server-Sent Events over HTTP
 - **Install** (`install` command): Manual installation without MCP server
+- **Publisher** (`publisher` command): Standalone pub/sub server on fixed port 25283
 - **Default base_dir:** `{project}/.ui` for all commands
 
 ### Startup Behavior
@@ -110,6 +120,7 @@ Registered by `setupMCPGlobal` in each session:
 | `app` | `mcp:app(appName: string)` | `app` or `nil, errmsg` |
 | `display` | `mcp:display(appName: string)` | `true` or `nil, errmsg` |
 | `status` | `mcp:status()` | `table` (see below) |
+| `subscribe` | `mcp:subscribe(topic: string, handler: function)` | `nil` |
 
 **`mcp:status()` returns:**
 | Field | Type | Description |
@@ -186,3 +197,6 @@ Cross-platform binary builds via Makefile:
   - [x] Updated theme CLI commands (list, classes, audit)
   - [x] Prefs app for theme switching with localStorage persistence
   - [ ] Theme test coverage (ParseThemeCSS, InjectThemeBlock, AuditAppTheme)
+- [ ] O6: Publisher test coverage
+  - [ ] Publisher server (publish, subscribe, fan-out, TTL wait, idle shutdown)
+  - [ ] MCPSubscribe (poll loop, ensurePublisher, handler dispatch)

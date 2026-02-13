@@ -258,6 +258,27 @@ This keeps theming swappable while preserving app-specific needs.
 
 **Auditing theme usage:** Run `.ui/mcp theme audit myapp` to check which classes are documented vs app-specific.
 
+## Favicons
+
+Each app has a `favicon.svg` in its app directory (e.g., `apps/job-tracker/favicon.svg`). These are Bootstrap Icons SVGs matching the app's `icon.html`, colored with `fill="#E07A47"`.
+
+The `index.html` has a `<link rel="icon" id="app-favicon">` in its `<!-- #frictionless -->` head section. Each app's DEFAULT viewdef sets the favicon via a `<script>` tag that runs when the viewdef renders:
+
+```html
+<template>
+  <style>...</style>
+  ...
+  <script>document.getElementById('app-favicon').href='data:image/svg+xml;base64,...'</script>
+</template>
+```
+
+When building a new app:
+1. Create `favicon.svg` from the app's Bootstrap Icon (same icon as `icon.html`), with `fill="#E07A47"`
+2. Base64-encode it: `base64 -w0 apps/myapp/favicon.svg`
+3. Add the `<script>` as the last child of `<template>` in the DEFAULT viewdef (the first child receives class/style from the view element, so scripts must go at the bottom)
+
+**Exception:** The MCP shell app (`mcp`) must NOT set a favicon — it wraps other apps and would override their favicons on every render.
+
 ---
 
 # JavaScript API

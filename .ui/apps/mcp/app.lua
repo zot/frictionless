@@ -441,7 +441,7 @@ function mcp:sendChat()
         app = currentApp,
         event = "chat",
         text = self.chatInput,
-        reminder = "Show todos and thinking messages while working",
+        reminder = "Show todos and thinking messages while working. **IMPORTANT:** respond with UI chat messages **AND** in the main Claude Code Console!",
         mcp_port = status and status.mcp_port or nil,
         note = status and ("make sure you have understood the app at " .. status.base_dir .. "/apps/" .. currentApp) or nil
     }

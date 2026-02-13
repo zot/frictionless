@@ -152,6 +152,7 @@ JobTracker = session:prototype("JobTracker", {
     formData = EMPTY,
     noteInput = "",
     urlInput = "",
+    showBookmarklet = false,  -- Collapsible bookmarklet install section
     sortColumn = "date",  -- "company", "position", "status", "date"
     sortDirection = "desc",  -- "asc" or "desc"
     _fileUploadData = "",  -- JS-to-Lua bridge for file uploads
@@ -540,6 +541,9 @@ function JobTracker:isDeleteResumeDialogVisible() return self.showDeleteResumeDi
 function JobTracker:isDeleteResumeDialogHidden() return not self.showDeleteResumeDialog end
 function JobTracker:isLinkPickerVisible() return self.showLinkPicker end
 function JobTracker:isLinkPickerHidden() return not self.showLinkPicker end
+
+function JobTracker:toggleBookmarklet() self.showBookmarklet = not self.showBookmarklet end
+function JobTracker:isBookmarkletHidden() return not self.showBookmarklet end
 
 function JobTracker:showAddForm()
     self.formMode = "add"

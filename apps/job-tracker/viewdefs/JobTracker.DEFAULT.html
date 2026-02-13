@@ -49,6 +49,43 @@
       color: var(--term-text);
     }
 
+    /* Bookmarklet */
+    .jt-bookmarklet-toggle {
+      font-size: 0.7rem;
+      color: var(--term-text-dim);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .jt-bookmarklet-toggle:hover {
+      color: var(--term-accent);
+    }
+    .jt-bookmarklet-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: var(--term-bg);
+      border-bottom: 1px solid var(--term-border);
+    }
+    .jt-bookmarklet-hint {
+      font-size: 0.8rem;
+      color: var(--term-text-dim);
+    }
+    .jt-bookmarklet-link {
+      display: inline-block;
+      padding: 3px 12px;
+      background: var(--term-accent);
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: grab;
+    }
+    .jt-bookmarklet-link:hover {
+      filter: brightness(0.9);
+    }
+
     /* Filter bar */
     .jt-filters {
       display: flex;
@@ -786,7 +823,10 @@
     <!-- List View -->
     <div class="jt-view-content" ui-class-hidden="notListView()">
       <div class="jt-header">
-        <h1>Job Tracker</h1>
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <h1>Job Tracker</h1>
+          <a class="jt-bookmarklet-toggle" href="#" ui-event-click="toggleBookmarklet()">bookmarklet</a>
+        </div>
         <div style="display: flex; gap: 8px;">
           <sl-button variant="default" size="small" ui-action="reload()" title="Reload data from disk">
             <sl-icon name="arrow-clockwise"></sl-icon>
@@ -798,6 +838,12 @@
             <sl-icon name="plus-lg"></sl-icon>
           </sl-button>
         </div>
+      </div>
+
+      <div class="jt-bookmarklet-section" ui-class-hidden="isBookmarkletHidden()">
+        <span class="jt-bookmarklet-hint">Drag this to your bookmarks bar:</span>
+        <a class="jt-bookmarklet-link" href="javascript:void(fetch('http://localhost:25283/publish/job-tracker',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)})}).then(r=>r.json()).then(d=>{let n=d.listeners||0;document.title='[Sent to '+n+' session'+(n!=1?'s':'')+'] '+document.title}).catch(()=>alert('Frictionless publisher not running')))">Add Job</a>
+        <span class="jt-bookmarklet-hint">Browse to a job posting and click it.</span>
       </div>
 
       <div class="jt-filters">
@@ -1147,4 +1193,5 @@
       </div>
     </sl-dialog>
   </div>
+  <script>document.getElementById('app-favicon').href='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI0UwN0E0NyIgdmlld0JveD0iMCAwIDE2IDE2Ij4KICA8cGF0aCBkPSJNNi41IDFBMS41IDEuNSAwIDAgMCA1IDIuNVYzSDEuNUExLjUgMS41IDAgMCAwIDAgNC41djhBMS41IDEuNSAwIDAgMCAxLjUgMTRoMTNhMS41IDEuNSAwIDAgMCAxLjUtMS41di04QTEuNSAxLjUgMCAwIDAgMTQuNSAzSDExdi0uNUExLjUgMS41IDAgMCAwIDkuNSAxem0wIDFoM2EuNS41IDAgMCAxIC41LjVWM0g2di0uNWEuNS41IDAgMCAxIC41LS41bTEuODg2IDYuOTE0TDE1IDcuMTUxVjEyLjVhLjUuNSAwIDAgMS0uNS41aC0xM2EuNS41IDAgMCAxLS41LS41VjcuMTVsNi42MTQgMS43NjRhMS41IDEuNSAwIDAgMCAuNzcyIDBNMS41IDRoMTNhLjUuNSAwIDAgMSAuNS41djEuNjE2TDguMTI5IDcuOTQ4YS41LjUgMCAwIDEtLjI1OCAwTDEgNi4xMTZWNC41YS41LjUgMCAwIDEgLjUtLjUiLz4KPC9zdmc+Cg=='</script>
 </template>
