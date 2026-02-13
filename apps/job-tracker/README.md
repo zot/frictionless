@@ -115,9 +115,9 @@ Version controlled with fossil for history and rollback.
 
 1. Install [Frictionless](https://github.com/zot/frictionless)
 2. Use `/ui show` to view the app console.  
-   - click the tools button if app console is not visible  
+   - click the tools button in the bottom bar if app console is not visible  
    ![tools button](images/tools-button.jpg)
-3. In the app console, click the github button to add job tracker  
+3. In the app console, click the github button at the top of the page to add job tracker  
    ![github button](images/github-button.jpg)
 4. Paste in the URL: `https://github.com/zot/frictionless/tree/main/apps/job-tracker`
 5. Select Job Tracker from the app menu  
