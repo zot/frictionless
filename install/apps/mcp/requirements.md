@@ -80,7 +80,7 @@ A hidden element binds to `mcp.code` via `ui-code`:
 
 App switching is handled entirely in Lua via `mcp:display()`.
 
-The chat panel's `sendChat()` sends `chat` events to Claude via `mcp.pushState()`, with the selected app context from `appConsole.selected` when available. The event uses `app: "app-console"` for compatibility with the app-console event handler.
+The chat panel's `sendChat()` sends `chat` events to Claude via `mcp.pushState()`, with `app` set to the currently displayed app (via `currentAppName()`). This routes the event to the correct app's design.md for handling.
 
 ## Status Bar
 
@@ -146,7 +146,7 @@ A toggleable panel between the app content and status bar. The chat-dots icon in
 - Messages display with user messages prefixed with `>`
 - Thinking messages shown italic/muted
 - Input field + Send button (or Enter key)
-- `sendChat()` reads `appConsole.selected` for app context when sending events
+- `sendChat()` uses `currentAppName()` to set the event's `app` field to the currently displayed app
 
 **Lua tab:**
 - REPL for executing Lua code

@@ -434,20 +434,17 @@ function mcp:sendChat()
 
     table.insert(self.messages, ChatMessage:new("You", self.chatInput))
 
+    local currentApp = self:currentAppName() or "app-console"
+    local status = self:status()
+
     local event = {
-        app = "app-console",
+        app = currentApp,
         event = "chat",
         text = self.chatInput,
-        reminder = "Show todos and thinking messages while working"
+        reminder = "Show todos and thinking messages while working",
+        mcp_port = status and status.mcp_port or nil,
+        note = status and ("make sure you have understood the app at " .. status.base_dir .. "/apps/" .. currentApp) or nil
     }
-
-    local context = appConsole and appConsole.selected and appConsole.selected.name
-    if context then
-        local status = self:status()
-        event.context = context
-        event.mcp_port = status.mcp_port
-        event.note = "make sure you have understood the app at " .. status.base_dir .. "/apps/" .. context
-    end
 
     mcp.pushState(event)
     self.chatInput = ""

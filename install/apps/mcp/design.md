@@ -185,7 +185,7 @@ The global `mcp` object is provided by the server. This app adds:
 | notLuaPanel() | Returns panelMode ~= "lua" |
 | chatTabVariant() | Returns "primary" if chat, else "default" |
 | luaTabVariant() | Returns "primary" if lua, else "default" |
-| sendChat() | Send chat event with appConsole.selected context |
+| sendChat() | Send chat event with current app as target |
 | addAgentMessage(text) | Add agent message to chat, clear statusLine/statusClass |
 | addAgentThinking(text) | Add thinking message to chat, update statusLine/statusClass |
 | clearChat() | Clear messages list |
@@ -320,10 +320,10 @@ App switching is handled entirely in Lua via `mcp:display()`.
 The chat panel's `sendChat()` sends events via `mcp.pushState()`:
 
 ```json
-{"app": "app-console", "event": "chat", "text": "...", "context": "contacts", "mcp_port": 37067, "note": "...", "reminder": "Show todos and thinking messages while working"}
+{"app": "contacts", "event": "chat", "text": "...", "mcp_port": 37067, "note": "...", "reminder": "Show todos and thinking messages while working"}
 ```
 
-The `app` field is `"app-console"` for compatibility with the app-console event handler. The `context` field is the selected app name from `appConsole.selected` (if available).
+The `app` field is set to `currentAppName()` (the currently displayed app), so the event is routed to the correct app's design.md for handling. Falls back to `"app-console"` if no app is displayed.
 
 ## App Discovery (Lua)
 
