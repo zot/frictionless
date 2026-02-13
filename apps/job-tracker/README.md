@@ -44,13 +44,10 @@ Each application tracks:
 - Add custom notes to any application
 - Full history of each application's journey
 
-### Claude Chat Integration
-- Floating action button (FAB) opens chat panel from any screen
-- **Paste a job URL** - Claude scrapes company, position, location, salary
+### Claude Integration
+- **Paste a ![job URL](images/job-url.jpg)** into the URL field - Claude scrapes company, position, location, salary
 - Claude searches for salary data if not listed in posting
 - Claude finds company HQ address
-- Click any chat message to copy it to input
-- Clear chat and close panel buttons
 
 ## Data Storage
 
@@ -84,7 +81,6 @@ Version controlled with fossil for history and rollback.
 +------------------------------------------+
 | [Paste job URL...]                    [>]|
 +------------------------------------------+
-                                        (o) <- Chat FAB
 ```
 
 ### Detail View
@@ -116,10 +112,11 @@ Version controlled with fossil for history and rollback.
 
 ## Getting Started
 
-1. Install [Frictionless UI](https://github.com/zot/frictionless)
-2. Run `frictionless mcp --port 8000 --dir .ui`
-3. Open browser to the UI
-4. Select "Job Tracker" from the app console
+1. Install [Frictionless](https://github.com/zot/frictionless)
+2. Use `/ui show` to view the app console (click the tools button ![tools button](images/tools-button.jpg) if app console is not visible)
+3. In the app console, click the github button ![github button](images/github-button.jpg) to add job tracker
+4. Paste in the URL: `https://github.com/zot/frictionless/tree/main/apps/job-tracker`
+5. Select Job Tracker from the app menu ![app menu](images/app-menu.jpg)
 
 ## License
 
