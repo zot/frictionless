@@ -1,10 +1,9 @@
-// Package publisher provides a standalone pub/sub server on a fixed port.
+// Package publisher provides a pub/sub server on a fixed port, hosted in-process by the MCP server.
 // Browser bookmarklets publish page content; MCP sessions subscribe via long-poll.
 // CRC: crc-Publisher.md | Seq: seq-publisher-lifecycle.md, seq-publish-subscribe.md
 package publisher
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,22 +16,17 @@ import (
 )
 
 const (
-	DefaultAddr    = "localhost:25283"
-	PollTimeout    = 60 * time.Second
-	PublishTTL     = 20 * time.Millisecond
-	IdleTimeout    = 5 * time.Minute
-	IdleCheckEvery = 10 * time.Second
-	MaxBodySize    = 1 << 20 // 1MB
+	DefaultAddr = "localhost:25283"
+	PollTimeout = 60 * time.Second
+	PublishTTL  = 20 * time.Millisecond
+	MaxBodySize = 1 << 20 // 1MB
 )
 
 // Publisher is a topic-based pub/sub HTTP server.
 type Publisher struct {
-	addr        string
-	topics      map[string]*topic
-	mu          sync.Mutex
-	activeConns int
-	lastActive  time.Time
-	server      *http.Server
+	addr   string
+	topics map[string]*topic
+	mu     sync.Mutex
 }
 
 type topic struct {
@@ -44,35 +38,32 @@ type topic struct {
 // New creates a Publisher bound to the given address.
 func New(addr string) *Publisher {
 	return &Publisher{
-		addr:       addr,
-		topics:     make(map[string]*topic),
-		lastActive: time.Now(),
+		addr:   addr,
+		topics: make(map[string]*topic),
 	}
 }
 
-// ListenAndServe starts the HTTP server and idle watchdog.
-// Blocks until the server shuts down.
+// ListenAndServe starts the HTTP server. Blocks until the server shuts down.
 func (p *Publisher) ListenAndServe() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/publish/", p.handlePublish)
 	mux.HandleFunc("/subscribe/", p.handleSubscribe)
+	mux.HandleFunc("/relay/", p.handleRelay)
 	mux.HandleFunc("/", p.handleInstall)
 
-	p.server = &http.Server{
+	srv := &http.Server{
 		Addr:    p.addr,
 		Handler: corsMiddleware(mux),
 	}
 
-	// Try to bind — if port is taken, another publisher is running
+	// Try to bind — if port is taken, another MCP server is hosting the publisher
 	ln, err := net.Listen("tcp", p.addr)
 	if err != nil {
-		return fmt.Errorf("bind %s: %w (another publisher may be running)", p.addr, err)
+		return fmt.Errorf("bind %s: %w (another instance may be hosting it)", p.addr, err)
 	}
 
-	go p.idleWatchdog()
-
 	log.Printf("Publisher listening on %s", p.addr)
-	return p.server.Serve(ln)
+	return srv.Serve(ln)
 }
 
 // handlePublish delivers a JSON body to all subscribers of a topic.
@@ -96,7 +87,6 @@ func (p *Publisher) handlePublish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.mu.Lock()
-	p.lastActive = time.Now()
 	t := p.getTopic(name)
 	p.mu.Unlock()
 
@@ -127,9 +117,7 @@ func (p *Publisher) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.mu.Lock()
-	p.lastActive = time.Now()
 	t := p.getTopic(name)
-	p.activeConns++
 	p.mu.Unlock()
 
 	// Store favicon if provided (most recent wins)
@@ -140,12 +128,7 @@ func (p *Publisher) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ch := t.addSubscriber()
-	defer func() {
-		t.removeSubscriber(ch)
-		p.mu.Lock()
-		p.activeConns--
-		p.mu.Unlock()
-	}()
+	defer t.removeSubscriber(ch)
 
 	select {
 	case data := <-ch:
@@ -172,6 +155,25 @@ func (p *Publisher) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprintf(w, installPageHTML, bookmarkletJS, topicInfo)
+}
+
+// handleRelay serves a CSP-safe relay page that receives data via postMessage and POSTs same-origin.
+// GET /relay/{topic}
+// CRC: crc-Publisher.md | Seq: seq-publish-subscribe.md
+func (p *Publisher) handleRelay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "GET only", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := strings.TrimPrefix(r.URL.Path, "/relay/")
+	if name == "" {
+		http.Error(w, "topic name required", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprintf(w, relayPageHTML, name)
 }
 
 // getTopic returns an existing topic or creates a new one. Caller must hold p.mu.
@@ -208,25 +210,6 @@ func (p *Publisher) topicSummary() string {
 		sb.WriteString("</div>")
 	}
 	return sb.String()
-}
-
-// idleWatchdog shuts down the server after IdleTimeout with zero connections.
-func (p *Publisher) idleWatchdog() {
-	for {
-		time.Sleep(IdleCheckEvery)
-		p.mu.Lock()
-		conns := p.activeConns
-		idle := time.Since(p.lastActive)
-		p.mu.Unlock()
-
-		if conns == 0 && idle >= IdleTimeout {
-			log.Printf("Publisher idle for %v with 0 connections, shutting down", idle)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			p.server.Shutdown(ctx)
-			return
-		}
-	}
 }
 
 // addSubscriber creates a buffered channel and registers it for the topic.
@@ -284,12 +267,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 // bookmarkletTpl is a bookmarklet template with TOPIC as a placeholder for the topic name.
-const bookmarkletTpl = `javascript:void(fetch('http://localhost:25283/publish/TOPIC',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)})}).then(r=>r.json()).then(d=>{let n=d.listeners||0;document.title='[Sent to '+n+' session'+(n!=1?'s':'')+'] '+document.title}).catch(()=>alert('Frictionless publisher not running')))`
+// Uses window.open + postMessage relay to bypass CSP restrictions on sites like LinkedIn.
+// CRC: crc-Publisher.md | Seq: seq-publish-subscribe.md
+const bookmarkletTpl = `javascript:void(function(){var d={url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)};var w=window.open('http://localhost:25283/relay/TOPIC','_blank');if(!w){alert('Please allow popups for this site');return}window.addEventListener('message',function h(e){if(e.origin==='http://localhost:25283'&&e.data==='ready'){w.postMessage(d,'http://localhost:25283');window.removeEventListener('message',h)}});}())`
 
 // bookmarkletJS is the default bookmarklet for the "page" topic.
 var bookmarkletJS = strings.ReplaceAll(bookmarkletTpl, "TOPIC", "page")
 
-// Install page HTML template. %s slots: bookmarkletJS, topicInfo.
+// installPageHTML is the bookmarklet install page. %s format verbs: bookmarkletJS, topicInfo.
 const installPageHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -315,14 +300,73 @@ const installPageHTML = `<!DOCTYPE html>
 <h2>How it works</h2>
 <ol>
 <li>Click the bookmarklet on any page</li>
-<li>It sends the page URL, title, and text to this publisher</li>
+<li>A small relay tab opens briefly to send the data</li>
 <li>All connected Frictionless sessions receive the data</li>
-<li>The tab title shows how many sessions received it</li>
+<li>The relay tab shows how many sessions received it, then auto-closes</li>
 </ol>
 <p>The bookmarklet captures <code>innerText</code> — rendered text including JS content, no HTML tags, works on authenticated pages.</p>
 <div class="topics">
 <h2>Active Topics</h2>
 %s
 </div>
+</body>
+</html>`
+
+// relayPageHTML is the CSP-safe relay page template. %q format verb: topic name.
+// CRC: crc-Publisher.md | Seq: seq-publish-subscribe.md
+const relayPageHTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Sending to Frictionless…</title>
+<style>
+  body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #0a0a0f; color: #e0e0e8; }
+  .card { text-align: center; padding: 2em; }
+  h2 { color: #E07A47; margin: 0 0 0.5em; }
+  .status { font-size: 1.1em; color: #8888a0; }
+  .ok { color: #5cb85c; }
+  .err { color: #d9534f; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Frictionless</h2>
+  <div class="status" id="status">Waiting for page data…</div>
+</div>
+<script>
+(function(){
+  var topic = %q;
+  var status = document.getElementById('status');
+  var timeout = setTimeout(function(){
+    status.textContent = 'Timed out — no data received.';
+    status.className = 'status err';
+  }, 10000);
+
+  if (window.opener) { window.opener.postMessage('ready', '*'); }
+
+  window.addEventListener('message', function(evt) {
+    if (!evt.data || !evt.data.url) return;
+    clearTimeout(timeout);
+    status.textContent = 'Sending…';
+
+    fetch('/publish/' + topic, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(evt.data)
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(result) {
+      var count = result.listeners || 0;
+      status.textContent = 'Sent to ' + count + ' session' + (count !== 1 ? 's' : '') + '.';
+      status.className = 'status ok';
+      setTimeout(function() { window.close(); }, 1500);
+    })
+    .catch(function() {
+      status.textContent = 'Failed to send data.';
+      status.className = 'status err';
+    });
+  });
+})();
+</script>
 </body>
 </html>`

@@ -842,7 +842,7 @@
 
       <div class="jt-bookmarklet-section" ui-class-hidden="isBookmarkletHidden()">
         <span class="jt-bookmarklet-hint">Drag this to your bookmarks bar:</span>
-        <a class="jt-bookmarklet-link" href="javascript:void(fetch('http://localhost:25283/publish/job-tracker',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)})}).then(r=>r.json()).then(d=>{let n=d.listeners||0;document.title='[Sent to '+n+' session'+(n!=1?'s':'')+'] '+document.title}).catch(()=>alert('Frictionless publisher not running')))">Add Job</a>
+        <a class="jt-bookmarklet-link" href="javascript:void(function(){var d={url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)};var w=window.open('http://localhost:25283/relay/job-tracker','_blank');if(!w){alert('Please allow popups for this site');return}window.addEventListener('message',function h(e){if(e.origin==='http://localhost:25283'&&e.data==='ready'){w.postMessage(d,'http://localhost:25283');window.removeEventListener('message',h)}});}())">Add Job</a>
         <span class="jt-bookmarklet-hint">Browse to a job posting and click it.</span>
       </div>
 

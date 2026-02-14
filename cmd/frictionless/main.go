@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/zot/frictionless/internal/mcp"
-	"github.com/zot/frictionless/internal/publisher"
 	"github.com/zot/ui-engine/cli"
 )
 
@@ -45,11 +44,6 @@ func main() {
 			if command == "theme" {
 				return true, runTheme(args)
 			}
-			// Handle publisher command (standalone pub/sub server)
-			// CRC: crc-Publisher.md
-			if command == "publisher" {
-				return true, runPublisher()
-			}
 			return false, 0
 		},
 		CustomHelp: func() string {
@@ -59,7 +53,6 @@ Commands:
   serve           Start standalone server with HTTP UI and MCP endpoints
   install         Install skills and resources (without starting server)
   theme           Theme management (list, classes, audit)
-  publisher       Start pub/sub server for bookmarklet integration
 
 Examples:
   frictionless mcp                                        Start MCP server (default: --dir .ui)
@@ -230,6 +223,7 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 	// so the log file can be reopened after ClearLogs() deletes it.
 	// StartAndCreateSession is also called AFTER newMCPServer returns
 	// to avoid nil pointer in startFunc closure.
+
 	// Handle shutdown signals
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -239,7 +233,6 @@ func newMCPServer(cfg *cli.Config, fn func(p int) (string, error)) *mcp.Server {
 		log.Println("Shutting down...")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		//mcpServer.ShutdownPromptServer(ctx)
 		srv.Shutdown(ctx)
 		os.Exit(0)
 	}()
@@ -525,17 +518,6 @@ func runServe(args []string) int {
 	mcpAddr := fmt.Sprintf(":%d", mcpPort)
 	if err := mcpServer.ServeSSE(mcpAddr); err != nil {
 		log.Printf("MCP SSE server error: %v", err)
-		return 1
-	}
-	return 0
-}
-
-// runPublisher starts the standalone pub/sub server on a fixed port.
-// CRC: crc-Publisher.md | Seq: seq-publisher-lifecycle.md
-func runPublisher() int {
-	pub := publisher.New(publisher.DefaultAddr)
-	if err := pub.ListenAndServe(); err != nil {
-		fmt.Fprintf(os.Stderr, "Publisher: %v\n", err)
 		return 1
 	}
 	return 0

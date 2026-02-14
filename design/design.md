@@ -55,8 +55,8 @@ Support multiple MCP transport modes:
 - **Stdio** (`mcp` command): JSON-RPC 2.0 over stdin/stdout
 - **SSE** (`serve` command): Server-Sent Events over HTTP
 - **Install** (`install` command): Manual installation without MCP server
-- **Publisher** (`publisher` command): Standalone pub/sub server on fixed port 25283
 - **Default base_dir:** `{project}/.ui` for all commands
+- Publisher (port 25283) is hosted in-process by the MCP server — no separate command
 
 ### Startup Behavior
 - Server uses `--dir` (defaults to `.ui`)

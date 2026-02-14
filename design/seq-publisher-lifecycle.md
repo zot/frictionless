@@ -1,54 +1,38 @@
 # Sequence: Publisher Lifecycle
 
-**Requirements:** R96, R97, R98, R99, R100
+**Requirements:** R96, R97, R98
 
-## Start on Demand
-
-```
-MCPSubscribe                        OS                          Publisher
-    |                                |                              |
-    |-- pollLoop: GET /subscribe --->|                              |
-    |<- connection refused ----------|                              |
-    |                                |                              |
-    |-- ensurePublisher:             |                              |
-    |   exec "frictionless publisher"|                              |
-    |------------------------------->|                              |
-    |                                |-- spawn detached process --->|
-    |                                |                              |-- bind localhost:25283
-    |                                |                              |-- start idleWatchdog
-    |                                |                              |-- listening
-    |                                |                              |
-    |-- sleep 500ms                  |                              |
-    |-- retry GET /subscribe ------->|----------------------------->|
-    |                                |                   connected  |
-```
-
-If port is already bound (another publisher running), the spawn fails silently.
-The retry succeeds because the existing publisher accepts the connection.
-
-## Idle Auto-Shutdown
+## MCP Server Hosts Publisher at Startup
 
 ```
-Publisher                     idleWatchdog
-    |                              |
-    |                              |-- check activeConns
-    |                              |   activeConns == 0
-    |                              |-- start idle timer
-    |                              |
-    |-- handleSubscribe            |
-    |   activeConns++              |
-    |                              |-- check activeConns
-    |                              |   activeConns > 0
-    |                              |-- reset idle timer
-    |                              |
-    |-- subscriber disconnects     |
-    |   activeConns--              |
-    |                              |-- check activeConns
-    |                              |   activeConns == 0
-    |                              |-- start idle timer
-    |                              |
-    |                              |-- 5 minutes elapsed
-    |                              |   activeConns still 0
-    |                              |-- shutdown server
-    |-- exit                       |
+MCPServer.Start()                    Publisher
+    |                                    |
+    |-- tryStartPublisher (goroutine):   |
+    |   pub := publisher.New(addr)       |
+    |   pub.ListenAndServe()             |
+    |------------------------------------+-- bind localhost:25283
+    |                                    |-- listening
+    |                                    |
+    |-- (continue MCP startup)           |
 ```
+
+If port 25283 is already bound (another MCP server has it), ListenAndServe
+returns an error and the goroutine exits silently. The subscribe poll loop
+connects to whichever MCP server holds the port.
+
+## Publisher Shutdown
+
+```
+MCPServer                            Publisher
+    |                                    |
+    |-- Stop() or process exit           |
+    |                                    |-- server closes
+    |                                    |-- port released
+    |                                    |
+                                    Other MCP servers' pollLoops
+                                         |-- connection error
+                                         |-- retry after delay
+                                         |-- (next MCP server to start grabs port)
+```
+
+No idle watchdog, no forked processes. Publisher lives and dies with its MCP server.

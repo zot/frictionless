@@ -123,18 +123,18 @@
 ## Feature: Publisher Lifecycle
 **Source:** specs/publisher.md
 
-- **R96:** The publisher starts on demand — spawned by MCP servers when a subscribe connection fails
-- **R97:** If the port is already bound, the spawn attempt is silently ignored (another publisher is running)
-- **R98:** The publisher auto-shuts down after an idle timeout (e.g. 5 minutes) with zero active connections
-- **R99:** Each long-poll counts as an active connection; the idle timer resets on any `/subscribe` or `/publish` request
-- **R100:** (inferred) The publisher is started via `frictionless publisher` CLI subcommand
+- **R96:** Each MCP server attempts to host the publisher on port 25283 at startup; first to bind wins
+- **R97:** If the port is already bound, the attempt is silently ignored (another MCP server is hosting it)
+- **R98:** The publisher lifecycle is tied to the MCP server that hosts it — no separate process or idle watchdog
+- **R99:** (removed — idle watchdog no longer needed; publisher lives with MCP server)
+- **R100:** (removed — no standalone `frictionless publisher` CLI subcommand)
 
 ## Feature: MCP Subscribe Integration
 **Source:** specs/publisher.md
 
 - **R101:** Lua apps can subscribe to topics via `mcp:subscribe(topic, handler)` where handler receives the parsed JSON data
 - **R102:** `mcp:subscribe` runs a background goroutine that long-polls the publisher and calls the handler on each received message
-- **R103:** If the long-poll connection fails, `mcp:subscribe` spawns `frictionless publisher` as a detached process and retries
+- **R103:** If the long-poll connection fails, `mcp:subscribe` retries after a short delay (publisher is co-hosted)
 - **R104:** After calling the handler, the goroutine immediately reconnects to continue listening
 - **R105:** (inferred) The handler function executes in the Lua VM of the session that called `mcp:subscribe`
 
@@ -153,3 +153,16 @@
 - **R113:** The install page displays per-topic bookmarklet sections with the topic's favicon when available
 - **R114:** `mcp:subscribe(topic, handler, opts)` accepts an optional third argument table with a `favicon` field (a data URL string)
 - **R115:** The subscribe goroutine passes the favicon as a query parameter on its first long-poll request to the publisher
+
+## Feature: CSP-Safe Relay
+**Source:** specs/publisher.md
+
+- **R116:** `GET /relay/{topic}` serves a self-contained HTML relay page that POSTs to `/publish/{topic}` same-origin
+- **R117:** The relay page signals `window.opener` with `postMessage('ready', '*')` when loaded
+- **R118:** The relay page listens for an incoming `message` event containing page data and POSTs it to `/publish/{topic}`
+- **R119:** The relay page shows the result ("Sent to N session(s)") and auto-closes after 1.5 seconds
+- **R120:** The relay page times out after 10 seconds if no data is received
+- **R121:** The bookmarklet uses `window.open` to open the relay page instead of `fetch` to avoid CSP restrictions
+- **R122:** The bookmarklet checks if `window.open` returned null (popup blocked) and alerts the user
+- **R123:** The bookmarklet waits for a 'ready' signal from the relay page before sending data via `postMessage`
+- **R124:** The bookmarklet uses origin checking on message events for security

@@ -20,6 +20,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	lua "github.com/yuin/gopher-lua"
+	"github.com/zot/frictionless/internal/publisher"
 	"github.com/zot/ui-engine/cli"
 )
 
@@ -431,6 +432,10 @@ func (s *Server) Start() (string, error) {
 		_ = stopWatch // Watcher runs for server lifetime
 	}
 
+	// Host the publisher on the fixed port (best-effort, first MCP server wins)
+	// CRC: crc-MCPServer.md | Seq: seq-publisher-lifecycle.md
+	go s.tryStartPublisher()
+
 	// Update state after successful start
 	s.mu.Lock()
 	s.state = Running
@@ -438,6 +443,16 @@ func (s *Server) Start() (string, error) {
 	s.mu.Unlock()
 
 	return url, nil
+}
+
+// tryStartPublisher attempts to host the publisher on its fixed port.
+// If the port is already taken by another MCP server, it exits silently.
+// CRC: crc-MCPServer.md | Seq: seq-publisher-lifecycle.md
+func (s *Server) tryStartPublisher() {
+	pub := publisher.New(publisher.DefaultAddr)
+	if err := pub.ListenAndServe(); err != nil {
+		s.cfg.Log(1, "Publisher: %v (another instance may be hosting it)", err)
+	}
 }
 
 // Stop destroys the current session and resets state.

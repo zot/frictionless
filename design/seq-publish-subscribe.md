@@ -1,6 +1,6 @@
 # Sequence: Publish and Subscribe
 
-**Requirements:** R89, R90, R94, R95, R101, R102, R104, R105, R106, R107, R110
+**Requirements:** R89, R90, R94, R95, R101, R102, R104, R105, R106, R107, R110, R116, R117, R118, R119, R120, R121, R122, R123, R124
 
 ## Normal Flow: Bookmarklet → Publisher → MCP Sessions
 
@@ -61,4 +61,31 @@ Publisher                MCP-A (pollLoop)
     |                        |
     |                   reconnect
     |<-- GET /subscribe/scrape
+```
+
+## CSP-Safe Relay Flow: Bookmarklet → Relay Page → Publisher → MCP Sessions
+
+```
+Bookmarklet              Relay Page (tab)         Publisher              MCP-A (pollLoop)
+    |                        |                        |                       |
+    |                        |                   GET /subscribe/scrape        |
+    |                        |                        |<----------------------|
+    |                        |                        |                       |
+    |-- window.open ---------->                       |                       |
+    |   /relay/scrape        |                        |                       |
+    |                        |-- postMessage('ready') |                       |
+    |<-----------------------|   to opener            |                       |
+    |                        |                        |                       |
+    |-- postMessage(data) -->|                        |                       |
+    |   {url,title,text}     |                        |                       |
+    |                        |-- POST /publish/scrape |                       |
+    |                        |   (same-origin)------->|                       |
+    |                        |                        |-- fan-out:            |
+    |                        |                        |   send to MCP-A ch -->|
+    |                        |                        |                       |
+    |                        |<-- {"listeners": 1} ---|                  200 + JSON
+    |                        |                        |                       |
+    |                        |-- show "Sent to 1      |                  reconnect
+    |                        |   session"             |                       |
+    |                        |-- auto-close (1.5s)    |                       |
 ```

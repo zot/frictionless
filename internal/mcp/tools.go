@@ -648,14 +648,15 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		appsDir := filepath.Join(s.baseDir, "apps")
 		if entries, err := os.ReadDir(appsDir); err == nil {
 			for _, entry := range entries {
-				if entry.IsDir() {
-					initAbsPath := filepath.Join(appsDir, entry.Name(), "init.lua")
-					if _, err := os.Stat(initAbsPath); err == nil {
-						// Path relative to baseDir for tracking
-						initRelPath := filepath.Join("apps", entry.Name(), "init.lua")
-						if _, err := session.DirectRequireLuaFile(initRelPath); err != nil {
-							return nil, fmt.Errorf("failed to load %s/init.lua: %w", entry.Name(), err)
-						}
+				// Use os.Stat to follow symlinks (entry.IsDir() doesn't)
+				entryPath := filepath.Join(appsDir, entry.Name())
+				if info, err := os.Stat(entryPath); err != nil || !info.IsDir() {
+					continue
+				}
+				initPath := filepath.Join("apps", entry.Name(), "init.lua")
+				if _, err := os.Stat(filepath.Join(s.baseDir, initPath)); err == nil {
+					if _, err := session.DirectRequireLuaFile(initPath); err != nil {
+						return nil, fmt.Errorf("failed to load %s/init.lua: %w", entry.Name(), err)
 					}
 				}
 			}

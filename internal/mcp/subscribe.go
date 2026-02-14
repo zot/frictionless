@@ -9,8 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
 	"time"
 
 	lua "github.com/yuin/gopher-lua"
@@ -49,6 +47,7 @@ func (s *Server) registerSubscribeMethod(vendedID string, mcpTable *lua.LTable) 
 }
 
 // pollLoop long-polls the publisher for messages on a topic and calls the Lua handler.
+// The publisher is co-hosted by the MCP server; on connection error, retries after a short delay.
 // The favicon is sent as a query parameter on the first request only.
 func (s *Server) pollLoop(vendedID, topic string, handler *lua.LFunction, favicon string) {
 	baseURL := fmt.Sprintf("%s/subscribe/%s", publisherAddr, topic)
@@ -64,7 +63,6 @@ func (s *Server) pollLoop(vendedID, topic string, handler *lua.LFunction, favico
 		nextURL = baseURL
 
 		if err != nil {
-			s.ensurePublisher()
 			time.Sleep(publisherRetry)
 			continue
 		}
@@ -119,23 +117,5 @@ func (s *Server) callHandler(vendedID string, handler *lua.LFunction, data inter
 	})
 	if err != nil {
 		log.Printf("subscribe handler error: %v", err)
-	}
-}
-
-// ensurePublisher spawns the publisher process if it's not already running.
-func (s *Server) ensurePublisher() {
-	exe, err := os.Executable()
-	if err != nil {
-		log.Printf("ensurePublisher: can't find executable: %v", err)
-		return
-	}
-	cmd := exec.Command(exe, "publisher")
-	cmd.SysProcAttr = detachedProcAttr() // Detach so it survives this process
-	if err := cmd.Start(); err != nil {
-		// Port already bound is fine — another publisher is running
-		log.Printf("ensurePublisher: start: %v (may already be running)", err)
-	}
-	if cmd.Process != nil {
-		cmd.Process.Release()
 	}
 }

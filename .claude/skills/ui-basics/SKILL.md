@@ -137,6 +137,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 | `<sl-select ui-event-sl-change="...">` | `<sl-select ui-event-sl-input="...">` (sl-change doesn't fire) |
 | `<style>` in list-item viewdef | Put styles in top-level viewdef |
 | Operators in paths (`!value`) | Use methods (`isHidden()`) |
+| Classes/styles on `ui-view="x?wrapper=lua.ViewList"` | Put them on a wrapper div (ViewList double-replaces, losing classes) |
 
 ## Variable Paths
 

@@ -19,9 +19,9 @@ A separate background process on port **25283** (T9 for "claud"). It's a simple 
 
 ### Starting and Stopping
 
-The publisher starts on demand. When an MCP server tries to subscribe to a topic and the connection fails, it spawns `frictionless publisher` as a detached background process. If the port is already taken, that's fine — one is already running.
+Each MCP server attempts to host the publisher on port 25283 at startup. If the port is already taken by another MCP server, that's fine — the first one wins. The publisher lives as long as the MCP server that hosts it. If that server exits, a different MCP server will pick up the port on its next subscribe retry.
 
-It shuts down automatically after being idle (e.g. 5 minutes) with zero connections. Each long-poll counts as a connection, and the idle timer resets on any request.
+No separate process, no forking, no idle watchdog — the publisher lifecycle is tied to the MCP server.
 
 ### Endpoints
 
@@ -55,7 +55,7 @@ mcp:subscribe("scrape", function(data)
 end)
 ```
 
-Under the hood, `mcp:subscribe(topic, handler)` runs a background goroutine that long-polls the publisher. If the connection fails, it tries to start the publisher and retries. On receiving data, it calls the handler and immediately reconnects.
+Under the hood, `mcp:subscribe(topic, handler)` runs a background goroutine that long-polls the publisher. If the connection fails, it retries after a short delay (the publisher is co-hosted by the MCP server, so it should be available). On receiving data, it calls the handler and immediately reconnects.
 
 ## Bookmarklet
 
@@ -83,7 +83,49 @@ It captures three things:
 
 `innerText` is the key insight — it includes JS-rendered content, clean text without HTML, and works on authenticated pages the user is logged into.
 
-Feedback: on success, the tab title shows `[Sent to N session(s)]`. On failure, an alert says the publisher isn't running.
+Feedback: a relay tab opens briefly showing the result ("Sent to N session(s)") and auto-closes. If popups are blocked, the bookmarklet alerts the user.
+
+## CSP-Safe Relay
+
+Sites with restrictive Content Security Policy (CSP) headers — like LinkedIn — block `fetch()` and form submissions to `localhost`. The `connect-src` and `form-action` directives prevent any direct communication from the bookmarklet to the publisher.
+
+The fix: the bookmarklet opens a tab to the publisher's own relay page, sends data via `postMessage`, and the relay page POSTs same-origin (no CSP restriction).
+
+### Relay Endpoint
+
+**GET /relay/{topic}** — serves a small self-contained HTML page that:
+
+1. Signals `window.opener` with `postMessage('ready', '*')` when loaded
+2. Listens for an incoming `message` event containing the page data
+3. POSTs to `/publish/{topic}` (same-origin request — no CSP issue)
+4. Shows the result ("Sent to N session(s)")
+5. Auto-closes after 1.5 seconds
+6. Times out after 10 seconds if no data is received
+
+### Updated Bookmarklet
+
+The bookmarklet uses `window.open` instead of `fetch`:
+
+```javascript
+javascript:void(function(){
+  var d={url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)};
+  var w=window.open('http://localhost:25283/relay/TOPIC','_blank');
+  if(!w){alert('Please allow popups for this site');return}
+  window.addEventListener('message',function h(e){
+    if(e.origin==='http://localhost:25283'&&e.data==='ready'){
+      w.postMessage(d,'http://localhost:25283');
+      window.removeEventListener('message',h);
+    }
+  });
+}())
+```
+
+Key properties:
+- Opens as a regular tab (`'_blank'`), not a sized popup
+- Checks if `window.open` returned null (popup blocked) and alerts
+- Waits for `'ready'` signal from relay page before sending data (prevents race)
+- Uses origin check on the message event for security
+- Works on any site regardless of CSP restrictions
 
 ## Topic Favicons
 
