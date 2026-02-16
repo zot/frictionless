@@ -327,8 +327,8 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 	track("README.md", status)
 
-	// 9. Install themes to {base_dir}/themes/ (includes symlinks)
-	themeFiles, _ := cli.BundleListFiles("themes")
+	// 9. Install themes to {base_dir}/html/themes/
+	themeFiles, _ := cli.BundleListFiles("html/themes")
 	for _, bundlePath := range themeFiles {
 		destPath := filepath.Join(s.baseDir, bundlePath)
 		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
