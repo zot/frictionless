@@ -12,7 +12,7 @@ usage: mcp [--help | PROG [options]]
 mcp --help                      this message
 mcp audit APP                   run code quality audit on APP
 mcp patterns                    list available patterns with frontmatter
-mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/clear/baseline/count)
+mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/clear/baseline/count/update/local)
 mcp browser                     open browser to UI session
 mcp display APP                 display APP in the browser
 mcp event                       wait for next UI event (120s timeout)
@@ -24,6 +24,8 @@ mcp status                      get server status
 mcp theme list                  list available themes
 mcp theme classes [THEME]       list semantic classes for theme
 mcp theme audit APP [THEME]     audit app's theme class usage
+mcp update                      smart update (hash-based conflict detection)
+mcp update -t                   check for new version (report only, no changes)
 mcp variables                   get current variable values
 here
 }
@@ -183,8 +185,18 @@ checkpoint_baseline() {
     ensure_fossil
     cd "$app_dir"
 
-    # Close and remove existing repo if present
+    local has_bundle=false
+    local bundle="$app_dir/.preserved-bundle"
+
     if [ -f "$repo" ]; then
+        # Export updates and local branches (if they exist) into a single bundle
+        # Note: one --branch per export call; second call appends to same bundle
+        rm -f "$bundle"
+        for branch in updates local; do
+            if "$FOSSIL_BIN" branch list 2>/dev/null | grep -q "$branch"; then
+                "$FOSSIL_BIN" bundle export "$bundle" --branch "$branch" --standalone 2>/dev/null && has_bundle=true
+            fi
+        done
         "$FOSSIL_BIN" close --force 2>/dev/null
         rm -f "$repo" .fslckout
     fi
@@ -195,7 +207,15 @@ checkpoint_baseline() {
     "$FOSSIL_BIN" settings ignore-glob '.#*,.*~,*~,checkpoint.fossil,.fslckout'
     "$FOSSIL_BIN" add . >/dev/null 2>&1
     "$FOSSIL_BIN" commit -m "=== BASELINE ===" --no-warnings >/dev/null
-    echo "Baseline set for $app"
+
+    # Restore preserved branches from bundle
+    if [ "$has_bundle" = true ] && [ -f "$bundle" ]; then
+        "$FOSSIL_BIN" bundle import "$bundle" --force --publish 2>/dev/null
+        rm -f "$bundle"
+        echo "Baseline set for $app (preserved branches restored)"
+    else
+        echo "Baseline set for $app"
+    fi
     # Notify UI of checkpoint change
     "$dir/mcp" run "if appConsole then appConsole._checkpointsTime = 0 end" >/dev/null 2>&1
 }
@@ -215,6 +235,89 @@ checkpoint_count() {
     # Count commits excluding baseline and fossil artifacts
     local count=$("$FOSSIL_BIN" timeline -t ci --oneline | head -n -3 | wc -l)
     echo "$count"
+}
+
+# CRC: crc-CheckpointManager.md | R125
+checkpoint_update() {
+    local app="$1" msg="$2"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -d "$app_dir" ]; then
+        echo "App not found: $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    if [ ! -f "$repo" ]; then
+        # No repo yet — init, trunk baseline first, then updates branch
+        "$FOSSIL_BIN" init "$repo" --project-name "$app" >/dev/null
+        "$FOSSIL_BIN" open "$repo" --force >/dev/null
+        "$FOSSIL_BIN" settings ignore-glob '.#*,.*~,*~,checkpoint.fossil,.fslckout'
+        "$FOSSIL_BIN" add . >/dev/null 2>&1
+        "$FOSSIL_BIN" commit -m "=== BASELINE ===" --no-warnings >/dev/null
+        # Create updates branch from trunk (same content)
+        "$FOSSIL_BIN" commit --branch updates -m "${msg:-update}" --allow-empty --no-warnings >/dev/null
+        "$FOSSIL_BIN" update trunk >/dev/null 2>&1
+    else
+        # Require no uncommitted checkpoints (user must consolidate first)
+        local count
+        count=$("$dir/mcp" checkpoint count "$app" 2>/dev/null || echo "0")
+        if [ "$count" != "0" ]; then
+            echo "Error: $count checkpoint(s) exist. Consolidate with /ui-thorough before updating." >&2
+            exit 1
+        fi
+        # Switch to updates branch (create if needed), commit, switch back
+        if ! "$FOSSIL_BIN" update updates >/dev/null 2>&1; then
+            "$FOSSIL_BIN" addremove >/dev/null 2>&1
+            "$FOSSIL_BIN" commit --branch updates -m "${msg:-update}" --allow-empty --no-warnings >/dev/null
+        else
+            "$FOSSIL_BIN" addremove >/dev/null 2>&1
+            "$FOSSIL_BIN" commit -m "${msg:-update}" --allow-empty --no-warnings >/dev/null
+        fi
+        "$FOSSIL_BIN" update trunk >/dev/null 2>&1
+    fi
+    echo "Update checkpoint: ${msg:-update}"
+}
+
+# CRC: crc-CheckpointManager.md | R126
+checkpoint_local() {
+    local app="$1" msg="$2"
+    local app_dir="$dir/apps/$app"
+    local repo="$app_dir/checkpoint.fossil"
+
+    if [ ! -d "$app_dir" ]; then
+        echo "App not found: $app" >&2
+        exit 1
+    fi
+
+    ensure_fossil
+    cd "$app_dir"
+
+    if [ ! -f "$repo" ]; then
+        # No repo yet — init, trunk baseline first, then local branch
+        "$FOSSIL_BIN" init "$repo" --project-name "$app" >/dev/null
+        "$FOSSIL_BIN" open "$repo" --force >/dev/null
+        "$FOSSIL_BIN" settings ignore-glob '.#*,.*~,*~,checkpoint.fossil,.fslckout'
+        "$FOSSIL_BIN" add . >/dev/null 2>&1
+        "$FOSSIL_BIN" commit -m "=== BASELINE ===" --no-warnings >/dev/null
+        # Create local branch from trunk (same content)
+        "$FOSSIL_BIN" commit --branch local -m "${msg:-local}" --allow-empty --no-warnings >/dev/null
+        "$FOSSIL_BIN" update trunk >/dev/null 2>&1
+    else
+        # Switch to local branch (create if needed), commit, switch back
+        if ! "$FOSSIL_BIN" update local >/dev/null 2>&1; then
+            "$FOSSIL_BIN" addremove >/dev/null 2>&1
+            "$FOSSIL_BIN" commit --branch local -m "${msg:-local}" --allow-empty --no-warnings >/dev/null
+        else
+            "$FOSSIL_BIN" addremove >/dev/null 2>&1
+            "$FOSSIL_BIN" commit -m "${msg:-local}" --allow-empty --no-warnings >/dev/null
+        fi
+        "$FOSSIL_BIN" update trunk >/dev/null 2>&1
+    fi
+    echo "Local checkpoint: ${msg:-local}"
 }
 
 case "$prog" in
@@ -246,8 +349,14 @@ case "$prog" in
             count)
                 checkpoint_count "$app"
                 ;;
+            update)
+                checkpoint_update "$app" "$3"
+                ;;
+            local)
+                checkpoint_local "$app" "$3"
+                ;;
             *)
-                echo "Usage: mcp checkpoint save|list|rollback|diff|clear|baseline|count APP [arg]" >&2
+                echo "Usage: mcp checkpoint save|list|rollback|diff|clear|baseline|count|update|local APP [arg]" >&2
                 exit 1
                 ;;
         esac
@@ -342,6 +451,30 @@ case "$prog" in
         ;;
     status)
         exec curl -s "http://127.0.0.1:$port/api/ui_status"
+        ;;
+    update)
+        if [ "$1" = "-t" ]; then
+            # Test mode: check for updates without applying
+            current=$(curl -s "http://127.0.0.1:$port/api/ui_status" | jq -r '.result.version // "unknown"')
+            latest=$(curl -s --connect-timeout 5 --max-time 10 \
+                "https://api.github.com/repos/zot/frictionless/releases/latest" 2>/dev/null \
+                | jq -r '.tag_name // empty' | sed 's/^v//')
+            if [ -z "$latest" ]; then
+                echo '{"error":"Could not fetch latest version from GitHub"}'
+                exit 1
+            fi
+            needs_update="false"
+            if [ "$(printf '%s\n%s' "$current" "$latest" | sort -V | tail -1)" != "$current" ]; then
+                needs_update="true"
+            fi
+            jq -n --arg current "$current" --arg latest "$latest" --argjson needs "$needs_update" \
+                '{current: $current, latest: $latest, needsUpdate: $needs}'
+        else
+            # Perform smart update
+            exec curl -s -X POST "http://127.0.0.1:$port/api/ui_update" \
+                 -H "Content-Type: application/json" \
+                 -d '{}'
+        fi
         ;;
     theme)
         # Theme commands use CLI directly (no server needed)

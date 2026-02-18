@@ -142,6 +142,12 @@ The global `mcp` object is provided by the server. This app adds:
 | _todoSteps | table[] | Step definitions for createTodos/startTodoStep |
 | _currentStep | number | Current in_progress step (1-based), 0 if none |
 | _todoApp | string | App name for progress reporting during todo steps |
+| showUpdatePrefDialog | boolean | Whether first-run update preference dialog is visible |
+| showUpdateConfirmDialog | boolean | Whether update confirmation dialog is visible |
+| latestVersion | string | Latest version string from GitHub releases API |
+| _isUpdating | boolean | Whether an update is currently in progress |
+| _updateNotificationDismissed | boolean | Whether the update notification banner was dismissed this session |
+| _needsUpdate | boolean | Whether a newer version is available |
 
 ## Methods
 
@@ -213,6 +219,22 @@ The global `mcp` object is provided by the server. This app adds:
 | clearTodos() | Clear todos list and reset step state |
 | appProgress(name, progress, stage) | Update app build progress (delegates to appConsole:onAppProgress) |
 | appUpdated(name) | Rescan apps and delegate to appConsole:onAppUpdated |
+| readSettings() | Read and parse `.ui/storage/settings.json`, returns empty table if missing/invalid |
+| writeSettings(data) | Write settings table as JSON to `.ui/storage/settings.json`, creates storage/ dir if needed |
+| checkForUpdates() | Fetch latest version from GitHub, compare with current, persist result to settings |
+| showUpdatePreferenceDialog() | Show the first-run update preference dialog |
+| setUpdatePreference(enabled) | Save checkUpdate preference to settings; triggers checkForUpdates() if enabled |
+| getUpdatePreference() | Read checkUpdate boolean from settings |
+| currentVersion() | Returns version string from mcp:status().version |
+| noUpdateAvailable() | Returns not _needsUpdate |
+| updateAvailable() | Returns _needsUpdate |
+| hideUpdateNotification() | Returns true if notification should be hidden (no update, dismissed, or updating) |
+| dismissUpdateNotification() | Set _updateNotificationDismissed to true |
+| startUpdate() | Show the update confirmation dialog |
+| cancelUpdate() | Hide the update confirmation dialog |
+| confirmUpdate() | Emit pushState event with platform detection and update instructions, set _isUpdating |
+| isUpdating() | Returns _isUpdating |
+| notUpdating() | Returns not _isUpdating |
 
 ### MCP.Notification (notification toast)
 
@@ -312,6 +334,86 @@ The global `mcp` object is provided by the server. This app adds:
 |--------|-------------|
 | copyToInput() | Copy text to mcp.luaInput, focus input |
 
+## Local Helper Functions
+
+Module-level functions (not methods on mcp):
+
+| Function | Description |
+|----------|-------------|
+| compareVersions(current, latest) | Semver comparison: parses "major.minor.patch" from both strings, returns true if latest > current |
+| fetchLatestVersion() | Runs `curl` against `https://api.github.com/repos/zot/frictionless/releases/latest` with 5s connect / 10s max timeout, parses JSON for `tag_name`, strips leading "v", returns version string or nil |
+
+## Update Check System
+
+### Settings Persistence
+
+`mcp:readSettings()` and `mcp:writeSettings(data)` provide shared settings storage at `{base_dir}/storage/settings.json`. They are defined on the global `mcp` object so any app can use them (e.g., the prefs app reads/writes the `checkUpdate` preference).
+
+- `readSettings()` opens the file, JSON-decodes it, returns the table (or `{}` on any failure)
+- `writeSettings(data)` creates the `storage/` directory if needed via `mkdir -p`, then writes JSON
+
+### First-Run Flow
+
+During initialization (`if not session.reloading`):
+1. Read settings via `mcp:readSettings()`
+2. If `settings.checkUpdate == nil` (no preference saved yet), call `mcp:showUpdatePreferenceDialog()` to open the first-run dialog
+3. The dialog has Yes/No buttons that call `mcp:setUpdatePreference(true/false)`
+4. `setUpdatePreference` saves the preference and, if enabled, immediately calls `checkForUpdates()`
+
+### Update Check Flow
+
+When `settings.checkUpdate == true` on startup:
+1. Restore cached state: if `settings.needsUpdate` is true, set `mcp._needsUpdate = true` and `mcp.latestVersion` from settings (so the star/notification appear immediately without waiting for network)
+2. Call `mcp:checkForUpdates()` which:
+   - Gets current version from `mcp:status().version`
+   - Calls `fetchLatestVersion()` (curl to GitHub API)
+   - Compares with `compareVersions(current, latest)`
+   - Sets `mcp.latestVersion` and `mcp._needsUpdate`
+   - Persists `needsUpdate` and `latestVersion` to settings
+
+### Notification / Star / Dialog UI
+
+**Orange star indicator** (`.mcp-update-star`):
+- Positioned at top-right of menu button container (absolute, top: -4px, right: -4px)
+- Shown when `updateAvailable()` returns true, hidden via `noUpdateAvailable()`
+- Pulses via `star-pulse` CSS animation (opacity 1 → 0.6 → 1, 2s)
+- Click calls `startUpdate()` to open the confirm dialog
+
+**Update notification banner** (`.mcp-update-notification`):
+- Fixed position below menu area (top: 72px, right: 12px)
+- Uses `sl-alert` with variant "primary" and download icon
+- Shows latest version number
+- Hidden when `hideUpdateNotification()` returns true (no update OR dismissed OR updating)
+- **Update** button calls `startUpdate()`, **Later** button calls `dismissUpdateNotification()`
+
+**First-run preference dialog** (`sl-dialog`):
+- Bound to `showUpdatePrefDialog` via `ui-attr-open`
+- Footer buttons: No → `setUpdatePreference(false)`, Yes → `setUpdatePreference(true)`
+
+**Update confirmation dialog** (`sl-dialog`):
+- Bound to `showUpdateConfirmDialog` via `ui-attr-open`
+- Body shows latest version and current version
+- Footer buttons: Cancel → `cancelUpdate()`, Update → `confirmUpdate()`
+
+### Update Execution Flow
+
+`confirmUpdate()`:
+1. Closes the dialog, sets `_isUpdating = true`, dismisses the notification
+2. Detects platform via `uname -s` and architecture via `uname -m`
+3. Emits a `pushState` event with:
+   - `type = "update"`, `action = "perform-update"`
+   - `currentVersion`, `latestVersion`
+   - `platform`, `architecture`
+   - `releaseUrl` pointing to the specific GitHub release tag
+   - `instructions` with step-by-step binary download/replace/chmod/restart/update procedure
+
+### Progress Indicator
+
+While `_isUpdating` is true:
+- The normal status bar text is hidden (`ui-class-hidden="isUpdating()"`)
+- A replacement span shows "Updating to vX.Y.Z..." with an indeterminate `sl-progress-bar`
+- This span is hidden when `notUpdating()` returns true
+
 ## Chat Panel Features
 
 ### Image Drag & Drop
@@ -377,7 +479,7 @@ Unknown labels get auto-calculated percentages based on position.
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar |
+| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
 | MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |

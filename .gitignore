@@ -29,3 +29,4 @@ node_modules
 /apps/job-tracker/data.json
 /.ui/html/*-storage
 *.fossil
+.fslckout

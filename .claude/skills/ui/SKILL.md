@@ -89,24 +89,18 @@ This returns one JSON array per line containing one or more events:
 
 **Always run `.ui/mcp event` in the background.** This frees you to do other work while waiting for user interactions.
 
+**Only ONE event listener may exist at a time.** Multiple listeners race for events and cause lost/duplicate events. Before starting a new `.ui/mcp event`, check whether one is already running — if so, keep it and do NOT start another.
+
 **Task lifecycle for the event loop:**
-1. Complete any existing "Restart event loop" task before starting `.ui/mcp event` (so it doesn't linger while listening)
-2. Run `.ui/mcp event` with Bash(run_in_background=true), track the task_id
+1. **Check for existing listener:** If you already have a background `.ui/mcp event` task running, do nothing — reuse it
+2. Only if no listener exists: run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id
 3. When the background task completes, read the output file and check for events
-4. If events were received, immediately create a "Restart event loop" task as a reminder — then handle the events
-5. After handling, kill the old listener and restart the loop (go to step 1)
+4. If events were received, handle them
+5. After handling (or on timeout), call `TaskStop(task_id=<previous_task_id>)` then start a fresh listener (go to step 2)
 
 **CRITICAL: When the background task completes, ALWAYS read the output file immediately.** Do NOT assume it was a timeout — always read the file and check for events. Failing to read the output means silently dropping user events.
 
-**CRITICAL: Kill previous event listener before restarting.**
-The old listener may still be running. **Always use TaskStop to kill the previous task before starting a new `.ui/mcp event`.**
-
-```
-1. Before restarting: TaskStop(task_id=<previous_task_id>)
-2. Then start new: Bash(.ui/mcp event, run_in_background=true)
-```
-
-Failure to kill the old listener means it will consume events intended for the new one.
+**CRITICAL: Never start a second listener.** If one is already running, reuse it. If restarting after a completed/timed-out listener, `TaskStop` the old one first to ensure the process is dead.
 
 **Exit codes:**
 - 0 + JSON output = events received (may be empty array `[]` for timeout)

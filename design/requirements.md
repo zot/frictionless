@@ -97,6 +97,9 @@
 - **R77:** Detect platform (Linux x86_64, macOS arm64/x86_64) for fossil download
 - **R78:** Initialize per-app fossil repository in `{app_dir}/checkpoint.fossil`
 - **R79:** Notify appConsole of checkpoint changes by resetting `_checkpointsTime`
+- **R125:** `checkpoint update APP [MSG]` saves current file state on a separate "updates" branch
+- **R126:** `checkpoint local APP [MSG]` saves current file state on a separate "local" branch
+- **R127:** The "updates" and "local" branches survive `checkpoint baseline` resets via fossil bundle export/import
 
 ### linkapp Script
 - **R80:** `linkapp add APP` creates symlinks for app's lua and viewdefs

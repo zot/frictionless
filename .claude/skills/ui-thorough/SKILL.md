@@ -97,7 +97,7 @@ Extract the app name from your prompt.
 
 **MCP progress** (shows in UI):
 ```bash
-.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify', 'Set baseline'}, 'APP_NAME')"
+.ui/mcp run "mcp:createTodos({'Read requirements', 'Requirements', 'Design', 'Write code', 'Write viewdefs', 'Link and audit', 'Simplify', 'Save local'}, 'APP_NAME')"
 ```
 
 This shows progress in the UI. The user is watching - without this, the build looks frozen.
@@ -111,7 +111,7 @@ TaskCreate("Write code", activeForm: "Writing code...")
 TaskCreate("Write viewdefs", activeForm: "Writing viewdefs...")
 TaskCreate("Link and audit", activeForm: "Auditing...")
 TaskCreate("Simplify code", activeForm: "Simplifying...")
-TaskCreate("Set baseline checkpoint", activeForm: "Setting baseline...")
+TaskCreate("Save local checkpoint", activeForm: "Saving local...")
 ```
 
 Create both—MCP progress for user visibility, TaskCreate for work tracking.
@@ -237,21 +237,23 @@ Task tool with subagent_type="code-simplifier"
 prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
 ```
 
-## Step 9: Set Baseline Checkpoint
+## Step 9: Save Local Checkpoint
 
 ```bash
 .ui/mcp run "mcp:startTodoStep(8)"
 ```
 
-TaskUpdate("Simplify code": completed), TaskUpdate("Set baseline checkpoint": in_progress)
+TaskUpdate("Simplify code": completed), TaskUpdate("Save local checkpoint": in_progress)
 
-Set the baseline checkpoint so future `/ui-fast` iterations can be tracked:
+Commit the audited code to the local branch and set a clean baseline for future `/ui-fast` iterations:
 
 ```bash
+.ui/mcp checkpoint local <app> "thorough: <brief description>"
 .ui/mcp checkpoint baseline <app>
 ```
 
-This creates a clean baseline that `/ui-fast` checkpoints will build on top of.
+The `local` commit preserves audited code on a permanent branch that survives baseline resets.
+The `baseline` clears trunk for fresh `/ui-fast` checkpoints.
 
 ## Step 10: Complete
 
@@ -261,7 +263,7 @@ This creates a clean baseline that `/ui-fast` checkpoints will build on top of.
 .ui/mcp run "mcp:addAgentMessage('Done - built APP_NAME')"
 ```
 
-TaskUpdate("Set baseline checkpoint": completed)
+TaskUpdate("Save local checkpoint": completed)
 
 ---
 

@@ -4,6 +4,34 @@
 
 local json = require("mcp.json")
 
+-- Version comparison helper
+local function compareVersions(current, latest)
+    local function parse(v)
+        local major, minor, patch = v:match("(%d+)%.(%d+)%.(%d+)")
+        return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
+    end
+    local cm, cn, cp = parse(current)
+    local lm, ln, lp = parse(latest)
+    if lm > cm then return true end
+    if lm == cm and ln > cn then return true end
+    if lm == cm and ln == cn and lp > cp then return true end
+    return false
+end
+
+-- Fetch latest version from GitHub releases API
+local function fetchLatestVersion()
+    local handle = io.popen('curl -s --connect-timeout 5 --max-time 10 "https://api.github.com/repos/zot/frictionless/releases/latest" 2>/dev/null')
+    if not handle then return nil end
+    local content = handle:read("*a")
+    handle:close()
+    if not content or content == "" then return nil end
+    local ok, data = pcall(json.decode, content)
+    if ok and data and data.tag_name then
+        return data.tag_name:gsub("^v", "")
+    end
+    return nil
+end
+
 -- Filesystem helpers
 
 local function fileExists(path)
@@ -34,6 +62,32 @@ local function listDirs(path)
     end
     handle:close()
     return dirs
+end
+
+-- Settings helpers (shared across apps via mcp global)
+function mcp:readSettings()
+    local status = self:status()
+    if not status or not status.base_dir then return {} end
+    local path = status.base_dir .. "/storage/settings.json"
+    local f = io.open(path, "r")
+    if not f then return {} end
+    local content = f:read("*a")
+    f:close()
+    local ok, data = pcall(json.decode, content)
+    if not ok or type(data) ~= "table" then return {} end
+    return data
+end
+
+function mcp:writeSettings(data)
+    local status = self:status()
+    if not status or not status.base_dir then return end
+    local dir = status.base_dir .. "/storage"
+    os.execute('mkdir -p "' .. dir .. '"')
+    local path = dir .. "/settings.json"
+    local f = io.open(path, "w")
+    if not f then return end
+    f:write(json.encode(data))
+    f:close()
 end
 
 -- Nested prototype: Notification toast
@@ -244,6 +298,14 @@ mcp._todoApp = mcp._todoApp or nil
 mcp._imageAttachments = mcp._imageAttachments or {}
 mcp.imageUploadData = mcp.imageUploadData or ""
 mcp.lightboxUri = mcp.lightboxUri or ""
+
+-- Update check state
+mcp.showUpdatePrefDialog = mcp.showUpdatePrefDialog or false
+mcp.showUpdateConfirmDialog = mcp.showUpdateConfirmDialog or false
+mcp.latestVersion = mcp.latestVersion or ""
+mcp._isUpdating = mcp._isUpdating or false
+mcp._updateNotificationDismissed = mcp._updateNotificationDismissed or false
+mcp._needsUpdate = mcp._needsUpdate or false
 
 -- Scan for available apps (built apps with app.lua, excluding mcp shell)
 function mcp:scanAvailableApps()
@@ -589,6 +651,119 @@ function mcp:clearAttachments()
     self._imageAttachments = {}
 end
 
+-- Update check methods
+
+function mcp:checkForUpdates()
+    local current = self:currentVersion()
+    if not current then return end
+    local latest = fetchLatestVersion()
+    if not latest then return end
+    self.latestVersion = latest
+    self._needsUpdate = compareVersions(current, latest)
+    -- Persist to settings
+    local settings = self:readSettings()
+    settings.needsUpdate = self._needsUpdate
+    if self._needsUpdate then
+        settings.latestVersion = latest
+    end
+    self:writeSettings(settings)
+end
+
+function mcp:showUpdatePreferenceDialog()
+    self.showUpdatePrefDialog = true
+end
+
+function mcp:setUpdatePreference(enabled)
+    self.showUpdatePrefDialog = false
+    local settings = self:readSettings()
+    settings.checkUpdate = enabled
+    self:writeSettings(settings)
+    if enabled then
+        self:checkForUpdates()
+    end
+end
+
+function mcp:getUpdatePreference()
+    local settings = self:readSettings()
+    return settings.checkUpdate == true
+end
+
+function mcp:currentVersion()
+    local status = self:status()
+    return status and status.version
+end
+
+function mcp:noUpdateAvailable()
+    return not self._needsUpdate
+end
+
+function mcp:updateAvailable()
+    return self._needsUpdate
+end
+
+function mcp:hideUpdateNotification()
+    return not self._needsUpdate or self._updateNotificationDismissed or self._isUpdating
+end
+
+function mcp:dismissUpdateNotification()
+    self._updateNotificationDismissed = true
+end
+
+function mcp:startUpdate()
+    self.showUpdateConfirmDialog = true
+end
+
+function mcp:cancelUpdate()
+    self.showUpdateConfirmDialog = false
+end
+
+function mcp:confirmUpdate()
+    self.showUpdateConfirmDialog = false
+    self._isUpdating = true
+    self._updateNotificationDismissed = true
+
+    -- Detect platform for instructions
+    local uname_s = ""
+    local uname_m = ""
+    local h = io.popen("uname -s 2>/dev/null")
+    if h then uname_s = h:read("*a"):match("^%s*(.-)%s*$") or ""; h:close() end
+    h = io.popen("uname -m 2>/dev/null")
+    if h then uname_m = h:read("*a"):match("^%s*(.-)%s*$") or ""; h:close() end
+
+    local event = {
+        type = "update",
+        action = "perform-update",
+        currentVersion = self:currentVersion(),
+        latestVersion = self.latestVersion,
+        platform = uname_s,
+        architecture = uname_m,
+        releaseUrl = "https://github.com/zot/frictionless/releases/download/v" .. self.latestVersion,
+        instructions = [[
+1. Detect platform (uname -s) and architecture (uname -m)
+2. Download the appropriate binary from releaseUrl:
+   - Linux x86_64: frictionless-linux-amd64
+   - Linux aarch64: frictionless-linux-arm64
+   - Darwin arm64: frictionless-darwin-arm64
+   - Darwin x86_64: frictionless-darwin-amd64
+3. Replace the current frictionless binary (which frictionless)
+4. Make it executable (chmod +x)
+5. The MCP server will restart automatically with the new binary
+6. Call the ui_update tool (NOT install --force) for smart file update
+7. If conflicts returned, offer to merge each one
+8. Notify the user that update is complete
+]]
+    }
+    mcp.pushState(event)
+end
+
+function mcp:isUpdating()
+    return self._isUpdating
+end
+
+function mcp:notUpdating()
+    return not self._isUpdating
+end
+
 function mcp:lightboxVisible()
     return self.lightboxUri ~= ""
 end
@@ -784,4 +959,19 @@ end
 -- Initialization
 if not session.reloading then
     mcp:scanAvailableApps()
+
+    -- Update check startup logic
+    local settings = mcp:readSettings()
+    if settings.checkUpdate == nil then
+        -- First run: show preference dialog
+        mcp:showUpdatePreferenceDialog()
+    elseif settings.checkUpdate then
+        -- Restore cached needsUpdate from settings
+        if settings.needsUpdate then
+            mcp._needsUpdate = true
+            mcp.latestVersion = settings.latestVersion or ""
+        end
+        -- Check for updates (runs curl in background-ish, may block briefly)
+        mcp:checkForUpdates()
+    end
 end

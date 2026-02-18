@@ -41,6 +41,8 @@ The main CLI interface for all MCP operations. Reads server port from `{base_dir
 | `checkpoint clear APP` | Clear checkpoints (reset to baseline) |
 | `checkpoint baseline APP` | Set current state as baseline |
 | `checkpoint count APP` | Return checkpoint count |
+| `checkpoint update APP [MSG]` | Save update checkpoint (survives baseline) |
+| `checkpoint local APP [MSG]` | Save local checkpoint (survives baseline) |
 
 ### Event Command Behavior
 

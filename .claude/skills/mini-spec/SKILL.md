@@ -199,12 +199,13 @@ Run `~/.claude/bin/minispec phase gaps` to validate the gaps section, then run `
 1. **Specs ↔ Requirements:** Each spec item maps to exactly one requirement in `requirements.md`
 2. **Requirements ↔ Design:** Each requirement is referenced by at least one design artifact
 
-`design.md` Gaps section tracks (use S1/R1/D1/C1/O1 numbering):
+`design.md` Gaps section tracks (use S1/R1/D1/C1/O1/A1 numbering):
 - **Spec→Requirements (Sn):** Spec items not captured in requirements.md
 - **Requirements→Design (Rn):** Requirements without design artifacts referencing them
 - **Design→Code (Dn):** Designed features without code
 - **Code→Design (Cn):** Code without design artifacts
 - **Oversights (On):** Missing tests, tech debt, enhancements, security concerns, etc.
+- **Approved (An):** Approved gap, never checked off to ensure they stay in place
 
 Nest related items with checkboxes:
 ```markdown
@@ -212,6 +213,8 @@ Nest related items with checkboxes:
 - [ ] O1: Test coverage gaps
   - [ ] Feature A (5 scenarios)
   - [ ] Feature B (3 scenarios)
+- [ ] A1: Dangling methods, these are never called
+  - [ ] Maluba.go: Maluba.Frobnicate, Maluba.Enreify
 ```
 
 **Upon completion**, offer to update Documentation (Documentation Phase).

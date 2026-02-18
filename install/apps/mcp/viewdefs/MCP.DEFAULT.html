@@ -122,7 +122,7 @@
 
     /* Menu container - floating terminal widget */
     .mcp-menu-container {
-      position: fixed;
+      position: absolute;
       top: 12px;
       right: 12px;
       z-index: 10000;
@@ -212,7 +212,7 @@
 
     /* Dropdown menu - terminal panel with LCARS accent */
     .mcp-menu-dropdown {
-      position: fixed;
+      position: absolute;
       top: 68px;
       right: 12px;
       z-index: 10000;
@@ -812,6 +812,96 @@
     }
 
     .hidden { display: none !important; }
+
+    /* Update star indicator */
+    .mcp-update-star {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      font-size: 16px;
+      color: #ff9500;
+      filter: drop-shadow(0 0 4px rgba(255, 149, 0, 0.6));
+      cursor: pointer;
+      z-index: 1;
+      animation: star-pulse 2s ease-in-out infinite;
+    }
+
+    .mcp-update-star:hover {
+      filter: drop-shadow(0 0 8px rgba(255, 149, 0, 0.8));
+      transform: scale(1.2);
+    }
+
+    @keyframes star-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Update notification bar */
+    .mcp-update-notification {
+      position: fixed;
+      top: 72px;
+      right: 12px;
+      z-index: 9998;
+      max-width: 360px;
+    }
+
+    .mcp-update-notification sl-alert {
+      font-family: var(--term-mono);
+      font-size: 13px;
+    }
+
+    .mcp-update-notification sl-alert::part(base) {
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-accent);
+      color: var(--term-text);
+    }
+
+    .mcp-update-notification .update-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* Dialog dark-theme overrides */
+    sl-dialog::part(panel) {
+      background: var(--term-bg-elevated);
+      color: var(--term-text);
+      border: 1px solid var(--term-border);
+    }
+
+    sl-dialog::part(title) {
+      font-family: var(--term-mono);
+      color: var(--term-accent);
+    }
+
+    sl-dialog::part(overlay) {
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    sl-dialog::part(body) {
+      color: var(--term-text);
+    }
+
+    sl-dialog::part(footer) {
+      border-top: 1px solid var(--term-border);
+    }
+
+    /* Updating status indicator */
+    .mcp-status-text.updating {
+      color: var(--term-accent);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mcp-status-text.updating sl-progress-bar {
+      flex: 1;
+      max-width: 200px;
+      --height: 4px;
+      --indicator-color: var(--term-accent);
+      --track-color: var(--term-border);
+    }
   </style>
 
   <script>
@@ -903,7 +993,11 @@
 
     <!-- Status bar -->
     <div class="mcp-status-bar">
-      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine"></span>
+      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine" ui-class-hidden="isUpdating()"></span>
+      <span class="mcp-status-text updating" ui-class-hidden="notUpdating()">
+        Updating to v<span ui-value="latestVersion"></span>...
+        <sl-progress-bar indeterminate></sl-progress-bar>
+      </span>
       <span class="mcp-status-toggles">
         <span class="mcp-build-mode-toggle" ui-html="variablesLinkHtml()"></span>
         <span class="mcp-build-mode-toggle" ui-html="helpLinkHtml()"></span>
@@ -932,6 +1026,11 @@
         <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
         <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
       </button>
+      <!-- Update available star -->
+      <sl-icon class="mcp-update-star" name="star-fill"
+               ui-class-hidden="noUpdateAvailable()"
+               ui-event-click="startUpdate()"
+               title="Update available! Click to update."></sl-icon>
     </div>
 
     <!-- Dropdown menu with icon grid -->
@@ -950,6 +1049,33 @@
     <!-- Image preview lightbox -->
     <div id="image-lightbox" class="image-lightbox" ui-class-visible="lightboxVisible()" ui-event-click="hideLightbox()">
       <img ui-attr-src="lightboxUri" alt="Preview">
+    </div>
+
+    <!-- First-run: update preference dialog -->
+    <sl-dialog label="Check for Updates?" ui-attr-open="showUpdatePrefDialog">
+      <p>Would you like Frictionless to check for updates on startup?</p>
+      <sl-button slot="footer" variant="default" ui-action="setUpdatePreference(false)">No</sl-button>
+      <sl-button slot="footer" variant="primary" ui-action="setUpdatePreference(true)">Yes</sl-button>
+    </sl-dialog>
+
+    <!-- Update confirm dialog -->
+    <sl-dialog label="Update Available" ui-attr-open="showUpdateConfirmDialog">
+      <p>Version <strong ui-value="latestVersion"></strong> is available (you have <strong ui-value="currentVersion()"></strong>).</p>
+      <p>Proceed with update? Claude will download and install the new version.</p>
+      <sl-button slot="footer" variant="default" ui-action="cancelUpdate()">Cancel</sl-button>
+      <sl-button slot="footer" variant="primary" ui-action="confirmUpdate()">Update</sl-button>
+    </sl-dialog>
+
+    <!-- Update notification -->
+    <div class="mcp-update-notification" ui-class-hidden="hideUpdateNotification()">
+      <sl-alert variant="primary" open>
+        <sl-icon slot="icon" name="download"></sl-icon>
+        <span>Frictionless v<strong ui-value="latestVersion"></strong> is available!</span>
+        <div class="update-actions">
+          <sl-button size="small" variant="primary" ui-action="startUpdate()">Update</sl-button>
+          <sl-button size="small" variant="default" ui-action="dismissUpdateNotification()">Later</sl-button>
+        </div>
+      </sl-alert>
     </div>
   </div>
 

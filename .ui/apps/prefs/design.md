@@ -11,6 +11,9 @@ User preferences panel for frictionless settings. Initial version focuses on the
 |  Preferences                          panel-header|
 +--------------------------------------------------+
 |                                                   |
+|  Updates                           section-header |
+|  [x] Check for updates on startup  [Check Now]   |
+|                                                   |
 |  Themes                            section-header |
 |  +---------------------------------------------+ |
 |  | [*] LCARS                          [=====]  | | <- selected theme
@@ -33,7 +36,6 @@ The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded 
 |-------|------|-------------|
 | _themes | ThemeItem[] | List of available themes |
 | _currentTheme | string | Currently selected theme name |
-| _browserTheme | string | Set by JS on load via hidden input bridge |
 
 ### ThemeItem
 
@@ -51,12 +53,13 @@ The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded 
 | Method | Description |
 |--------|-------------|
 | themes() | Returns _themes for binding |
-| loadThemes() | Fetch theme list from server, populate _themes |
 | currentTheme() | Returns _currentTheme |
-| setCurrentTheme(name) | Update _currentTheme, apply theme |
+| setCurrentTheme(name) | Update _currentTheme, write to settings.json, apply theme |
 | applyTheme(name) | Inject JS via mcp.code targeting `.prefs-inner` element |
-| syncFromBrowser() | Copy _browserTheme to _currentTheme on load |
-| mutate() | Add missing themes (e.g., ninja) during hot-reload |
+| loadThemeFromSettings() | Read theme from .ui/storage/settings.json, apply it |
+| checkUpdates() | Returns current update-check preference via `mcp:getUpdatePreference()` |
+| toggleCheckUpdates() | Toggles update-check preference via `mcp:setUpdatePreference()` |
+| checkNow() | Runs `mcp:checkForUpdates()`, then shows notification: success "Up to date" or info with version and "Update Now" button via `mcp:startUpdate()` |
 
 ### ThemeItem
 
@@ -70,7 +73,7 @@ The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded 
 
 | File | Type | Purpose |
 |------|------|---------|
-| Prefs.DEFAULT.html | Prefs | Main panel with header and theme list |
+| Prefs.DEFAULT.html | Prefs | Main panel with header, theme list, and updates section |
 | Prefs.ThemeItem.list-item.html | ThemeItem | Theme card with radio, name, description, swatch |
 
 ## Events
@@ -79,12 +82,17 @@ None. Theme switching is handled entirely in Lua and client-side JavaScript.
 
 ## Theme Loading
 
+Theme persistence uses `.ui/storage/settings.json` as the source of truth. localStorage is kept as a cache for instant theme application on page load (index.html reads it before Lua loads). Settings I/O is handled by the global `mcp:readSettings()` and `mcp:writeSettings()` methods.
+
 On app load:
-1. JS reads current theme from localStorage
-2. JS sets hidden input `.browser-theme-bridge` value, triggering `_browserTheme` binding
-3. `syncFromBrowser()` copies `_browserTheme` to `_currentTheme`
-4. JS injects CSS `<link>` tags for all known themes
-5. Themes are defined statically in Lua (clarity, lcars, midnight, ninja)
+1. Lua reads settings.json via `loadThemeFromSettings()` (calls `mcp:readSettings()`)
+2. Sets `_currentTheme` from the file (falls back to "lcars" if missing)
+3. Applies theme via JS (sets document class + mirrors to localStorage)
+4. Themes are defined statically in Lua (clarity, lcars, midnight, ninja)
+
+On theme change:
+1. `setCurrentTheme(name)` writes to settings.json via `mcp:writeSettings()`
+2. JS applies the theme class and mirrors to localStorage
 
 ## Styling Notes
 

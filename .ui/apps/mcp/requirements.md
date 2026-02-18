@@ -190,6 +190,71 @@ mcp:appUpdated(name)             -- Trigger rescan after file changes
 
 `startTodoStep` also calls `appConsole:onAppProgress()` to update the build progress bar in the app list.
 
+## Update Check System
+
+### Settings Persistence
+
+Shared settings are stored in `.ui/storage/settings.json` via two methods on the global `mcp` object:
+- `mcp:readSettings()` — reads and parses the JSON file, returning an empty table if missing or invalid
+- `mcp:writeSettings(data)` — writes the table as JSON, creating the `storage/` directory if needed
+
+These methods are available to any app (e.g., the prefs app uses them to toggle the update preference).
+
+### First-Run Dialog
+
+On first startup (no settings file or no `checkUpdate` key):
+- Show a dialog asking "Would you like Frictionless to check for updates on startup?"
+- Yes button saves `checkUpdate: true` and immediately triggers an update check
+- No button saves `checkUpdate: false` and skips
+
+### Automatic Version Check
+
+When `checkUpdate` is enabled in settings:
+- On startup, restore any cached `needsUpdate`/`latestVersion` from settings (so the star appears immediately)
+- Then fetch the latest version from the GitHub releases API (`curl` with timeouts)
+- Compare current version (from `mcp:status().version`) against latest using semver comparison
+- Persist the result (`needsUpdate`, `latestVersion`) to settings for next startup
+
+### Update Available Indicator
+
+When an update is available:
+- An orange pulsing star icon appears on the menu button (top-right corner)
+- The star pulses via CSS animation for visibility
+- Clicking the star opens the update confirmation dialog
+
+### Update Notification Banner
+
+When an update is available (and not dismissed, and not currently updating):
+- A notification banner appears below the menu button area
+- Shows the available version number
+- **Update** button opens the confirmation dialog
+- **Later** button dismisses the notification for the current session
+
+### Update Confirmation Dialog
+
+The confirmation dialog shows:
+- Current version and available version
+- Asks user to confirm the update
+- **Cancel** closes the dialog
+- **Update** triggers the update by emitting a `pushState` event with:
+  - Current and latest version numbers
+  - Platform and architecture detection (via `uname`)
+  - Release URL pointing to GitHub releases
+  - Step-by-step instructions for the agent to download and install the binary
+
+### Progress Indicator
+
+While an update is in progress:
+- The status bar switches to show "Updating to vX.Y.Z..." with an indeterminate progress bar
+- The normal status text is hidden during this state
+- The update notification banner is also hidden
+
+### Prefs Integration
+
+The prefs app can toggle update checks via a checkbox that delegates to:
+- `mcp:getUpdatePreference()` to read the current setting
+- `mcp:setUpdatePreference(enabled)` to save the preference and optionally trigger a check
+
 ## Styling
 
 ### Terminal Aesthetic

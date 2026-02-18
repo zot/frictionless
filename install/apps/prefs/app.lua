@@ -3,8 +3,7 @@
 
 local Prefs = session:prototype("Prefs", {
     _themes = {},
-    _currentTheme = "lcars",
-    _browserTheme = ""  -- Set by JS on load via hidden input
+    _currentTheme = "lcars"
 })
 
 Prefs.ThemeItem = session:prototype("Prefs.ThemeItem", {
@@ -34,6 +33,10 @@ end
 
 function Prefs:setCurrentTheme(name)
     self._currentTheme = name
+    -- Persist to settings file
+    local settings = mcp:readSettings()
+    settings.theme = name
+    mcp:writeSettings(settings)
     self:applyTheme(name)
 end
 
@@ -46,27 +49,30 @@ function Prefs:applyTheme(name)
     ]], name, mcp.codeCounter)
 end
 
-function Prefs:syncFromBrowser()
-    if self._browserTheme ~= "" then
-        self._currentTheme = self._browserTheme
+function Prefs:loadThemeFromSettings()
+    local settings = mcp:readSettings()
+    if settings.theme and settings.theme ~= "" then
+        self._currentTheme = settings.theme
     end
+    self:applyTheme(self._currentTheme)
 end
 
--- Add missing themes during hot-reload
-function Prefs:mutate()
-    local themeNames = {}
-    for _, theme in ipairs(self._themes) do
-        themeNames[theme.name] = true
-    end
-    -- Add ninja theme if missing
-    if not themeNames["ninja"] then
-        local ninjaTheme = session:create(ThemeItem, {
-            name = "ninja",
-            description = "Playful teal theme with cute cartoon ninjas",
-            accentColor = "#1a8a99",
-            _prefs = self
-        })
-        table.insert(self._themes, ninjaTheme)
+-- Update check preference
+function Prefs:checkUpdates()
+    return mcp:getUpdatePreference()
+end
+
+function Prefs:toggleCheckUpdates()
+    local current = mcp:getUpdatePreference()
+    mcp:setUpdatePreference(not current)
+end
+
+function Prefs:checkNow()
+    mcp:checkForUpdates()
+    if mcp._needsUpdate then
+        mcp:notify("Update available: v" .. mcp.latestVersion .. " — use the star menu to update", "primary")
+    else
+        mcp:notify("You're up to date (v" .. (mcp:currentVersion() or "?") .. ")", "success")
     end
 end
 
@@ -104,4 +110,6 @@ if not session.reloading then
     for _, theme in ipairs(prefs._themes) do
         theme._prefs = prefs
     end
+    -- Load saved theme from settings file
+    prefs:loadThemeFromSettings()
 end

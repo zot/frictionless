@@ -148,6 +148,7 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/api/ui_display", s.handleAPIDisplay)
 	mux.HandleFunc("/api/ui_configure", s.handleAPIConfigure)
 	mux.HandleFunc("/api/ui_install", s.handleAPIInstall)
+	mux.HandleFunc("/api/ui_update", s.handleAPIUpdate)
 	mux.HandleFunc("/api/ui_open_browser", s.handleAPIOpenBrowser)
 	mux.HandleFunc("/api/ui_audit", s.handleAPIAudit)
 	mux.HandleFunc("/api/ui_theme", s.handleAPITheme)
