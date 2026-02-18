@@ -23,6 +23,9 @@ User preferences panel for frictionless settings. Initial version focuses on the
 |  |     Clean, low-contrast theme               | |
 |  +---------------------------------------------+ |
 |                                                   |
+|  Tutorial                          section-header |
+|  [Run Tutorial]                                   |
+|                                                   |
 +--------------------------------------------------+
 ```
 
@@ -60,6 +63,7 @@ The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded 
 | checkUpdates() | Returns current update-check preference via `mcp:getUpdatePreference()` |
 | toggleCheckUpdates() | Toggles update-check preference via `mcp:setUpdatePreference()` |
 | checkNow() | Runs `mcp:checkForUpdates()`, then shows notification: success "Up to date" or info with version and "Update Now" button via `mcp:startUpdate()` |
+| startTutorial() | Calls `mcp:startTutorial()` to re-run the spotlight walkthrough |
 
 ### ThemeItem
 

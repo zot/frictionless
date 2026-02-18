@@ -813,6 +813,125 @@
 
     .hidden { display: none !important; }
 
+    /* Tutorial overlay */
+    .tutorial-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      pointer-events: all;
+    }
+
+    .tutorial-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+      transition: clip-path 0.3s ease;
+    }
+
+    .tutorial-card {
+      position: absolute;
+      max-width: 340px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-border);
+      border-left: 4px solid var(--term-accent);
+      border-radius: 0 8px 8px 8px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      font-family: var(--term-sans);
+      color: var(--term-text);
+      transition: top 0.3s ease, left 0.3s ease;
+      z-index: 20001;
+    }
+
+    .tutorial-step-counter {
+      font-family: var(--term-mono);
+      font-size: 10px;
+      color: var(--term-text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .tutorial-title {
+      font-family: var(--term-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--term-accent);
+      margin-bottom: 8px;
+    }
+
+    .tutorial-description {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--term-text-dim);
+      margin-bottom: 16px;
+    }
+
+    .tutorial-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .tutorial-buttons .spacer {
+      flex: 1;
+    }
+
+    .tutorial-skip {
+      display: block;
+      text-align: center;
+      margin-top: 8px;
+      font-family: var(--term-mono);
+      font-size: 11px;
+      color: var(--term-text-muted);
+      cursor: pointer;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+
+    .tutorial-skip:hover {
+      opacity: 1;
+      color: var(--term-text-dim);
+    }
+
+    /* Resume pill — visible when tutorial is paused */
+    .tutorial-resume-pill {
+      position: fixed;
+      bottom: 48px;
+      right: 16px;
+      z-index: 20001;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-accent);
+      border-radius: 999px;
+      cursor: pointer;
+      font-family: var(--term-mono);
+      font-size: 12px;
+      color: var(--term-accent);
+      box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        0 0 12px var(--term-accent-glow);
+      transition: all 0.2s;
+      animation: pill-glow 2s ease-in-out infinite;
+    }
+
+    .tutorial-resume-pill:hover {
+      background: var(--term-accent);
+      color: var(--term-bg);
+      box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.5),
+        0 0 20px var(--term-accent-glow);
+    }
+
+    @keyframes pill-glow {
+      0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px var(--term-accent-glow); }
+      50% { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 20px var(--term-accent-glow); }
+    }
+
     /* Update star indicator */
     .mcp-update-star {
       position: absolute;
@@ -1076,6 +1195,30 @@
           <sl-button size="small" variant="default" ui-action="dismissUpdateNotification()">Later</sl-button>
         </div>
       </sl-alert>
+    </div>
+
+    <!-- Tutorial overlay -->
+    <div class="tutorial-overlay" ui-class-hidden="tutorialOverlayHidden()">
+      <div class="tutorial-backdrop"></div>
+      <div class="tutorial-card">
+        <div class="tutorial-step-counter">STEP <span ui-value="tutorialStepLabel()"></span></div>
+        <div class="tutorial-title" ui-value="tutorialTitle()"></div>
+        <div class="tutorial-description" ui-value="tutorialDescription()"></div>
+        <div class="tutorial-buttons">
+          <sl-button size="small" variant="default" ui-action="prevTutorialStep()" ui-class-hidden="tutorialIsFirstStep()">Back</sl-button>
+          <sl-button size="small" variant="default" ui-action="pauseTutorial()">Pause</sl-button>
+          <span class="spacer"></span>
+          <sl-button size="small" variant="primary" ui-action="nextTutorialStep()"><span ui-value="tutorialNextLabel()"></span></sl-button>
+        </div>
+        <span class="tutorial-skip" ui-event-click="endTutorial()">Skip tutorial</span>
+      </div>
+      <!-- Trigger repositioning when tutorialRepositionCode changes -->
+      <div style="display:none" ui-code="tutorialRepositionCode"></div>
+    </div>
+
+    <!-- Tutorial resume pill (visible when paused) -->
+    <div class="tutorial-resume-pill" ui-class-hidden="tutorialPillHidden()" ui-event-click="resumeTutorial()">
+      Resume Tutorial ▶ <span ui-value="tutorialStepLabel()"></span>
     </div>
   </div>
 

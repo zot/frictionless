@@ -76,6 +76,11 @@ function Prefs:checkNow()
     end
 end
 
+-- Tutorial re-run
+function Prefs:startTutorial()
+    mcp:startTutorial()
+end
+
 -- Initialize on load
 if not session.reloading then
     prefs = session:create(Prefs, {

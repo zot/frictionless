@@ -1,0 +1,187 @@
+<template>
+  <style>
+    .todo-panel {
+      font-family: var(--term-sans);
+      background: var(--term-bg);
+      color: var(--term-text);
+    }
+
+    .todo-inner {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .todo-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .todo-header h1 {
+      margin: 0;
+      font-family: var(--term-mono);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--term-accent);
+      text-transform: uppercase;
+    }
+
+    /* Bookmarklet */
+    .todo-bookmarklet-toggle {
+      font-size: 0.7rem;
+      color: var(--term-text-dim);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .todo-bookmarklet-toggle:hover {
+      color: var(--term-accent);
+    }
+    .todo-bookmarklet-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: var(--term-bg);
+      border-bottom: 1px solid var(--term-border);
+    }
+    .todo-bookmarklet-hint {
+      font-size: 0.8rem;
+      color: var(--term-text-dim);
+    }
+    .todo-bookmarklet-link {
+      display: inline-block;
+      padding: 3px 12px;
+      background: var(--term-accent);
+      color: #fff;
+      border-radius: 4px;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: grab;
+    }
+    .todo-bookmarklet-link:hover {
+      filter: brightness(0.9);
+    }
+
+    /* Input area */
+    .todo-input-area {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--term-border);
+      align-items: flex-end;
+    }
+
+    .todo-input-area sl-textarea {
+      flex: 1;
+    }
+
+    /* List */
+    .todo-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    /* Todo item */
+    .todo-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 16px;
+      transition: background 0.15s;
+    }
+
+    .todo-item:hover {
+      background: var(--term-bg-hover);
+    }
+
+    .todo-item-label {
+      flex: 1;
+      font-size: 14px;
+      min-width: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .todo-item.done .todo-item-label {
+      text-decoration: line-through;
+      color: var(--term-text-dim);
+    }
+
+    .todo-item sl-icon-button {
+      font-size: 14px;
+      color: var(--term-text-dim);
+    }
+
+    .todo-item sl-icon-button:hover {
+      color: var(--term-accent);
+    }
+
+    /* Draft */
+    .todo-draft {
+      margin: 8px 16px;
+      padding: 12px 16px;
+      background: var(--term-bg-elevated);
+      border: 1px solid var(--term-accent);
+      border-left: 4px solid var(--term-accent);
+      border-radius: 6px;
+    }
+
+    .todo-draft-label {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .todo-draft-hint {
+      font-size: 11px;
+      color: var(--term-text-dim);
+      margin-bottom: 8px;
+    }
+
+    .todo-draft-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+
+  <div class="todo-panel">
+    <div class="todo-inner">
+      <div class="todo-header panel-header">
+        <h1>Todo List</h1>
+        <a class="todo-bookmarklet-toggle" href="#" ui-event-click="toggleBookmarklet()">bookmarklet</a>
+      </div>
+
+      <div class="todo-bookmarklet-section" ui-class-hidden="isBookmarkletHidden()">
+        <span class="todo-bookmarklet-hint">Drag this to your bookmarks bar:</span>
+        <a class="todo-bookmarklet-link" href="javascript:void(function(){var d={url:location.href,title:document.title,text:document.body.innerText.slice(0,50000)};var w=window.open('http://localhost:25283/relay/example','_blank');if(!w){alert('Please allow popups for this site');return}window.addEventListener('message',function h(e){if(e.origin==='http://localhost:25283'&&e.data==='ready'){w.postMessage(d,'http://localhost:25283');window.removeEventListener('message',h)}});}())">Add Todo</a>
+        <span class="todo-bookmarklet-hint">Browse to a page and click it.</span>
+      </div>
+
+      <div class="todo-input-area input-area">
+        <sl-textarea ui-value="inputText?keypress" placeholder="Enter a todo or paste a URL..." rows="4" resize="vertical" size="small"></sl-textarea>
+        <sl-button variant="primary" size="small" ui-action="addTodo()">Add</sl-button>
+      </div>
+
+      <div class="todo-list" ui-view="todos()?wrapper=lua.ViewList"></div>
+
+      <div class="todo-draft" ui-class-hidden="noDraft()">
+        <div class="todo-draft-hint">From URL — review and save:</div>
+        <div class="todo-draft-label" ui-view="draft()"></div>
+        <div class="todo-draft-actions">
+          <sl-button size="small" variant="primary" ui-action="saveDraft()">Save</sl-button>
+          <sl-button size="small" variant="default" ui-action="cancelDraft()">Cancel</sl-button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>document.getElementById('app-favicon').href='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0iI0UwN0E0NyIgdmlld0JveD0iMCAwIDE2IDE2Ij4KICA8cGF0aCBkPSJNMTQgMUgzYTEgMSAwIDAgMC0xIDF2MTJhMSAxIDAgMCAwIDEgMWgxMWExIDEgMCAwIDAgMS0xVjJhMSAxIDAgMCAwLTEtMU0zIDBhMiAyIDAgMCAwLTIgMnYxMmEyIDIgMCAwIDAgMiAyaDExYTIgMiAwIDAgMCAyLTJWMmEyIDIgMCAwIDAtMi0yeiIvPgogIDxwYXRoIGQ9Ik0xMC45NyA0Ljk3YS43NS43NSAwIDAgMSAxLjA3IDEuMDVMNy40NzcgMTAuNThhLjc1Ljc1IDAgMCAxLTEuMDYuMDJMNC4zMjQgOC4zODRhLjc1Ljc1IDAgMCAxIDEuMDYtMS4wNmwxLjU2IDEuNTZ6Ii8+Cjwvc3ZnPgo='</script>
+</template>

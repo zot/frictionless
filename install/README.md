@@ -1,8 +1,8 @@
 # Frictionless
 
-**Version: 0.18.0**
+**Version: 0.19.0**
 
-**An app ecosystem for Claude. Share the love—or steal it.**
+**A personal software ecosystem for Claude. Share the love—or steal it.**
 
 Chat with Claude, get **fully hot-loadable apps**. Lua backend, HTML templates. No recompiles. No restarts.
 

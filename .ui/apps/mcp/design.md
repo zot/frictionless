@@ -109,6 +109,57 @@ This catches the case where user interacts with UI but Claude isn't listening.
 
 Icons arranged in rows of 3 (Z formation: left-to-right, then next row). Each cell shows the app's icon (from icon.html) with the app name below it.
 
+## Tutorial Walkthrough
+
+### Architecture
+
+The tutorial is a spotlight overlay rendered by MCP.DEFAULT.html with state managed in mcp app.lua. It uses a CSS `clip-path` polygon to punch a hole in a dark backdrop, with smooth transitions between steps. A description card floats near the highlighted element.
+
+### Step Definitions
+
+```lua
+local TUTORIAL_STEPS = {
+    {title="App Menu", description="Tap the grid icon to switch between apps. Your installed apps appear here as an icon grid.", selector=".mcp-menu-button", position="left"},
+    {title="Connection Status", description="When Claude disconnects, this button pulses and counts seconds waiting. Use /ui events in Claude Code to reconnect.", selector=".mcp-menu-button", position="left"},
+    {title="Status Bar", description="Shows what Claude is thinking. Watch here for progress updates while Claude works on your apps.", selector=".mcp-status-bar", position="top"},
+    {title="Bottom Controls", description="From left to right: {} variables inspector, ? help docs, wrench app tools, rocket/gem build mode (fast vs thorough), hourglass foreground/background, and speech bubble for the chat panel.", selector=".mcp-status-toggles", position="top"},
+    {title="Chat Panel", description="Chat with Claude about the current app, or switch to the Lua tab for a live REPL. The todo column on the left tracks Claude's task progress. Drag the top edge to resize.", selector="#mcp-chat-panel", position="top", action="openPanel"},
+    {title="App Console", description="Your command center. The left panel lists all apps with build status and test results. Use + to create a new app or the GitHub icon to download one.", selector=".app-list-panel", position="right", action="openAppConsole"},
+    {title="Download from GitHub", description="(conditional)", selector=".github-form", position="left", action="startGitHubDownload"},
+    {title="Security Review", description="Each file tab must be reviewed before you can approve. Orange highlights show events sent to Claude, red highlights show dangerous system calls. Scrollbar markers help find warnings in long files.", selector=".github-content-wrapper", position="left", action="spotlightSecurity"},
+    {title="App Info", description="Build apps from requirements, test them, fix issues, open them live, or delete them. Collapsible sections show requirements, test results, and known issues.", selector=".detail-panel", position="left", action="selectDownloadedApp"},
+    {title="Preferences", description="Find the Prefs app in the app menu to change themes and update settings. You can re-run this tutorial anytime from there.", selector=".mcp-menu-button", position="left"},
+}
+```
+
+### Conditional Steps (7–9)
+
+`mcp:hasDownloadedApps()` checks whether any app in app-console has `_isDownloaded == true`.
+
+**Path A (no downloaded apps):** Step 7 opens the GitHub download form, pre-fills the example app URL (`https://github.com/zot/frictionless/tree/main/apps/example`), and auto-clicks Investigate. Step 8 selects the first Lua tab to show security highlighting. Step 9 waits for the user to Approve, then selects the installed app.
+
+**Path B (downloaded app exists):** Step 7 spotlights the GitHub icon button and describes the flow. Step 8 describes security features without opening the form. Step 9 selects the first downloaded app.
+
+Descriptions for steps 7-9 adapt at runtime based on the path.
+
+### Spotlight Positioning (JavaScript)
+
+A `<script>` block in MCP.DEFAULT.html:
+- Reads the target CSS selector from a hidden span bound to `tutorialSelector()`
+- Finds the target element via `querySelector`
+- Computes bounding rect with padding
+- Sets `clip-path: polygon(...)` on `.tutorial-backdrop` to create the cutout
+- Positions `.tutorial-card` relative to the target based on `tutorialPosition()` ("top", "left", "right")
+- Uses `ui-code` bound to `tutorialRepositionCode` — a property that changes each time the step changes, triggering repositioning
+
+### Resume Pill
+
+When paused, a floating pill (`.tutorial-resume-pill`) appears at bottom-right above the status bar. It shows "Resume Tutorial" with step counter, has a glow animation, and calls `resumeTutorial()` on click.
+
+### Settings Persistence
+
+`~/.claude/frictionless.json` stores `{"tutorialCompleted": true}`. Read/write via `io.open` using `os.getenv("HOME") .. "/.claude/frictionless.json"`. Separate from the project-level `.ui/storage/settings.json`.
+
 ## Data Model
 
 ### MCP (extends global mcp object)
@@ -148,6 +199,10 @@ The global `mcp` object is provided by the server. This app adds:
 | _isUpdating | boolean | Whether an update is currently in progress |
 | _updateNotificationDismissed | boolean | Whether the update notification banner was dismissed this session |
 | _needsUpdate | boolean | Whether a newer version is available |
+| tutorialStep | number | Current tutorial step (0 = not running) |
+| tutorialActive | boolean | Whether the tutorial overlay is showing |
+| tutorialPaused | boolean | Whether the tutorial is paused (overlay hidden, pill visible) |
+| tutorialRepositionCode | string | JS code that triggers repositioning (changes trigger ui-code) |
 
 ## Methods
 
@@ -235,6 +290,26 @@ The global `mcp` object is provided by the server. This app adds:
 | confirmUpdate() | Emit pushState event with platform detection and update instructions, set _isUpdating |
 | isUpdating() | Returns _isUpdating |
 | notUpdating() | Returns not _isUpdating |
+| startTutorial() | Set tutorialStep=1, tutorialActive=true, tutorialPaused=false, run step 1 action |
+| nextTutorialStep() | Advance step; if past last step, call endTutorial(); else run new step's action |
+| prevTutorialStep() | Go back one step (min 1), run new step's action |
+| pauseTutorial() | Set tutorialPaused=true (hides overlay, shows resume pill) |
+| resumeTutorial() | Set tutorialPaused=false (restores overlay at current step) |
+| endTutorial() | Set tutorialActive=false, tutorialStep=0, write tutorialCompleted=true to ~/.claude/frictionless.json |
+| tutorialOverlayHidden() | Returns true when tutorial is inactive or paused |
+| tutorialPillHidden() | Returns true when tutorial is not paused |
+| tutorialSelector() | Returns CSS selector for current step |
+| tutorialPosition() | Returns card position for current step ("top", "left", "right") |
+| tutorialTitle() | Returns title for current step |
+| tutorialDescription() | Returns description for current step (conditional for steps 7-9) |
+| tutorialStepLabel() | Returns "N of 10" for current step |
+| tutorialIsFirstStep() | Returns tutorialStep == 1 |
+| tutorialIsNotFirstStep() | Returns tutorialStep > 1 |
+| tutorialNextLabel() | Returns "Finish" on last step, "Next" otherwise |
+| hasDownloadedApps() | Check if any app in app-console has _isDownloaded |
+| readUserSettings() | Read ~/.claude/frictionless.json, return table (or {} if missing) |
+| writeUserSettings(data) | Write table as JSON to ~/.claude/frictionless.json |
+| runTutorialAction(step) | Execute the action for the given step (openPanel, openAppConsole, etc.) |
 
 ### MCP.Notification (notification toast)
 
@@ -342,6 +417,14 @@ Module-level functions (not methods on mcp):
 |----------|-------------|
 | compareVersions(current, latest) | Semver comparison: parses "major.minor.patch" from both strings, returns true if latest > current |
 | fetchLatestVersion() | Runs `curl` against `https://api.github.com/repos/zot/frictionless/releases/latest` with 5s connect / 10s max timeout, parses JSON for `tag_name`, strips leading "v", returns version string or nil |
+
+## Tutorial First-Run Flow
+
+During initialization (`if not session.reloading`):
+1. Read user settings via `mcp:readUserSettings()` (from `~/.claude/frictionless.json`)
+2. If `tutorialCompleted` is not true, call `mcp:startTutorial()` after a short delay (to let the UI render first)
+
+The tutorial runs the update preference dialog check first (existing behavior), then checks for the tutorial.
 
 ## Update Check System
 
@@ -479,7 +562,7 @@ Unknown labels get auto-calculated percentages based on position.
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress |
+| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress, tutorial overlay/pill |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
 | MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |

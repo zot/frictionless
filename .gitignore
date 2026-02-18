@@ -30,3 +30,4 @@ node_modules
 /.ui/html/*-storage
 *.fossil
 .fslckout
+/.ui/storage/

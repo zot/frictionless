@@ -2,7 +2,7 @@
 
 ## What is Frictionless?
 
-**A dynamic app ecosystem for Claude.** Build your own Claude apps or download them:
+**A dynamic personal software ecosystem for Claude.** Build your own Claude apps or download them:
 
 Build and modify apps while they run. No restarts. No recompiles. No restarts.
 

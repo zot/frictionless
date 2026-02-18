@@ -1,0 +1,7 @@
+<template>
+  <div class="todo-item" ui-class-done="done">
+    <sl-checkbox ui-attr-checked="done" ui-event-sl-change="toggle()"></sl-checkbox>
+    <span class="todo-item-label" ui-value="label()"></span>
+    <sl-icon-button name="x-lg" ui-action="remove()"></sl-icon-button>
+  </div>
+</template>

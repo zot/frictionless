@@ -50,6 +50,28 @@ local function readFileTrimmed(path)
     return content:match("^%s*(.-)%s*$") or ""
 end
 
+-- Read/write JSON files (shared by project and user settings)
+local function readJsonFile(path)
+    if not path then return {} end
+    local f = io.open(path, "r")
+    if not f then return {} end
+    local content = f:read("*a")
+    f:close()
+    local ok, data = pcall(json.decode, content)
+    if not ok or type(data) ~= "table" then return {} end
+    return data
+end
+
+local function writeJsonFile(path, data)
+    if not path then return end
+    local dir = path:match("(.+)/[^/]+$")
+    if dir then os.execute('mkdir -p "' .. dir .. '"') end
+    local f = io.open(path, "w")
+    if not f then return end
+    f:write(json.encode(data))
+    f:close()
+end
+
 local function listDirs(path)
     local dirs = {}
     local handle = io.popen('ls -1d "' .. path .. '"/*/ 2>/dev/null')
@@ -65,30 +87,103 @@ local function listDirs(path)
 end
 
 -- Settings helpers (shared across apps via mcp global)
+local function settingsPath()
+    local status = mcp:status()
+    if not status or not status.base_dir then return nil end
+    return status.base_dir .. "/storage/settings.json"
+end
+
 function mcp:readSettings()
-    local status = self:status()
-    if not status or not status.base_dir then return {} end
-    local path = status.base_dir .. "/storage/settings.json"
-    local f = io.open(path, "r")
-    if not f then return {} end
-    local content = f:read("*a")
-    f:close()
-    local ok, data = pcall(json.decode, content)
-    if not ok or type(data) ~= "table" then return {} end
-    return data
+    return readJsonFile(settingsPath())
 end
 
 function mcp:writeSettings(data)
-    local status = self:status()
-    if not status or not status.base_dir then return end
-    local dir = status.base_dir .. "/storage"
-    os.execute('mkdir -p "' .. dir .. '"')
-    local path = dir .. "/settings.json"
-    local f = io.open(path, "w")
-    if not f then return end
-    f:write(json.encode(data))
-    f:close()
+    writeJsonFile(settingsPath(), data)
 end
+
+-- User settings helpers (~/.claude/frictionless.json — per-user, not per-project)
+local function userSettingsPath()
+    local home = os.getenv("HOME")
+    if not home then return nil end
+    return home .. "/.claude/frictionless.json"
+end
+
+function mcp:readUserSettings()
+    return readJsonFile(userSettingsPath())
+end
+
+function mcp:writeUserSettings(data)
+    writeJsonFile(userSettingsPath(), data)
+end
+
+-- Tutorial step definitions
+local TUTORIAL_STEPS = {
+    {
+        title = "App Menu",
+        description = "Tap the grid icon to switch between apps. Your installed apps appear here as an icon grid.",
+        selector = ".mcp-menu-button",
+        position = "left"
+    },
+    {
+        title = "Connection Status",
+        description = "When Claude disconnects, this button pulses and counts seconds waiting. Use /ui events in Claude Code to reconnect.",
+        selector = ".mcp-menu-button",
+        position = "left"
+    },
+    {
+        title = "Status Bar",
+        description = "Shows what Claude is thinking. Watch here for progress updates while Claude works on your apps.",
+        selector = ".mcp-status-bar",
+        position = "top"
+    },
+    {
+        title = "Bottom Controls",
+        description = "From left to right: {} variables inspector, ? help docs, wrench app tools, rocket/gem build mode (fast vs thorough), hourglass foreground/background, and speech bubble for the chat panel.",
+        selector = ".mcp-status-toggles",
+        position = "top"
+    },
+    {
+        title = "Chat Panel",
+        description = "Chat with Claude about the current app, or switch to the Lua tab for a live REPL. The todo column on the left tracks Claude's task progress. Drag the top edge to resize.",
+        selector = "#mcp-chat-panel",
+        position = "top",
+        action = "openPanel"
+    },
+    {
+        title = "App Console",
+        description = "Your command center. The left panel lists all apps with build status and test results. Use + to create a new app or the GitHub icon to download one.",
+        selector = ".app-list-panel",
+        position = "right",
+        action = "openAppConsole"
+    },
+    {
+        title = "Download from GitHub",
+        -- description is conditional, set at runtime
+        selector = ".github-form",  -- changes at runtime for Path B
+        position = "left",
+        action = "startGitHubDownload"
+    },
+    {
+        title = "Security Review",
+        description = "Each file tab must be reviewed before you can approve. Orange highlights show events sent to Claude (pushState calls). Red highlights show dangerous system calls like os.execute and io.popen. Scrollbar markers help find warnings in long files.",
+        selector = ".github-content-wrapper",
+        position = "left",
+        action = "spotlightSecurity"
+    },
+    {
+        title = "App Info",
+        description = "Build apps from requirements, test them, fix issues, open them live, or delete them. Collapsible sections show requirements, test results, and known issues.",
+        selector = ".detail-panel",
+        position = "left",
+        action = "selectDownloadedApp"
+    },
+    {
+        title = "Preferences",
+        description = "Find the Prefs app in the app menu to change themes and update settings. You can re-run this tutorial anytime from there.",
+        selector = ".mcp-menu-button",
+        position = "left"
+    },
+}
 
 -- Nested prototype: Notification toast
 MCP.Notification = session:prototype("MCP.Notification", {
@@ -298,6 +393,12 @@ mcp._todoApp = mcp._todoApp or nil
 mcp._imageAttachments = mcp._imageAttachments or {}
 mcp.imageUploadData = mcp.imageUploadData or ""
 mcp.lightboxUri = mcp.lightboxUri or ""
+
+-- Tutorial state
+mcp.tutorialStep = mcp.tutorialStep or 0
+mcp.tutorialActive = mcp.tutorialActive or false
+mcp.tutorialPaused = mcp.tutorialPaused or false
+mcp.tutorialRepositionCode = mcp.tutorialRepositionCode or ""
 
 -- Update check state
 mcp.showUpdatePrefDialog = mcp.showUpdatePrefDialog or false
@@ -944,6 +1045,228 @@ function mcp:appUpdated(name)
     if appConsole then appConsole:onAppUpdated(name) end
 end
 
+-- Tutorial methods
+
+-- Get the current tutorial step definition, or nil
+local function currentTutorialStep(self)
+    return TUTORIAL_STEPS[self.tutorialStep]
+end
+
+function mcp:hasDownloadedApps()
+    if not appConsole then return false end
+    for _, app in ipairs(appConsole._apps or {}) do
+        if app._isDownloaded then return true end
+    end
+    return false
+end
+
+function mcp:runTutorialAction(stepNum)
+    local step = TUTORIAL_STEPS[stepNum]
+    if not step or not step.action then return end
+    local action = step.action
+
+    if action == "openPanel" then
+        self.panelOpen = true
+    elseif action == "openAppConsole" then
+        self.panelOpen = false
+        mcp:display("app-console")
+    elseif action == "startGitHubDownload" then
+        -- Path A: open GitHub form and pre-fill the example app URL
+        -- Path B (has downloaded apps): just spotlight the icon, no action needed
+        if not self:hasDownloadedApps() and appConsole then
+            appConsole:showGitHubDownloader()
+            appConsole._githubDownloader.repoUrl = "https://github.com/zot/frictionless/tree/main/apps/example"
+        end
+    elseif action == "spotlightSecurity" then
+        -- If the GitHub form is open, select the first Lua tab
+        if appConsole and appConsole._githubDownloader and appConsole._githubDownloader._tabs then
+            for _, tab in ipairs(appConsole._githubDownloader._tabs) do
+                if tab._name and tab._name:match("%.lua$") then
+                    appConsole._githubDownloader:selectTab(tab)
+                    break
+                end
+            end
+        end
+    elseif action == "selectDownloadedApp" then
+        if appConsole then
+            -- Find the first downloaded app, or fall back to first non-protected app
+            local fallback = nil
+            for _, app in ipairs(appConsole._apps or {}) do
+                if app._isDownloaded then
+                    appConsole:select(app)
+                    return
+                end
+                if not fallback and not app._isProtected then
+                    fallback = app
+                end
+            end
+            if fallback then appConsole:select(fallback) end
+        end
+    end
+end
+
+-- Navigate to a tutorial step by number, running its action and repositioning
+local function goToTutorialStep(self, stepNum)
+    self.tutorialStep = stepNum
+    self:runTutorialAction(stepNum)
+    self:triggerTutorialReposition()
+end
+
+function mcp:startTutorial()
+    self.tutorialActive = true
+    self.tutorialPaused = false
+    goToTutorialStep(self, 1)
+end
+
+function mcp:nextTutorialStep()
+    if self.tutorialStep >= #TUTORIAL_STEPS then
+        self:endTutorial()
+        return
+    end
+    goToTutorialStep(self, self.tutorialStep + 1)
+end
+
+function mcp:prevTutorialStep()
+    if self.tutorialStep <= 1 then return end
+    goToTutorialStep(self, self.tutorialStep - 1)
+end
+
+function mcp:pauseTutorial()
+    self.tutorialPaused = true
+end
+
+function mcp:resumeTutorial()
+    self.tutorialPaused = false
+    self:triggerTutorialReposition()
+end
+
+function mcp:endTutorial()
+    self.tutorialActive = false
+    self.tutorialStep = 0
+    self.tutorialPaused = false
+    local userSettings = self:readUserSettings()
+    userSettings.tutorialCompleted = true
+    self:writeUserSettings(userSettings)
+end
+
+function mcp:tutorialOverlayHidden()
+    return not self.tutorialActive or self.tutorialPaused
+end
+
+function mcp:tutorialPillHidden()
+    return not self.tutorialPaused
+end
+
+function mcp:tutorialSelector()
+    local step = currentTutorialStep(self)
+    if not step then return "" end
+    -- Conditional selector for steps 7-8 when user already has downloaded apps (Path B)
+    if self:hasDownloadedApps() then
+        if self.tutorialStep == 7 then return ".app-list-header" end
+        if self.tutorialStep == 8 then return ".detail-panel" end
+    end
+    return step.selector
+end
+
+function mcp:tutorialPosition()
+    local step = currentTutorialStep(self)
+    return step and step.position or "left"
+end
+
+function mcp:tutorialTitle()
+    local step = currentTutorialStep(self)
+    return step and step.title or ""
+end
+
+function mcp:tutorialDescription()
+    local step = currentTutorialStep(self)
+    if not step then return "" end
+    local hasDownloaded = self:hasDownloadedApps()
+    -- Steps 7-8 have conditional descriptions based on whether apps are already downloaded
+    if self.tutorialStep == 7 then
+        if hasDownloaded then
+            return "Use the GitHub icon to download community apps. Paste a repo URL, click Investigate to review the code, then Approve to install."
+        end
+        return "Try downloading a community app! We've pre-filled the URL for an example app. Click Investigate to see its files."
+    end
+    if self.tutorialStep == 8 and hasDownloaded then
+        return "When downloading apps, each file tab must be reviewed before you can approve. Lua files are scanned: orange highlights show events sent to Claude, red highlights show dangerous system calls."
+    end
+    return step.description
+end
+
+function mcp:tutorialStepLabel()
+    return self.tutorialStep .. " of " .. #TUTORIAL_STEPS
+end
+
+function mcp:tutorialIsFirstStep()
+    return self.tutorialStep == 1
+end
+
+function mcp:tutorialIsNotFirstStep()
+    return self.tutorialStep > 1
+end
+
+function mcp:tutorialNextLabel()
+    return self.tutorialStep >= #TUTORIAL_STEPS and "Finish" or "Next"
+end
+
+function mcp:triggerTutorialReposition()
+    -- Use runtime selector/position (handles conditional steps 7-8)
+    local selector = self:tutorialSelector()
+    local position = self:tutorialPosition()
+    if selector == "" then return end
+    self.tutorialRepositionCode = string.format([[
+        (function() {
+            var selector = %q;
+            var position = %q;
+            var overlay = document.querySelector('.tutorial-overlay');
+            var backdrop = document.querySelector('.tutorial-backdrop');
+            var card = document.querySelector('.tutorial-card');
+            if (!overlay || !backdrop || !card) return;
+
+            var target = document.querySelector(selector);
+            if (!target) {
+                backdrop.style.clipPath = 'polygon(0%% 0%%, 100%% 0%%, 100%% 100%%, 0%% 100%%)';
+                card.style.top = '50%%';
+                card.style.left = '50%%';
+                card.style.transform = 'translate(-50%%, -50%%)';
+                return;
+            }
+
+            var rect = target.getBoundingClientRect();
+            var pad = 8;
+            var x1 = Math.max(0, rect.left - pad);
+            var y1 = Math.max(0, rect.top - pad);
+            var x2 = Math.min(window.innerWidth, rect.right + pad);
+            var y2 = Math.min(window.innerHeight, rect.bottom + pad);
+
+            var cp = 'polygon(0px 0px, ' + window.innerWidth + 'px 0px, ' +
+                window.innerWidth + 'px ' + window.innerHeight + 'px, 0px ' + window.innerHeight + 'px, 0px 0px, ' +
+                x1 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y2 + 'px, ' +
+                x2 + 'px ' + y2 + 'px, ' + x2 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y1 + 'px)';
+            backdrop.style.clipPath = cp;
+
+            card.style.transform = 'none';
+            var cardWidth = 340;
+            var cardHeight = card.offsetHeight || 200;
+            var margin = 16;
+
+            if (position === 'top') {
+                card.style.left = Math.max(margin, Math.min(rect.left, window.innerWidth - cardWidth - margin)) + 'px';
+                card.style.top = Math.max(margin, y1 - cardHeight - margin) + 'px';
+            } else if (position === 'right') {
+                card.style.left = Math.min(x2 + margin, window.innerWidth - cardWidth - margin) + 'px';
+                card.style.top = Math.max(margin, rect.top) + 'px';
+            } else {
+                card.style.left = Math.max(margin, x1 - cardWidth - margin) + 'px';
+                card.style.top = Math.max(margin, rect.top) + 'px';
+            }
+        })();
+        // step %d
+    ]], selector, position, self.tutorialStep)
+end
+
 -- Override pushState to inject build mode and warn on long wait times (idempotent)
 if not mcp._originalPushState then
    mcp._originalPushState = mcp.pushState
@@ -973,5 +1296,11 @@ if not session.reloading then
         end
         -- Check for updates (runs curl in background-ish, may block briefly)
         mcp:checkForUpdates()
+    end
+
+    -- Tutorial first-run check
+    local userSettings = mcp:readUserSettings()
+    if not userSettings.tutorialCompleted then
+        mcp:startTutorial()
     end
 end

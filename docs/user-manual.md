@@ -1,6 +1,6 @@
 # Frictionless User Manual
 
-A dynamic app ecosystem for Claude. Build your own Claude apps or download them.
+A dynamic personal software ecosystem for Claude. Build your own Claude apps or download them.
 
 <!-- **Traceability:** design/design.md, install/resources/reference.md, install/resources/mcp.md -->
 

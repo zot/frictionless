@@ -255,6 +255,85 @@ The prefs app can toggle update checks via a checkbox that delegates to:
 - `mcp:getUpdatePreference()` to read the current setting
 - `mcp:setUpdatePreference(enabled)` to save the preference and optionally trigger a check
 
+## Tutorial Walkthrough
+
+A first-run spotlight tutorial that introduces new users to the UI. Runs once automatically on first launch, can be re-triggered from the Prefs app.
+
+### Tutorial State
+
+- `mcp.tutorialStep` — current step number (0 = not running)
+- `mcp.tutorialActive` — true when the tutorial overlay is showing
+- `mcp.tutorialPaused` — true when paused (overlay hidden, resume pill visible)
+
+### First-Run Detection
+
+On startup, read `~/.claude/frictionless.json` (create if missing). If `tutorialCompleted` is not true, auto-start the tutorial. On completion, write `tutorialCompleted: true` to that file.
+
+This is a per-user file (not per-project), separate from the project settings in `.ui/storage/settings.json`.
+
+### Spotlight Overlay
+
+A full-screen semi-transparent backdrop with a clip-path cutout that highlights the target element for each step. Smooth CSS transitions (0.3s ease) animate the spotlight between steps. A description card appears near the highlighted element with:
+
+- Step counter ("3 of 10")
+- Title + description
+- **Back** / **Pause** / **Next** buttons (Back hidden on step 1, Next becomes "Finish" on last step)
+- **Skip** link to end the tutorial immediately
+
+### Pause / Resume
+
+- **Pause** hides the overlay but preserves tutorial state
+- A floating "Resume Tutorial" pill appears (bottom-right, above status bar) with a subtle glow animation
+- Clicking the pill restores the overlay at the current step
+
+### Tutorial Steps (10 total)
+
+Steps follow a spatial flow: top-right → bottom → open panel → navigate to app-console → deeper features → wrap up.
+
+1. **App Menu** — 9-dot grid button, opens app switcher with icon grid
+2. **Connection Status** — same button pulses with wait counter when Claude disconnects; use `/ui events` to reconnect
+3. **Status Bar** — bottom bar showing Claude's thinking status
+4. **Bottom Controls** — icon group: `{}` variables, `?` help, wrench tools, rocket/gem build mode, hourglass/arrows execution, speech bubble chat
+5. **Chat Panel** — auto-opens panel; todo column, chat tab, Lua tab, resize handle
+6. **App Console** — navigate to app-console, close chat; spotlight app list with status badges, (+) create, GitHub download icon
+7. **GitHub Download** — live demo if no downloaded apps exist (pre-fill example URL, auto-investigate). If downloaded app exists, just describe the flow.
+8. **Security Review** — spotlight file review tabs; orange highlights = pushState events, red = dangerous calls (os.execute, io.popen, etc.), scrollbar markers, must review all tabs before Approve
+9. **App Info Panel** — select downloaded app; describe Build, Show, Test, Fix, Analyze, Delete buttons and collapsible sections
+10. **Preferences** — spotlight app menu, explain Prefs app (themes, updates, re-run tutorial)
+
+### Conditional Logic (Steps 7–9)
+
+Check whether any downloaded apps exist at runtime:
+
+- **Path A (no downloaded apps)**: Open GitHub form, pre-fill example app URL, auto-click Investigate. User reviews tabs and clicks Approve. Then select the installed app for step 9.
+- **Path B (downloaded app exists)**: Skip actual download. Spotlight the GitHub icon button and describe the flow. Select the first downloaded app for step 9.
+
+### Step Actions
+
+Each step can have an `action` that runs on both forward and backward navigation to ensure the UI state matches:
+
+- `openPanel` — opens the chat panel
+- `openAppConsole` — closes panel, navigates to app-console
+- `startGitHubDownload` — opens GitHub form and pre-fills URL (conditional)
+- `spotlightSecurity` — selects first Lua tab if form is open
+- `selectDownloadedApp` — selects the example/downloaded app
+
+### Example App
+
+A minimal example app stored in the repo at `apps/example/` for the tutorial download demo. Must:
+- Include at least one `pushState` call (orange highlight demo)
+- Include at least one "dangerous" call like `io.open` (red highlight demo)
+- Not be in the protected apps list (Delete button visible during tutorial)
+
+### Navigation Methods
+
+- `mcp:startTutorial()` — set step=1, active=true, paused=false
+- `mcp:nextTutorialStep()` — advance step, run action for new step
+- `mcp:prevTutorialStep()` — go back, run action for new step
+- `mcp:pauseTutorial()` — set paused=true
+- `mcp:resumeTutorial()` — set paused=false
+- `mcp:endTutorial()` — set active=false, write completion to settings
+
 ## Styling
 
 ### Terminal Aesthetic

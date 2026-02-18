@@ -19,6 +19,11 @@ Preferences app for managing frictionless user settings, starting with theme man
    - If update available: shows version info with an "Update Now" button that triggers the update flow, plus a dismiss option
 3. **Delegates to mcp** - uses `mcp:getUpdatePreference()`, `mcp:setUpdatePreference()`, and `mcp:checkForUpdates()` for persistence and check logic
 
+### Tutorial
+
+1. **Run Tutorial button** — triggers `mcp:startTutorial()` to re-run the first-run spotlight walkthrough
+2. The button is always visible in a "Tutorial" section of the prefs panel
+
 ### Future Enhancements (not in initial release)
 
 - Import custom themes from file/URL

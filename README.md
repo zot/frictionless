@@ -1,8 +1,8 @@
 # Frictionless
 
-**Version: 0.18.0**
+**Version: 0.19.0**
 
-**An app ecosystem for Claude. Share the love. Or steal it.**
+**A personal software ecosystem for Claude. Share the love. Or steal it.**
 
 Chat with Claude to build apps. Use them together. Evolve them live. Claude runs parts of your app. Your code and Claude talk to each other. Ask Claude for improvements and Claude makes them appear; the app just stays running. Paste a job URL: Claude scrapes the details, fills the form, finds the salary and HQ even when they're not listed.
 
