@@ -1,0 +1,499 @@
+/* Chat/Lua/Todo Panel */
+.mcp-chat-panel {
+  border-top: 1px solid var(--term-border);
+  flex-direction: column;
+  height: 220px;
+  min-height: 120px;
+  max-height: 60vh;
+  flex-shrink: 0;
+  background: var(--term-bg-panel);
+  position: relative;
+}
+.mcp-chat-panel.hidden.showing { display: flex; }
+
+.mcp-chat-resize-handle {
+  height: 4px;
+  background: var(--term-border);
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.mcp-chat-resize-handle:hover {
+  background: var(--term-accent);
+}
+
+.mcp-chat-resize-handle::after {
+  content: '';
+  width: 32px;
+  height: 2px;
+  background: var(--term-text-muted);
+  border-radius: 1px;
+}
+
+.mcp-bottom-panel-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Todo column */
+.mcp-todo-column {
+  width: 200px;
+  border-right: 1px solid var(--term-border);
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--term-bg);
+}
+.mcp-todo-column:not(.hidden) { display: flex; }
+
+.mcp-todo-column.collapsed {
+  width: 32px;
+}
+
+.mcp-todo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 3px solid var(--term-accent);
+  border-radius: 0 0 6px 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.mcp-todo-header:hover {
+  background: var(--term-bg-hover);
+}
+
+.mcp-todo-header h4 {
+  margin: 0;
+  font-family: var(--term-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--term-text-dim);
+}
+
+.mcp-todo-header-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.mcp-todo-header-buttons sl-icon-button {
+  color: var(--term-text-muted);
+}
+
+.mcp-todo-header-buttons sl-icon-button:hover {
+  color: var(--term-accent);
+}
+
+.mcp-todo-column.collapsed .mcp-todo-header h4,
+.mcp-todo-column.collapsed .mcp-todo-header-buttons sl-icon-button:first-child {
+  display: none;
+}
+
+.mcp-todo-column.collapsed .mcp-todo-header {
+  justify-content: center;
+  padding: 8px 4px;
+}
+
+.mcp-todo-column.collapsed .mcp-todo-header-buttons {
+  justify-content: center;
+}
+
+.mcp-todo-column.collapsed .mcp-collapse-toggle {
+  transform: rotate(180deg);
+}
+
+.mcp-collapse-toggle {
+  transition: transform 0.2s ease;
+}
+
+.mcp-todo-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  padding: 8px;
+}
+
+.mcp-todo-column.collapsed .mcp-todo-list {
+  display: none;
+}
+
+/* Todo item styles */
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  font-family: var(--term-mono);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.todo-icon {
+  flex-shrink: 0;
+  width: 1.2em;
+  text-align: center;
+}
+
+.todo-item.pending { color: var(--term-text-muted); }
+.todo-item.in-progress {
+  color: var(--term-accent);
+  font-weight: 500;
+}
+.todo-item.completed {
+  color: var(--term-success);
+  opacity: 0.6;
+}
+
+.todo-text {
+  white-space: nowrap;
+}
+
+/* Chat/Lua column */
+.mcp-chat-lua-column {
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px 16px 16px;
+}
+.mcp-chat-lua-column:not(.hidden) { display: flex; }
+
+.mcp-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+  border-left: 4px solid var(--term-accent);
+  border-radius: 0 0 0 8px;
+  padding-left: 12px;
+}
+
+.mcp-panel-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.mcp-panel-tabs sl-button {
+  font-family: var(--term-mono);
+  font-size: 11px;
+}
+
+/* Chat panel content */
+.mcp-chat-panel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mcp-chat-messages,
+.mcp-chat-panel-content > .view-list,
+.mcp-chat-lua-column > .view-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--term-bg);
+  border: 1px solid var(--term-border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.mcp-chat-input-area {
+  flex-shrink: 0;
+  border-top: 3px solid var(--term-accent);
+  border-radius: 8px 0 0 0;
+  padding-top: 12px;
+}
+
+.mcp-chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.mcp-chat-input-row sl-input {
+  flex: 1;
+  font-family: var(--term-mono);
+}
+
+.mcp-chat-input-row sl-input::part(input) {
+  font-family: var(--term-mono);
+  font-size: 13px;
+}
+
+/* Chat message styles */
+.chat-message {
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chat-message.user-message {
+  color: var(--term-text);
+}
+
+.chat-message.user-message .chat-prefix {
+  color: var(--term-accent);
+  font-family: var(--term-mono);
+  font-weight: 600;
+}
+
+.chat-message.thinking-message {
+  font-style: italic;
+  color: var(--term-text-muted);
+}
+
+.chat-message-text {
+  white-space: pre-wrap;
+}
+
+.chat-thumbs {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-thumb-item img {
+  max-width: 150px;
+  max-height: 150px;
+  border-radius: 4px;
+  border: 1px solid var(--term-border);
+  cursor: pointer;
+}
+
+.image-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.8);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.image-lightbox.visible {
+  display: flex;
+}
+
+.image-lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 6px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+
+/* Lua console */
+.mcp-lua-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.mcp-lua-output,
+.mcp-lua-panel > .view-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--term-bg);
+  border: 1px solid var(--term-border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  font-family: var(--term-mono);
+  font-size: 12px;
+  color: var(--term-text);
+}
+
+.lua-output-line {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.lua-output-line:hover {
+  background: var(--term-bg-hover);
+}
+
+.lua-output-line.command {
+  color: var(--term-accent);
+}
+
+.lua-output-line.command::before {
+  content: '> ';
+  color: var(--term-text-muted);
+}
+
+.lua-output-line.error {
+  color: var(--term-danger);
+}
+
+.mcp-lua-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mcp-lua-input-area sl-textarea::part(textarea) {
+  font-family: var(--term-mono);
+  font-size: 12px;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+.mcp-lua-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Variables panel */
+.mcp-vars-panel {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.mcp-vars-panel:not(.hidden) { display: flex; }
+.mcp-vars-panel > div { min-width: 0; flex: 1; }
+
+/* Chat panel button styles */
+.mcp-chat-panel sl-button[variant="default"]::part(base) {
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}
+
+.mcp-chat-panel sl-button[variant="default"]::part(base):hover {
+  background: var(--term-bg-hover);
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+.mcp-chat-panel sl-button[variant="primary"]::part(base) {
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+  color: var(--term-bg);
+}
+
+.mcp-chat-panel sl-button[variant="primary"]::part(base):hover {
+  background: var(--term-accent-bright);
+  box-shadow: 0 0 12px var(--term-accent-glow);
+}
+
+/* Shoelace overrides for chat panel inputs */
+.mcp-chat-panel sl-input::part(base),
+.mcp-chat-panel sl-textarea::part(base) {
+  background: var(--term-bg);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}
+
+.mcp-chat-panel sl-input::part(input),
+.mcp-chat-panel sl-textarea::part(textarea) {
+  color: var(--term-text);
+}
+
+.mcp-chat-panel sl-input::part(base):hover,
+.mcp-chat-panel sl-textarea::part(base):hover {
+  border-color: var(--term-accent);
+}
+
+.mcp-chat-panel sl-input::part(base):focus-within,
+.mcp-chat-panel sl-textarea::part(base):focus-within {
+  border-color: var(--term-accent);
+  box-shadow: 0 0 0 3px var(--term-accent-glow);
+}
+
+.mcp-chat-panel sl-icon-button::part(base) {
+  color: var(--term-text-dim);
+}
+
+.mcp-chat-panel sl-icon-button::part(base):hover {
+  color: var(--term-accent);
+}
+
+/* Chat toggle active state */
+.mcp-build-mode-toggle.panel-active sl-icon {
+  color: var(--term-accent);
+}
+
+/* Image drop zone overlay */
+.mcp-chat-panel.drag-over::after {
+  content: 'Drop image here';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(224, 122, 71, 0.1);
+  border: 2px dashed var(--term-accent);
+  border-radius: 6px;
+  color: var(--term-accent);
+  font-family: var(--term-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Image preview row */
+.mcp-image-preview-row {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mcp-image-thumb {
+  position: relative;
+  display: inline-flex;
+  border: 1px solid var(--term-accent);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--term-bg);
+}
+
+.mcp-image-thumb img {
+  display: block;
+  max-height: 60px;
+  max-width: 100px;
+  object-fit: contain;
+}
+
+.mcp-image-thumb sl-icon-button {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  font-size: 0.7rem;
+  color: var(--term-danger);
+  background: var(--term-bg-elevated);
+  border-radius: 50%;
+}
+
+.mcp-image-thumb sl-icon-button::part(base):hover {
+  color: #fff;
+  background: var(--term-danger);
+}
+
+.mcp-image-thumb-name {
+  display: none;
+}

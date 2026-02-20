@@ -415,10 +415,26 @@ func (s *Server) getDebugVariables(sessionID string) ([]cli.DebugVariable, error
 	// Convert to DebugVariable
 	result := make([]cli.DebugVariable, len(sorted))
 	for i, v := range sorted {
+		j := v.WrapperJSON
+		base := v.ValueJSON
+		if j == nil {
+			j = v.ValueJSON
+			base = nil
+		}
+		vtyp := ""
+		if v.Value != nil {
+			vtyp = tracker.Resolver.GetType(v, v.Value)
+		}
 		info := cli.DebugVariable{
+			Session:    session,
+			Tracker:    tracker,
+			Variable:   v,
 			ID:         v.ID,
 			ParentID:   v.ParentID,
+			Value:      j,
+			BaseValue:  base,
 			Type:       v.Properties["type"],
+			GoType:     vtyp,
 			Path:       v.Properties["path"],
 			Properties: v.Properties,
 			ChildIDs:   v.ChildIDs,

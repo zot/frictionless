@@ -457,6 +457,11 @@
 
     .github-url-row sl-input {
       flex: 1;
+      min-width: 0;
+    }
+
+    .github-url-row sl-button {
+      flex-shrink: 0;
     }
 
     .github-error {
@@ -781,7 +786,8 @@
       border-color: var(--term-danger);
     }
 
-    .hidden { display: none !important; }
+    .hidden { display: none; }
+    .hidden.showing { display: block; }
   </style>
 
   <div class="apps-dashboard" ui-code="github.markerRefresh?priority=low">
@@ -932,7 +938,7 @@
           </div>
 
           <!-- New App Form -->
-          <div class="new-app-form" ui-class-hidden="hideNewForm()">
+          <div class="new-app-form hidden" ui-class-showing="showNewForm">
             <h2>// NEW APP</h2>
             <sl-input label="Name" placeholder="my-app" ui-value="newAppName"></sl-input>
             <sl-textarea label="Description" placeholder="What should this app do?" rows="4" ui-value="newAppDesc"></sl-textarea>

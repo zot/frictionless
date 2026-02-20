@@ -50,6 +50,16 @@ local function isDangerousRequire(line)
     return true
 end
 
+-- Dangerous patterns for viewdef HTML files (JavaScript in templates)
+local VIEWDEF_DANGER_PATTERNS = {
+    -- Network requests
+    {pattern = "window%.open%s*%(", label = "window.open"},
+    {pattern = "fetch%s*%(", label = "fetch"},
+    {pattern = "XMLHttpRequest", label = "XMLHttpRequest"},
+    -- Resource loading via src attribute assignment
+    {pattern = "%.src%s*=", label = ".src="},
+}
+
 -- Nested prototype: GitHub tab button (for GitHub form)
 AppConsole.GitHubTab = session:prototype("AppConsole.GitHubTab", {
     filename = "",  -- Display name and tab key (e.g., "requirements.md", "app.lua")
@@ -101,13 +111,23 @@ function GitHubTab:isLuaFile()
     return self.filename:match("%.lua$") ~= nil
 end
 
+function GitHubTab:isViewdefFile()
+    return self.filename:match("^viewdefs/") ~= nil
+end
+
 function GitHubTab:tooltipText()
-    if not self:isLuaFile() then return self.filename end
+    if not self:isLuaFile() and not self:isViewdefFile() then return self.filename end
     local warnings = collectWarnings(self, function(count, wtype)
         if wtype == "pushState" then return count .. " pushState call(s) - can send events to Claude" end
+        if self:isViewdefFile() then
+            return count .. " dangerous call(s) - network, window, or resource loading"
+        end
         return count .. " dangerous call(s) - shell, file, or code loading"
     end)
-    if #warnings == 0 then return "Lua file - no dangerous calls found" end
+    if #warnings == 0 then
+        if self:isViewdefFile() then return "Viewdef - no dangerous calls found" end
+        return "Lua file - no dangerous calls found"
+    end
     return table.concat(warnings, "\n")
 end
 
@@ -125,10 +145,13 @@ function GitHubTab:loadContent()
     self._contentHtml = self:generateHtml(content)
 end
 
--- Generate HTML with highlighting for Lua files (pushState and shell commands).
+-- Generate HTML with highlighting for code files (Lua and viewdef HTML).
 -- Also computes pushStateCount and dangerCount during the line iteration.
 function GitHubTab:generateHtml(content)
-    if not self:isLuaFile() then
+    local isLua = self:isLuaFile()
+    local isViewdef = self:isViewdefFile()
+
+    if not isLua and not isViewdef then
         local lineCount = 1
         for _ in content:gmatch("\n") do lineCount = lineCount + 1 end
         self._totalLines = lineCount
@@ -136,15 +159,22 @@ function GitHubTab:generateHtml(content)
         return escapeHtml(content)
     end
 
-    -- Helper to check if line matches any danger pattern
-    local function isDangerLine(line)
+    -- Helper to check if line matches any Lua danger pattern
+    local function isLuaDangerLine(line)
         for _, pat in ipairs(DANGER_PATTERNS) do
             if line:match(pat.pattern) then return true end
         end
         return isDangerousRequire(line)
     end
 
-    -- Lua files: highlight pushState blocks and dangerous calls
+    -- Helper to check if line matches any viewdef danger pattern
+    local function isViewdefDangerLine(line)
+        for _, pat in ipairs(VIEWDEF_DANGER_PATTERNS) do
+            if line:match(pat.pattern) then return true end
+        end
+        return false
+    end
+
     local lines = {}
     local warningLines = {}
     local inPushState = false
@@ -157,30 +187,40 @@ function GitHubTab:generateHtml(content)
         lineNum = lineNum + 1
         local escaped = escapeHtml(line)
 
-        local wasInPushState = inPushState
-        if not inPushState and line:match("pushState%s*%(") then
-            inPushState = true
-            braceDepth = 0
-            pushCount = pushCount + 1
-        end
+        if isLua then
+            -- Lua: track pushState blocks spanning multiple lines
+            local wasInPushState = inPushState
+            if not inPushState and line:match("pushState%s*%(") then
+                inPushState = true
+                braceDepth = 0
+                pushCount = pushCount + 1
+            end
 
-        if inPushState then
-            for _ in line:gmatch("{") do braceDepth = braceDepth + 1 end
-            for _ in line:gmatch("}") do braceDepth = braceDepth - 1 end
-            local innerSpan = '<span class="pushstate-highlight-line">' .. escaped .. '</span>'
-            if not wasInPushState then
-                innerSpan = '<span class="pushstate-group">' .. innerSpan
+            if inPushState then
+                for _ in line:gmatch("{") do braceDepth = braceDepth + 1 end
+                for _ in line:gmatch("}") do braceDepth = braceDepth - 1 end
+                local innerSpan = '<span class="pushstate-highlight-line">' .. escaped .. '</span>'
+                if not wasInPushState then
+                    innerSpan = '<span class="pushstate-group">' .. innerSpan
+                end
+                if braceDepth <= 0 then
+                    innerSpan = innerSpan .. '</span>'
+                    inPushState = false
+                end
+                escaped = innerSpan
+                table.insert(warningLines, {line = lineNum, type = "pushstate"})
+            elseif isLuaDangerLine(line) then
+                escaped = '<span class="osexecute-group"><span class="osexecute-highlight-line">' .. escaped .. '</span></span>'
+                table.insert(warningLines, {line = lineNum, type = "danger"})
+                dangerCount = dangerCount + 1
             end
-            if braceDepth <= 0 then
-                innerSpan = innerSpan .. '</span>'
-                inPushState = false
+        else
+            -- Viewdef: check for dangerous JS patterns
+            if isViewdefDangerLine(line) then
+                escaped = '<span class="osexecute-group"><span class="osexecute-highlight-line">' .. escaped .. '</span></span>'
+                table.insert(warningLines, {line = lineNum, type = "danger"})
+                dangerCount = dangerCount + 1
             end
-            escaped = innerSpan
-            table.insert(warningLines, {line = lineNum, type = "pushstate"})
-        elseif isDangerLine(line) then
-            escaped = '<span class="osexecute-group"><span class="osexecute-highlight-line">' .. escaped .. '</span></span>'
-            table.insert(warningLines, {line = lineNum, type = "danger"})
-            dangerCount = dangerCount + 1
         end
 
         table.insert(lines, escaped)
@@ -340,13 +380,18 @@ function GitHubDownloader:fetchFile(filename)
     return nil
 end
 
-function GitHubDownloader:listDir()
+function GitHubDownloader:listDir(subdir)
     local parsed = self:parseUrl()
     if not parsed then return {} end
 
+    local dirPath = parsed.path
+    if subdir and subdir ~= "" then
+        dirPath = dirPath .. "/" .. subdir
+    end
+
     local apiUrl = string.format(
         "https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-        parsed.user, parsed.repo, parsed.path, parsed.branch
+        parsed.user, parsed.repo, dirPath, parsed.branch
     )
 
     local handle = io.popen('curl -sL "' .. apiUrl .. '"')
@@ -414,6 +459,24 @@ function GitHubDownloader:investigate()
     for _, name in ipairs(extraLua) do
         table.insert(self.tabs, session:create(GitHubTab, { filename = name }))
     end
+
+    -- Fetch viewdefs directory and add HTML files that contain JS code
+    local viewdefFiles = self:listDir("viewdefs")
+    for _, f in ipairs(viewdefFiles) do
+        if f.name:match("%.html$") and f.type == "file" then
+            local vdContent = self:fetchFile("viewdefs/" .. f.name)
+            if vdContent and (vdContent:match("<script") or vdContent:match("%son%a+%s*=")) then
+                table.insert(self.tabs, session:create(GitHubTab, { filename = "viewdefs/" .. f.name }))
+            end
+        end
+    end
+
+    -- Pre-scan all code tabs so warning counts show in labels immediately
+    for _, tab in ipairs(self.tabs) do
+        if tab:isLuaFile() or tab:isViewdefFile() then
+            tab:loadContent()
+        end
+    end
 end
 
 function GitHubDownloader:selectTab(filename)
@@ -421,8 +484,17 @@ function GitHubDownloader:selectTab(filename)
     self.viewedTabs[filename] = true
     local tab = self:getActiveTab()
     if tab then tab:loadContent() end
+    self:triggerMarkerRefresh()
+end
+
+function GitHubDownloader:triggerMarkerRefresh()
     self._markerCounter = self._markerCounter + 1
     self.markerRefresh = "element.positionMarkers() // " .. self._markerCounter
+end
+
+function GitHubDownloader:scrollToDanger()
+    self._markerCounter = self._markerCounter + 1
+    self.markerRefresh = "element.positionMarkers(); var d = element.querySelector('.osexecute-group'); if (d) { d.scrollIntoView({block: 'center', behavior: 'smooth'}) } // " .. self._markerCounter
 end
 
 function GitHubDownloader:getActiveTab()

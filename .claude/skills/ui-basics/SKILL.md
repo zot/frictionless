@@ -77,6 +77,12 @@ end
 
 **Change detection:** Arrays are compared by-element, not by reference. In-place mutations (`table.insert`, `table.remove`) are detected correctly — no need to reassign the whole array.
 
+**Binding updates are value-driven:** Bindings only send updates to the browser when the value actually changes. A method bound via `ui-value`, `ui-html`, `ui-attr-*`, etc. may be recalculated thousands of times on the backend, but the result is only sent to the client when it differs from the previous value. This means backend re-evaluation is cheap — it does NOT cause DOM updates or flashing unless the value genuinely changes.
+
+**Backend state persists across page reloads:** The Lua session survives browser page refreshes. When the browser reconnects (new WebSocket), the server re-sends the current state. `session.reloading` is only true during hot-reload (file changes on disk), NOT during browser page reloads.
+
+**`ui-code` re-fires on page reload:** `ui-code` bindings fire once per WebSocket session when the variable value is first sent. On page reload (new WebSocket), they re-fire with whatever value is stored in the Lua property. Clear `ui-code` properties when their action is complete to prevent stale re-fires.
+
 ## Hot-Loading
 
 Both Lua and viewdefs hot-load from disk:

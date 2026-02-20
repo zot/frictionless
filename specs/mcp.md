@@ -459,6 +459,7 @@ end
 |----------|------|-------------|
 | `type` | string | Always `"MCP"`. Used for viewdef resolution. |
 | `value` | any | The current app value displayed in the browser. Set via `mcp:display()` or direct assignment. Initially `nil`. |
+| `sessionId` | string | The current external session ID (internal UUID, not the vended "1"). |
 
 #### Methods
 
@@ -702,6 +703,13 @@ html/index.html
 html/main-*.js
 ```
 
+Patterns installed to `{base_dir}/patterns/` (dynamically discovered from bundle):
+```
+patterns/js-to-lua-bridge.md
+patterns/edit-cancel.md
+...
+```
+
 Documentation installed to `{base_dir}`:
 ```
 README.md
@@ -786,7 +794,9 @@ Each variable includes: id, parentId, type, path, value, properties, and childId
 ]
 ```
 
-The `/variables` HTTP endpoint renders the same data as an interactive HTML tree using Shoelace components.
+The `/variables` HTTP endpoint renders the same data as an interactive variable browser. The MCP shell includes an embedded variable browser viewdef (`MCP.VariableBrowser.DEFAULT.html`) that extends the upstream implementation with Impact and Max Impact columns.
+
+**Upstream reference:** `ui-engine/internal/server/variables_html.go` — the standalone variable browser page served at `/{session}/variables`. Changes to columns, time parsing, or the JSON API in that file should be synced to our viewdef.
 
 ### 7.3 Documentation Resources
 

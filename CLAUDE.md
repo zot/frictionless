@@ -25,6 +25,9 @@ You can use the playwright browser to connect to it.
 ### JSON parsing
 Use `jq` for parsing JSON from tool outputs and command results. Don't use python3 one-liners for JSON extraction.
 
+## Debugging
+When trouble arises, look at the most recent changes first. If you changed a CSS pattern, check every JS/Lua consumer of that pattern. If you changed a class convention (e.g. `hidden` to `hidden`+`showing`), grep for all code that checks those classes — it's probably broken.
+
 ## When committing
 1. Check git status and diff to analyze changes
 2. Ask about any new files to ensure test/temp files aren't added accidentally

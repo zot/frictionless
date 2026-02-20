@@ -31,6 +31,10 @@ function Prefs:themes()
     return self._themes
 end
 
+function Prefs:themesHidden()
+    return #self._themes == 0
+end
+
 function Prefs:setCurrentTheme(name)
     self._currentTheme = name
     -- Persist to settings file

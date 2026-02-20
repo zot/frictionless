@@ -1,0 +1,320 @@
+/* Shell structural CSS - uses theme variables from /themes/*.css */
+/* Theme classes (.panel-header, etc.) are in theme files */
+
+.mcp-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--term-bg);
+  /* Subtle scan line overlay */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.03) 2px,
+      rgba(0, 0, 0, 0.03) 4px
+    );
+}
+
+.mcp-app-container {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.mcp-app-container > div {
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Status bar - terminal style with LCARS accent */
+.mcp-status-bar {
+  flex-shrink: 0;
+  line-height: 1.4;
+  padding: 6px 12px 6px 16px;
+  background: var(--term-bg-elevated);
+  border-top: 3px solid var(--term-accent);
+  border-left: 4px solid var(--term-accent);
+  border-radius: 8px 0 0 0;
+  font-family: var(--term-mono);
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--term-text-dim);
+}
+
+.mcp-status-bar .mcp-status-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcp-status-bar .mcp-status-text::before {
+  content: '>';
+  color: var(--term-accent);
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+.mcp-status-bar .mcp-status-text::after {
+  content: '\00a0';
+}
+
+.mcp-status-bar .mcp-status-toggles {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0;
+}
+
+.mcp-status-bar .thinking {
+  color: var(--term-accent);
+  font-weight: 600;
+  animation: terminal-blink 1s ease-in-out infinite;
+}
+
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.mcp-build-mode-toggle {
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: all 0.2s;
+  color: var(--term-text-dim);
+}
+
+.mcp-build-mode-toggle:hover {
+  background: var(--term-bg-hover);
+  color: var(--term-accent);
+  box-shadow: 0 0 8px var(--term-accent-glow);
+}
+
+.mcp-build-mode-toggle sl-icon {
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+.mcp-build-mode-toggle a {
+  color: #bb88ff;
+  text-decoration: none;
+}
+
+.mcp-build-mode-toggle a:hover {
+  color: #dd99ff;
+}
+
+.mcp-build-mode-toggle.has-checkpoints sl-icon {
+  color: var(--term-accent);
+  filter: drop-shadow(0 0 6px var(--term-accent-glow)) drop-shadow(0 0 12px var(--term-accent-glow));
+}
+
+/* Menu container - floating terminal widget */
+.mcp-menu-container {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10000;
+}
+
+.mcp-menu-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid var(--term-border);
+  background: var(--term-bg-elevated);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow:
+    0 0 20px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.mcp-menu-button:hover {
+  border-color: var(--term-accent);
+  box-shadow:
+    0 0 20px rgba(0, 0, 0, 0.5),
+    0 0 15px var(--term-accent-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.mcp-menu-button .mcp-icon {
+  font-size: 1.4rem;
+  color: var(--term-text-dim);
+  transition: color 0.2s;
+}
+
+.mcp-menu-button:hover .mcp-icon {
+  color: var(--term-accent);
+}
+
+/* Waiting state - pulsating glow */
+.mcp-menu-button.waiting {
+  border-color: var(--term-accent);
+  animation: button-pulse 2s ease-in-out infinite;
+}
+
+.mcp-menu-button.waiting .mcp-icon {
+  opacity: 0.3;
+}
+
+@keyframes button-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(0, 0, 0, 0.5),
+      0 0 15px var(--term-accent-glow),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(0, 0, 0, 0.5),
+      0 0 30px var(--term-accent-glow),
+      0 0 50px rgba(224, 122, 71, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+}
+
+.mcp-menu-button .mcp-wait-counter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--term-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--term-accent);
+  text-shadow: 0 0 8px var(--term-accent-glow);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.mcp-menu-button.waiting .mcp-wait-counter {
+  opacity: 1;
+}
+
+/* Dropdown menu - terminal panel with LCARS accent */
+.mcp-menu-dropdown {
+  position: absolute;
+  top: 68px;
+  right: 12px;
+  z-index: 10000;
+  background: var(--term-bg-elevated);
+  border: 1px solid var(--term-border);
+  border-left: 4px solid var(--term-accent);
+  border-radius: 0 8px 8px 8px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 1px rgba(255, 255, 255, 0.1);
+  padding: 12px 12px 12px 14px;
+}
+
+.mcp-menu-dropdown::before {
+  content: 'APPS';
+  display: block;
+  font-family: var(--term-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--term-accent);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--term-accent);
+  border-radius: 0 0 0 4px;
+}
+
+.mcp-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mcp-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  cursor: pointer;
+  font-family: var(--term-mono);
+  border-radius: 6px;
+  min-width: 72px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.mcp-menu-item:hover {
+  background: var(--term-bg-hover);
+  border-color: var(--term-accent);
+  box-shadow: 0 0 12px var(--term-accent-glow);
+}
+
+.mcp-menu-item-icon {
+  font-size: 1.5rem;
+  margin-bottom: 6px;
+  color: var(--term-text-dim);
+  transition: color 0.15s;
+}
+
+.mcp-menu-item:hover .mcp-menu-item-icon {
+  color: var(--term-accent);
+}
+
+.mcp-menu-item-icon sl-icon {
+  font-size: 1.5rem;
+}
+
+.mcp-menu-item-name {
+  font-size: 11px;
+  color: var(--term-text-dim);
+  text-align: center;
+  word-break: break-word;
+  transition: color 0.15s;
+}
+
+.mcp-menu-item:hover .mcp-menu-item-name {
+  color: var(--term-text);
+}
+
+/* Notifications - terminal alerts */
+.mcp-notifications {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+}
+
+.mcp-notification sl-alert {
+  font-family: var(--term-mono);
+  font-size: 13px;
+  background: var(--term-bg-elevated);
+  border: 1px solid var(--term-border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.mcp-notification sl-alert::part(base) {
+  background: var(--term-bg-elevated);
+  border: 1px solid var(--term-border);
+}
+
+.hidden { display: none; }
+.hidden.showing { display: block; }

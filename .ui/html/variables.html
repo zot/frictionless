@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    document.documentElement.className = 'theme-' + (localStorage.getItem('theme') || 'lcars');
+  </script>
+  <link rel="stylesheet" href="/themes/base.css">
+  <link rel="stylesheet" href="/themes/clarity.css">
+  <link rel="stylesheet" href="/themes/lcars.css">
+  <link rel="stylesheet" href="/themes/midnight.css">
+  <link rel="stylesheet" href="/themes/ninja.css">
+  <link rel="stylesheet" href="/mcp/css/variables.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Variable Browser</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--term-bg);
+    }
+    .vars-browser {
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div class="vars-browser">
+    <div class="vars-toolbar">
+      <label><input type="radio" name="vars-view" value="flat" checked class="vars-view-radio"> Flat</label>
+      <label><input type="radio" name="vars-view" value="tree" class="vars-view-radio"> Tree</label>
+      <span class="vars-spacer"></span>
+      <button class="vars-btn vars-refresh-btn">Refresh</button>
+      <label><input type="checkbox" class="vars-poll-toggle"> Poll</label>
+      <select class="vars-poll-interval">
+        <option value="1000">1s</option>
+        <option value="2000" selected>2s</option>
+        <option value="5000">5s</option>
+      </select>
+      <span class="vars-spacer"></span>
+      <div class="vars-col-picker">
+        <button class="vars-btn vars-col-picker-btn">Columns &#9662;</button>
+        <div class="vars-col-picker-menu"></div>
+      </div>
+    </div>
+
+    <div class="vars-table-wrap">
+      <table class="vars-table">
+        <thead><tr class="vars-header-row"></tr></thead>
+        <tbody class="vars-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="vars-status"></div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    var COLUMNS = [
+      { key: 'diags',     label: '',           visible: true,  sortable: false, alwaysVisible: true },
+      { key: 'id',        label: 'ID',         visible: true,  sortable: true },
+      { key: 'path',      label: 'Path',       visible: true,  sortable: true },
+      { key: 'type',      label: 'Type',       visible: true,  sortable: true },
+      { key: 'goType',    label: 'GoType',     visible: false, sortable: true },
+      { key: 'value',     label: 'Value',      visible: true,  sortable: false },
+      { key: 'changes',   label: 'Changes',    visible: false, sortable: true, numeric: true },
+      { key: 'time',      label: 'Time',       visible: true,  sortable: true, numeric: true },
+      { key: 'avgTime',   label: 'Avg Time',   visible: false, sortable: true, numeric: true },
+      { key: 'maxTime',   label: 'Max Time',   visible: false, sortable: true, numeric: true },
+      { key: 'impact',    label: 'Impact',     visible: false, sortable: true, numeric: true },
+      { key: 'maxImpact', label: 'Max Impact', visible: false, sortable: true, numeric: true },
+      { key: 'error',     label: 'Error',      visible: true,  sortable: true },
+      { key: 'access',    label: 'Access',     visible: false, sortable: true },
+      { key: 'active',    label: 'Active',     visible: false, sortable: true },
+      { key: 'props',     label: 'Props',      visible: false, sortable: false },
+    ];
+
+    var variables = [];
+    var trackerRefreshCount = 0;
+    var viewMode = 'flat';
+    var sortCol = null;
+    var sortDir = 'asc';
+    var pollTimer = null;
+    var expandedDiags = {};
+    var collapsedNodes = {};
+
+    // --- Data fetching: read session from cookie, build URL ---
+    function getSessionId() {
+      var match = document.cookie.match(/(?:^|;\s*)ui-session=([^;]*)/);
+      return match ? match[1] : '';
+    }
+
+    function getApiUrl() {
+      var session = getSessionId();
+      if (!session) return '';
+      return '/' + session + '/variables.json';
+    }
+
+    // Parse Go duration string (e.g. "0.12ms", "5µs", "100ns") to milliseconds
+    function parseTimeMs(s) {
+      if (!s) return 0;
+      var m = s.match(/^([0-9.]+)\s*(ns|µs|us|ms|s)$/);
+      if (!m) return parseFloat(s) || 0;
+      var n = parseFloat(m[1]);
+      switch (m[2]) {
+        case 'ns': return n / 1e6;
+        case 'µs': case 'us': return n / 1e3;
+        case 'ms': return n;
+        case 's':  return n * 1e3;
+        default:   return n;
+      }
+    }
+
+    // Format milliseconds to human-readable duration
+    function formatTimeMs(ms) {
+      if (ms >= 1000) return (ms / 1000).toFixed(2) + 's';
+      if (ms >= 1)    return ms.toFixed(2) + 'ms';
+      if (ms >= 0.001) return (ms * 1000).toFixed(2) + '\u00b5s';
+      return (ms * 1e6).toFixed(2) + 'ns';
+    }
+
+    // Compute impact for each variable
+    function computeImpact() {
+      var byParent = {};
+      for (var i = 0; i < variables.length; i++) {
+        var v = variables[i];
+        if (!byParent[v.parentId]) byParent[v.parentId] = [];
+        byParent[v.parentId].push(v);
+      }
+      function walk(v) {
+        var children = byParent[v.id] || [];
+        var ownTime = parseTimeMs(v.computeTime);
+        var ownMax = parseTimeMs(v.maxComputeTime);
+        if (children.length === 0) {
+          v._impact = ownTime;
+          v._maxImpact = ownMax;
+          return;
+        }
+        var bestChild = 0, bestMaxChild = 0;
+        for (var j = 0; j < children.length; j++) {
+          walk(children[j]);
+          if (children[j]._impact > bestChild) bestChild = children[j]._impact;
+          if (children[j]._maxImpact > bestMaxChild) bestMaxChild = children[j]._maxImpact;
+        }
+        v._impact = ownTime + bestChild;
+        v._maxImpact = ownMax + bestMaxChild;
+      }
+      var roots = byParent[0] || [];
+      for (var r = 0; r < roots.length; r++) walk(roots[r]);
+    }
+
+    function fetchVariables() {
+      var url = getApiUrl();
+      if (!url) return;
+
+      fetch(url).then(function(resp) {
+        if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
+        trackerRefreshCount = parseInt(resp.headers.get('X-Change-Count'), 10) || 0;
+        return resp.json();
+      }).then(function(data) {
+        variables = data;
+        computeImpact();
+        render();
+        var statusEl = document.querySelector('.vars-status');
+        if (statusEl) {
+          statusEl.textContent = variables.length + ' variables \u00b7 ' + new Date().toLocaleTimeString();
+        }
+      }).catch(function(e) {
+        var statusEl = document.querySelector('.vars-status');
+        if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+      });
+    }
+
+    // --- Rendering ---
+    function render() {
+      renderHeader();
+      renderBody();
+    }
+
+    function renderHeader() {
+      var tr = document.querySelector('.vars-header-row');
+      if (!tr) return;
+      tr.innerHTML = '';
+      for (var i = 0; i < COLUMNS.length; i++) {
+        var col = COLUMNS[i];
+        if (!col.visible) continue;
+        var th = document.createElement('th');
+        th.textContent = col.label;
+        th.className = 'col-' + col.key;
+        th.dataset.col = col.key;
+        if (col.sortable && viewMode === 'flat') {
+          th.classList.add('sortable');
+          th.onclick = (function(k) { return function() { toggleSort(k); }; })(col.key);
+          if (sortCol === col.key) {
+            var arrow = document.createElement('span');
+            arrow.className = 'sort-arrow';
+            arrow.textContent = sortDir === 'asc' ? '\u25B2' : '\u25BC';
+            th.appendChild(arrow);
+          }
+        }
+        tr.appendChild(th);
+      }
+      var spacer = document.createElement('th');
+      spacer.className = 'col-spacer';
+      tr.appendChild(spacer);
+    }
+
+    function renderBody() {
+      var tbody = document.querySelector('.vars-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      var rows = viewMode === 'tree' ? buildTreeRows() : buildFlatRows();
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        tbody.appendChild(createDataRow(row));
+        if (expandedDiags[row.v.id] && row.v.diags && row.v.diags.length > 0) {
+          tbody.appendChild(createDiagRow(row.v));
+        }
+      }
+    }
+
+    function buildTreeRows() {
+      var byParent = {};
+      for (var i = 0; i < variables.length; i++) {
+        var v = variables[i];
+        if (!byParent[v.parentId]) byParent[v.parentId] = [];
+        byParent[v.parentId].push(v);
+      }
+      var rows = [];
+      function walk(parentId, depth) {
+        var children = byParent[parentId] || [];
+        for (var j = 0; j < children.length; j++) {
+          var v = children[j];
+          var hasChildren = byParent[v.id] && byParent[v.id].length > 0;
+          var isCollapsed = !!collapsedNodes[v.id];
+          rows.push({ v: v, depth: depth, hasChildren: hasChildren, collapsed: isCollapsed });
+          if (hasChildren && !isCollapsed) walk(v.id, depth + 1);
+        }
+      }
+      walk(0, 0);
+      return rows;
+    }
+
+    function buildFlatRows() {
+      var sorted = variables.slice();
+      if (sortCol) {
+        var colDef = null;
+        for (var c = 0; c < COLUMNS.length; c++) {
+          if (COLUMNS[c].key === sortCol) { colDef = COLUMNS[c]; break; }
+        }
+        var numeric = colDef && colDef.numeric;
+        var dir = sortDir === 'asc' ? 1 : -1;
+        sorted.sort(function(a, b) {
+          var va = getCellValue(a, sortCol);
+          var vb = getCellValue(b, sortCol);
+          if (numeric) { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
+          if (va < vb) return -dir;
+          if (va > vb) return dir;
+          return 0;
+        });
+      }
+      return sorted.map(function(v) { return { v: v, depth: 0, hasChildren: false, collapsed: false }; });
+    }
+
+    function getCellValue(v, colKey) {
+      switch (colKey) {
+        case 'id': return v.id;
+        case 'path': return v.path || '';
+        case 'type': return v.type || '';
+        case 'changes': return v.changeCount || 0;
+        case 'time': return parseTimeMs(v.computeTime);
+        case 'avgTime': return trackerRefreshCount > 0 ? parseTimeMs(v.computeTime) / trackerRefreshCount : 0;
+        case 'maxTime': return parseTimeMs(v.maxComputeTime);
+        case 'impact': return v._impact || 0;
+        case 'maxImpact': return v._maxImpact || 0;
+        case 'error': return v.error || '';
+        case 'goType': return v.goType || '';
+        case 'access': return v.access || '';
+        case 'active': return v.active ? '1' : '0';
+        default: return '';
+      }
+    }
+
+    function createDataRow(row) {
+      var v = row.v, depth = row.depth, hasChildren = row.hasChildren, isCollapsed = row.collapsed;
+      var tr = document.createElement('tr');
+      tr.dataset.id = v.id;
+
+      for (var i = 0; i < COLUMNS.length; i++) {
+        var col = COLUMNS[i];
+        if (!col.visible) continue;
+        var td = document.createElement('td');
+        td.className = 'col-' + col.key;
+
+        switch (col.key) {
+          case 'diags':
+            if (v.diags && v.diags.length > 0) {
+              var btn = document.createElement('button');
+              btn.className = 'vars-diag-btn' + (expandedDiags[v.id] ? ' open' : '');
+              btn.textContent = expandedDiags[v.id] ? 'D\u25BC' : 'D\u25B6';
+              btn.onclick = (function(id) { return function() { toggleDiag(id); }; })(v.id);
+              td.appendChild(btn);
+            }
+            break;
+          case 'id':
+            td.textContent = v.id;
+            break;
+          case 'path':
+            if (viewMode === 'tree') {
+              td.style.paddingLeft = (8 + depth * 16) + 'px';
+              if (hasChildren) {
+                var toggle = document.createElement('span');
+                toggle.className = 'vars-tree-toggle';
+                toggle.textContent = isCollapsed ? '\u25B6' : '\u25BC';
+                toggle.onclick = (function(id) { return function() { toggleNode(id); }; })(v.id);
+                td.appendChild(toggle);
+              } else {
+                var leaf = document.createElement('span');
+                leaf.className = 'vars-tree-leaf';
+                td.appendChild(leaf);
+              }
+            }
+            if (viewMode === 'tree' && hasChildren) {
+              var label = document.createElement('span');
+              label.textContent = v.path || '(root)';
+              label.style.cursor = 'pointer';
+              label.onclick = (function(id) { return function() { toggleNode(id); }; })(v.id);
+              td.appendChild(label);
+            } else {
+              td.appendChild(document.createTextNode(v.path || '(root)'));
+            }
+            break;
+          case 'type':
+            td.textContent = v.type || '';
+            break;
+          case 'value':
+            var full = v.value != null ? JSON.stringify(v.value) : '';
+            var display = full.length > 100 ? full.slice(0, 100) + '\u2026' : full;
+            td.textContent = display;
+            if (full.length > 100) td.title = full;
+            break;
+          case 'changes':
+            td.textContent = v.changeCount || 0;
+            break;
+          case 'time':
+            td.textContent = v.computeTime || '';
+            break;
+          case 'avgTime':
+            if (trackerRefreshCount > 0) {
+              var ms = parseTimeMs(v.computeTime) / trackerRefreshCount;
+              td.textContent = formatTimeMs(ms);
+            }
+            break;
+          case 'maxTime':
+            td.textContent = v.maxComputeTime || '';
+            break;
+          case 'impact':
+            td.textContent = v._impact ? formatTimeMs(v._impact) : '';
+            break;
+          case 'maxImpact':
+            td.textContent = v._maxImpact ? formatTimeMs(v._maxImpact) : '';
+            break;
+          case 'error':
+            td.textContent = v.error || '';
+            if (v.error) { td.classList.add('has-error'); td.title = v.error; }
+            break;
+          case 'goType':
+            td.textContent = v.goType || '';
+            break;
+          case 'access':
+            td.textContent = v.access || '';
+            break;
+          case 'active':
+            td.textContent = v.active ? '\u2713' : '\u2717';
+            break;
+          case 'props':
+            var parts = [];
+            if (v.properties) {
+              for (var k in v.properties) {
+                if (k !== 'type' && k !== 'path' && k !== 'access') {
+                  parts.push(k + '=' + v.properties[k]);
+                }
+              }
+            }
+            td.textContent = parts.join(', ');
+            if (parts.length) td.title = parts.join('\n');
+            break;
+        }
+        tr.appendChild(td);
+      }
+      var spacerTd = document.createElement('td');
+      spacerTd.className = 'col-spacer';
+      tr.appendChild(spacerTd);
+      return tr;
+    }
+
+    function createDiagRow(v) {
+      var tr = document.createElement('tr');
+      tr.className = 'vars-diag-row';
+      var td = document.createElement('td');
+      var visibleCount = 0;
+      for (var i = 0; i < COLUMNS.length; i++) { if (COLUMNS[i].visible) visibleCount++; }
+      td.colSpan = visibleCount + 1;
+      var ul = document.createElement('ul');
+      for (var j = 0; j < v.diags.length; j++) {
+        var li = document.createElement('li');
+        li.textContent = v.diags[j];
+        ul.appendChild(li);
+      }
+      td.appendChild(ul);
+      tr.appendChild(td);
+      return tr;
+    }
+
+    // --- Interactions ---
+    function toggleSort(colKey) {
+      if (sortCol === colKey) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortCol = colKey;
+        var col = null;
+        for (var i = 0; i < COLUMNS.length; i++) { if (COLUMNS[i].key === colKey) { col = COLUMNS[i]; break; } }
+        sortDir = col && col.numeric ? 'desc' : 'asc';
+      }
+      render();
+    }
+
+    function toggleDiag(id) {
+      if (expandedDiags[id]) delete expandedDiags[id]; else expandedDiags[id] = true;
+      render();
+    }
+
+    function toggleNode(id) {
+      if (collapsedNodes[id]) delete collapsedNodes[id]; else collapsedNodes[id] = true;
+      render();
+    }
+
+    // --- Wire up controls ---
+    document.querySelectorAll('.vars-view-radio').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        viewMode = radio.value;
+        sortCol = null;
+        render();
+      });
+    });
+
+    var refreshBtn = document.querySelector('.vars-refresh-btn');
+    if (refreshBtn) refreshBtn.addEventListener('click', fetchVariables);
+
+    function updatePolling() {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      var toggle = document.querySelector('.vars-poll-toggle');
+      if (toggle && toggle.checked) {
+        var interval = document.querySelector('.vars-poll-interval');
+        var ms = interval ? parseInt(interval.value, 10) : 2000;
+        pollTimer = setInterval(fetchVariables, ms);
+      }
+    }
+
+    var pollToggle = document.querySelector('.vars-poll-toggle');
+    if (pollToggle) pollToggle.addEventListener('change', updatePolling);
+
+    var pollInterval = document.querySelector('.vars-poll-interval');
+    if (pollInterval) pollInterval.addEventListener('change', updatePolling);
+
+    // Column picker
+    function buildColumnPicker() {
+      var menu = document.querySelector('.vars-col-picker-menu');
+      if (!menu) return;
+      menu.innerHTML = '';
+      for (var i = 0; i < COLUMNS.length; i++) {
+        var col = COLUMNS[i];
+        if (col.alwaysVisible) continue;
+        var label = document.createElement('label');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = col.visible;
+        cb.addEventListener('change', (function(c, checkbox) {
+          return function() { c.visible = checkbox.checked; render(); };
+        })(col, cb));
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(' ' + col.label));
+        menu.appendChild(label);
+      }
+    }
+
+    var colPickerBtn = document.querySelector('.vars-col-picker-btn');
+    if (colPickerBtn) {
+      colPickerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var menu = document.querySelector('.vars-col-picker-menu');
+        if (menu) menu.classList.toggle('open');
+      });
+    }
+
+    document.addEventListener('click', function() {
+      var menu = document.querySelector('.vars-col-picker-menu');
+      if (menu) menu.classList.remove('open');
+    });
+
+    var colPickerMenu = document.querySelector('.vars-col-picker-menu');
+    if (colPickerMenu) {
+      colPickerMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+    }
+
+    // --- Initial fetch ---
+    buildColumnPicker();
+    fetchVariables();
+  })();
+  </script>
+</body>
+</html>

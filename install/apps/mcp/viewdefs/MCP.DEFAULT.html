@@ -1,1027 +1,9 @@
 <template>
-  <style>
-    /* Shell structural CSS - uses theme variables from /themes/*.css */
-    /* Theme classes (.panel-header, etc.) are in theme files */
-
-    .mcp-shell {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--term-bg);
-      /* Subtle scan line overlay */
-      background-image:
-        repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 2px,
-          rgba(0, 0, 0, 0.03) 2px,
-          rgba(0, 0, 0, 0.03) 4px
-        );
-    }
-
-    .mcp-app-container {
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-      overflow: hidden;
-      isolation: isolate;
-    }
-
-    .mcp-app-container > div {
-      height: 100% !important;
-      max-height: 100% !important;
-    }
-
-    /* Status bar - terminal style with LCARS accent */
-    .mcp-status-bar {
-      flex-shrink: 0;
-      line-height: 1.4;
-      padding: 6px 12px 6px 16px;
-      background: var(--term-bg-elevated);
-      border-top: 3px solid var(--term-accent);
-      border-left: 4px solid var(--term-accent);
-      border-radius: 8px 0 0 0;
-      font-family: var(--term-mono);
-      font-size: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--term-text-dim);
-    }
-
-    .mcp-status-bar .mcp-status-text {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .mcp-status-bar .mcp-status-text::before {
-      content: '>';
-      color: var(--term-accent);
-      margin-right: 8px;
-      font-weight: 600;
-    }
-
-    .mcp-status-bar .mcp-status-text::after {
-      content: '\00a0';
-    }
-
-    .mcp-status-bar .mcp-status-toggles {
-      flex-shrink: 0;
-      display: flex;
-      gap: 0;
-    }
-
-    .mcp-status-bar .thinking {
-      color: var(--term-accent);
-      font-weight: 600;
-      animation: terminal-blink 1s ease-in-out infinite;
-    }
-
-    @keyframes terminal-blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .mcp-build-mode-toggle {
-      cursor: pointer;
-      padding: 4px 10px;
-      border-radius: 999px;
-      transition: all 0.2s;
-      color: var(--term-text-dim);
-    }
-
-    .mcp-build-mode-toggle:hover {
-      background: var(--term-bg-hover);
-      color: var(--term-accent);
-      box-shadow: 0 0 8px var(--term-accent-glow);
-    }
-
-    .mcp-build-mode-toggle sl-icon {
-      font-size: 1rem;
-      vertical-align: middle;
-    }
-
-    .mcp-build-mode-toggle a {
-      color: #bb88ff;
-      text-decoration: none;
-    }
-
-    .mcp-build-mode-toggle a:hover {
-      color: #dd99ff;
-    }
-
-    .mcp-build-mode-toggle.has-checkpoints sl-icon {
-      color: var(--term-accent);
-      filter: drop-shadow(0 0 6px var(--term-accent-glow)) drop-shadow(0 0 12px var(--term-accent-glow));
-    }
-
-    /* Menu container - floating terminal widget */
-    .mcp-menu-container {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 10000;
-    }
-
-    .mcp-menu-button {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 48px;
-      height: 48px;
-      padding: 0;
-      border: 2px solid var(--term-border);
-      background: var(--term-bg-elevated);
-      border-radius: 999px;
-      cursor: pointer;
-      transition: all 0.2s;
-      box-shadow:
-        0 0 20px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-
-    .mcp-menu-button:hover {
-      border-color: var(--term-accent);
-      box-shadow:
-        0 0 20px rgba(0, 0, 0, 0.5),
-        0 0 15px var(--term-accent-glow),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    }
-
-    .mcp-menu-button .mcp-icon {
-      font-size: 1.4rem;
-      color: var(--term-text-dim);
-      transition: color 0.2s;
-    }
-
-    .mcp-menu-button:hover .mcp-icon {
-      color: var(--term-accent);
-    }
-
-    /* Waiting state - pulsating glow */
-    .mcp-menu-button.waiting {
-      border-color: var(--term-accent);
-      animation: button-pulse 2s ease-in-out infinite;
-    }
-
-    .mcp-menu-button.waiting .mcp-icon {
-      opacity: 0.3;
-    }
-
-    @keyframes button-pulse {
-      0%, 100% {
-        box-shadow:
-          0 0 20px rgba(0, 0, 0, 0.5),
-          0 0 15px var(--term-accent-glow),
-          inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      }
-      50% {
-        box-shadow:
-          0 0 20px rgba(0, 0, 0, 0.5),
-          0 0 30px var(--term-accent-glow),
-          0 0 50px rgba(224, 122, 71, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      }
-    }
-
-    .mcp-menu-button .mcp-wait-counter {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-family: var(--term-mono);
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--term-accent);
-      text-shadow: 0 0 8px var(--term-accent-glow);
-      pointer-events: none;
-      z-index: 1;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .mcp-menu-button.waiting .mcp-wait-counter {
-      opacity: 1;
-    }
-
-    /* Dropdown menu - terminal panel with LCARS accent */
-    .mcp-menu-dropdown {
-      position: absolute;
-      top: 68px;
-      right: 12px;
-      z-index: 10000;
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-border);
-      border-left: 4px solid var(--term-accent);
-      border-radius: 0 8px 8px 8px;
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.6),
-        0 0 1px rgba(255, 255, 255, 0.1);
-      padding: 12px 12px 12px 14px;
-    }
-
-    .mcp-menu-dropdown::before {
-      content: 'APPS';
-      display: block;
-      font-family: var(--term-mono);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      color: var(--term-accent);
-      margin-bottom: 8px;
-      padding-bottom: 8px;
-      border-bottom: 3px solid var(--term-accent);
-      border-radius: 0 0 0 4px;
-    }
-
-    .mcp-icon-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-
-    .mcp-menu-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 8px;
-      cursor: pointer;
-      font-family: var(--term-mono);
-      border-radius: 6px;
-      min-width: 72px;
-      border: 1px solid transparent;
-      transition: all 0.15s;
-    }
-
-    .mcp-menu-item:hover {
-      background: var(--term-bg-hover);
-      border-color: var(--term-accent);
-      box-shadow: 0 0 12px var(--term-accent-glow);
-    }
-
-    .mcp-menu-item-icon {
-      font-size: 1.5rem;
-      margin-bottom: 6px;
-      color: var(--term-text-dim);
-      transition: color 0.15s;
-    }
-
-    .mcp-menu-item:hover .mcp-menu-item-icon {
-      color: var(--term-accent);
-    }
-
-    .mcp-menu-item-icon sl-icon {
-      font-size: 1.5rem;
-    }
-
-    .mcp-menu-item-name {
-      font-size: 11px;
-      color: var(--term-text-dim);
-      text-align: center;
-      word-break: break-word;
-      transition: color 0.15s;
-    }
-
-    .mcp-menu-item:hover .mcp-menu-item-name {
-      color: var(--term-text);
-    }
-
-    /* Notifications - terminal alerts */
-    .mcp-notifications {
-      position: fixed;
-      top: 64px;
-      right: 12px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-width: 400px;
-    }
-
-    .mcp-notification sl-alert {
-      font-family: var(--term-mono);
-      font-size: 13px;
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-border);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .mcp-notification sl-alert::part(base) {
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-border);
-    }
-
-    /* Chat/Lua/Todo Panel */
-    .mcp-chat-panel {
-      border-top: 1px solid var(--term-border);
-      display: flex;
-      flex-direction: column;
-      height: 220px;
-      min-height: 120px;
-      max-height: 60vh;
-      flex-shrink: 0;
-      background: var(--term-bg-panel);
-    }
-
-    .mcp-chat-resize-handle {
-      height: 4px;
-      background: var(--term-border);
-      cursor: ns-resize;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-    }
-
-    .mcp-chat-resize-handle:hover {
-      background: var(--term-accent);
-    }
-
-    .mcp-chat-resize-handle::after {
-      content: '';
-      width: 32px;
-      height: 2px;
-      background: var(--term-text-muted);
-      border-radius: 1px;
-    }
-
-    .mcp-bottom-panel-content {
-      flex: 1;
-      display: flex;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    /* Todo column */
-    .mcp-todo-column {
-      width: 200px;
-      border-right: 1px solid var(--term-border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      flex-shrink: 0;
-      background: var(--term-bg);
-    }
-
-    .mcp-todo-column.collapsed {
-      width: 32px;
-    }
-
-    .mcp-todo-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      border-bottom: 3px solid var(--term-accent);
-      border-radius: 0 0 6px 0;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
-
-    .mcp-todo-header:hover {
-      background: var(--term-bg-hover);
-    }
-
-    .mcp-todo-header h4 {
-      margin: 0;
-      font-family: var(--term-mono);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--term-text-dim);
-    }
-
-    .mcp-todo-header-buttons {
-      display: flex;
-      gap: 2px;
-    }
-
-    .mcp-todo-header-buttons sl-icon-button {
-      color: var(--term-text-muted);
-    }
-
-    .mcp-todo-header-buttons sl-icon-button:hover {
-      color: var(--term-accent);
-    }
-
-    .mcp-todo-column.collapsed .mcp-todo-header h4,
-    .mcp-todo-column.collapsed .mcp-todo-header-buttons sl-icon-button:first-child {
-      display: none;
-    }
-
-    .mcp-todo-column.collapsed .mcp-todo-header {
-      justify-content: center;
-      padding: 8px 4px;
-    }
-
-    .mcp-todo-column.collapsed .mcp-todo-header-buttons {
-      justify-content: center;
-    }
-
-    .mcp-todo-column.collapsed .mcp-collapse-toggle {
-      transform: rotate(180deg);
-    }
-
-    .mcp-collapse-toggle {
-      transition: transform 0.2s ease;
-    }
-
-    .mcp-todo-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: auto;
-      padding: 8px;
-    }
-
-    .mcp-todo-column.collapsed .mcp-todo-list {
-      display: none;
-    }
-
-    /* Todo item styles */
-    .todo-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
-      padding: 4px 0;
-      font-family: var(--term-mono);
-      font-size: 11px;
-      line-height: 1.4;
-    }
-
-    .todo-icon {
-      flex-shrink: 0;
-      width: 1.2em;
-      text-align: center;
-    }
-
-    .todo-item.pending { color: var(--term-text-muted); }
-    .todo-item.in-progress {
-      color: var(--term-accent);
-      font-weight: 500;
-    }
-    .todo-item.completed {
-      color: var(--term-success);
-      opacity: 0.6;
-    }
-
-    .todo-text {
-      white-space: nowrap;
-    }
-
-    /* Chat/Lua column */
-    .mcp-chat-lua-column {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      padding: 12px 16px 16px;
-    }
-
-    .mcp-panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      flex-shrink: 0;
-      border-left: 4px solid var(--term-accent);
-      border-radius: 0 0 0 8px;
-      padding-left: 12px;
-    }
-
-    .mcp-panel-tabs {
-      display: flex;
-      gap: 4px;
-    }
-
-    .mcp-panel-tabs sl-button {
-      font-family: var(--term-mono);
-      font-size: 11px;
-    }
-
-    /* Chat panel content */
-    .mcp-chat-panel-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .mcp-chat-messages,
-    .mcp-chat-panel-content > .view-list,
-    .mcp-chat-lua-column > .view-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      background: var(--term-bg);
-      border: 1px solid var(--term-border);
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    .mcp-chat-input-area {
-      flex-shrink: 0;
-      border-top: 3px solid var(--term-accent);
-      border-radius: 8px 0 0 0;
-      padding-top: 12px;
-    }
-
-    .mcp-chat-input-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .mcp-chat-input-row sl-input {
-      flex: 1;
-      font-family: var(--term-mono);
-    }
-
-    .mcp-chat-input-row sl-input::part(input) {
-      font-family: var(--term-mono);
-      font-size: 13px;
-    }
-
-    /* Chat message styles */
-    .chat-message {
-      margin-bottom: 8px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .chat-message.user-message {
-      color: var(--term-text);
-    }
-
-    .chat-message.user-message .chat-prefix {
-      color: var(--term-accent);
-      font-family: var(--term-mono);
-      font-weight: 600;
-    }
-
-    .chat-message.thinking-message {
-      font-style: italic;
-      color: var(--term-text-muted);
-    }
-
-    .chat-message-text {
-      white-space: pre-wrap;
-    }
-
-    .chat-thumbs {
-      margin-top: 6px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .chat-thumb-item img {
-      max-width: 150px;
-      max-height: 150px;
-      border-radius: 4px;
-      border: 1px solid var(--term-border);
-      cursor: pointer;
-    }
-
-    .image-lightbox {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      background: rgba(0, 0, 0, 0.8);
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    .image-lightbox.visible {
-      display: flex;
-    }
-
-    .image-lightbox img {
-      max-width: 90vw;
-      max-height: 90vh;
-      border-radius: 6px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-      object-fit: contain;
-    }
-
-    /* Lua console */
-    .mcp-lua-panel {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .mcp-lua-output,
-    .mcp-lua-panel > .view-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      background: var(--term-bg);
-      border: 1px solid var(--term-border);
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-      font-family: var(--term-mono);
-      font-size: 12px;
-      color: var(--term-text);
-    }
-
-    .lua-output-line {
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 3px;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-
-    .lua-output-line:hover {
-      background: var(--term-bg-hover);
-    }
-
-    .lua-output-line.command {
-      color: var(--term-accent);
-    }
-
-    .lua-output-line.command::before {
-      content: '> ';
-      color: var(--term-text-muted);
-    }
-
-    .lua-output-line.error {
-      color: var(--term-danger);
-    }
-
-    .mcp-lua-input-area {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .mcp-lua-input-area sl-textarea::part(textarea) {
-      font-family: var(--term-mono);
-      font-size: 12px;
-      background: var(--term-bg);
-      color: var(--term-text);
-    }
-
-    .mcp-lua-buttons {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    /* Chat panel button styles */
-    .mcp-chat-panel sl-button[variant="default"]::part(base) {
-      background: var(--term-bg-elevated);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    .mcp-chat-panel sl-button[variant="default"]::part(base):hover {
-      background: var(--term-bg-hover);
-      border-color: var(--term-accent);
-      color: var(--term-accent);
-    }
-
-    .mcp-chat-panel sl-button[variant="primary"]::part(base) {
-      background: var(--term-accent);
-      border-color: var(--term-accent);
-      color: var(--term-bg);
-    }
-
-    .mcp-chat-panel sl-button[variant="primary"]::part(base):hover {
-      background: var(--term-accent-bright);
-      box-shadow: 0 0 12px var(--term-accent-glow);
-    }
-
-    /* Shoelace overrides for chat panel inputs */
-    .mcp-chat-panel sl-input::part(base),
-    .mcp-chat-panel sl-textarea::part(base) {
-      background: var(--term-bg);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    .mcp-chat-panel sl-input::part(input),
-    .mcp-chat-panel sl-textarea::part(textarea) {
-      color: var(--term-text);
-    }
-
-    .mcp-chat-panel sl-input::part(base):hover,
-    .mcp-chat-panel sl-textarea::part(base):hover {
-      border-color: var(--term-accent);
-    }
-
-    .mcp-chat-panel sl-input::part(base):focus-within,
-    .mcp-chat-panel sl-textarea::part(base):focus-within {
-      border-color: var(--term-accent);
-      box-shadow: 0 0 0 3px var(--term-accent-glow);
-    }
-
-    .mcp-chat-panel sl-icon-button::part(base) {
-      color: var(--term-text-dim);
-    }
-
-    .mcp-chat-panel sl-icon-button::part(base):hover {
-      color: var(--term-accent);
-    }
-
-    /* Chat toggle active state */
-    .mcp-build-mode-toggle.panel-active sl-icon {
-      color: var(--term-accent);
-    }
-
-    /* Image drop zone overlay */
-    .mcp-chat-panel.drag-over::after {
-      content: 'Drop image here';
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(224, 122, 71, 0.1);
-      border: 2px dashed var(--term-accent);
-      border-radius: 6px;
-      color: var(--term-accent);
-      font-family: var(--term-mono);
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      z-index: 100;
-      pointer-events: none;
-    }
-
-    .mcp-chat-panel {
-      position: relative;
-    }
-
-    /* Image preview row */
-    .mcp-image-preview-row {
-      display: flex;
-      gap: 8px;
-      padding-bottom: 8px;
-      flex-wrap: wrap;
-    }
-
-    .mcp-image-thumb {
-      position: relative;
-      display: inline-flex;
-      border: 1px solid var(--term-accent);
-      border-radius: 4px;
-      overflow: hidden;
-      background: var(--term-bg);
-    }
-
-    .mcp-image-thumb img {
-      display: block;
-      max-height: 60px;
-      max-width: 100px;
-      object-fit: contain;
-    }
-
-    .mcp-image-thumb sl-icon-button {
-      position: absolute;
-      top: -2px;
-      right: -2px;
-      font-size: 0.7rem;
-      color: var(--term-danger);
-      background: var(--term-bg-elevated);
-      border-radius: 50%;
-    }
-
-    .mcp-image-thumb sl-icon-button::part(base):hover {
-      color: #fff;
-      background: var(--term-danger);
-    }
-
-    .mcp-image-thumb-name {
-      display: none;
-    }
-
-    .hidden { display: none !important; }
-
-    /* Tutorial overlay */
-    .tutorial-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 20000;
-      pointer-events: all;
-    }
-
-    .tutorial-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-      transition: clip-path 0.3s ease;
-    }
-
-    .tutorial-card {
-      position: absolute;
-      max-width: 340px;
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-border);
-      border-left: 4px solid var(--term-accent);
-      border-radius: 0 8px 8px 8px;
-      padding: 16px 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-      font-family: var(--term-sans);
-      color: var(--term-text);
-      transition: top 0.3s ease, left 0.3s ease;
-      z-index: 20001;
-    }
-
-    .tutorial-step-counter {
-      font-family: var(--term-mono);
-      font-size: 10px;
-      color: var(--term-text-muted);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .tutorial-title {
-      font-family: var(--term-mono);
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--term-accent);
-      margin-bottom: 8px;
-    }
-
-    .tutorial-description {
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--term-text-dim);
-      margin-bottom: 16px;
-    }
-
-    .tutorial-buttons {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .tutorial-buttons .spacer {
-      flex: 1;
-    }
-
-    .tutorial-skip {
-      display: block;
-      text-align: center;
-      margin-top: 8px;
-      font-family: var(--term-mono);
-      font-size: 11px;
-      color: var(--term-text-muted);
-      cursor: pointer;
-      opacity: 0.6;
-      transition: opacity 0.15s;
-    }
-
-    .tutorial-skip:hover {
-      opacity: 1;
-      color: var(--term-text-dim);
-    }
-
-    /* Resume pill — visible when tutorial is paused */
-    .tutorial-resume-pill {
-      position: fixed;
-      bottom: 48px;
-      right: 16px;
-      z-index: 20001;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-accent);
-      border-radius: 999px;
-      cursor: pointer;
-      font-family: var(--term-mono);
-      font-size: 12px;
-      color: var(--term-accent);
-      box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.5),
-        0 0 12px var(--term-accent-glow);
-      transition: all 0.2s;
-      animation: pill-glow 2s ease-in-out infinite;
-    }
-
-    .tutorial-resume-pill:hover {
-      background: var(--term-accent);
-      color: var(--term-bg);
-      box-shadow:
-        0 4px 20px rgba(0, 0, 0, 0.5),
-        0 0 20px var(--term-accent-glow);
-    }
-
-    @keyframes pill-glow {
-      0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px var(--term-accent-glow); }
-      50% { box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 20px var(--term-accent-glow); }
-    }
-
-    /* Update star indicator */
-    .mcp-update-star {
-      position: absolute;
-      top: -4px;
-      right: -4px;
-      font-size: 16px;
-      color: #ff9500;
-      filter: drop-shadow(0 0 4px rgba(255, 149, 0, 0.6));
-      cursor: pointer;
-      z-index: 1;
-      animation: star-pulse 2s ease-in-out infinite;
-    }
-
-    .mcp-update-star:hover {
-      filter: drop-shadow(0 0 8px rgba(255, 149, 0, 0.8));
-      transform: scale(1.2);
-    }
-
-    @keyframes star-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    /* Update notification bar */
-    .mcp-update-notification {
-      position: fixed;
-      top: 72px;
-      right: 12px;
-      z-index: 9998;
-      max-width: 360px;
-    }
-
-    .mcp-update-notification sl-alert {
-      font-family: var(--term-mono);
-      font-size: 13px;
-    }
-
-    .mcp-update-notification sl-alert::part(base) {
-      background: var(--term-bg-elevated);
-      border: 1px solid var(--term-accent);
-      color: var(--term-text);
-    }
-
-    .mcp-update-notification .update-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    /* Dialog dark-theme overrides */
-    sl-dialog::part(panel) {
-      background: var(--term-bg-elevated);
-      color: var(--term-text);
-      border: 1px solid var(--term-border);
-    }
-
-    sl-dialog::part(title) {
-      font-family: var(--term-mono);
-      color: var(--term-accent);
-    }
-
-    sl-dialog::part(overlay) {
-      background: rgba(0, 0, 0, 0.6);
-    }
-
-    sl-dialog::part(body) {
-      color: var(--term-text);
-    }
-
-    sl-dialog::part(footer) {
-      border-top: 1px solid var(--term-border);
-    }
-
-    /* Updating status indicator */
-    .mcp-status-text.updating {
-      color: var(--term-accent);
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .mcp-status-text.updating sl-progress-bar {
-      flex: 1;
-      max-width: 200px;
-      --height: 4px;
-      --indicator-color: var(--term-accent);
-      --track-color: var(--term-border);
-    }
-  </style>
+  <link rel="stylesheet" href="/mcp/css/shell.css">
+  <link rel="stylesheet" href="/mcp/css/panel.css">
+  <link rel="stylesheet" href="/mcp/css/tutorial.css">
+  <link rel="stylesheet" href="/mcp/css/updates.css">
+  <link rel="stylesheet" href="/mcp/css/dialog.css">
 
   <script>
     // Client-local wait time counter (updates every 200ms)
@@ -1051,11 +33,16 @@
     <div class="mcp-app-container" ui-view="value"></div>
 
     <!-- Chat/Lua/Todo Panel -->
-    <div class="mcp-chat-panel" id="mcp-chat-panel" ui-class-hidden="panelHidden()">
+    <div class="mcp-chat-panel hidden" id="mcp-chat-panel" ui-class-showing="panelShowing()">
       <div class="mcp-chat-resize-handle" id="mcp-chat-resize-handle"></div>
       <div class="mcp-bottom-panel-content">
+        <!-- Variables Panel (replaces all other content) -->
+        <div class="mcp-vars-panel" ui-class-hidden="notVarsPanel()">
+          <div ui-view="variableBrowser"></div>
+        </div>
+
         <!-- Todo Column -->
-        <div class="mcp-todo-column" ui-class-collapsed="todosCollapsed">
+        <div class="mcp-todo-column" ui-class-collapsed="todosCollapsed" ui-class-hidden="isVarsPanel()">
           <div class="mcp-todo-header">
             <h4 ui-event-click="toggleTodos()">Todos</h4>
             <div class="mcp-todo-header-buttons">
@@ -1067,7 +54,7 @@
         </div>
 
         <!-- Chat/Lua Column -->
-        <div class="mcp-chat-lua-column">
+        <div class="mcp-chat-lua-column" ui-class-hidden="isVarsPanel()">
           <div class="mcp-panel-header">
             <div class="mcp-panel-tabs">
               <sl-button size="small" ui-attr-variant="chatTabVariant()" ui-action="showChatPanel()">Chat</sl-button>
@@ -1113,26 +100,28 @@
     <!-- Status bar -->
     <div class="mcp-status-bar">
       <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine" ui-class-hidden="isUpdating()"></span>
-      <span class="mcp-status-text updating" ui-class-hidden="notUpdating()">
+      <span class="mcp-status-text updating hidden" ui-class-showing="isUpdating()">
         Updating to v<span ui-value="latestVersion"></span>...
         <sl-progress-bar indeterminate></sl-progress-bar>
       </span>
       <span class="mcp-status-toggles">
-        <span class="mcp-build-mode-toggle" ui-html="variablesLinkHtml()"></span>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleVarsPanel()" title="Variables">
+          <sl-icon name="braces" ui-attr-name="varsIcon()"></sl-icon>
+        </span>
         <span class="mcp-build-mode-toggle" ui-html="helpLinkHtml()"></span>
         <span class="mcp-build-mode-toggle" ui-event-click="openTools()" ui-class-has-checkpoints="currentAppHasCheckpoints()" ui-attr-title="toolsTooltip()">
           <sl-icon name="tools"></sl-icon>
         </span>
         <span class="mcp-build-mode-toggle" ui-event-click="toggleBuildMode()" ui-attr-title="buildModeTooltip()">
           <sl-icon name="rocket-takeoff-fill" ui-class-hidden="isThoroughMode()"></sl-icon>
-          <sl-icon name="gem" ui-class-hidden="isFastMode()"></sl-icon>
+          <sl-icon name="gem" class="hidden" ui-class-showing="isThoroughMode()"></sl-icon>
         </span>
         <span class="mcp-build-mode-toggle" ui-event-click="toggleBackground()" ui-attr-title="backgroundTooltip()">
           <sl-icon name="hourglass-split" ui-class-hidden="isBackground()"></sl-icon>
-          <sl-icon name="arrow-repeat" ui-class-hidden="isForeground()"></sl-icon>
+          <sl-icon name="arrow-repeat" class="hidden" ui-class-showing="isBackground()"></sl-icon>
         </span>
         <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
-          <sl-icon ui-attr-name="panelIcon()"></sl-icon>
+          <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
         </span>
       </span>
     </div>
@@ -1146,14 +135,14 @@
         <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
       </button>
       <!-- Update available star -->
-      <sl-icon class="mcp-update-star" name="star-fill"
-               ui-class-hidden="noUpdateAvailable()"
+      <sl-icon class="mcp-update-star hidden" name="star-fill"
+               ui-class-showing="updateAvailable()"
                ui-event-click="startUpdate()"
                title="Update available! Click to update."></sl-icon>
     </div>
 
     <!-- Dropdown menu with icon grid -->
-    <div class="mcp-menu-dropdown" ui-class-hidden="menuHidden()">
+    <div class="mcp-menu-dropdown hidden" ui-class-showing="menuShowing()">
       <div class="mcp-icon-grid" ui-viewlist="availableApps()" ui-namespace="list-item">
         <div></div>
       </div>
@@ -1186,7 +175,7 @@
     </sl-dialog>
 
     <!-- Update notification -->
-    <div class="mcp-update-notification" ui-class-hidden="hideUpdateNotification()">
+    <div class="mcp-update-notification hidden" ui-class-showing="showUpdateNotification()">
       <sl-alert variant="primary" open>
         <sl-icon slot="icon" name="download"></sl-icon>
         <span>Frictionless v<strong ui-value="latestVersion"></strong> is available!</span>
@@ -1197,29 +186,9 @@
       </sl-alert>
     </div>
 
-    <!-- Tutorial overlay -->
-    <div class="tutorial-overlay" ui-class-hidden="tutorialOverlayHidden()">
-      <div class="tutorial-backdrop"></div>
-      <div class="tutorial-card">
-        <div class="tutorial-step-counter">STEP <span ui-value="tutorialStepLabel()"></span></div>
-        <div class="tutorial-title" ui-value="tutorialTitle()"></div>
-        <div class="tutorial-description" ui-value="tutorialDescription()"></div>
-        <div class="tutorial-buttons">
-          <sl-button size="small" variant="default" ui-action="prevTutorialStep()" ui-class-hidden="tutorialIsFirstStep()">Back</sl-button>
-          <sl-button size="small" variant="default" ui-action="pauseTutorial()">Pause</sl-button>
-          <span class="spacer"></span>
-          <sl-button size="small" variant="primary" ui-action="nextTutorialStep()"><span ui-value="tutorialNextLabel()"></span></sl-button>
-        </div>
-        <span class="tutorial-skip" ui-event-click="endTutorial()">Skip tutorial</span>
-      </div>
-      <!-- Trigger repositioning when tutorialRepositionCode changes -->
-      <div style="display:none" ui-code="tutorialRepositionCode"></div>
-    </div>
+    <!-- Tutorial overlay (rendered by MCP.Tutorial viewdef) -->
+    <div ui-view="tutorial"></div>
 
-    <!-- Tutorial resume pill (visible when paused) -->
-    <div class="tutorial-resume-pill" ui-class-hidden="tutorialPillHidden()" ui-event-click="resumeTutorial()">
-      Resume Tutorial ▶ <span ui-value="tutorialStepLabel()"></span>
-    </div>
   </div>
 
   <script>
@@ -1323,34 +292,49 @@
   </script>
 
   <script>
-    // Chat panel resize handle
+    // Chat panel resize handle (timer-loop drag)
+    // See .ui/patterns/event-compression.md
     (function() {
       const panel = document.getElementById('mcp-chat-panel');
       const handle = document.getElementById('mcp-chat-resize-handle');
       if (!panel || !handle) return;
 
-      let startY, startHeight;
+      let startY, startHeight, currentY, lastY, rafId;
 
       handle.addEventListener('mousedown', (e) => {
-        startY = e.clientY;
+        startY = currentY = lastY = e.clientY;
         startHeight = panel.offsetHeight;
+        panel.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = 'none');
         document.addEventListener('mousemove', onDrag);
         document.addEventListener('mouseup', onRelease);
+        rafLoop();
         e.preventDefault();
       });
 
       function onDrag(e) {
-        const delta = startY - e.clientY;
-        const newHeight = Math.max(120, Math.min(window.innerHeight * 0.6, startHeight + delta));
-        panel.style.height = newHeight + 'px';
+        currentY = e.clientY;
+      }
+
+      function rafLoop() {
+        rafId = requestAnimationFrame(() => {
+          if (currentY !== lastY) {
+            lastY = currentY;
+            const height = Math.max(120, Math.min(window.innerHeight * 0.6, startHeight + (startY - currentY)));
+            panel.style.height = height + 'px';
+          }
+          rafLoop();
+        });
       }
 
       function onRelease() {
+        cancelAnimationFrame(rafId);
         document.removeEventListener('mousemove', onDrag);
         document.removeEventListener('mouseup', onRelease);
+        panel.querySelectorAll('iframe').forEach(f => f.style.pointerEvents = '');
       }
     })();
   </script>
+
 
   <script>
     // Close lightbox on Escape key

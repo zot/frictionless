@@ -232,8 +232,8 @@ checkpoint_count() {
 
     ensure_fossil
     cd "$app_dir"
-    # Count commits excluding baseline and fossil artifacts
-    local count=$("$FOSSIL_BIN" timeline -t ci --oneline | head -n -3 | wc -l)
+    # Count trunk commits excluding baseline, initial, and fossil footer
+    local count=$("$FOSSIL_BIN" timeline -t ci --oneline -b trunk | grep -v "=== BASELINE ===" | grep -v "initial empty check-in" | grep -v "^+++ " | wc -l)
     echo "$count"
 }
 

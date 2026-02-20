@@ -155,16 +155,16 @@
         </div>
 
         <div class="prefs-section">
-          <h2>Themes</h2>
-          <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
-        </div>
-
-        <div class="prefs-section">
           <h2>Tutorial</h2>
           <sl-button size="small" variant="default" ui-action="startTutorial()">
             <sl-icon name="mortarboard" slot="prefix"></sl-icon>
             Run Tutorial
           </sl-button>
+        </div>
+
+        <div class="prefs-section" ui-class-hidden="themesHidden()">
+          <h2>Themes</h2>
+          <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
         </div>
       </div>
 

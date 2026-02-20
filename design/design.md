@@ -110,6 +110,7 @@ Registered by `setupMCPGlobal` in each session:
 |----------|------|-------------|
 | `type` | `string` | Always `"MCP"` |
 | `value` | `table\|nil` | Current app value |
+| `sessionId` | `string` | External session ID (internal UUID) |
 
 **Methods:**
 | Method | Signature | Returns |

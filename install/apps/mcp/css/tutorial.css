@@ -1,0 +1,165 @@
+/* Tutorial overlay */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  pointer-events: all;
+}
+
+.tutorial-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+  transition: clip-path 0.3s ease;
+}
+
+.tutorial-card {
+  position: absolute;
+  max-width: 340px;
+  background: var(--term-bg-elevated);
+  border: 1px solid var(--term-border);
+  border-left: 4px solid var(--term-accent);
+  border-radius: 0 8px 8px 8px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  font-family: var(--term-sans);
+  color: var(--term-text);
+  transition: top 0.3s ease, left 0.3s ease;
+  z-index: 20001;
+  /* Start off-screen so it doesn't flash before JS positions it */
+  top: -9999px;
+  left: -9999px;
+}
+
+.tutorial-step-counter {
+  font-family: var(--term-mono);
+  font-size: 10px;
+  color: var(--term-text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tut-progress-bar {
+  flex: 1;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  display: none;
+}
+
+.tut-progress-bar.active { display: block; }
+
+.tut-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--term-accent);
+  border-radius: 2px;
+  transition: width 0.15s linear;
+}
+
+.tutorial-title {
+  font-family: var(--term-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--term-accent);
+  margin-bottom: 8px;
+}
+
+.tutorial-description {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--term-text-dim);
+  margin-bottom: 16px;
+}
+
+.tutorial-description .tut-highlight {
+  color: var(--term-accent);
+  font-weight: 600;
+}
+
+.mcp-build-mode-toggle.tut-active {
+  background: rgba(224, 122, 71, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(224, 122, 71, 0.6), 0 0 20px rgba(224, 122, 71, 0.3);
+  color: var(--term-accent);
+  animation: tut-btn-pulse 1.2s ease-in-out infinite;
+}
+
+.mcp-build-mode-toggle.tut-active sl-icon {
+  color: var(--term-accent);
+  filter: drop-shadow(0 0 4px var(--term-accent-glow));
+}
+
+@keyframes tut-btn-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(224, 122, 71, 0.6), 0 0 20px rgba(224, 122, 71, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(224, 122, 71, 0.8), 0 0 30px rgba(224, 122, 71, 0.4); }
+}
+
+.tut-spotlight {
+  outline: 2px solid var(--term-accent) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(224, 122, 71, 0.5), inset 0 0 8px rgba(224, 122, 71, 0.15);
+  animation: tut-btn-pulse 1.2s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+.mcp-menu-dropdown.tut-menu-glow {
+  z-index: 20002;
+  box-shadow:
+    0 0 16px rgba(224, 122, 71, 0.6),
+    0 0 32px rgba(224, 122, 71, 0.3),
+    0 8px 32px rgba(0, 0, 0, 0.6);
+  animation: tut-btn-pulse 1.2s ease-in-out infinite;
+}
+
+.tutorial-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tutorial-buttons .spacer {
+  flex: 1;
+}
+
+.tutorial-skip {
+  display: block;
+  text-align: center;
+  margin-top: 8px;
+  font-family: var(--term-mono);
+  font-size: 11px;
+  color: var(--term-text-muted);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.tutorial-skip:hover {
+  opacity: 1;
+  color: var(--term-text-dim);
+}
+
+.tutorial-inline-action {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  font-family: var(--term-mono);
+  font-size: 11px;
+  color: var(--term-accent);
+  border: 1px solid var(--term-accent);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tutorial-inline-action:hover {
+  background: var(--term-accent);
+  color: var(--term-bg);
+}

@@ -345,14 +345,20 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		track(bundlePath, status)
 	}
 
-	// 10. Check for optional external dependencies
+	// 10. Install patterns to {base_dir}/patterns/
+	// CRC: crc-MCPTool.md
+	if err := installBundleFiles("patterns", filepath.Join(s.baseDir, "patterns"), 0644); err != nil {
+		return nil, err
+	}
+
+	// 11. Check for optional external dependencies
 	var suggestions []string
 	codeSimplifierPath := filepath.Join(projectRoot, ".claude", "agents", "code-simplifier.md")
 	if _, err := os.Stat(codeSimplifierPath); os.IsNotExist(err) {
 		suggestions = append(suggestions, "Run `claude plugin install code-simplifier` to enable code simplification")
 	}
 
-	// 11. Write install manifest with file hashes
+	// 12. Write install manifest with file hashes
 	manifest, _ := readManifest(s.baseDir)
 	if manifest == nil {
 		manifest = &InstallManifest{Files: make(map[string]string)}
@@ -846,6 +852,10 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			L.Push(lua.LNumber(s.getWaitTime(vendedID)))
 			return 1
 		}))
+
+		// mcp.sessionId - the current external session ID
+		// CRC: crc-MCPTool.md
+		L.SetField(mcpTable, "sessionId", lua.LString(s.UiServer.GetSessions().GetInternalID(vendedID)))
 
 		// mcp:app(appName) - load an app without displaying it
 		// Returns the app global, or nil, errmsg

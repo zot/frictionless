@@ -44,5 +44,6 @@
   color: var(--term-bg);
 }
 
-/* Utility class */
-.hidden { display: none !important; }
+/* Utility classes: hidden + showing pattern for flash-free visibility toggling */
+.hidden { display: none; }
+.hidden.showing { display: block; }

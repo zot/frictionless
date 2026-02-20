@@ -14,7 +14,7 @@
 - **R9:** Expose state via MCP resources (ui://state, ui://variables)
 - **R10:** Provide HTTP endpoints for debugging (/state, /variables, /wait)
 - **R11:** Support HTTP long-polling for state changes via /wait endpoint
-- **R12:** Register mcp global in Lua with pushState, pollingEvents, app, display, status, waitTime methods
+- **R12:** Register mcp global in Lua with pushState, pollingEvents, app, display, status, waitTime, sessionId methods
 - **R13:** Track wait time: server records timestamp on start, updates when /wait returns
 - **R14:** Provide mcp:waitTime() Lua method returning seconds since agent last responded
 - **R15:** Return 0 from waitTime when agent is currently connected to /wait
@@ -25,6 +25,8 @@
 - **R20:** Redirect Lua print/io to log files
 - **R21:** Provide HTTP Tool API for spawned agents (GET/POST /api/*)
 - **R22:** Provide GET /app/{app}/readme endpoint returning app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
+- **R128:** Provide `mcp.sessionId` field containing the current external session ID (internal UUID)
+- **R129:** Install bundled pattern files to `{base_dir}/patterns/` during `ui_install`
 
 ## Feature: UI Audit
 **Source:** specs/ui-audit.md

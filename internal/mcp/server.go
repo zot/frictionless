@@ -340,6 +340,24 @@ func (s *Server) ClearLogs() error {
 // Spec: mcp.md Section 3.1 - Server auto-starts
 // Sequence: seq-mcp-lifecycle.md (Scenario 1)
 func (s *Server) StartAndCreateSession() (string, error) {
+	// Register /variables route on UI server (before Start so the mux is ready)
+	s.UiServer.HttpEndpoint.HandleFunc("/variables", func(w http.ResponseWriter, r *http.Request) {
+		sessionID := s.GetCurrentSessionID()
+		if sessionID != "" {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "ui-session",
+				Value:    sessionID,
+				Path:     "/",
+				HttpOnly: false,
+				SameSite: http.SameSiteLaxMode,
+			})
+		}
+		s.mu.RLock()
+		baseDir := s.baseDir
+		s.mu.RUnlock()
+		http.ServeFile(w, r, filepath.Join(baseDir, "html", "variables.html"))
+	})
+
 	// Start the UI HTTP server
 	baseURL, err := s.Start()
 	if err != nil {
@@ -766,6 +784,18 @@ func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.De
 		sb.WriteString(`</div>`)
 	}
 
+	_, typename := cli.TypeName(v.Variable.Value)
+	fmt.Fprintf(sb, `<div>Value Type: %s</div>`, typename)
+	_, typename = cli.TypeName(v.Variable.WrapperValue)
+	fmt.Fprintf(sb, `<div>Wrapper Type: %s</div>`, typename)
+	fmt.Fprintf(sb, `<div>Property Type: %s</div>`, v.Variable.Properties["type"])
+	if v.Variable.WrapperValue != nil {
+		fmt.Fprintf(sb, `<div>Wrapper JSON: %#v</div>`, v.Tracker.ToValueJSON(v.Variable.WrapperValue))
+	}
+	if v.Variable.WrapperValue != nil {
+		t := v.Tracker.Resolver.GetType(v.Variable, v.Variable.WrapperValue)
+		fmt.Fprintf(sb, `<div>Computed Wrapper Type: %s</div>`, t)
+	}
 	for _, childID := range v.ChildIDs {
 		s.renderVariableNode(sb, varMap, childID, hasError, containsError)
 	}

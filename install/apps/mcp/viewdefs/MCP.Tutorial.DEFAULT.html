@@ -1,0 +1,351 @@
+<template>
+  <!-- Tutorial overlay (visible when active and not paused) -->
+  <div class="tutorial-overlay hidden" ui-class-showing="overlayShowing()">
+    <div class="tutorial-backdrop"></div>
+    <div class="tutorial-card">
+      <div class="tutorial-step-counter">STEP <span ui-value="stepLabel()"></span><span class="tut-progress-bar"><span class="tut-progress-fill"></span></span></div>
+      <div class="tutorial-title" ui-value="title()"></div>
+      <div class="tutorial-description" ui-html="description()"></div>
+      <sl-button class="tutorial-inline-action" size="small" variant="default" ui-action="deleteExampleApp()" ui-class-hidden="deleteExampleHidden()">Delete example app</sl-button>
+      <div class="tutorial-buttons">
+        <sl-button size="small" variant="default" ui-action="prev()" ui-class-hidden="isFirstStep()">Back</sl-button>
+        <span class="spacer"></span>
+        <sl-button size="small" variant="primary" ui-action="next()"><span ui-value="nextLabel()"></span></sl-button>
+      </div>
+      <span class="tutorial-skip" ui-event-click="finish()">Skip tutorial</span>
+    </div>
+    <!-- Trigger repositioning when repositionCode changes -->
+    <div style="display:none" ui-code="repositionCode"></div>
+    <!-- Tutorial highlight bridge: JS polls this span (Lua-to-JS data bridge) -->
+    <span class="tut-highlight-bridge" style="display:none" ui-value="highlightActive()"></span>
+  </div>
+
+  <script>
+    // Central tutorial timer scheduler — all delayed tutorial actions go through this.
+    // Cancels everything when the tutorial exits (overlay hidden).
+    window._tutSched = {
+      _ids: [],
+      after: function(delay, fn) {
+        var self = this;
+        var id = setTimeout(function() {
+          var i = self._ids.indexOf(id);
+          if (i >= 0) self._ids.splice(i, 1);
+          // Only fire if tutorial is still visible
+          var ov = document.querySelector('.tutorial-overlay');
+          if (ov && ov.classList.contains('showing')) fn();
+        }, delay);
+        this._ids.push(id);
+        return id;
+      },
+      cancelAll: function() {
+        this._ids.forEach(function(id) { clearTimeout(id); });
+        this._ids = [];
+        // Also clean up any menu glow left behind
+        var md = document.querySelector('.mcp-menu-dropdown');
+        if (md) md.classList.remove('tut-menu-glow');
+      }
+    };
+  </script>
+
+  <script>
+    // Tutorial card positioning + backdrop cutout + spotlight
+    // Called from Lua via ui-code="repositionCode" with data arguments
+    window._tutReposition = function(selector, position, step) {
+      requestAnimationFrame(function() { setTimeout(function() {
+        var overlay = document.querySelector('.tutorial-overlay');
+        var backdrop = document.querySelector('.tutorial-backdrop');
+        var card = document.querySelector('.tutorial-card');
+        if (!overlay || !backdrop || !card) return;
+        // Don't reposition if tutorial overlay is hidden (stale ui-code on page reload)
+        if (!overlay.classList.contains('showing')) return;
+
+        // Step transition: runs before measurement so DOM changes take effect
+        if (window._tutSched) {
+          if (window._tutSched._step !== step) {
+            // Leave: restore panel height when leaving step 5
+            if (window._tutSched._step === 5 && window._tutSavedPanelHeight !== undefined) {
+              var p = document.querySelector('.mcp-chat-panel');
+              if (p) p.style.height = window._tutSavedPanelHeight;
+              window._tutSavedPanelHeight = undefined;
+            }
+            window._tutSched.cancelAll();
+            window._tutSched._step = step;
+            window._tutSched._phase2 = false;
+            // Enter: resize panel for step 5
+            if (step === 5) {
+              var p = document.querySelector('.mcp-chat-panel');
+              if (p) {
+                window._tutSavedPanelHeight = p.style.height || '';
+                p.style.height = '20rem';
+              }
+            }
+          } else if (window._tutSched._phase2) {
+            return;
+          }
+        }
+
+        var target = document.querySelector(selector);
+        if (!target) {
+          backdrop.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)';
+          card.style.top = '50%';
+          card.style.left = '50%';
+          card.style.transform = 'translate(-50%, -50%)';
+          return;
+        }
+
+        var rect = target.getBoundingClientRect();
+        var pad = 8;
+        var x1 = Math.max(0, rect.left - pad);
+        var y1 = Math.max(0, rect.top - pad);
+        var x2 = Math.min(window.innerWidth, rect.right + pad);
+        var y2 = Math.min(window.innerHeight, rect.bottom + pad);
+
+        var cp = 'polygon(0px 0px, ' + window.innerWidth + 'px 0px, ' +
+          window.innerWidth + 'px ' + window.innerHeight + 'px, 0px ' + window.innerHeight + 'px, 0px 0px, ' +
+          x1 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y2 + 'px, ' +
+          x2 + 'px ' + y2 + 'px, ' + x2 + 'px ' + y1 + 'px, ' + x1 + 'px ' + y1 + 'px)';
+        backdrop.style.clipPath = cp;
+
+        // Spotlight glow on target
+        document.querySelectorAll('.tut-spotlight').forEach(function(el) { el.classList.remove('tut-spotlight'); });
+        target.classList.add('tut-spotlight');
+
+        card.style.transform = 'none';
+        var cardWidth = 340;
+        var cardHeight = card.offsetHeight || 200;
+        var margin = 16;
+
+        if (position === 'top' || position === 'center-top') {
+          if (position === 'center-top') {
+            var cx = (rect.left + rect.right) / 2;
+            card.style.left = Math.max(margin, Math.min(cx - cardWidth / 2, window.innerWidth - cardWidth - margin)) + 'px';
+          } else {
+            card.style.left = Math.max(margin, Math.min(rect.left, window.innerWidth - cardWidth - margin)) + 'px';
+          }
+          card.style.top = Math.max(margin, y1 - cardHeight - margin) + 'px';
+        } else if (position === 'right') {
+          card.style.left = Math.min(x2 + margin, window.innerWidth - cardWidth - margin) + 'px';
+          card.style.top = Math.max(margin, rect.top) + 'px';
+        } else {
+          card.style.left = Math.max(margin, x1 - cardWidth - margin) + 'px';
+          card.style.top = Math.max(margin, rect.top) + 'px';
+        }
+
+        // Step 1 phase 2: after 3s, open menu, add glow, reposition card below dropdown
+        if (step === 1) {
+          window._tutSched.after(3000, function() {
+            var btn = document.querySelector('.mcp-menu-button');
+            if (btn) btn.click();
+            // Poll until dropdown becomes visible (batch from btn.click() is async)
+            var pollId = setInterval(function() {
+              var md = document.querySelector('.mcp-menu-dropdown');
+              if (md && md.classList.contains('showing')) {
+                clearInterval(pollId);
+                md.classList.add('tut-menu-glow');
+                var mr = md.getBoundingClientRect();
+                card.style.left = Math.max(margin, mr.right - cardWidth) + 'px';
+                card.style.top = (mr.bottom + margin) + 'px';
+                window._tutSched._phase2 = true;
+              }
+            }, 50);
+            // Safety: cancel poll after 5s
+            window._tutSched.after(5000, function() { clearInterval(pollId); });
+          });
+        }
+      }, 50); });
+    };
+
+    // Cleanup on tutorial finish: cancel timers, restore panel, remove spotlights
+    window._tutCleanup = function() {
+      if (window._tutSavedPanelHeight !== undefined) {
+        var p = document.querySelector('.mcp-chat-panel');
+        if (p) p.style.height = window._tutSavedPanelHeight;
+        window._tutSavedPanelHeight = undefined;
+      }
+      if (window._tutSched) {
+        window._tutSched.cancelAll();
+        window._tutSched._step = 0;
+      }
+      document.querySelectorAll('.tut-spotlight').forEach(function(el) { el.classList.remove('tut-spotlight'); });
+    };
+  </script>
+
+  <script>
+    // Tutorial highlight cycling (Lua-to-JS data bridge pattern)
+    // Polls .tut-highlight-bridge for step number; drives element highlights + text cycling
+    (function() {
+      var startTime = 0;
+      var wasStep = '0';
+      var lastIdx = -1;
+      // Step cycling configuration — data-driven
+      var CYCLING_STEPS = {
+        '4': {
+          attr: 'data-ctrl-idx',
+          listSel: '.mcp-status-toggles .mcp-build-mode-toggle',
+          listClass: 'tut-active'
+        },
+        '5': {
+          attr: 'data-panel-idx',
+          items: [
+            {sel: '.mcp-panel-tabs sl-button:first-child', act: 'click'},
+            {sel: '.mcp-panel-tabs sl-button:nth-child(2)', act: 'click'},
+            {sel: '.mcp-todo-column', act: 'spotlight'},
+            {sel: '.mcp-chat-resize-handle', act: 'spotlight'}
+          ]
+        },
+        '6': {
+          attr: 'data-console-idx',
+          items: [
+            {sel: '.app-list', act: 'spotlight'},
+            {sel: '.app-list-header sl-icon-button[label="New App"]', act: 'spotlight'},
+            {sel: '.app-list-header sl-icon-button[label="Download from GitHub"]', act: 'spotlight'}
+          ]
+        },
+        '9': {
+          attr: 'data-info-idx',
+          items: [
+            {sel: '.detail-actions', act: 'spotlight'},
+            {sel: '#tut-req-header', act: 'spotlight', expand: true},
+            {sel: '#tut-issues-header', act: 'spotlight'}
+          ],
+          onEnter: function() {
+            var headers = document.querySelectorAll('.detail-content .section-header');
+            if (headers[0]) headers[0].id = 'tut-req-header';
+            // Known Issues is typically the 3rd section header
+            for (var i = 0; i < headers.length; i++) {
+              if (headers[i].textContent.indexOf('Known Issues') >= 0) {
+                headers[i].id = 'tut-issues-header'; break;
+              }
+            }
+          },
+          onLeave: function() {
+            // Collapse any expanded section
+            if (CYCLING_STEPS['9']._expanded) {
+              CYCLING_STEPS['9']._expanded.click();
+              CYCLING_STEPS['9']._expanded = null;
+            }
+            var el = document.getElementById('tut-req-header');
+            if (el) el.removeAttribute('id');
+            el = document.getElementById('tut-issues-header');
+            if (el) el.removeAttribute('id');
+          }
+        }
+      };
+
+      function clearAll() {
+        document.querySelectorAll('.mcp-build-mode-toggle.tut-active')
+          .forEach(function(t) { t.classList.remove('tut-active'); });
+        document.querySelectorAll('.tutorial-description .tut-highlight')
+          .forEach(function(s) { s.classList.remove('tut-highlight'); });
+        document.querySelectorAll('.tut-spotlight')
+          .forEach(function(s) { s.classList.remove('tut-spotlight'); });
+      }
+
+      function highlightByAttr(attr, idx) {
+        document.querySelectorAll('.tutorial-description [' + attr + ']')
+          .forEach(function(s) {
+            if (parseInt(s.getAttribute(attr), 10) === idx) s.classList.add('tut-highlight');
+            else s.classList.remove('tut-highlight');
+          });
+      }
+
+      function setProgress(pct) {
+        var bar = document.querySelector('.tut-progress-bar');
+        var fill = document.querySelector('.tut-progress-fill');
+        if (!bar || !fill) return;
+        if (pct < 0) { bar.classList.remove('active'); return; }
+        bar.classList.add('active');
+        fill.style.width = Math.min(100, pct * 100) + '%';
+      }
+
+      function update() {
+        var overlay = document.querySelector('.tutorial-overlay');
+        if (!overlay || !overlay.classList.contains('showing')) {
+          // Auto-cleanup when tutorial transitions to hidden
+          if (wasStep !== '0') {
+            clearAll();
+            if (window._tutCleanup) window._tutCleanup();
+            wasStep = '0';
+            lastIdx = -1;
+          }
+          return;
+        }
+
+        var bridge = document.querySelector('.tut-highlight-bridge');
+        if (!bridge) return;
+
+        var step = bridge.textContent;
+
+        if (step !== wasStep) {
+          clearAll();
+          lastIdx = -1;
+          // Leave handler
+          var leaving = CYCLING_STEPS[wasStep];
+          if (leaving && leaving.onLeave) leaving.onLeave();
+          // Enter handler
+          var entering = CYCLING_STEPS[step];
+          if (entering && entering.onEnter) entering.onEnter();
+          if (step !== '0') startTime = Date.now();
+        }
+        wasStep = step;
+
+        // Step 1: one-shot 3s countdown, then full
+        if (step === '1') {
+          var elapsed = Date.now() - startTime;
+          var pct = Math.min(1, elapsed / 3000);
+          setProgress(pct);
+          return;
+        }
+
+        var config = CYCLING_STEPS[step];
+        if (!config) { setProgress(-1); return; }
+
+        var elapsed = Date.now() - startTime;
+        var numItems = 0;
+
+        if (config.listSel) {
+          // List mode: cycle through querySelectorAll results
+          var els = document.querySelectorAll(config.listSel);
+          if (!els.length) return;
+          numItems = els.length;
+          var idx = Math.floor(elapsed / 3000) % numItems;
+          els.forEach(function(el, i) {
+            if (i === idx) el.classList.add(config.listClass);
+            else el.classList.remove(config.listClass);
+          });
+          highlightByAttr(config.attr, idx);
+        } else if (config.items) {
+          // Individual items mode
+          numItems = config.items.length;
+          var idx = Math.floor(elapsed / 3000) % numItems;
+          if (idx !== lastIdx) {
+            // Collapse previously expanded item
+            if (config._expanded) { config._expanded.click(); config._expanded = null; }
+            clearAll();
+            var item = config.items[idx];
+            var el = document.querySelector(item.sel);
+            if (el) {
+              if (item.act === 'click') el.click();
+              else if (item.act === 'spotlight') el.classList.add('tut-spotlight');
+              else if (item.act === 'active') el.classList.add('tut-active');
+              if (item.expand) {
+                var content = el.nextElementSibling;
+                if (content && content.classList.contains('hidden')) {
+                  el.click(); config._expanded = el;
+                }
+              }
+            }
+            lastIdx = idx;
+          }
+          highlightByAttr(config.attr, idx);
+        }
+
+        // Progress: fraction through the full cycle of all items
+        var cycleDuration = numItems * 3000;
+        setProgress((elapsed % cycleDuration) / cycleDuration);
+      }
+
+      setInterval(update, 200);
+    })();
+  </script>
+</template>
