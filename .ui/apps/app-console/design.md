@@ -130,6 +130,12 @@ The trough (▓/░ on right side) shows warning positions:
 
 **Group spans:** Consecutive warning lines are wrapped in `pushstate-group` or `osexecute-group` spans. JavaScript measures these spans to position markers accurately, using the DOM Measurement Bridge pattern (see `.ui/patterns/dom-measurement-bridge.md`).
 
+**Viewdef danger patterns:** HTML viewdef files are scanned for JS-related dangers (separate from Lua patterns):
+- `window.open()` — opens new windows
+- `fetch()` — network requests
+- `XMLHttpRequest` — network requests
+- `.src=` — resource loading via attribute assignment
+
 **GitHub form flow:**
 1. User enters GitHub tree URL (e.g., `https://github.com/user/repo/tree/main/apps/my-app`)
 2. "Investigate" button fetches directory listing and validates structure
@@ -137,9 +143,12 @@ The trough (▓/░ on right side) shows warning positions:
 4. If name conflicts with existing app, shows danger alert with conflict message
 5. If valid, shows file tabs for inspection
 6. User must click each tab to mark it as "viewed" (security review)
-7. Lua files show warning counts in tab labels (e.g., "app.lua (3 events, 1 shell)")
-8. File content shows syntax highlighting for dangerous calls
-9. "Approve" button (enabled after all tabs viewed) downloads and installs the app
+7. Lua and viewdef files show warning counts in tab labels (e.g., "app.lua (3 events, 1 shell)")
+8. Code tabs are pre-scanned during investigate so warning counts appear immediately in labels
+9. File content shows syntax highlighting for dangerous calls
+10. "Approve" button (enabled after all tabs viewed) downloads and installs the app
+
+**Viewdef tab filtering:** Only viewdef HTML files containing `<script>` tags or inline `on*=` event handlers are shown as tabs. Pure declarative viewdefs are skipped.
 
 **Tab button variants:**
 - `warning` — unviewed tab (yellow, draws attention)
@@ -168,6 +177,7 @@ The trough (▓/░ on right side) shows warning positions:
 | newAppDesc | string | Description input for new app |
 | embeddedApp | string | Name of embedded app, or nil |
 | embeddedValue | object | App global loaded via mcp:app, or nil |
+| _baseDir | string | Cached base_dir from mcp:status() |
 | _checkpointsTime | number | Unix timestamp of last checkpoint status refresh |
 | github | GitHubDownloader | GitHub download form state |
 
@@ -191,10 +201,10 @@ The trough (▓/░ on right side) shows warning positions:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| filename | string | Display name and tab key (e.g., "requirements.md", "app.lua") |
+| filename | string | Display name and tab key (e.g., "requirements.md", "app.lua", "viewdefs/X.html") |
 | pushStateCount | number | Count of pushState calls (for Lua files) |
-| dangerCount | number | Count of dangerous calls (shell, file, code loading) |
-| _contentHtml | string | Cached HTML content (generated once on first click) |
+| dangerCount | number | Count of dangerous calls (Lua: shell/file/code; viewdef: network/window/resource) |
+| _contentHtml | string | Cached HTML content (generated once on first click or during pre-scan) |
 | _totalLines | number | Total line count (for trough marker positioning) |
 | _warningLines | table[] | Warning line data: {line=n, type="pushstate"\|"osexecute"} |
 
@@ -221,6 +231,7 @@ The trough (▓/░ on right side) shows warning positions:
 | _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
 | _checkpointCount | number | Cached count of checkpoints (refreshed with _hasCheckpoints) |
 | confirmDelete | boolean | Show delete confirmation dialog |
+| _consolidatePending | boolean | Transient: pulsate consolidate button until todos clear |
 | _isDownloaded | boolean | Has original.fossil (downloaded from GitHub) |
 | _hasLocalChanges | boolean | Has local modifications vs original |
 | sourceUrl | string | GitHub URL from source.txt |
@@ -253,12 +264,14 @@ These methods are documented below but created at runtime, so they don't appear 
 
 | Method | Description |
 |--------|-------------|
+| new() | Create instance, initialize _apps and github |
+| mutate() | Hot-load migration: initialize github if missing |
 | apps() | Returns _apps (for binding) |
 | findApp(name) | Find app by name in _apps |
 | scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/, parse each |
 | rescanApp(name) | Rescan single app from disk |
 | refresh() | Calls mcp:scanAvailableApps() then scanAppsFromDisk() |
-| refreshCheckpoints() | Batch check checkpoint.fossil for all apps, update _hasCheckpoints and _checkpointsTime |
+| refreshCheckpoints() | Batch check checkpoint.fossil for all apps, update _hasCheckpoints, _checkpointCount, _isDownloaded, _hasLocalChanges, and _checkpointsTime |
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
@@ -304,9 +317,11 @@ These methods are documented below but created at runtime, so they don't appear 
 | showConflict() | Returns true if conflict and has URL |
 | hideConflict() | Returns not showConflict() |
 | fetchFile(filename) | Fetch file content from GitHub raw URL |
-| listDir() | Fetch directory listing from GitHub API |
-| investigate() | Validate URL, fetch directory, create tabs if valid |
+| listDir(subdir) | Fetch directory listing from GitHub API; optional subdir appended to parsed path |
+| investigate() | Validate URL, fetch directory, create tabs if valid; also fetches viewdefs/ dir and adds HTML files containing JS; pre-scans all code tabs so warning counts show immediately |
 | selectTab(filename) | Set activeTab, mark as viewed, load content, trigger marker refresh |
+| triggerMarkerRefresh() | Increment _markerCounter and set markerRefresh JS to reposition trough markers |
+| scrollToDanger() | Like triggerMarkerRefresh but also scrolls to first osexecute-group element |
 | getActiveTab() | Returns GitHubTab for activeTab |
 | isTabViewed(filename) | Returns true if tab has been clicked |
 | allTabsViewed() | Returns true if all tabs have been viewed |
@@ -319,7 +334,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | showSafetyMessage() | Returns true if validated but no content loaded yet |
 | hideSafetyMessage() | Returns not showSafetyMessage() |
 | contentHtml() | Returns active tab's HTML content |
-| troughMarkersHtml() | Returns active tab's trough markers HTML |
+| troughMarkersHtml() | Returns empty string; trough markers are positioned by JS via DOM measurement |
 | noTroughMarkers() | Returns true if active tab has no warning lines |
 | approve() | Download app zip, extract, link, refresh app list |
 
@@ -330,13 +345,13 @@ These methods are documented below but created at runtime, so they don't appear 
 | selectMe() | Call appConsole.github:selectTab(self.filename) |
 | isSelected() | Returns true if this is the active tab |
 | buttonVariant() | Returns "primary" if selected, "default" if viewed, "warning" otherwise |
-| buttonLabel() | Returns filename with warning counts (e.g., "app.lua (3 events, 1 shell)") |
+| buttonLabel() | Returns filename with warning counts (e.g., "app.lua (3 events, 1 danger)") |
 | isLuaFile() | Returns true if filename ends with .lua |
-| tooltipText() | Returns warning explanation for Lua files |
-| loadContent() | Fetch file, count dangerous calls, generate HTML |
-| generateHtml(content) | HTML-escape content, highlight dangerous calls, wrap groups in spans for Lua files |
+| isViewdefFile() | Returns true if filename starts with "viewdefs/" |
+| tooltipText() | Returns warning explanation for Lua files, viewdef files, or plain filename |
+| loadContent() | Fetch file, count dangerous calls, generate HTML (called on first select or during pre-scan) |
+| generateHtml(content) | HTML-escape content, highlight dangerous calls for Lua (pushState blocks, shell/file/code) and viewdef (network/window/resource) files, wrap groups in spans |
 | contentHtml() | Returns cached _contentHtml |
-| troughMarkersHtml() | Returns HTML for scrollbar trough markers showing warning positions |
 
 ### AppConsole.AppInfo
 
@@ -393,8 +408,8 @@ These methods are documented below but created at runtime, so they don't appear 
 | readmeLinkHtml() | Returns cached HTML anchor for MCP readme endpoint (/app/NAME/readme) |
 | openReadme() | Opens readmePath in browser (legacy) |
 | openSourceUrl() | Opens sourceUrl in browser |
-| checkLocalChanges() | Compares current state to original.fossil, updates _hasLocalChanges |
-| requestConsolidate() | Call pushEvent("consolidate_request", {target = self.name}) |
+| shouldPulsate() | Returns true if _consolidatePending and mcp has todos (pulsates consolidate button) |
+| requestConsolidate() | Set _consolidatePending, call pushEvent("consolidate_request", {target = self.name}) |
 | requestReviewGaps() | Call pushEvent("review_gaps_request", {target = self.name}) |
 | requestAnalyze() | Call pushEvent("analyze_request", {target = self.name}) |
 | openApp() | Call appConsole:openEmbedded(self.name) to show in embedded view |
@@ -613,6 +628,17 @@ end
 - `## Gaps` section content = design/code mismatch (show ⚠ if non-empty)
 
 ## Styling
+
+### Hidden/Showing Pattern
+
+The new app form uses a `hidden`/`showing` CSS pattern instead of `ui-class-hidden`:
+- `.hidden { display: none; }` — base hidden state
+- `.hidden.showing { display: block; }` — revealed when `showing` class is added
+- Viewdef: `<div class="new-app-form hidden" ui-class-showing="showNewForm">`
+
+This avoids the `!important` override previously needed with `ui-class-hidden`.
+
+### Terminal Aesthetic
 
 Inherits terminal aesthetic from MCP shell via CSS variables.
 

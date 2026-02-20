@@ -14,9 +14,7 @@ end
 
 function VariableBrowser:variablesUrl()
     if not self._variablesUrl then
-        local status = self._shell:status()
-        local port = status and status.url or ("http://localhost:" .. (status and status.mcp_port or 8000))
-        self._variablesUrl = port .. "/" .. self._shell.sessionId .. "/variables.json"
+        self._variablesUrl = "/" .. self._shell.sessionId .. "/variables.json"
     end
     return self._variablesUrl
 end
@@ -29,10 +27,18 @@ function VariableBrowser:deactivate()
     self.active = false
 end
 
+function VariableBrowser:popOutCode()
+    local code = self._pendingPopOut
+    if code then
+        self._pendingPopOut = nil
+        return code
+    end
+    return ""
+end
+
 function VariableBrowser:popOut()
     local status = self._shell:status()
     local port = status and status.url or ("http://localhost:" .. (status and status.mcp_port or 8000))
     local url = port .. "/variables"
-    self._popOutCounter = (self._popOutCounter or 0) + 1
-    self._popOutCode = string.format("window.open(%q, '_blank') // %d", url, self._popOutCounter)
+    self._pendingPopOut = string.format("window.open(%q, '_blank')", url)
 end

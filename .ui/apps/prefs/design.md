@@ -14,6 +14,9 @@ User preferences panel for frictionless settings. Initial version focuses on the
 |  Updates                           section-header |
 |  [x] Check for updates on startup  [Check Now]   |
 |                                                   |
+|  Tutorial                          section-header |
+|  [Run Tutorial]                                   |
+|                                                   |
 |  Themes                            section-header |
 |  +---------------------------------------------+ |
 |  | [*] LCARS                          [=====]  | | <- selected theme
@@ -23,13 +26,12 @@ User preferences panel for frictionless settings. Initial version focuses on the
 |  |     Clean, low-contrast theme               | |
 |  +---------------------------------------------+ |
 |                                                   |
-|  Tutorial                          section-header |
-|  [Run Tutorial]                                   |
-|                                                   |
 +--------------------------------------------------+
 ```
 
 The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded rectangle.
+
+Section order: Updates → Tutorial → Themes. The Themes section is hidden (`themesHidden()`) until `_themes` is populated.
 
 ## Data Model
 
@@ -56,13 +58,13 @@ The swatch `[=====]` shows the theme's `--term-accent` color as a small rounded 
 | Method | Description |
 |--------|-------------|
 | themes() | Returns _themes for binding |
-| currentTheme() | Returns _currentTheme |
+| themesHidden() | Returns true when _themes is empty (hides section until populated) |
 | setCurrentTheme(name) | Update _currentTheme, write to settings.json, apply theme |
 | applyTheme(name) | Inject JS via mcp.code targeting `.prefs-inner` element |
 | loadThemeFromSettings() | Read theme from .ui/storage/settings.json, apply it |
 | checkUpdates() | Returns current update-check preference via `mcp:getUpdatePreference()` |
 | toggleCheckUpdates() | Toggles update-check preference via `mcp:setUpdatePreference()` |
-| checkNow() | Runs `mcp:checkForUpdates()`, then shows notification: success "Up to date" or info with version and "Update Now" button via `mcp:startUpdate()` |
+| checkNow() | Runs `mcp:checkForUpdates()`, then shows notification via `mcp:notify()`: "You're up to date (vX.Y.Z)" success, or "Update available: vX.Y.Z — use the star menu to update" primary |
 | startTutorial() | Calls `mcp:startTutorial()` to re-run the spotlight walkthrough |
 
 ### ThemeItem

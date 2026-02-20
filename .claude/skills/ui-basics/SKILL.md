@@ -5,37 +5,59 @@ description: UI engine reference - bindings, state management, patterns. Foundat
 
 # UI Basics
 
-Reference material for ui-engine apps. Load this once, then use `/ui-fast` or `/ui-thorough` for actual work.
+Frictionless is a platform for personal software that integrates Claude. Users download, mod, create, and share apps — and **this skill exists so you can help them build and modify their apps.**
 
-Make sure `/frontend-design` is loaded if available.
+Load this once for reference, then use `/ui-fast` or `/ui-thorough` for actual work.
 
 ## On Skill Load
 
-**Run this command immediately:**
+**IMMEDIATELY invoke `/ui` using the Skill tool before doing anything else.** It covers the directory structure, helper script, debugging, and server lifecycle.
+
+Then invoke `/frontend-design` using the Skill tool if it is available.
+
+Then run this command:
 
 ```bash
 .ui/mcp patterns
 ```
 
-This shows available patterns in `.ui/patterns/` - reusable solutions for common ui-engine problems.
+## How Frictionless Works
+
+This is not a conventional web framework. It's an **object-oriented system where objects present themselves**.
+
+- **Declarative frontend.** HTML uses `ui-*` bindings, not code. JS is only for browser-native capabilities (file I/O, DOM measurement, timing/animation) — see `.ui/patterns/` for established solutions.
+- **Backend is source of truth.** State AND logic live in a persistent Lua session. Page refresh restores the view without resetting state.
+- **The frontend creates most variables, not the backend.** The backend creates the root app variable; viewdef binding paths create the rest by reaching into backend objects.
+- **Simple paths.** Properties, indexing, methods. No operators.
+- **Vanilla Lua tables.** `prototype` tracks the schema and all instances (via weak refs); on hot-reload it detects schema changes and calls `mutate()` on every instance. Fields prefixed with `_` are private — not serialized to the frontend.
+- **Viewdefs present objects.** Factoring the object model breaks large viewdefs into smaller ones. Viewdef namespaces select different presentations for the same object.
+- **Domain vs Presenter.** Domain objects hold data and core behavior; presenter objects add UI state and actions (e.g., `delete()`, `isEditing`).
+- **Three execution contexts:** Lua (all behavior whenever possible — fast, responsive), JS (browser APIs, DOM tricks — last resort), Claude (complex logic, external APIs — slow, event loop latency).
+- **The event loop** (reactivity without subscriptions or signals):
+  1. User makes a change in the browser
+  2. Frontend sends variable update to server (binding paths are variables)
+  3. Server applies the update
+  4. Server checks ALL variables for changes (including method paths, which are recomputed)
+  5. Server sends updates only for variables whose values changed
+  6. Frontend applies updates to the UI
+
+  This drives a key pattern: bind a method path to a backend computation, make a change on the frontend, the method fires during the variable check, and the frontend receives the result. Variables have `priority` (low/medium/high) because evaluation order can matter for dependent computations or frontend widget updates.
 
 ## Core Principles
 
 1. **Use SOLID principles**
-2. **Use Object-oriented principles**
-3. **Write idiomatic Lua code** 
+2. **Write idiomatic Lua code**
 
-## Helper Script
+## Why design.md
 
-```bash
-.ui/mcp status              # Get server status
-.ui/mcp run '<lua code>'    # Execute Lua code
-.ui/mcp display myapp       # Display app in browser
-.ui/mcp browser             # Open browser to UI session
-.ui/mcp linkapp add myapp   # Create symlinks
-.ui/mcp audit myapp         # Run code quality audit
-.ui/mcp patterns            # List available patterns
-```
+`requirements.md` is the user's spec — what they want. `design.md` is Claude's interpretation — a compact intermediate form between requirements and code that serves multiple roles:
+
+- **Verification:** Smaller than code+viewdefs, so the user can quickly read it and confirm their requirements were understood before code is written
+- **Preview:** Warns the user what Claude is about to do with the code
+- **Reference:** Quick lookup for event handling, data model, and methods
+- **Anchor:** Without it, iterative modifications cause **drift** — features silently disappear as code evolves. The `/ui-fast` and `/ui-thorough` workflows enforce: read design → update design → update code → verify against design.
+
+This is a 3-level architecture (as with `/mini-spec`): requirements → design → code. Each level is a progressively more detailed reification of the user's intent.
 
 ## File Operations
 
@@ -43,12 +65,47 @@ This shows available patterns in `.ui/patterns/` - reusable solutions for common
 
 ---
 
-# State Management
+# Reactivity & Session Lifecycle
 
-## Prototype Pattern
+## Hot-Loading
+
+Both Lua and viewdefs hot-load from disk:
+- `apps/<app>/app.lua` → re-executed, preserving state
+- `apps/<app>/viewdefs/` → browser updates automatically
+
+**Write order matters:** Code first, then viewdefs.
+
+## Change Detection Details
+
+- **Arrays:** Compared by-element. In-place mutations (`table.insert`, `table.remove`) are detected — no need to reassign.
+- **`session.reloading`** is only true for hot-reload (file changes), NOT browser page reloads.
+- **`ui-code` re-fires on page reload.** Clear `ui-code` properties when their action is complete to prevent stale re-fires.
+
+---
+
+# Object Model
+
+**App directory structure:**
+```
+apps/my-app/
+├── app.lua              # Main code (loads when user first displays the app)
+├── init.lua             # Optional startup code (loads on server start)
+├── viewdefs/            # HTML viewdefs for this app's types
+│   ├── MyApp.DEFAULT.html
+│   └── MyApp.Item.list-item.html
+├── icon.html            # App icon (Bootstrap Icon)
+├── favicon.svg          # Browser tab icon
+└── README.md            # App description
+
+.ui/storage/my-app/      # Optional local storage (isolated from app updates)
+.ui/html/my-app          # Symlink to app dir (serves static files at /my-app/)
+.ui/html/my-app-storage  # Symlink to storage dir (serves at /my-app-storage/)
+```
+
+Use `require("appname.module")` to split code into multiple files (see `mcp` app for examples).
 
 ```lua
--- Declare app prototype (serves as namespace)
+-- App type name is PascalCase; instance global is camelCase of the type name
 MyApp = session:prototype("MyApp", {
     items = EMPTY,  -- EMPTY: starts nil, tracked for mutation
     name = ""
@@ -66,34 +123,18 @@ end
 
 -- Guard instance creation (idempotent)
 if not session.reloading then
-    myApp = MyApp:new()  -- global name = camelCase of app dir
+    myApp = MyApp:new()  -- camelCase instance global
 end
 ```
 
 **Key points:**
 - `session:prototype(name)` sets the `type` field for viewdef resolution
 - `session.reloading` is true during hot-reload
-- Each app creates two globals: `Name` (prototype) and `name` (instance)
-
-**Change detection:** Arrays are compared by-element, not by reference. In-place mutations (`table.insert`, `table.remove`) are detected correctly — no need to reassign the whole array.
-
-**Binding updates are value-driven:** Bindings only send updates to the browser when the value actually changes. A method bound via `ui-value`, `ui-html`, `ui-attr-*`, etc. may be recalculated thousands of times on the backend, but the result is only sent to the client when it differs from the previous value. This means backend re-evaluation is cheap — it does NOT cause DOM updates or flashing unless the value genuinely changes.
-
-**Backend state persists across page reloads:** The Lua session survives browser page refreshes. When the browser reconnects (new WebSocket), the server re-sends the current state. `session.reloading` is only true during hot-reload (file changes on disk), NOT during browser page reloads.
-
-**`ui-code` re-fires on page reload:** `ui-code` bindings fire once per WebSocket session when the variable value is first sent. On page reload (new WebSocket), they re-fire with whatever value is stored in the Lua property. Clear `ui-code` properties when their action is complete to prevent stale re-fires.
-
-## Hot-Loading
-
-Both Lua and viewdefs hot-load from disk:
-- `apps/<app>/app.lua` → re-executed, preserving state
-- `apps/<app>/viewdefs/` → browser updates automatically
-
-**Write order matters:** Code first, then viewdefs.
+- Each app defines a PascalCase type (`MyApp`) and a camelCase instance (`myApp`)
 
 ## Hot-Loading Mutations
 
-When adding fields to a prototype, existing instances need initialization:
+When adding fields to a prototype, `mutate()` updates all live instances to match the new schema:
 
 ```lua
 MyApp = session:prototype("MyApp", {
@@ -108,12 +149,39 @@ function MyApp:mutate()
 end
 ```
 
-**CRITICAL:** Field addition + `mutate()` must arrive in a SINGLE hot-load. Use atomic writes:
+**Key rules:**
+- **Mutation must be the last change to a file.** Hot-loading is very fast — making mutation the final edit ensures prototype and `mutate()` arrive together in one hot-load.
+- **Overwrite `mutate()`, don't accumulate.** Each `mutate()` only handles the current delta — once an instance has been mutated, it already has the field.
+- **Use atomic writes** when the user may be interacting with the app:
+  ```bash
+  cp app.lua app.lua.tmp   # Edit tmp
+  mv app.lua.tmp app.lua   # Atomic replace
+  ```
 
-```bash
-cp app.lua app.lua.tmp   # Edit tmp
-mv app.lua.tmp app.lua   # Atomic replace
+## Variable Wrappers
+
+The `?wrapper=TypeName` property transforms a variable's value through a Lua type. ViewList is a built-in wrapper for arrays.
+
+```lua
+MyWrapper = session:prototype("MyWrapper", {
+    variable = EMPTY,  -- the Variable object
+    value = EMPTY,     -- convenience: variable's current value
+})
+
+function MyWrapper:new(variable)
+    local existing = variable:getWrapper()
+    if existing then
+        existing.value = variable:getValue()
+        return existing
+    end
+    local wrapper = session:create(MyWrapper)
+    wrapper.variable = variable
+    wrapper.value = variable:getValue()
+    return wrapper
+end
 ```
+
+The wrapper receives the **variable** (not just the value). Check `variable:getWrapper()` to reuse existing wrappers and preserve state. Child paths navigate from the wrapper object.
 
 ---
 
@@ -126,10 +194,12 @@ mv app.lua.tmp app.lua   # Atomic replace
 | `ui-event-click` | Any element click | `<div ui-event-click="toggle()">` |
 | `ui-event-*` | Any event | `<sl-select ui-event-sl-change="onSelect()">` |
 | `ui-event-keypress-*` | Specific key | `<sl-input ui-event-keypress-enter="submit()">` |
+| `ui-event-keypress-ctrl-*` | Key + modifiers | `<sl-input ui-event-keypress-ctrl-s="save()">` (also `shift`, `alt`, `meta`) |
 | `ui-view` | Render child/list | `<div ui-view="items?wrapper=lua.ViewList">` |
 | `ui-attr-*` | HTML attribute | `<sl-alert ui-attr-open="hasError">` |
 | `ui-class-*` | CSS class toggle | `<div ui-class-active="isActive">` |
 | `ui-style-*` | CSS style | `<div ui-style-color="textColor">` |
+| `ui-html` | Inject HTML content | `<div ui-html="description">` (use `?replace` to replace the element itself) |
 | `ui-code` | Run JS from property | `<div ui-code="myJsCode">` — binds to a property containing JS, not inline code |
 | `ui-namespace` | Set viewdef namespace | `<div ui-namespace="COMPACT">` |
 
@@ -153,8 +223,6 @@ mv app.lua.tmp app.lua   # Atomic replace
 - Method calls: `getName()`, `setValue(_)`
 - Path params: `path?wrapper=ViewList`
 
-**No operators in paths.** For negation, create a method.
-
 ## Variable Properties
 
 | Property | Values | Description |
@@ -165,25 +233,7 @@ mv app.lua.tmp app.lua   # Atomic replace
 | `scrollOnOutput` | (flag) | Auto-scroll on changes |
 | `itemWrapper` | Type name | Wrap each list item |
 | `create` | Type name | Create instance as value |
-
----
-
-# Widgets
-
-```html
-<!-- Text --> <span ui-value="name"></span>
-<!-- Input --> <sl-input ui-value="email" label="Email"></sl-input>
-<!-- Live --> <sl-input ui-value="search?keypress">
-<!-- Button --> <sl-button ui-action="save()">Save</sl-button>
-<!-- Select or Dropdown --> <sl-select ui-value="status" ui-event-sl-input="onStatusChange()"><sl-option value="a">A</sl-option></sl-select>
-<!-- Check --> <sl-checkbox ui-attr-checked="agreed">Agree</sl-checkbox>
-<!-- Switch --> <sl-switch ui-attr-checked="dark">Dark</sl-switch>
-<!-- Rating --> <sl-rating ui-value="stars"></sl-rating>
-<!-- Hide --> <div ui-class-hidden="isHidden()">Content</div>
-<!-- Alert --> <sl-alert ui-attr-open="err" variant="danger"><span ui-value="msg"></span></sl-alert>
-<!-- Badge --> <sl-badge variant="success"><span ui-value="count"></span></sl-badge>
-<!-- Child --> <div ui-view="selectedItem"></div>
-```
+| `priority` | `low`, `medium`, `high` | Evaluation order during variable check |
 
 ---
 
@@ -204,128 +254,75 @@ List item viewdef (`MyApp.Item.list-item.html`):
 
 **In list-item viewdefs, the item IS the context.** Use `name`, not `item.name`.
 
-## Select Dropdowns with Dynamic Options
-
-```html
-<sl-select ui-value="selectedId" label="Pick one">
-  <span ui-view="items()?wrapper=lua.ViewList" ui-namespace="my-option"></span>
-</sl-select>
-```
-
-Viewdef (`lua.ViewListItem.my-option.html`):
-```html
-<template>
-  <sl-option ui-attr-value="index">
-    <span ui-value="item.name"></span>
-  </sl-option>
-</template>
-```
-
----
-
-# Common Patterns
-
-**Run `.ui/mcp patterns` to see available patterns** in `.ui/patterns/`.
-
 ---
 
 # Styling
 
-**Put ALL CSS in the main app viewdef only** (e.g. `MyApp.DEFAULT.html`). Never in list-item viewdefs or other non-main viewdefs.
+**Put ALL CSS in the main app viewdef only** (e.g. `MyApp.DEFAULT.html`). Never in list-item or other sub-viewdefs.
 
-```html
-<template>
-  <style>
-    .my-app { padding: 1rem; }
-    .hidden { display: none !important; }
-  </style>
-  <div class="my-app">...</div>
-</template>
-```
-
-**Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes. Apps inherit base component styles from the MCP shell.
+**Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes.
 
 ### Semantic Theme Classes
 
-| Class | Description | Usage |
-|-------|-------------|-------|
-| `.panel-header` | Header bar with bottom accent | Panel/section headers with title and action buttons |
-| `.panel-header-left` | Header bar with left accent | Detail panels where accent is on the left side |
-| `.section-header` | Collapsible section header | Expandable/collapsible sections with hover feedback |
-| `.item` | Base class for list items | Standard list item styling |
-| `.selected` | Selected state modifier | Apply to items with selection state (use with `.item`) |
-| `.input-area` | Input area with top accent | Chat/command input areas |
+| Class | Description |
+|-------|-------------|
+| `.panel-header` | Header bar with bottom accent |
+| `.panel-header-left` | Header bar with left accent |
+| `.section-header` | Collapsible section header with hover feedback |
+| `.item` | Base class for list items |
+| `.selected` | Selected state modifier (use with `.item`) |
+| `.input-area` | Input area with top accent |
 
-**Compose theme + app classes** (Tailwind-style):
-```html
-<div class="panel-header app-list-header">
-```
-- Theme class (`.panel-header`) - provides themed styling (accent bars, sweeps)
-- App class (`.app-list-header`) - adds app-specific layout/overrides
-
-This keeps theming swappable while preserving app-specific needs.
-
-**Auditing theme usage:** Run `.ui/mcp theme audit myapp` to check which classes are documented vs app-specific.
+Compose theme + app classes: `<div class="panel-header app-list-header">` — theme class for styling, app class for layout overrides.
 
 ## Favicons
 
-Each app has a `favicon.svg` in its app directory (e.g., `apps/job-tracker/favicon.svg`). These are Bootstrap Icons SVGs matching the app's `icon.html`, colored with `fill="#E07A47"`.
-
-The `index.html` has a `<link rel="icon" id="app-favicon">` in its `<!-- #frictionless -->` head section. Each app's DEFAULT viewdef sets the favicon via a `<script>` tag that runs when the viewdef renders:
+Each app has `favicon.svg` in its app directory — a Bootstrap Icon SVG with `fill="#E07A47"`. Add a `<script>` as the **last child** of `<template>` in the DEFAULT viewdef:
 
 ```html
-<template>
-  <style>...</style>
-  ...
-  <script>document.getElementById('app-favicon').href='data:image/svg+xml;base64,...'</script>
-</template>
+<script>document.getElementById('app-favicon').href='data:image/svg+xml;base64,...'</script>
 ```
 
-When building a new app:
-1. Create `favicon.svg` from the app's Bootstrap Icon (same icon as `icon.html`), with `fill="#E07A47"`
-2. Base64-encode it: `base64 -w0 apps/myapp/favicon.svg`
-3. Add the `<script>` as the last child of `<template>` in the DEFAULT viewdef (the first child receives class/style from the view element, so scripts must go at the bottom)
+Generate the base64: `base64 -w0 apps/myapp/favicon.svg`
 
-**Exception:** The MCP shell app (`mcp`) must NOT set a favicon — it wraps other apps and would override their favicons on every render.
+The MCP shell app (`mcp`) must NOT set a favicon — it wraps other apps.
 
 ---
 
 # JavaScript API
 
-After initialization, `window.uiApp` provides programmatic access:
-
-| Method | Description |
-|--------|-------------|
-| `getStore()` | Get VariableStore for direct variable access |
-| `getBinding()` | Get BindingEngine for widget lookup |
-| `updateValue(elementId, value?)` | Update element's `ui-value` binding |
-
-**`updateValue(elementId, value?)`** - Update a binding from JavaScript:
-
-```javascript
-// Update with specific value
-window.uiApp.updateValue('my-input', 'new value')
-
-// Update from element's current value
-window.uiApp.updateValue('my-input')
-```
-
-Use cases:
-- Custom components that need to notify backend of value changes
-- File upload bridges (FileReader → base64 → Lua)
-- Integration with third-party libraries
-
-See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
+`window.uiApp.updateValue(elementId, value?)` — send a value from JS to Lua (e.g., file pickers, clipboard). See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
 
 ---
 
-# Debugging
+# Architecture Balance
 
-**Variable inspector:** `http://localhost:MCP-PORT/variables` shows the full variable tree with IDs, parents, types, and current values. Curl it for JSON (`curl -s http://localhost:MCP-PORT/variables | jq`), or open in a browser for a formatted page. Invaluable for diagnosing binding issues — you can spot when variables are out of sync (e.g., a ViewList's `items` wrapper not matching the source array).
+Two spectrums to balance:
+- Objects: God Object ←→ Ravioli Objects
+- Viewdefs: Monolithic ←→ Ravioli Viewdefs
 
-**Lua logs:** Check `{base_dir}/log/lua.log` for runtime errors.
+**God object signs** (time to extract):
+- 15+ methods mixing concerns on root object
+- Multiple "current selections" (selected, selectedResume, editingItem)
+- Many `selected.X` paths in viewdef (Law of Demeter smell)
+- Proliferating show/hide/is*View methods
 
-**Browser console:** `window.uiApp.store` shows all variables in the JS client.
+**Ravioli signs** (over-factored):
+- Jumping between 5+ files to trace a simple flow
+- Objects/viewdefs with only 2-3 members
+- Factoring for purity rather than benefit
+
+**Extract when:**
+- Sub-object has 10+ bindings in viewdef
+- View has distinct state that should reset on navigation
+- Clear separation of concerns improves maintainability
+
+**Keep together when:**
+- Views share most state
+- UI is tightly coupled to parent layout
+- Separation adds files without clarity
+
+See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
 
 ---
 
@@ -335,6 +332,16 @@ See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
 |--------|-------------|
 | `mcp:status()` | Get server status including `base_dir` |
 | `mcp:display(appName)` | Get URL for displaying an app |
-| `mcp:appProgress(name, progress, stage)` | Report build progress |
 | `mcp:appUpdated(name)` | Trigger dashboard rescan |
 | `mcp.pushState(event)` | Send event to Claude agent |
+
+## Progress (visible to user in UI)
+
+| Method | Description |
+|--------|-------------|
+| `mcp:createTodos(steps, appName)` | Create progress steps (e.g., `{'Write code', 'Write viewdefs'}`) |
+| `mcp:startTodoStep(n)` | Mark step n as in-progress |
+| `mcp:completeTodos()` | Mark all steps complete |
+| `mcp:addAgentMessage(msg)` | Show a message from Claude in the UI |
+
+Use alongside Claude Code's `TaskCreate`/`TaskUpdate` — MCP progress is for user visibility, TaskCreate is for work tracking.

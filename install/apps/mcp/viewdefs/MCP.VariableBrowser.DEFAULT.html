@@ -35,8 +35,8 @@
     <div class="vars-status"></div>
   </div>
 
-  <!-- Pop-out trigger -->
-  <div style="display:none" ui-code="_popOutCode"></div>
+  <!-- Pop-out trigger (method returns code once then clears) -->
+  <div style="display:none" ui-code="popOutCode()"></div>
 
   <script>
   (function() {
@@ -61,6 +61,13 @@
       { key: 'props',     label: 'Props',      visible: false, sortable: false },
     ];
 
+    function findColumn(key) {
+      for (var i = 0; i < COLUMNS.length; i++) {
+        if (COLUMNS[i].key === key) return COLUMNS[i];
+      }
+      return null;
+    }
+
     var variables = [];
     var trackerRefreshCount = 0;
     var viewMode = 'flat';
@@ -69,7 +76,6 @@
     var pollTimer = null;
     var expandedDiags = {};
     var collapsedNodes = {};
-    var lastUrl = '';
 
     // --- Data fetching via bridge ---
     function getApiUrl() {
@@ -100,17 +106,23 @@
       return (ms * 1e6).toFixed(2) + 'ns';
     }
 
-    // Compute impact for each variable: the max cumulative compute time
-    // along any path from this variable down to a descendant.
-    // impact(V) = V.computeTime + max(impact(child) for each child)
-    // maxImpact uses maxComputeTime instead.
-    function computeImpact() {
+    // Build a parentId -> children[] lookup from the current variables array
+    function buildParentMap() {
       var byParent = {};
       for (var i = 0; i < variables.length; i++) {
         var v = variables[i];
         if (!byParent[v.parentId]) byParent[v.parentId] = [];
         byParent[v.parentId].push(v);
       }
+      return byParent;
+    }
+
+    // Compute impact for each variable: the max cumulative compute time
+    // along any path from this variable down to a descendant.
+    // impact(V) = V.computeTime + max(impact(child) for each child)
+    // maxImpact uses maxComputeTime instead.
+    function computeImpact() {
+      var byParent = buildParentMap();
       function walk(v) {
         var children = byParent[v.id] || [];
         var ownTime = parseTimeMs(v.computeTime);
@@ -136,7 +148,6 @@
     function fetchVariables() {
       var url = getApiUrl();
       if (!url) return;
-      lastUrl = url;
 
       fetch(url).then(function(resp) {
         if (!resp.ok) throw new Error(resp.status + ' ' + resp.statusText);
@@ -205,12 +216,7 @@
     }
 
     function buildTreeRows() {
-      var byParent = {};
-      for (var i = 0; i < variables.length; i++) {
-        var v = variables[i];
-        if (!byParent[v.parentId]) byParent[v.parentId] = [];
-        byParent[v.parentId].push(v);
-      }
+      var byParent = buildParentMap();
       var rows = [];
       function walk(parentId, depth) {
         var children = byParent[parentId] || [];
@@ -229,10 +235,7 @@
     function buildFlatRows() {
       var sorted = variables.slice();
       if (sortCol) {
-        var colDef = null;
-        for (var c = 0; c < COLUMNS.length; c++) {
-          if (COLUMNS[c].key === sortCol) { colDef = COLUMNS[c]; break; }
-        }
+        var colDef = findColumn(sortCol);
         var numeric = colDef && colDef.numeric;
         var dir = sortDir === 'asc' ? 1 : -1;
         sorted.sort(function(a, b) {
@@ -403,8 +406,7 @@
         sortDir = sortDir === 'asc' ? 'desc' : 'asc';
       } else {
         sortCol = colKey;
-        var col = null;
-        for (var i = 0; i < COLUMNS.length; i++) { if (COLUMNS[i].key === colKey) { col = COLUMNS[i]; break; } }
+        var col = findColumn(colKey);
         sortDir = col && col.numeric ? 'desc' : 'asc';
       }
       render();
@@ -495,7 +497,7 @@
     var fetchAttempted = false;
     var urlCheckTimer = setInterval(function() {
       var url = getApiUrl();
-      if (url && url !== '' && !fetchAttempted) {
+      if (url && !fetchAttempted) {
         fetchAttempted = true;
         clearInterval(urlCheckTimer);
         buildColumnPicker();

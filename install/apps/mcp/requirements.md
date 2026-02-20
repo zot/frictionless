@@ -97,16 +97,16 @@ Icons at the right edge of the status bar, grouped tightly together from left to
 
 | Icon | Action | Description |
 |------|--------|-------------|
-| `{}` braces | variablesLinkHtml() | Opens `/variables` in new tab - shows variable tree |
+| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
 | ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab - documentation |
 | 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
 | 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel |
 
-The braces and question mark icons use `ui-html` to generate anchor tags that open in new tabs. They are styled in purple (#bb88ff) with a brighter hover state (#dd99ff).
+The braces icon toggles the inline variable browser panel (see Variable Browser section). The question mark icon uses `ui-html` to generate an anchor tag that opens in a new tab. Both are styled in purple (#bb88ff) with a brighter hover state (#dd99ff). The braces icon shows `braces-asterisk` when the vars panel is active, `braces` otherwise.
 
-The chat-dots icon is the rightmost status bar item. It shows `chat-dots-fill` when open, `chat-dots` when closed.
+The chat-dots icon is the rightmost status bar item. It shows `chat-dots-fill` when the panel is open in chat/lua mode, `chat-dots` otherwise (including when in vars mode).
 
 ### Build Settings Toggles
 
@@ -137,9 +137,14 @@ Agents can display notifications to alert users of important events (errors, war
 
 A toggleable panel between the app content and status bar. The chat-dots icon in the status bar opens/closes it.
 
+**Panel modes:** Three modes controlled by `panelMode`: "chat", "lua", and "vars".
+- Chat-dots icon toggles the panel. If the panel is already open in a non-chat mode, the first click switches to chat mode instead of closing.
+- The `{}` braces icon toggles vars mode independently (opens panel in vars mode, or closes if already in vars mode).
+- In vars mode, the todo column and chat/lua column are hidden; the variable browser fills the entire panel.
+
 **Layout:**
-- Resizable via drag handle at top edge (min 120px, max 60vh, initial 220px)
-- Two columns: Todo List (left, 200px collapsible) | Chat/Lua (right)
+- Resizable via drag handle at top edge (min 120px, max 60vh, initial 220px). Uses RAF-loop drag pattern for smooth resizing.
+- Two columns (in chat/lua mode): Todo List (left, 200px collapsible) | Chat/Lua (right)
 - Messages auto-scroll to bottom on new output (`scrollOnOutput`)
 
 **Chat tab:**
@@ -189,6 +194,16 @@ mcp:appUpdated(name)             -- Trigger rescan after file changes
 `createTodos` uses hardcoded step definitions mapping labels to progress percentages. Unknown labels get auto-calculated percentages.
 
 `startTodoStep` also calls `appConsole:onAppProgress()` to update the build progress bar in the app list.
+
+## Variable Browser
+
+An inline variable browser panel that replaces the previous external `/variables` link. Toggled via the `{}` braces icon in the status bar.
+
+- Opens the bottom panel in "vars" mode, replacing the todo/chat/lua columns with a full-width variable browser
+- Displays an iframe pointing to the session's `variables.json` endpoint
+- Has a "pop out" button to open the full variable browser in a new tab
+- The braces icon changes to `braces-asterisk` when the vars panel is active
+- Deactivated when switching away from vars mode or closing the panel
 
 ## Update Check System
 
@@ -261,9 +276,9 @@ A first-run spotlight tutorial that introduces new users to the UI. Runs once au
 
 ### Tutorial State
 
-- `mcp.tutorialStep` — current step number (0 = not running)
-- `mcp.tutorialActive` — true when the tutorial overlay is showing
-- `mcp.tutorialPaused` — true when paused (overlay hidden, resume pill visible)
+- `mcp.tutorial` — MCP.Tutorial instance managing the walkthrough
+  - `.active` — true when the tutorial overlay is showing
+  - `.step` — current step number (0 = not running, 1-11 = active)
 
 ### First-Run Detection
 
@@ -277,16 +292,10 @@ A full-screen semi-transparent backdrop with a clip-path cutout that highlights 
 
 - Step counter ("3 of 10")
 - Title + description
-- **Back** / **Pause** / **Next** buttons (Back hidden on step 1, Next becomes "Finish" on last step)
-- **Skip** link to end the tutorial immediately
+- **Back** / **Next** buttons (Back hidden on step 1, Next becomes "Finish" on last step)
+- **Skip tutorial** link to end immediately
 
-### Pause / Resume
-
-- **Pause** hides the overlay but preserves tutorial state
-- A floating "Resume Tutorial" pill appears (bottom-right, above status bar) with a subtle glow animation
-- Clicking the pill restores the overlay at the current step
-
-### Tutorial Steps (10 total)
+### Tutorial Steps (11 total)
 
 Steps follow a spatial flow: top-right → bottom → open panel → navigate to app-console → deeper features → wrap up.
 
@@ -294,29 +303,47 @@ Steps follow a spatial flow: top-right → bottom → open panel → navigate to
 2. **Connection Status** — same button pulses with wait counter when Claude disconnects; use `/ui events` to reconnect
 3. **Status Bar** — bottom bar showing Claude's thinking status
 4. **Bottom Controls** — icon group: `{}` variables, `?` help, wrench tools, rocket/gem build mode, hourglass/arrows execution, speech bubble chat
-5. **Chat Panel** — auto-opens panel; todo column, chat tab, Lua tab, resize handle
-6. **App Console** — navigate to app-console, close chat; spotlight app list with status badges, (+) create, GitHub download icon
-7. **GitHub Download** — live demo if no downloaded apps exist (pre-fill example URL, auto-investigate). If downloaded app exists, just describe the flow.
-8. **Security Review** — spotlight file review tabs; orange highlights = pushState events, red = dangerous calls (os.execute, io.popen, etc.), scrollbar markers, must review all tabs before Approve
-9. **App Info Panel** — select downloaded app; describe Build, Show, Test, Fix, Analyze, Delete buttons and collapsible sections
-10. **Preferences** — spotlight app menu, explain Prefs app (themes, updates, re-run tutorial)
+5. **Variables Inspector** — auto-opens panel in vars mode; demonstrates column sorting and real-time polling
+6. **Chat Panel** — auto-opens panel; todo column, chat tab, Lua tab, resize handle
+7. **App Console** — navigate to app-console, close chat; spotlight app list with status badges, (+) create, GitHub download icon
+8. **GitHub Download** — live demo if no downloaded apps exist (pre-fill example URL, auto-investigate). If downloaded app exists, just describe the flow.
+9. **Security Review** — spotlight file review tabs; orange highlights = pushState events, red = dangerous calls (os.execute, io.popen, etc.), scrollbar markers, must review all tabs before Approve
+10. **App Info Panel** — select downloaded app; describe Build, Show, Test, Fix, Analyze, Delete buttons and collapsible sections
+11. **Preferences** — spotlight app menu, explain Prefs app (themes, updates, re-run tutorial)
 
-### Conditional Logic (Steps 7–9)
+### Conditional Logic (Steps 8–10)
 
 Check whether any downloaded apps exist at runtime:
 
-- **Path A (no downloaded apps)**: Open GitHub form, pre-fill example app URL, auto-click Investigate. User reviews tabs and clicks Approve. Then select the installed app for step 9.
-- **Path B (downloaded app exists)**: Skip actual download. Spotlight the GitHub icon button and describe the flow. Select the first downloaded app for step 9.
+- **Path A (no downloaded apps)**: Open GitHub form, pre-fill example app URL, auto-click Investigate. User reviews tabs and clicks Approve. Then select the installed app for step 10.
+- **Path B (example app exists)**: Skip actual download. Spotlight the app list header and describe the flow. Show a "Delete example app" button so the user can remove it and re-run the tutorial for the live demo. Select the example/downloaded app for step 10.
 
-### Step Actions
+### Step Definitions (OO Pattern)
 
-Each step can have an `action` that runs on both forward and backward navigation to ensure the UI state matches:
+Each step is a self-contained table with:
+- `title`, `position` — always strings
+- `description`, `selector` — can be strings or functions (evaluated at runtime for conditional content)
+- `run(tut, shell)` — optional function called when entering the step
+- `cleanup(tut, shell)` — optional function called when leaving the step (undo side effects)
+- `cycling` — optional boolean, enables JS highlight cycling for multi-part descriptions (e.g., cycling through status bar icons)
 
-- `openPanel` — opens the chat panel
-- `openAppConsole` — closes panel, navigates to app-console
-- `startGitHubDownload` — opens GitHub form and pre-fills URL (conditional)
-- `spotlightSecurity` — selects first Lua tab if form is open
-- `selectDownloadedApp` — selects the example/downloaded app
+This replaces the previous if/elseif dispatch pattern with a clean OO design where each step owns its behavior.
+
+### Highlight Cycling
+
+Steps with `cycling=true` auto-cycle through sub-elements (default 3 seconds, configurable per step), synchronized with description text highlights:
+- Step 1: 3-second countdown progress bar, then opens menu with glow effect
+- Step 4: cycles through each status bar icon, highlighting the matching description text
+- Step 5: demonstrates column sorting in the variable browser (click ID header, then Time header)
+- Step 6: clicks chat/lua tabs, spotlights todo column and resize handle in sequence
+- Step 7: spotlights app list, new button, GitHub button in sequence
+- Step 10: spotlights action buttons, requirements section, known issues in sequence
+
+A progress bar in the step counter shows position within the current cycle.
+
+### Draggable Tutorial Card
+
+The tutorial description card can be dragged to reposition it. Uses RAF-loop drag pattern for smooth movement. Buttons and links within the card are excluded from drag handling. The card shows a grab cursor.
 
 ### Example App
 
@@ -327,14 +354,24 @@ A minimal example app stored in the repo at `apps/example/` for the tutorial dow
 
 ### Navigation Methods
 
-- `mcp:startTutorial()` — set step=1, active=true, paused=false
-- `mcp:nextTutorialStep()` — advance step, run action for new step
-- `mcp:prevTutorialStep()` — go back, run action for new step
-- `mcp:pauseTutorial()` — set paused=true
-- `mcp:resumeTutorial()` — set paused=false
-- `mcp:endTutorial()` — set active=false, write completion to settings
+- `mcp.tutorial:start()` — display app-console, set active=true, go to step 1
+- `mcp.tutorial:next()` — advance step; finish if past last step
+- `mcp.tutorial:prev()` — go back one step (min 1)
+- `mcp.tutorial:finish()` — cleanup, set active=false, write completion to user settings
 
 ## Styling
+
+### CSS Architecture
+
+CSS is organized into separate files in `css/` directory, loaded via `<link>` tags in the main viewdef:
+- `shell.css` — Shell structure, menu, status bar, notifications
+- `panel.css` — Chat/Lua/Todo panel, resize handle, messages, image handling
+- `tutorial.css` — Tutorial overlay, spotlight, card, highlight cycling
+- `updates.css` — Update star, notification banner, progress indicator
+- `dialog.css` — Dialog overrides
+- `variables.css` — Variable browser panel and iframe styling
+
+The `html/mcp` symlink (auto-created on app load) serves these CSS files at `/mcp/css/`.
 
 ### Terminal Aesthetic
 

@@ -81,12 +81,14 @@ A valid app directory must contain:
 ### File Inspection (Security Review)
 After validation, show tabs for each file:
 - `requirements.md`, `design.md`, `app.lua`, plus any other `.lua` files
+- Viewdef HTML files that contain `<script>` tags or inline `on*=` event handlers (pure declarative viewdefs are skipped)
+- All code tabs (Lua and viewdef) are pre-scanned during investigate so warning counts appear immediately in tab labels
 - User must click each tab to mark it as "viewed"
 - Unviewed tabs shown with warning variant (yellow)
 - Viewed tabs shown with default variant
 - Selected tab shown with primary variant
 
-### Security Warnings for Lua Files
+### Security Warnings for Code Files
 Lua files are analyzed for potentially dangerous code:
 - **pushState calls** (orange): Count occurrences of `pushState` - these can send events to Claude
 - **Dangerous calls** (red): Count occurrences of dangerous patterns:
@@ -95,6 +97,9 @@ Lua files are analyzed for potentially dangerous code:
   - File operations: `io.open`, `io.input`
   - OS operations: `os.exit`, `os.remove`, `os.rename`, `os.tmpname`
   - Dynamic require: `require(variable)` (but NOT `require("constant")`)
+
+Viewdef HTML files are analyzed for dangerous JavaScript:
+- **Dangerous calls** (red): `window.open()`, `fetch()`, `XMLHttpRequest`, `.src=` assignment
 
 Tab labels show warning counts: `app.lua (3 events, 2 danger)`
 
@@ -399,6 +404,7 @@ The icon appears after the checkpoint icon in the app list item.
 When an app has checkpoints, show a "Make it thorough" button in the action buttons area. This button:
 
 - Only appears when the app has checkpoints (`hasCheckpoints()`)
+- Pulsates with orange glow after clicking until Claude's consolidation todos are cleared
 - Sends a `consolidate_request` event to Claude
 - Claude invokes `/ui-thorough` to integrate the checkpointed changes into both requirements.md and design.md
 - After consolidation, checkpoints are cleared

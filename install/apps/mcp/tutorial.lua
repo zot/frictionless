@@ -92,7 +92,25 @@ local STEPS = {
             return table.concat(parts)
         end
     },
-    -- Step 5: Chat Panel
+    -- Step 5: Variables Inspector
+    {
+        title = "Variables Inspector",
+        selector = "#mcp-chat-panel",
+        position = "center-top",
+        cycling = true,
+        description = '<span data-vars-idx="0">The variables inspector shows every live variable. Click any column header to sort — click again to reverse.</span> '
+            .. '<span data-vars-idx="1">Sort by Time to find performance hotspots, check Error for diagnostics, and enable Poll to watch values update in real time.</span>',
+        run = function(tut, shell)
+            shell.panelOpen = true
+            shell.panelMode = "vars"
+            shell.variableBrowser:activate()
+        end,
+        cleanup = function(tut, shell)
+            shell.variableBrowser:deactivate()
+            shell.panelOpen = false
+        end
+    },
+    -- Step 6: Chat Panel
     {
         title = "Chat Panel",
         selector = "#mcp-chat-panel",
@@ -128,26 +146,23 @@ local STEPS = {
             shell.todosCollapsed = false
         end,
         cleanup = function(tut, shell)
-            if tut._savedMessages then
-                shell.messages = tut._savedMessages
-                tut._savedMessages = nil
-            end
-            if tut._savedLuaOutput then
-                shell.luaOutputLines = tut._savedLuaOutput
-                tut._savedLuaOutput = nil
-            end
-            if tut._savedTodos then
-                shell.todos = tut._savedTodos
-                tut._savedTodos = nil
-            end
-            if tut._savedTodosCollapsed ~= nil then
-                shell.todosCollapsed = tut._savedTodosCollapsed
-                tut._savedTodosCollapsed = nil
+            -- Restore all saved shell fields
+            local restores = {
+                {field = "messages",       key = "_savedMessages"},
+                {field = "luaOutputLines", key = "_savedLuaOutput"},
+                {field = "todos",          key = "_savedTodos"},
+                {field = "todosCollapsed", key = "_savedTodosCollapsed"},
+            }
+            for _, r in ipairs(restores) do
+                if tut[r.key] ~= nil then
+                    shell[r.field] = tut[r.key]
+                    tut[r.key] = nil
+                end
             end
             shell.panelOpen = false
         end
     },
-    -- Step 6: App Console
+    -- Step 7: App Console
     {
         title = "App Console",
         selector = ".app-list-panel",
@@ -158,10 +173,11 @@ local STEPS = {
             .. '<span data-console-idx="2">the GitHub icon to download one</span>.',
         run = function(tut, shell) shell:display("app-console") end
     },
-    -- Step 7: Download from GitHub
+    -- Step 8: Download from GitHub
     {
         title = "Download from GitHub",
-        position = "left",
+        position = "below",
+        anchor = ".github-safety-message",
         selector = function()
             if exampleAppInstalled() then return ".app-list-header" end
             return ".github-form"
@@ -173,17 +189,13 @@ local STEPS = {
             return "We've pre-filled the URL for an example app and fetched its files. The tabs show each file for you to review before installing."
         end,
         run = function(tut, shell)
-            if not exampleAppInstalled() and appConsole then
-                appConsole:openGitHubForm()
-                appConsole.github.url = "https://github.com/zot/frictionless/tree/main/apps/example"
-                appConsole.github:investigate()
-            end
+            if not exampleAppInstalled() then openExampleGitHubForm() end
         end
     },
-    -- Step 8: Security Review
+    -- Step 9: Security Review
     {
         title = "Security Review",
-        position = "left",
+        position = "inside-bottom-right",
         selector = function()
             if exampleAppInstalled() then return ".detail-panel" end
             return ".github-content-wrapper"
@@ -195,6 +207,11 @@ local STEPS = {
             return "Each file tab must be reviewed before you can approve. Orange highlights show events sent to Claude (pushState calls). Red highlights show dangerous system calls like os.execute and io.popen. Scrollbar markers help find warnings in long files."
         end,
         run = function(tut, shell)
+            -- Reopen the GitHub form if it was closed (e.g. coming back from step 10)
+            if not exampleAppInstalled()
+               and (not appConsole or not appConsole.github or not appConsole.github.visible) then
+                openExampleGitHubForm()
+            end
             if appConsole and appConsole.github and appConsole.github.tabs then
                 for _, tab in ipairs(appConsole.github.tabs) do
                     if tab:isLuaFile() and tab.dangerCount > 0 then
@@ -206,20 +223,19 @@ local STEPS = {
             end
         end
     },
-    -- Step 9: App Info
+    -- Step 10: App Info
     {
         title = "App Info",
         selector = ".detail-panel",
-        position = "left",
+        position = "below",
+        anchor = ".requirements-section",
         cycling = true,
         description = '<span data-info-idx="0">Build apps from requirements, test them, fix issues, open them live, or delete them.</span> '
             .. 'Collapsible sections show <span data-info-idx="1">requirements</span>, '
             .. 'test results, and <span data-info-idx="2">known issues</span>.',
         run = function(tut, shell)
             -- Close the GitHub form if it was open from the live demo
-            if appConsole and appConsole.github and appConsole.github.visible then
-                appConsole.github:cancel()
-            end
+            cancelGitHubForm()
             if appConsole then
                 -- Prefer the example app, then any downloaded app, then any non-protected app
                 local example, downloaded, fallback = nil, nil, nil
@@ -233,7 +249,7 @@ local STEPS = {
             end
         end
     },
-    -- Step 10: Preferences
+    -- Step 11: Preferences
     {
         title = "Preferences",
         description = "Find the Prefs app in the app menu to change themes and update settings. You can re-run this tutorial anytime from there.",
@@ -251,9 +267,25 @@ local function currentStep(self)
 end
 
 local function resolveField(s, field)
+    if not s then return "" end
     local val = s[field]
     if type(val) == "function" then return val() end
     return val or ""
+end
+
+local EXAMPLE_URL = "https://github.com/zot/frictionless/tree/main/apps/example"
+
+local function openExampleGitHubForm()
+    if not appConsole then return end
+    appConsole:openGitHubForm()
+    appConsole.github.url = EXAMPLE_URL
+    appConsole.github:investigate()
+end
+
+local function cancelGitHubForm()
+    if appConsole and appConsole.github and appConsole.github.visible then
+        appConsole.github:cancel()
+    end
 end
 
 -- Undo the side effects of the current step before leaving it
@@ -266,11 +298,9 @@ end
 local function goToStep(self, stepNum)
     local prevStep = self.step
     cleanupStep(self)
-    -- Close the GitHub form when leaving the download demo zone (steps 7-8)
-    if (prevStep == 7 or prevStep == 8) and (stepNum < 7 or stepNum > 8) then
-        if appConsole and appConsole.github and appConsole.github.visible then
-            appConsole.github:cancel()
-        end
+    -- Close the GitHub form when leaving the download demo zone (steps 8-9)
+    if (prevStep == 8 or prevStep == 9) and (stepNum < 8 or stepNum > 9) then
+        cancelGitHubForm()
     end
     self.step = stepNum
     self:runAction(stepNum)
@@ -291,9 +321,7 @@ function Tutorial:finish()
     cleanupStep(self)
     -- Unconditionally clean up tutorial side-effects
     self._shell.menuOpen = false
-    if appConsole and appConsole.github and appConsole.github.visible then
-        appConsole.github:cancel()
-    end
+    cancelGitHubForm()
     self.active = false
     self.step = 0
     -- Clear repositionCode so stale ui-code doesn't re-fire on page reload.
@@ -358,10 +386,6 @@ end
 -- Viewdef binding methods
 --------------------------------------------------------------------
 
-function Tutorial:overlayHidden()
-    return not self.active
-end
-
 function Tutorial:overlayShowing()
     return self.active
 end
@@ -372,20 +396,25 @@ function Tutorial:title()
 end
 
 function Tutorial:description()
-    local s = currentStep(self)
-    if not s then return "" end
-    return resolveField(s, "description")
+    return resolveField(currentStep(self), "description")
 end
 
 function Tutorial:selector()
-    local s = currentStep(self)
-    if not s then return "" end
-    return resolveField(s, "selector")
+    return resolveField(currentStep(self), "selector")
 end
 
 function Tutorial:position()
     local s = currentStep(self)
     return s and s.position or "left"
+end
+
+function Tutorial:topOffset()
+    local s = currentStep(self)
+    return s and s.topOffset or 0
+end
+
+function Tutorial:anchor()
+    return resolveField(currentStep(self), "anchor")
 end
 
 function Tutorial:stepLabel()
@@ -410,7 +439,7 @@ function Tutorial:highlightActive()
 end
 
 function Tutorial:deleteExampleHidden()
-    return not (self.step == 7 and exampleAppInstalled())
+    return not (self.step == 8 and exampleAppInstalled())
 end
 
 function Tutorial:deleteExampleApp()
@@ -430,9 +459,10 @@ function Tutorial:triggerReposition()
     local sel = self:selector()
     local pos = self:position()
     if sel == "" then return end
+    local anc = self:anchor()
     self._repoCounter = (self._repoCounter or 0) + 1
     self.repositionCode = string.format(
-        "window._tutReposition(%q, %q, %d) // %d",
-        sel, pos, self.step, self._repoCounter
+        "window._tutReposition(%q, %q, %d, %d, %q) // %d",
+        sel, pos, self.step, self:topOffset(), anc, self._repoCounter
     )
 end

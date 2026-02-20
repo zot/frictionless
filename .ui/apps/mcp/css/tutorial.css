@@ -32,6 +32,10 @@
   left: -9999px;
 }
 
+.tutorial-card.dragging {
+  transition: none;
+}
+
 .tutorial-step-counter {
   font-family: var(--term-mono);
   font-size: 10px;

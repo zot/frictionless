@@ -38,7 +38,7 @@ At the right end of the status bar are icons grouped tightly together in a `.mcp
 
 | Icon | Action | Description |
 |------|--------|-------------|
-| `{}` braces | variablesLinkHtml() | Opens `/variables` in new tab (variable tree) |
+| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
 | ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab (documentation) |
 | 🔧 tools | openTools() | Opens app-console, selects current app |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
@@ -47,7 +47,7 @@ At the right end of the status bar are icons grouped tightly together in a `.mcp
 
 Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows dynamic tooltip.
 
-The braces and question mark icons use `ui-html` to generate `<a>` tags with `target="_blank"`. They are styled in purple (#bb88ff) with brighter hover (#dd99ff) via `.mcp-build-mode-toggle a` CSS rules. The HTML is cached since the port doesn't change during a session.
+The braces icon toggles the inline variable browser panel (replacing all other bottom panel content). The question mark icon uses `ui-html` to generate an `<a>` tag with `target="_blank"`. Both are styled in purple (#bb88ff) with brighter hover (#dd99ff) via `.mcp-build-mode-toggle a` CSS rules.
 
 ### Tools Icon
 
@@ -113,48 +113,118 @@ Icons arranged in rows of 3 (Z formation: left-to-right, then next row). Each ce
 
 ### Architecture
 
-The tutorial is a spotlight overlay rendered by MCP.DEFAULT.html with state managed in mcp app.lua. It uses a CSS `clip-path` polygon to punch a hole in a dark backdrop, with smooth transitions between steps. A description card floats near the highlighted element.
+The tutorial is a spotlight overlay with its own viewdef (`MCP.Tutorial.DEFAULT.html`) rendered via `ui-view="tutorial"` in the MCP shell. State is managed in `tutorial.lua` (loaded via `require("mcp.tutorial")`). It uses a CSS `clip-path` polygon to punch a hole in a dark backdrop, with smooth transitions between steps. A description card floats near the highlighted element.
 
-### Step Definitions
+### Step Definitions (OO Pattern)
+
+Each step is a self-contained table with `run`/`cleanup`/`cycling` fields and optionally function-typed `description`/`selector` for conditional content. A `resolveField()` helper evaluates function-typed fields at runtime.
 
 ```lua
-local TUTORIAL_STEPS = {
-    {title="App Menu", description="Tap the grid icon to switch between apps. Your installed apps appear here as an icon grid.", selector=".mcp-menu-button", position="left"},
-    {title="Connection Status", description="When Claude disconnects, this button pulses and counts seconds waiting. Use /ui events in Claude Code to reconnect.", selector=".mcp-menu-button", position="left"},
-    {title="Status Bar", description="Shows what Claude is thinking. Watch here for progress updates while Claude works on your apps.", selector=".mcp-status-bar", position="top"},
-    {title="Bottom Controls", description="From left to right: {} variables inspector, ? help docs, wrench app tools, rocket/gem build mode (fast vs thorough), hourglass foreground/background, and speech bubble for the chat panel.", selector=".mcp-status-toggles", position="top"},
-    {title="Chat Panel", description="Chat with Claude about the current app, or switch to the Lua tab for a live REPL. The todo column on the left tracks Claude's task progress. Drag the top edge to resize.", selector="#mcp-chat-panel", position="top", action="openPanel"},
-    {title="App Console", description="Your command center. The left panel lists all apps with build status and test results. Use + to create a new app or the GitHub icon to download one.", selector=".app-list-panel", position="right", action="openAppConsole"},
-    {title="Download from GitHub", description="(conditional)", selector=".github-form", position="left", action="startGitHubDownload"},
-    {title="Security Review", description="Each file tab must be reviewed before you can approve. Orange highlights show events sent to Claude, red highlights show dangerous system calls. Scrollbar markers help find warnings in long files.", selector=".github-content-wrapper", position="left", action="spotlightSecurity"},
-    {title="App Info", description="Build apps from requirements, test them, fix issues, open them live, or delete them. Collapsible sections show requirements, test results, and known issues.", selector=".detail-panel", position="left", action="selectDownloadedApp"},
-    {title="Preferences", description="Find the Prefs app in the app menu to change themes and update settings. You can re-run this tutorial anytime from there.", selector=".mcp-menu-button", position="left"},
+local STEPS = {
+    {title="App Menu", selector=".mcp-menu-button", position="left", cycling=true,
+     cleanup=function(tut, shell) shell.menuOpen = false end},
+    {title="Connection Status", selector=".mcp-menu-button", position="left",
+     run=function(tut, shell) tut:startFakeWait() end,
+     cleanup=function(tut, shell) tut:stopFakeWait() end},
+    {title="Status Bar", selector=".mcp-status-bar", position="top",
+     run=function(tut, shell) shell.statusLine = "Reading the design..."; shell.statusClass = "thinking" end,
+     cleanup=function(tut, shell) shell.statusLine = ""; shell.statusClass = "" end},
+    {title="Bottom Controls", selector=".mcp-status-toggles", position="top", cycling=true,
+     description=function() --[[ builds HTML with data-ctrl-idx spans ]] end},
+    {title="Variables Inspector", selector="#mcp-chat-panel", position="center-top", cycling=true,
+     description='<span data-vars-idx="0">...</span> ...',
+     run=function(tut, shell) --[[ open panel in vars mode, activate browser ]] end,
+     cleanup=function(tut, shell) --[[ deactivate browser, close panel ]] end},
+    {title="Chat Panel", selector="#mcp-chat-panel", position="center-top", cycling=true,
+     description='<span data-panel-idx="0">...</span> ...',
+     run=function(tut, shell) --[[ open panel, inject sample content ]] end,
+     cleanup=function(tut, shell) --[[ restore saved content, close panel ]] end},
+    {title="App Console", selector=".app-list-panel", position="right", cycling=true,
+     run=function(tut, shell) shell:display("app-console") end},
+    {title="Download from GitHub", position="below", anchor=".github-safety-message",
+     selector=function() --[[ conditional: .app-list-header or .github-form ]] end,
+     description=function() --[[ conditional based on exampleAppInstalled() ]] end,
+     run=function(tut, shell) --[[ open form if no example app ]] end},
+    {title="Security Review", position="inside-bottom-right",
+     selector=function() --[[ conditional ]] end,
+     description=function() --[[ conditional ]] end,
+     run=function(tut, shell) --[[ reopen GitHub form if needed, select first Lua tab ]] end},
+    {title="App Info", selector=".detail-panel", position="below", anchor=".requirements-section", cycling=true,
+     run=function(tut, shell) --[[ close GitHub form, select app ]] end},
+    {title="Preferences", selector=".mcp-menu-button", position="left"},
 }
 ```
 
-### Conditional Steps (7–9)
+### Conditional Steps (8–10)
 
-`mcp:hasDownloadedApps()` checks whether any app in app-console has `_isDownloaded == true`.
+`exampleAppInstalled()` checks whether the "example" app exists in `appConsole._apps`.
 
-**Path A (no downloaded apps):** Step 7 opens the GitHub download form, pre-fills the example app URL (`https://github.com/zot/frictionless/tree/main/apps/example`), and auto-clicks Investigate. Step 8 selects the first Lua tab to show security highlighting. Step 9 waits for the user to Approve, then selects the installed app.
+**Path A (no example app):** Step 8 opens the GitHub download form, pre-fills the example app URL, and auto-investigates. Step 9 selects the first Lua tab with danger highlights (reopens GitHub form if needed when navigating back). Step 10 closes the GitHub form and selects the installed app.
 
-**Path B (downloaded app exists):** Step 7 spotlights the GitHub icon button and describes the flow. Step 8 describes security features without opening the form. Step 9 selects the first downloaded app.
+**Path B (example app exists):** Step 8 spotlights the app list header, describes the flow, and shows a "Delete example app" button (`deleteExampleApp()`, hidden via `deleteExampleHidden()`) so the user can remove it and re-run the tutorial for the live demo. Step 9 describes security features without opening the form. Step 10 selects the example/downloaded app.
 
-Descriptions for steps 7-9 adapt at runtime based on the path.
+### Navigation
+
+`goToStep(self, stepNum)` is the central navigation function:
+1. Calls `cleanupStep()` to undo current step's side effects
+2. Closes GitHub form when leaving steps 8-9 (if navigating outside 8-9 range)
+3. Sets `self.step = stepNum`
+4. Calls `runAction(stepNum)` to execute the new step's `run` function
+5. Calls `triggerReposition()` to update the spotlight
 
 ### Spotlight Positioning (JavaScript)
 
-A `<script>` block in MCP.DEFAULT.html:
-- Reads the target CSS selector from a hidden span bound to `tutorialSelector()`
-- Finds the target element via `querySelector`
-- Computes bounding rect with padding
+`triggerReposition()` sets `repositionCode` to call `window._tutReposition(selector, position, step, topOffset, anchor)` — a global JS function defined in the tutorial viewdef that:
+- Guards against stale `ui-code` re-fires (checks overlay has `showing` class)
+- Manages step transitions: detects step changes, cancels old timers, runs enter/leave logic
+- Steps 5-6 enter: saves panel height, resizes to 20rem; leave: restores saved height
+- Finds the target element, computes bounding rect with 8px padding
+- Retries after 500ms if element hasn't rendered yet (rect too small)
 - Sets `clip-path: polygon(...)` on `.tutorial-backdrop` to create the cutout
-- Positions `.tutorial-card` relative to the target based on `tutorialPosition()` ("top", "left", "right")
-- Uses `ui-code` bound to `tutorialRepositionCode` — a property that changes each time the step changes, triggering repositioning
+- Adds `.tut-spotlight` class to the target element (removes from previous)
+- Positions `.tutorial-card` relative to the target based on position ("top", "left", "right", "center-top", "below", "inside-bottom-right")
+  - `below`: positions card below an anchor element (or target if no anchor)
+  - `inside-bottom-right`: positions card at the bottom-right of the target's content area
+- Delayed re-measure: after 800ms, re-runs positioning to catch async rendering
+- Step 1 phase 2: after 3s delay, clicks menu button, polls for dropdown visibility, adds `.tut-menu-glow`, repositions card below dropdown
+- Uses a `_repoCounter` suffix to ensure value changes trigger `ui-code`
 
-### Resume Pill
+### Draggable Tutorial Card
 
-When paused, a floating pill (`.tutorial-resume-pill`) appears at bottom-right above the status bar. It shows "Resume Tutorial" with step counter, has a glow animation, and calls `resumeTutorial()` on click.
+The tutorial card can be repositioned by dragging. Uses the RAF-loop drag pattern (see `.ui/patterns/event-compression.md`):
+- `mousedown` on the card starts drag (excludes clicks on buttons, links, and skip text)
+- Sets `cursor: grabbing`, disables CSS transitions during drag
+- `mousemove` updates current position, RAF loop applies changes only when position changes
+- `mouseup` releases drag, restores transitions and cursor
+
+### Timer Scheduler (`_tutSched`)
+
+Global JS object managing delayed tutorial actions:
+- `after(delay, fn)` — schedules a callback, only fires if tutorial overlay still has `showing` class
+- `cancelAll()` — clears all pending timers, removes `.tut-menu-glow` from dropdown
+- Tracks `_step` (current step number) and `_phase2` (whether phase 2 completed for current step)
+
+### Highlight Cycling (JavaScript)
+
+A 200ms `setInterval` polls `.tut-highlight-bridge` for the active step number. Steps with `cycling=true` get automatic sub-element highlighting:
+
+**Cycling modes:**
+- **`listSel` mode** (step 4): cycles through elements matching a CSS selector, adding a class (e.g., `tut-active` on each status bar toggle)
+- **`items` mode** (steps 5, 6, 7, 10): cycles through a list of items with actions: `click` (simulates click), `spotlight` (adds `.tut-spotlight`), `active` (adds `.tut-active`). Items can have `expand: true` to click-expand collapsible sections and `fn` callback for custom behavior.
+
+**Step-specific configs (`CYCLING_STEPS`):**
+- Step 1: 3s progress bar countdown (no cycling, just timer fill)
+- Step 4: cycles status bar toggles via `listSel`, highlights matching `data-ctrl-idx` spans in description
+- Step 5: demonstrates variable browser sorting (clicks ID header twice for desc sort, then Time header), 5s interval, highlights `data-vars-idx` spans
+- Step 6: clicks chat/lua tabs, spotlights todo column and resize handle, highlights `data-panel-idx` spans
+- Step 7: spotlights app list, new button, GitHub button, highlights `data-console-idx` spans
+- Step 10: spotlights detail actions, requirements header, known issues header, highlights `data-info-idx` spans. Has `onEnter`/`onLeave` hooks to assign/remove temporary element IDs for targeting. Items have `fn` callbacks to collapse/expand sections and trigger repositioning.
+
+**Configuration options:** Each cycling step can set a custom `interval` (default 3000ms). Items can have `fn` callbacks for custom behavior (e.g., triggering repositioning after DOM changes).
+
+**Progress bar:** `.tut-progress-bar` with `.tut-progress-fill` shows cycling progress as a fraction of the full item cycle.
+
+**Auto-cleanup:** When the cycling `update()` detects the overlay has become hidden, it clears all highlights and calls `_tutCleanup()` (restores panel height, cancels timers, removes spotlights).
 
 ### Settings Persistence
 
@@ -184,7 +254,7 @@ The global `mcp` object is provided by the server. This app adds:
 | _imageAttachments | ImageAttachment[] | Pending image attachments for next chat send |
 | imageUploadData | string | JS-to-Lua bridge: JSON payload from drop/paste (cleared after processing) |
 | lightboxUri | string | Full-resolution data URI for the lightbox preview (empty = hidden) |
-| panelMode | string | "chat" or "lua" (bottom panel tab) |
+| panelMode | string | "chat", "lua", or "vars" (bottom panel tab) |
 | luaOutputLines | OutputLine[] | Lua console output history |
 | luaInput | string | Current Lua code input |
 | _luaInputFocusTrigger | string | JS code to focus Lua input (changes trigger ui-code) |
@@ -199,10 +269,8 @@ The global `mcp` object is provided by the server. This app adds:
 | _isUpdating | boolean | Whether an update is currently in progress |
 | _updateNotificationDismissed | boolean | Whether the update notification banner was dismissed this session |
 | _needsUpdate | boolean | Whether a newer version is available |
-| tutorialStep | number | Current tutorial step (0 = not running) |
-| tutorialActive | boolean | Whether the tutorial overlay is showing |
-| tutorialPaused | boolean | Whether the tutorial is paused (overlay hidden, pill visible) |
-| tutorialRepositionCode | string | JS code that triggers repositioning (changes trigger ui-code) |
+| tutorial | MCP.Tutorial | Tutorial walkthrough state (loaded from tutorial.lua) |
+| variableBrowser | MCP.VariableBrowser | Inline variable browser panel state |
 
 ## Methods
 
@@ -214,6 +282,7 @@ The global `mcp` object is provided by the server. This app adds:
 | toggleMenu() | Toggle menuOpen state |
 | closeMenu() | Set menuOpen to false |
 | menuHidden() | Returns not menuOpen (for ui-class-hidden) |
+| menuShowing() | Returns menuOpen (for ui-class-showing) |
 | selectApp(name) | Call mcp:display(name), close menu |
 | scanAvailableApps() | Scan apps/ directory for available apps |
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
@@ -225,7 +294,6 @@ The global `mcp` object is provided by the server. This app adds:
 | notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
 | notifications() | Returns _notifications for binding |
 | dismissNotification(n) | Remove notification from list |
-| variablesLinkHtml() | Returns cached HTML anchor for /variables endpoint (opens in new tab) |
 | helpLinkHtml() | Returns cached HTML anchor for /api/resource/ (opens in new tab) |
 | openTools() | Display app-console and select the current app |
 | currentAppName() | Returns kebab-case name of current app from mcp.value.type |
@@ -240,15 +308,20 @@ The global `mcp` object is provided by the server. This app adds:
 | isBackground() | Returns true if runInBackground is true |
 | isForeground() | Returns true if runInBackground is false |
 | backgroundTooltip() | Returns tooltip text for current execution mode |
-| togglePanel() | Toggle panelOpen state |
+| togglePanel() | Toggle panel; if open in non-chat mode, switch to chat first instead of closing |
 | panelHidden() | Returns not panelOpen |
-| panelIcon() | Returns "chat-dots-fill" if open, "chat-dots" if closed |
+| panelShowing() | Returns panelOpen (for ui-class-showing) |
+| panelIcon() | Returns "chat-dots-fill" if open and not in vars mode, "chat-dots" otherwise |
 | showChatPanel() | Set panelMode to "chat" |
 | showLuaPanel() | Set panelMode to "lua" |
 | notChatPanel() | Returns panelMode ~= "chat" |
 | notLuaPanel() | Returns panelMode ~= "lua" |
 | chatTabVariant() | Returns "primary" if chat, else "default" |
 | luaTabVariant() | Returns "primary" if lua, else "default" |
+| toggleVarsPanel() | Toggle vars mode: if panel is open in vars, deactivate and close; otherwise open in vars mode and activate browser |
+| varsIcon() | Returns "braces-asterisk" if panel is open in vars mode, "braces" otherwise |
+| notVarsPanel() | Returns panelMode ~= "vars" |
+| isVarsPanel() | Returns panelMode == "vars" |
 | sendChat() | Send chat event with current app as target; includes `images` array if attachments present |
 | processImageUpload() | Bridge trigger: parse JSON from imageUploadData, decode base64, write to storage/uploads/, add to _imageAttachments |
 | imageAttachments() | Returns _imageAttachments for binding |
@@ -261,7 +334,7 @@ The global `mcp` object is provided by the server. This app adds:
 | addAgentMessage(text) | Add agent message to chat, clear statusLine/statusClass |
 | addAgentThinking(text) | Add thinking message to chat, update statusLine/statusClass |
 | clearChat() | Clear messages list |
-| clearPanel() | Clear chat or lua output based on panelMode |
+| clearPanel() | Clear chat or lua output based on panelMode (no-op in vars mode) |
 | runLua() | Execute luaInput, append output to luaOutputLines |
 | clearLuaOutput() | Clear luaOutputLines |
 | focusLuaInput() | Set _luaInputFocusTrigger to JS that focuses input |
@@ -284,32 +357,59 @@ The global `mcp` object is provided by the server. This app adds:
 | noUpdateAvailable() | Returns not _needsUpdate |
 | updateAvailable() | Returns _needsUpdate |
 | hideUpdateNotification() | Returns true if notification should be hidden (no update, dismissed, or updating) |
+| showUpdateNotification() | Returns true if update available, not dismissed, and not updating (for ui-class-showing) |
 | dismissUpdateNotification() | Set _updateNotificationDismissed to true |
 | startUpdate() | Show the update confirmation dialog |
 | cancelUpdate() | Hide the update confirmation dialog |
 | confirmUpdate() | Emit pushState event with platform detection and update instructions, set _isUpdating |
 | isUpdating() | Returns _isUpdating |
 | notUpdating() | Returns not _isUpdating |
-| startTutorial() | Set tutorialStep=1, tutorialActive=true, tutorialPaused=false, run step 1 action |
-| nextTutorialStep() | Advance step; if past last step, call endTutorial(); else run new step's action |
-| prevTutorialStep() | Go back one step (min 1), run new step's action |
-| pauseTutorial() | Set tutorialPaused=true (hides overlay, shows resume pill) |
-| resumeTutorial() | Set tutorialPaused=false (restores overlay at current step) |
-| endTutorial() | Set tutorialActive=false, tutorialStep=0, write tutorialCompleted=true to ~/.claude/frictionless.json |
-| tutorialOverlayHidden() | Returns true when tutorial is inactive or paused |
-| tutorialPillHidden() | Returns true when tutorial is not paused |
-| tutorialSelector() | Returns CSS selector for current step |
-| tutorialPosition() | Returns card position for current step ("top", "left", "right") |
-| tutorialTitle() | Returns title for current step |
-| tutorialDescription() | Returns description for current step (conditional for steps 7-9) |
-| tutorialStepLabel() | Returns "N of 10" for current step |
-| tutorialIsFirstStep() | Returns tutorialStep == 1 |
-| tutorialIsNotFirstStep() | Returns tutorialStep > 1 |
-| tutorialNextLabel() | Returns "Finish" on last step, "Next" otherwise |
 | hasDownloadedApps() | Check if any app in app-console has _isDownloaded |
 | readUserSettings() | Read ~/.claude/frictionless.json, return table (or {} if missing) |
 | writeUserSettings(data) | Write table as JSON to ~/.claude/frictionless.json |
-| runTutorialAction(step) | Execute the action for the given step (openPanel, openAppConsole, etc.) |
+
+### MCP.Tutorial (spotlight tutorial)
+
+Separate prototype loaded from `tutorial.lua` via `require("mcp.tutorial")`. Instance stored at `mcp.tutorial`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| active | boolean | Whether the tutorial overlay is showing |
+| step | number | Current step (0 = not running, 1-11 = active) |
+| repositionCode | string | JS code that triggers spotlight repositioning (changes trigger ui-code) |
+| _shell | ref | Reference to the mcp shell object |
+| _repoCounter | number | Counter to ensure repositionCode value changes |
+| _realWaitTime | function | Saved original waitTime method during fake wait |
+| _tutorialWaitStart | number | Timestamp when fake wait started |
+| _savedMessages | ChatMessage[] | Saved chat messages during step 6 |
+| _savedLuaOutput | OutputLine[] | Saved Lua output during step 6 |
+| _savedTodos | TodoItem[] | Saved todos during step 6 |
+| _savedTodosCollapsed | boolean | Saved todos collapsed state during step 6 |
+
+| Method | Description |
+|--------|-------------|
+| new(shell) | Create tutorial instance with shell reference |
+| start() | Display app-console, set active=true, go to step 1 |
+| finish() | Cleanup current step, close menu/GitHub form, set active=false, step=0, clear repositionCode, write tutorialCompleted to user settings |
+| next() | Advance step; if past last step, call finish(); else goToStep |
+| prev() | Go back one step (min 1) via goToStep |
+| runAction(stepNum) | Execute the step's `run` function if it has one |
+| startFakeWait() | Save real `waitTime` method, replace with fake that returns 10+ elapsed seconds |
+| stopFakeWait() | Restore real `waitTime` method |
+| overlayShowing() | Returns active (for ui-class-showing) |
+| title() | Returns title for current step |
+| description() | Returns description for current step (evaluates function-typed descriptions via resolveField) |
+| selector() | Returns CSS selector for current step (evaluates function-typed selectors via resolveField) |
+| position() | Returns card position for current step |
+| topOffset() | Returns topOffset for current step (0 if not set) |
+| anchor() | Returns anchor selector for current step (empty string if not set) |
+| stepLabel() | Returns "N of 11" for current step |
+| isFirstStep() | Returns step == 1 |
+| nextLabel() | Returns "Finish" on last step, "Next" otherwise |
+| highlightActive() | Returns step number as string if current step has `cycling=true`, "0" otherwise |
+| deleteExampleHidden() | Returns true unless on step 8 with example app installed |
+| deleteExampleApp() | Deletes the example app via appConsole, then re-runs current step action and repositions (switches Path B → Path A) |
+| triggerReposition() | Sets repositionCode to call `window._tutReposition(selector, position, step, topOffset, anchor)` with counter suffix |
 
 ### MCP.Notification (notification toast)
 
@@ -398,6 +498,24 @@ The global `mcp` object is provided by the server. This app adds:
 | Method | Description |
 |--------|-------------|
 | remove() | Calls mcp:removeAttachment(self) |
+
+### MCP.VariableBrowser (inline variable browser)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| active | boolean | Whether the browser is currently active |
+| _shell | ref | Reference to the mcp shell object |
+| _variablesUrl | string | Cached relative URL for variables.json endpoint |
+| _pendingPopOut | string | Pending JS code for pop-out (cleared after read) |
+
+| Method | Description |
+|--------|-------------|
+| new(shell) | Create instance with shell reference |
+| variablesUrl() | Returns cached session-relative variables.json URL (e.g., `/{sessionId}/variables.json`) |
+| activate() | Set active to true |
+| deactivate() | Set active to false |
+| popOutCode() | Returns pending pop-out JS code (one-shot: clears after return) |
+| popOut() | Generate JS code to open full variable browser in new tab (stored in _pendingPopOut) |
 
 ### MCP.OutputLine (Lua console output)
 
@@ -530,7 +648,9 @@ The entire chat panel is a drop zone. Images can also be pasted via Ctrl+V.
 - JS: `<script>` block with drag/drop, paste, FileReader, thumbnail generation, updateValue calls
 
 ### Resizable
-- Drag handle at top edge (JavaScript mousedown/mousemove/mouseup)
+- Drag handle at top edge using RAF-loop drag pattern (see `.ui/patterns/event-compression.md`)
+- `mousedown` captures start position, `mousemove` stores `currentY`, RAF loop applies height changes only when position changes
+- Iframes get `pointer-events: none` during drag to prevent stealing events
 - Min height: 120px, Max: 60vh, Initial: 220px
 - CSS `flex-shrink: 0` prevents panel from being squished
 
@@ -562,7 +682,9 @@ Unknown labels get auto-calculated percentages based on position.
 
 | File | Type | Purpose |
 |------|------|---------|
-| MCP.DEFAULT.html | MCP | Shell with app view, chat panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress, tutorial overlay/pill |
+| MCP.DEFAULT.html | MCP | Shell with app view, chat/lua/vars panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress |
+| MCP.Tutorial.DEFAULT.html | MCP.Tutorial | Tutorial overlay with spotlight, description card, highlight cycling, and repositioning JS |
+| MCP.VariableBrowser.DEFAULT.html | MCP.VariableBrowser | Variable browser panel with iframe and pop-out button |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
 | MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |
@@ -570,6 +692,25 @@ Unknown labels get auto-calculated percentages based on position.
 | MCP.TodoItem.list-item.html | MCP.TodoItem | Todo item with status icon and text |
 | MCP.OutputLine.list-item.html | MCP.OutputLine | Clickable Lua output line (copies to input) |
 | MCP.ImageAttachment.list-item.html | MCP.ImageAttachment | Thumbnail preview with [x] remove button |
+
+### CSS Files
+
+CSS is extracted from viewdefs into separate files in `css/`, served via the `html/mcp` symlink (auto-created on app load):
+
+| File | Purpose |
+|------|---------|
+| css/shell.css | Shell structure, menu button/dropdown, status bar, notifications |
+| css/panel.css | Chat/Lua/Todo panel, resize handle, messages, images, lightbox |
+| css/tutorial.css | Tutorial overlay, spotlight, card, highlight cycling |
+| css/updates.css | Update star, notification banner, progress indicator |
+| css/dialog.css | Dialog overrides |
+| css/variables.css | Variable browser panel and iframe styling |
+
+### Symlink Auto-Creation
+
+On app load, `app.lua` ensures these symlinks exist:
+- `{base_dir}/html/mcp` → `../apps/mcp` (serves CSS and static files at `/mcp/`)
+- `{base_dir}/viewdefs/MCP.VariableBrowser.DEFAULT.html` → `../apps/mcp/viewdefs/MCP.VariableBrowser.DEFAULT.html`
 
 ## Events
 
