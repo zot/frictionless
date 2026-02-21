@@ -140,59 +140,7 @@
       background: var(--term-bg);
     }
 
-    /* Shoelace dark theme overrides */
-    sl-input::part(base),
-    sl-textarea::part(base) {
-      background: var(--term-bg);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    sl-input::part(input),
-    sl-textarea::part(textarea) {
-      color: var(--term-text);
-    }
-
-    sl-input::part(base):hover,
-    sl-textarea::part(base):hover {
-      border-color: var(--term-accent);
-    }
-
-    sl-input::part(base):focus-within,
-    sl-textarea::part(base):focus-within {
-      border-color: var(--term-accent);
-      box-shadow: 0 0 0 3px var(--term-accent-glow);
-    }
-
-    sl-button::part(base) {
-      font-family: var(--term-mono);
-      border-radius: 4px;
-    }
-
-    sl-button[variant="default"]::part(base),
-    sl-button:not([variant])::part(base) {
-      background: var(--term-bg-elevated);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    sl-button[variant="default"]::part(base):hover,
-    sl-button:not([variant])::part(base):hover {
-      background: var(--term-bg-hover);
-      border-color: var(--term-accent);
-      color: var(--term-accent);
-    }
-
-    sl-button[variant="primary"]::part(base) {
-      background: var(--term-accent);
-      border-color: var(--term-accent);
-      color: var(--term-bg);
-    }
-
-    sl-button[variant="primary"]::part(base):hover {
-      background: var(--term-accent-bright);
-      box-shadow: 0 0 12px var(--term-accent-glow);
-    }
+    /* Shoelace component styling is handled by theme CSS — don't override here */
 
     .hidden { display: none; }
     .hidden.showing { display: block; }
@@ -200,7 +148,7 @@
 
   <div class="claude-panel-root" ui-code="jsCode">
     <div class="main-content">
-      <div class="left-panel">
+      <div class="left-panel sidebar-panel">
         <div class="panel-header">
           <h2>Claude Panel</h2>
         </div>

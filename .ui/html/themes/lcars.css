@@ -26,6 +26,26 @@
   @description Input area with top accent bar
   @usage Chat input, form areas
   @elements div, form
+
+@class sidebar-panel
+  @description Side panel for navigation or auxiliary lists
+  @usage Sidebar panels containing lists or navigation
+  @elements div
+
+@class content-panel
+  @description Main content area for detail display
+  @usage Primary content panels showing detail information
+  @elements div
+
+@class content-card
+  @description Discrete content block within a panel
+  @usage Requirement blocks, test lists, settings sections
+  @elements div
+
+@class dock-panel
+  @description Docked panel for interactive tools
+  @usage Bottom chat panels, console panels
+  @elements div
 */
 
 /* Font imports */
@@ -142,7 +162,7 @@
   background: var(--term-bg);
 }
 
-/* ========== Shoelace overrides ========== */
+/* ========== Shoelace overrides (theme-specific only; shared defaults in base.css) ========== */
 .theme-lcars sl-button::part(base) {
   font-family: var(--term-mono);
   border-radius: 999px;
@@ -154,14 +174,10 @@
   padding: 0 0.75em;
 }
 
-.theme-lcars sl-spinner {
-  --track-color: var(--term-border);
-  --indicator-color: var(--term-accent);
-}
-
 .theme-lcars sl-alert::part(base) {
   font-family: var(--term-mono);
-  background: var(--term-bg-elevated);
-  border-color: var(--term-border);
-  color: var(--term-text);
+}
+
+.theme-lcars sl-dialog::part(overlay) {
+  background: rgba(0, 0, 0, 0.6);
 }

@@ -65,6 +65,8 @@ $(CACHE_DIR)/.cached: $(UI_ENGINE_DIR)/build/ui-engine-bundled
 		cp -r agents/* $(CACHE_DIR)/agents/ 2>/dev/null || true; \
 		echo "Copied agents"; \
 	fi
+	@# Fix ui-engine's .hidden !important which breaks the hidden+showing pattern
+	@sed -i '/\.hidden {/{N;N;s/ !important//;s|}$$|&\n     .hidden.showing {\n       display: block;\n     }|}' $(CACHE_DIR)/html/index.html
 	@# Copy html files to install/html for bundling
 	@rm -f install/html/*.js
 	@mkdir -p install/html

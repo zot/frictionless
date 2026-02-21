@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"net"
 	"net/http"
 	"os"
@@ -515,140 +514,33 @@ func (s *Server) SendNotification(method string, params interface{}) {
 	s.mcpServer.SendNotificationToAllClients(method, paramsMap)
 }
 
-// handleVariables renders a page with a variable tree for the current session.
-// Spec: mcp.md Section 2.2
+// handleVariables redirects to the UI port's static variable browser.
+// CRC: crc-MCPServer.md
 func (s *Server) handleVariables(w http.ResponseWriter, r *http.Request) {
-	sessionID := s.currentVendedID
-
-	variables, err := s.getDebugVariables(sessionID)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	html := `<!DOCTYPE html>
-<html>
-<head>
-  <title>Debug: Variables</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
-    h1 { color: #333; }
-    .error { color: red; padding: 10px; background: #fee; border-radius: 4px; }
-    .tree-container { margin-top: 20px; }
-    sl-tree { --indent-size: 20px; }
-    sl-tree-item::part(item) { padding: 4px 0; }
-    sl-tree-item.node-error::part(item) { background: #fee; }
-    sl-tree-item.node-error > .var-id,
-    sl-tree-item.node-error > .var-type,
-    sl-tree-item.node-error > .var-path { color: #c00; }
-    sl-tree-item.node-contains-error::part(item) { background: #fff3e0; }
-    sl-tree-item.node-contains-error > .var-id,
-    sl-tree-item.node-contains-error > .var-type { color: #e65100; }
-    .var-error { color: #c00; font-weight: bold; margin-left: 8px; }
-    .var-id { color: #666; font-size: 0.9em; margin-right: 8px; }
-    .var-type { color: #0066cc; font-weight: bold; margin-right: 8px; }
-    .var-path { color: #666; font-style: italic; margin-right: 8px; }
-    .var-value { color: #228b22; font-family: monospace; font-size: 0.9em; }
-    .var-props { color: #888; font-size: 0.8em; margin-left: 16px; }
-    .refresh-btn { margin-bottom: 16px; }
-    .filter-container { display: inline-flex; align-items: center; gap: 8px; margin-left: 16px; vertical-align: middle; }
-    .filter-container span { font-size: 14px; color: #666; }
-    pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
-    sl-tree-item.hidden-by-filter { display: none; }
-  </style>
-</head>
-<body>
-  <h1>Variable Tree - Session ` + sessionID + `</h1>
-  <sl-button class="refresh-btn" onclick="location.reload()">
-    <sl-icon slot="prefix" name="arrow-clockwise"></sl-icon>
-    Refresh
-  </sl-button>
-  <div class="filter-container">
-    <span>all</span>
-    <sl-switch id="error-filter"></sl-switch>
-    <span>errors</span>
-  </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const toggle = document.getElementById('error-filter');
-      toggle.addEventListener('sl-change', () => {
-        const showOnlyErrors = toggle.checked;
-        document.querySelectorAll('sl-tree-item').forEach(item => {
-          if (showOnlyErrors) {
-            const hasError = item.classList.contains('node-error') || item.classList.contains('node-contains-error');
-            item.classList.toggle('hidden-by-filter', !hasError);
-          } else {
-            item.classList.remove('hidden-by-filter');
-          }
-        });
-      });
-    });
-  </script>
-`
-
-	if err != nil {
-		html += `<div class="error">Error: ` + err.Error() + `</div>`
-	} else if len(variables) == 0 {
-		html += `<div class="error">No variables found for session ` + sessionID + `</div>`
-	} else {
-		html += `<div class="tree-container"><sl-tree>`
-		html += s.renderVariableTree(variables)
-		html += `</sl-tree></div>`
-
-		jsonBytes, _ := json.MarshalIndent(variables, "", "  ")
-		html += `<h2>Raw JSON</h2><pre>` + escapeHTML(string(jsonBytes)) + `</pre>`
-	}
-
-	html += `</body></html>`
-	w.Write([]byte(html))
+	s.mu.RLock()
+	port := s.uiPort
+	s.mu.RUnlock()
+	http.Redirect(w, r, fmt.Sprintf("http://localhost:%d/variables", port), http.StatusTemporaryRedirect)
 }
 
-// handleState renders a page with the session state JSON for the current session.
-// Spec: mcp.md Section 2.2
+// handleState returns raw JSON state for the current session.
+// CRC: crc-MCPServer.md
 func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	sessionID := s.currentVendedID
 
 	stateData, err := s.getDebugState(sessionID)
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	html := `<!DOCTYPE html>
-<html>
-<head>
-  <title>Debug: State</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/themes/light.css" />
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.19.1/cdn/shoelace-autoloader.js"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto; }
-    h1 { color: #333; }
-    .error { color: red; padding: 10px; background: #fee; border-radius: 4px; }
-    .refresh-btn { margin-bottom: 16px; }
-    pre { background: #f5f5f5; padding: 16px; border-radius: 4px; overflow-x: auto; font-size: 14px; line-height: 1.5; }
-  </style>
-</head>
-<body>
-  <h1>Session State - Session ` + sessionID + `</h1>
-  <sl-button class="refresh-btn" onclick="location.reload()">
-    <sl-icon slot="prefix" name="arrow-clockwise"></sl-icon>
-    Refresh
-  </sl-button>
-`
-
 	if err != nil {
-		html += `<div class="error">Error: ` + err.Error() + `</div>`
-	} else if stateData == nil {
-		html += `<div class="error">No state found for session ` + sessionID + `</div>`
-	} else {
-		jsonBytes, err := json.MarshalIndent(stateData, "", "  ")
-		if err != nil {
-			html += `<div class="error">Error formatting JSON: ` + err.Error() + `</div>`
-		} else {
-			html += `<h2>State JSON</h2><pre>` + escapeHTML(string(jsonBytes)) + `</pre>`
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	html += `</body></html>`
-	w.Write([]byte(html))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	jsonBytes, err := json.MarshalIndent(stateData, "", "  ")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(jsonBytes)
 }
 
 // getDebugState returns the state for a session (mcp.state or mcp.value).
@@ -675,134 +567,6 @@ func (s *Server) getDebugState(sessionID string) (interface{}, error) {
 	})
 }
 
-// renderVariableTree renders variables as nested sl-tree-item elements.
-func (s *Server) renderVariableTree(variables []cli.DebugVariable) string {
-	varMap := make(map[int64]cli.DebugVariable)
-	for _, v := range variables {
-		varMap[v.ID] = v
-	}
-
-	// Compute which nodes have errors
-	hasError := make(map[int64]bool)
-	for _, v := range variables {
-		if v.Error != "" {
-			hasError[v.ID] = true
-		}
-	}
-
-	// Compute which nodes contain descendants with errors (bottom-up)
-	containsError := make(map[int64]bool)
-	var computeContainsError func(id int64) bool
-	computeContainsError = func(id int64) bool {
-		v, ok := varMap[id]
-		if !ok {
-			return false
-		}
-		for _, childID := range v.ChildIDs {
-			if hasError[childID] || computeContainsError(childID) {
-				containsError[id] = true
-			}
-		}
-		return containsError[id]
-	}
-
-	var roots []int64
-	for _, v := range variables {
-		if v.ParentID == 0 {
-			roots = append(roots, v.ID)
-			computeContainsError(v.ID)
-		}
-	}
-
-	var result strings.Builder
-	for _, rootID := range roots {
-		s.renderVariableNode(&result, varMap, rootID, hasError, containsError)
-	}
-	return result.String()
-}
-
-// renderVariableNode renders a single variable and its children.
-func (s *Server) renderVariableNode(sb *strings.Builder, varMap map[int64]cli.DebugVariable, varID int64, hasError, containsError map[int64]bool) {
-	v, ok := varMap[varID]
-	if !ok {
-		return
-	}
-
-	valueStr := ""
-	if v.Value != nil {
-		valueBytes, _ := json.Marshal(v.Value)
-		valueStr = string(valueBytes)
-		if len(valueStr) > 100 {
-			valueStr = valueStr[:100] + "..."
-		}
-	}
-
-	label := `<span class="var-id">#` + fmt.Sprintf("%d", v.ID) + `</span>`
-	if v.Type != "" {
-		label += `<span class="var-type">` + v.Type + `</span>`
-	}
-	if v.Path != "" {
-		label += `<span class="var-path">` + v.Path + `</span>`
-	}
-	if valueStr != "" {
-		label += `<span class="var-value">` + escapeHTML(valueStr) + `</span>`
-	}
-	if v.Error != "" {
-		label += `<span class="var-error">` + escapeHTML(v.Error) + `</span>`
-	}
-
-	hasChildren := len(v.ChildIDs) > 0
-
-	// Determine CSS class based on error state
-	cssClass := ""
-	if hasError[varID] {
-		cssClass = " class=\"node-error\""
-	} else if containsError[varID] {
-		cssClass = " class=\"node-contains-error\""
-	}
-
-	if hasChildren {
-		sb.WriteString(`<sl-tree-item` + cssClass + ` expanded>`)
-	} else {
-		sb.WriteString(`<sl-tree-item` + cssClass + `>`)
-	}
-	sb.WriteString(label)
-
-	if len(v.Properties) > 0 {
-		sb.WriteString(`<div class="var-props">`)
-		first := true
-		for k, val := range v.Properties {
-			if k == "type" || k == "path" {
-				continue
-			}
-			if !first {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(k + "=" + val)
-			first = false
-		}
-		sb.WriteString(`</div>`)
-	}
-
-	_, typename := cli.TypeName(v.Variable.Value)
-	fmt.Fprintf(sb, `<div>Value Type: %s</div>`, typename)
-	_, typename = cli.TypeName(v.Variable.WrapperValue)
-	fmt.Fprintf(sb, `<div>Wrapper Type: %s</div>`, typename)
-	fmt.Fprintf(sb, `<div>Property Type: %s</div>`, v.Variable.Properties["type"])
-	if v.Variable.WrapperValue != nil {
-		fmt.Fprintf(sb, `<div>Wrapper JSON: %#v</div>`, v.Tracker.ToValueJSON(v.Variable.WrapperValue))
-	}
-	if v.Variable.WrapperValue != nil {
-		t := v.Tracker.Resolver.GetType(v.Variable, v.Variable.WrapperValue)
-		fmt.Fprintf(sb, `<div>Computed Wrapper Type: %s</div>`, t)
-	}
-	for _, childID := range v.ChildIDs {
-		s.renderVariableNode(sb, varMap, childID, hasError, containsError)
-	}
-
-	sb.WriteString(`</sl-tree-item>`)
-}
-
 // parsePortFromURL extracts the port number from a URL like "http://localhost:8080".
 func parsePortFromURL(urlStr string) (int, error) {
 	lastColon := strings.LastIndex(urlStr, ":")
@@ -822,10 +586,6 @@ func parsePortFromURL(urlStr string) (int, error) {
 	return port, nil
 }
 
-// escapeHTML escapes special HTML characters using the standard library.
-func escapeHTML(s string) string {
-	return html.EscapeString(s)
-}
 
 // pushStateEvent adds an event to the queue and signals waiting clients.
 // Called from Lua via mcp.pushState().

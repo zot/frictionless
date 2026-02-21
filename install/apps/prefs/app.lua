@@ -3,6 +3,7 @@
 
 local Prefs = session:prototype("Prefs", {
     _themes = {},
+    _themeScanTime = 0,
     _currentTheme = "lcars"
 })
 
@@ -27,7 +28,59 @@ function ThemeItem:swatchStyle()
     return "background-color: " .. self.accentColor .. ";"
 end
 
+function Prefs:scanThemes()
+    local themeDir = mcp:status().base_dir .. "/html/themes"
+    local names = {}
+    local handle = io.popen('ls "' .. themeDir .. '"/*.css 2>/dev/null')
+    if not handle then return end
+    for line in handle:lines() do
+        local file = io.open(line, "r")
+        if file then
+            local head = file:read(2048) or ""
+            file:close()
+            local name = head:match("@theme%s+(%S+)")
+            if name and name ~= "base" then
+                local desc = head:match("@description%s+([^\n]+)") or ""
+                local accent = head:match("%-%-term%-accent:%s*(#%x+)") or ""
+                names[name] = {description = desc, accentColor = accent}
+            end
+        end
+    end
+    handle:close()
+    -- Build sorted list, reusing existing ThemeItems where possible
+    local byName = {}
+    for _, t in ipairs(self._themes) do
+        byName[t.name] = t
+    end
+    local result = {}
+    local sorted = {}
+    for n in pairs(names) do sorted[#sorted + 1] = n end
+    table.sort(sorted)
+    for _, n in ipairs(sorted) do
+        local existing = byName[n]
+        if existing then
+            existing.description = names[n].description
+            existing.accentColor = names[n].accentColor
+            result[#result + 1] = existing
+        else
+            local item = session:create(ThemeItem, {
+                name = n,
+                description = names[n].description,
+                accentColor = names[n].accentColor,
+                _prefs = self
+            })
+            result[#result + 1] = item
+        end
+    end
+    self._themes = result
+    self._themeScanTime = os.time()
+end
+
 function Prefs:themes()
+    local now = os.time()
+    if now - (self._themeScanTime or 0) >= 1 then
+        self:scanThemes()
+    end
     return self._themes
 end
 
@@ -42,6 +95,8 @@ function Prefs:setCurrentTheme(name)
     settings.theme = name
     mcp:writeSettings(settings)
     self:applyTheme(name)
+    -- Re-inject theme block so future page loads include all theme CSS links
+    mcp:reinjectThemes()
 end
 
 function Prefs:applyTheme(name)
@@ -87,38 +142,8 @@ end
 
 -- Initialize on load
 if not session.reloading then
-    prefs = session:create(Prefs, {
-        _themes = {
-            session:create(ThemeItem, {
-                name = "clarity",
-                description = "Clean, editorial light theme with slate blue accent",
-                accentColor = "#3b6ea5",
-                _prefs = nil
-            }),
-            session:create(ThemeItem, {
-                name = "lcars",
-                description = "Subtle Star Trek LCARS-inspired design",
-                accentColor = "#E07A47",
-                _prefs = nil
-            }),
-            session:create(ThemeItem, {
-                name = "midnight",
-                description = "Modern dark theme with teal accent",
-                accentColor = "#2dd4bf",
-                _prefs = nil
-            }),
-            session:create(ThemeItem, {
-                name = "ninja",
-                description = "Playful teal theme with cute cartoon ninjas",
-                accentColor = "#1a8a99",
-                _prefs = nil
-            })
-        }
-    })
-    -- Link theme items back to prefs
-    for _, theme in ipairs(prefs._themes) do
-        theme._prefs = prefs
-    end
+    prefs = session:create(Prefs)
+    prefs:scanThemes()
     -- Load saved theme from settings file
     prefs:loadThemeFromSettings()
 end

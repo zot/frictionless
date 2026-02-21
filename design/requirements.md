@@ -66,6 +66,12 @@
 - **R51:** Bundle multiple themes: lcars, clarity, midnight, ninja
 - **R52:** MCP.DEFAULT.html uses only shell CSS wrapped in `@layer components`
 - **R53:** Prefs app allows runtime theme switching with localStorage persistence
+- **R136:** Theme switching dynamically adds CSS `<link>` tag if the theme's stylesheet is not yet loaded
+- **R137:** Provide `mcp:reinjectThemes()` Lua method that re-scans themes and updates index.html theme block
+- **R138:** `theme classes` without a theme argument returns classes from all themes, deduplicated
+- **R139:** `theme audit APP` without a theme argument audits against the all-themes class list
+- **R140:** Theme CSS files define structural semantic classes (`sidebar-panel`, `content-panel`, `content-card`, `dock-panel`) for layout hooks
+- **R141:** Stock app viewdefs use structural semantic classes on sidebar, content, card, and dock elements
 
 ## Feature: Helper Scripts
 **Source:** specs/helper-scripts.md
@@ -171,3 +177,13 @@
 - **R122:** The bookmarklet checks if `window.open` returned null (popup blocked) and alerts the user
 - **R123:** The bookmarklet waits for a 'ready' signal from the relay page before sending data via `postMessage`
 - **R124:** The bookmarklet uses origin checking on message events for security
+
+## Feature: Debug Pages
+**Source:** specs/debug-pages.md
+
+- **R130:** MCP port `/variables` and `/state` serve static HTML files from `{base_dir}/html/` instead of embedding HTML in Go code
+- **R131:** Static debug pages are bundled in `install/html/` and installed to `.ui/html/` on install/upgrade
+- **R132:** Variable browser click-to-copy: clicking any cell except Path copies the variable's full JSON to clipboard
+- **R133:** Click-to-copy shows a brief toast notification confirming the copy
+- **R134:** MCP port `/state` returns raw JSON (not embedded HTML) for script consumption
+- **R135:** MCP port `/variables` redirects to the UI port's variable browser

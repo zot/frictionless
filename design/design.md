@@ -30,8 +30,12 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] seq-audit.md → `internal/mcp/audit.go`, `internal/mcp/tools.go`
 - [x] seq-theme-inject.md → `internal/mcp/theme.go`, `internal/mcp/server.go`
 - [x] seq-theme-list.md → `internal/mcp/theme.go`
+- [x] seq-theme-audit.md → `internal/mcp/theme.go`, `internal/mcp/tools.go`
 - [x] seq-publisher-lifecycle.md → `internal/publisher/publisher.go`, `internal/mcp/subscribe.go`
 - [x] seq-publish-subscribe.md → `internal/publisher/publisher.go`, `internal/mcp/subscribe.go`
+
+### UI Layouts
+- [x] ui-variable-browser.md → `install/html/variables.html`
 
 ### Test Designs
 - [ ] test-MCP.md → `internal/mcp/tools_test.go`
@@ -78,8 +82,8 @@ Support multiple MCP transport modes:
 ### HTTP Endpoints (MCP port)
 Debug and inspect runtime state:
 - `GET /wait`: Long-poll for mcp.pushState() events
-- `GET /variables`: Interactive variable tree view
-- `GET /state`: Current session state JSON
+- `GET /variables`: Redirects to UI port `/variables` (static HTML served from `{base_dir}/html/variables.html`)
+- `GET /state`: Redirects to UI port `/state`
 
 Tool API (Spec 2.5) - enables curl access for spawned agents:
 - `GET /api/ui_status`: Get server status
@@ -122,6 +126,7 @@ Registered by `setupMCPGlobal` in each session:
 | `display` | `mcp:display(appName: string)` | `true` or `nil, errmsg` |
 | `status` | `mcp:status()` | `table` (see below) |
 | `subscribe` | `mcp:subscribe(topic: string, handler: function)` | `nil` |
+| `reinjectThemes` | `mcp:reinjectThemes()` | `true` or `nil, errmsg` |
 
 **`mcp:status()` returns:**
 | Field | Type | Description |
@@ -198,6 +203,9 @@ Cross-platform binary builds via Makefile:
   - [x] Updated theme CLI commands (list, classes, audit)
   - [x] Prefs app for theme switching with localStorage persistence
   - [ ] Theme test coverage (ParseThemeCSS, InjectThemeBlock, AuditAppTheme)
+  - [x] All-themes class listing (GetAllThemeClasses, no-arg classes/audit)
+  - [x] Structural semantic classes (@class declarations in all themes, brume rules)
+  - [x] Stock app viewdef semantic class usage
 - [ ] O6: Publisher test coverage
   - [ ] Publisher server (publish, subscribe, fan-out, TTL wait, idle shutdown)
   - [ ] MCPSubscribe (poll loop, ensurePublisher, handler dispatch)

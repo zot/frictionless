@@ -314,6 +314,19 @@ func runInstall(args []string) int {
 	return 0
 }
 
+func printThemeClasses(classes []mcp.ThemeClass) {
+	fmt.Println("Classes:")
+	for _, c := range classes {
+		fmt.Printf("  .%s\n", c.Name)
+		fmt.Printf("    %s\n", c.Description)
+		fmt.Printf("    Usage: %s\n", c.Usage)
+		if len(c.Elements) > 0 {
+			fmt.Printf("    Elements: %s\n", strings.Join(c.Elements, ", "))
+		}
+		fmt.Println()
+	}
+}
+
 // runTheme handles theme management commands (file-based, no server needed).
 func runTheme(args []string) int {
 	// Default dir to .ui
@@ -362,32 +375,20 @@ func runTheme(args []string) int {
 		if len(actionArgs) > 0 {
 			theme = actionArgs[0]
 		}
-		if theme == "" {
-			theme = mcp.GetCurrentTheme(baseDir)
-		}
-		if theme == "" {
-			fmt.Fprintln(os.Stderr, "No theme specified and no current theme set")
-			return 1
-		}
-
-		fm, err := mcp.GetThemeClasses(baseDir, theme)
+		themeName, classes, err := mcp.ResolveThemeClasses(baseDir, theme)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting theme classes: %v\n", err)
 			return 1
 		}
-
-		fmt.Printf("Theme: %s\n", fm.Name)
-		fmt.Printf("Description: %s\n\n", fm.Description)
-		fmt.Println("Classes:")
-		for _, c := range fm.Classes {
-			fmt.Printf("  .%s\n", c.Name)
-			fmt.Printf("    %s\n", c.Description)
-			fmt.Printf("    Usage: %s\n", c.Usage)
-			if len(c.Elements) > 0 {
-				fmt.Printf("    Elements: %s\n", strings.Join(c.Elements, ", "))
+		fmt.Printf("Theme: %s\n", themeName)
+		if theme != "" {
+			fm, _ := mcp.GetThemeClasses(baseDir, theme)
+			if fm != nil && fm.Description != "" {
+				fmt.Printf("Description: %s\n", fm.Description)
 			}
-			fmt.Println()
 		}
+		fmt.Println()
+		printThemeClasses(classes)
 		return 0
 
 	case "audit":
@@ -400,14 +401,6 @@ func runTheme(args []string) int {
 		if len(actionArgs) > 1 {
 			theme = actionArgs[1]
 		}
-		if theme == "" {
-			theme = mcp.GetCurrentTheme(baseDir)
-		}
-		if theme == "" {
-			fmt.Fprintln(os.Stderr, "No theme specified and no current theme set")
-			return 1
-		}
-
 		result, err := mcp.AuditAppTheme(baseDir, app, theme)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error auditing theme: %v\n", err)

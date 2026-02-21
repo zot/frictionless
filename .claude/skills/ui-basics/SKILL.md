@@ -262,18 +262,59 @@ List item viewdef (`MyApp.Item.list-item.html`):
 
 **Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes.
 
+### Shoelace Component Styling
+
+**Apps MUST defer Shoelace component styling to themes.** Do NOT add `::part()` overrides for Shoelace components (buttons, inputs, textareas, selects, dialogs, alerts, badges, spinners, progress bars, icon-buttons) in app viewdefs. These are styled by `base.css` (shared defaults) and theme CSS files (theme-specific overrides).
+
+**Architecture:**
+- `base.css` provides shared Shoelace defaults using `var(--term-*)` variables (no theme prefix)
+- Each theme overrides only what's unique: font-family, border-radius, special effects (e.g. brume's glass/backdrop-filter)
+- Theme-prefixed selectors (`.theme-brume sl-button::part(base)`) win over base.css by specificity
+
+**What apps CAN style:** Layout properties (padding, margin, gap, flex, grid), structural properties (font-size on specific elements), and app-specific classes. What they must NOT style: colors, backgrounds, borders, and box-shadows on Shoelace `::part()` selectors.
+
 ### Semantic Theme Classes
+
+**Live discovery:** Run `.ui/mcp theme classes` to get the authoritative list of all semantic classes across all installed themes — including user-added themes. Always check this before writing viewdefs for a new app or major feature.
+
+These additional classes are used in viewdefs but not declared as `@class` in theme CSS:
 
 | Class | Description |
 |-------|-------------|
-| `.panel-header` | Header bar with bottom accent |
-| `.panel-header-left` | Header bar with left accent |
-| `.section-header` | Collapsible section header with hover feedback |
 | `.item` | Base class for list items |
 | `.selected` | Selected state modifier (use with `.item`) |
-| `.input-area` | Input area with top accent |
 
 Compose theme + app classes: `<div class="panel-header app-list-header">` — theme class for styling, app class for layout overrides.
+
+**Theme audit:** Run `.ui/mcp theme audit APP` after writing viewdefs to catch undocumented classes and missed opportunities to use semantic classes.
+
+### Creating Themes
+
+Every theme CSS file **must** have a comment block at the top with these annotations (required by `theme list`, `theme classes`, and `theme audit`):
+
+```css
+/*
+@theme my-theme
+@description Short theme description
+
+@class panel-header
+  @description Header bar with bottom accent
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class another-class
+  @description What this class is for
+  @usage When to use it
+  @elements div
+*/
+```
+
+**Required annotations:**
+- `@theme` — theme name (must match the CSS filename without extension)
+- `@description` — theme-level description
+- `@class` blocks — one per semantic class, each with `@description`, `@usage`, and `@elements`
+
+Before creating a theme, run `.ui/mcp theme classes` to see the existing semantic classes. A new theme should declare and style all of them and may add new ones. `@description` should describe what the class looks like in *this* theme (e.g. "Header bar with soft bottom glow"). `@usage` should be generic and structural — it describes *when* to use the class, not how it looks (e.g. "Panel/section headers with title and action buttons").
 
 ## Favicons
 

@@ -1,7 +1,7 @@
 # ThemeManager
 
 **Source Spec:** specs/pluggable-themes.md
-**Requirements:** R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53
+**Requirements:** R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53, R136, R137, R138, R139, R140, R141
 
 Manages theme CSS files and index.html injection.
 
@@ -23,6 +23,10 @@ Manages theme CSS files and index.html injection.
   - `@class` blocks with `@description`, `@usage`, `@elements` attributes
 - **InjectThemeBlock(baseDir)**: Updates index.html with frictionless block (skips if block already present)
 - **GenerateThemeBlock(themes, defaultTheme)**: Generates HTML with script + link elements
+- **ListThemesWithInfo(baseDir)**: Returns themes with descriptions, accent colors, current theme
+- **GetThemeAccentColor(cssContent)**: Extracts `--term-accent` value from CSS
+- **GetAllThemeClasses(baseDir)**: Scans all theme CSS files, returns deduplicated union of all `@class` entries
+- **AuditAppTheme(baseDir, appName, theme)**: Compares app CSS classes against documented theme classes; empty theme uses all-themes list
 - **WatchIndexHTML(baseDir, log)**: Watches index.html for writes; re-injects theme block if missing
 
 ## Collaborators
@@ -36,3 +40,4 @@ Manages theme CSS files and index.html injection.
 
 - seq-theme-inject.md
 - seq-theme-list.md
+- seq-theme-audit.md

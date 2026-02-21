@@ -33,6 +33,7 @@
     </div>
 
     <div class="vars-status"></div>
+    <div class="vars-toast">Copied</div>
   </div>
 
   <!-- Pop-out trigger (method returns code once then clears) -->
@@ -273,6 +274,7 @@
       var v = row.v, depth = row.depth, hasChildren = row.hasChildren, isCollapsed = row.collapsed;
       var tr = document.createElement('tr');
       tr.dataset.id = v.id;
+      tr._varData = v;
 
       for (var i = 0; i < COLUMNS.length; i++) {
         var col = COLUMNS[i];
@@ -491,6 +493,27 @@
     var colPickerMenu = document.querySelector('.vars-col-picker-menu');
     if (colPickerMenu) {
       colPickerMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+    }
+
+    // --- Click-to-copy ---
+    function showToast() {
+      var toast = document.querySelector('.vars-toast');
+      if (!toast) return;
+      toast.classList.add('show');
+      setTimeout(function() { toast.classList.remove('show'); }, 1200);
+    }
+
+    var tbody = document.querySelector('.vars-table-body');
+    if (tbody) {
+      tbody.addEventListener('click', function(e) {
+        var td = e.target.closest('td');
+        if (!td) return;
+        // Skip interactive columns (tree expand/collapse and diag buttons)
+        if (td.classList.contains('col-path') || td.classList.contains('col-diags')) return;
+        var tr = td.closest('tr');
+        if (!tr || !tr._varData) return;
+        navigator.clipboard.writeText(JSON.stringify(tr._varData, null, 2)).then(showToast);
+      });
     }
 
     // --- Auto-fetch when URL becomes available ---

@@ -30,10 +30,10 @@ When trouble arises, look at the most recent changes first. If you changed a CSS
 
 ## When committing
 1. Check git status and diff to analyze changes
-2. Ask about any new files to ensure test/temp files aren't added accidentally
-3. Add all changes (or only staged files if you specify "staged only")
-4. Generate a clear commit message with terse bullet points
-5. Create the commit and verify success
+2. **NEVER use `git add` to stage files.** Ask the user to stage files themselves. This repo has many untracked temp/test files that must not be committed.
+3. Generate a clear commit message with terse bullet points
+4. Create the commit using only what the user has staged
+5. Verify success
 
 ## Versioning and Releasing
 

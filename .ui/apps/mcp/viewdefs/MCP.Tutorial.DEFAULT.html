@@ -2,7 +2,7 @@
   <!-- Tutorial overlay (visible when active and not paused) -->
   <div class="tutorial-overlay hidden" ui-class-showing="overlayShowing()">
     <div class="tutorial-backdrop"></div>
-    <div class="tutorial-card" style="cursor:grab">
+    <div class="tutorial-card content-card" style="cursor:grab">
       <div class="tutorial-step-counter">STEP <span ui-value="stepLabel()"></span><span class="tut-progress-bar"><span class="tut-progress-fill"></span></span></div>
       <div class="tutorial-title" ui-value="title()"></div>
       <div class="tutorial-description" ui-html="description()"></div>
@@ -126,6 +126,7 @@
             window._tutSched._step = step;
             window._tutSched._phase2 = false;
             window._tutSched._remeasured = false;
+            window._tutSched._step1Polling = false;
             // Enter: resize panel for steps 5-6
             if (step === 5 || step === 6) {
               var p = document.querySelector('.mcp-chat-panel');
@@ -214,26 +215,23 @@
           });
         }
 
-        // Step 1 phase 2: after 3s, open menu, add glow, reposition card below dropdown
-        if (step === 1) {
-          window._tutSched.after(3000, function() {
-            var btn = document.querySelector('.mcp-menu-button');
-            if (btn) btn.click();
-            // Poll until dropdown becomes visible (batch from btn.click() is async)
-            var pollId = setInterval(function() {
-              var md = document.querySelector('.mcp-menu-dropdown');
-              if (md && md.classList.contains('showing')) {
-                clearInterval(pollId);
-                md.classList.add('tut-menu-glow');
-                var mr = md.getBoundingClientRect();
-                card.style.left = Math.max(margin, mr.right - cardWidth) + 'px';
-                card.style.top = (mr.bottom + margin) + 'px';
-                window._tutSched._phase2 = true;
-              }
-            }, 50);
-            // Safety: cancel poll after 5s
-            window._tutSched.after(5000, function() { clearInterval(pollId); });
-          });
+        // Step 1 phase 2: menu opened from Lua (run action);
+        // poll until dropdown is visible, then add glow and reposition card
+        if (step === 1 && !window._tutSched._step1Polling) {
+          window._tutSched._step1Polling = true;
+          var pollId = setInterval(function() {
+            var md = document.querySelector('.mcp-menu-dropdown');
+            if (md && md.classList.contains('showing')) {
+              clearInterval(pollId);
+              md.classList.add('tut-menu-glow');
+              var mr = md.getBoundingClientRect();
+              card.style.left = Math.max(margin, mr.right - cardWidth) + 'px';
+              card.style.top = (mr.bottom + margin) + 'px';
+              window._tutSched._phase2 = true;
+            }
+          }, 100);
+          // Safety: cancel poll after 10s
+          window._tutSched.after(10000, function() { clearInterval(pollId); });
         }
       }, 50); });
     };

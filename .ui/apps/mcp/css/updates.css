@@ -35,11 +35,7 @@
   font-size: 13px;
 }
 
-.mcp-update-notification sl-alert::part(base) {
-  background: var(--term-bg-elevated);
-  border: 1px solid var(--term-accent);
-  color: var(--term-text);
-}
+/* Alert styling is handled by theme CSS */
 
 .mcp-update-notification .update-actions {
   display: flex;

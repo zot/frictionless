@@ -47,3 +47,135 @@
 /* Utility classes: hidden + showing pattern for flash-free visibility toggling */
 .hidden { display: none; }
 .hidden.showing { display: block; }
+
+/* ========== Shoelace component defaults (all themes) ========== */
+/* Themes override these when they need different styling (e.g. brume's glass effects) */
+
+/* -- Inputs & Textareas -- */
+sl-input::part(base),
+sl-textarea::part(base),
+sl-select::part(combobox) {
+  background: var(--term-bg);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}
+
+sl-input::part(input),
+sl-textarea::part(textarea),
+sl-select::part(display-input) {
+  color: var(--term-text);
+}
+
+sl-input::part(base):hover,
+sl-textarea::part(base):hover,
+sl-select::part(combobox):hover {
+  border-color: var(--term-accent);
+}
+
+sl-input::part(base):focus-within,
+sl-textarea::part(base):focus-within,
+sl-select::part(combobox):focus-within {
+  border-color: var(--term-accent);
+  box-shadow: 0 0 0 3px var(--term-accent-glow);
+}
+
+sl-input::part(form-control-label),
+sl-textarea::part(form-control-label),
+sl-select::part(form-control-label) {
+  color: var(--term-text-dim);
+}
+
+/* -- Buttons -- */
+sl-button[variant="default"]::part(base) {
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}
+
+sl-button[variant="default"]::part(base):hover {
+  background: var(--term-bg-hover);
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+sl-button[variant="primary"]::part(base) {
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+  color: var(--term-bg);
+}
+
+sl-button[variant="primary"]::part(base):hover {
+  background: var(--term-accent-bright);
+  box-shadow: 0 0 12px var(--term-accent-glow);
+}
+
+sl-button[variant="warning"]::part(base) {
+  background: var(--term-warning-dim);
+  border-color: var(--term-warning);
+  color: var(--term-warning);
+}
+
+sl-button[variant="danger"]::part(base) {
+  background: var(--term-danger-dim);
+  border-color: var(--term-danger);
+  color: var(--term-danger);
+}
+
+sl-button[variant="success"]::part(base) {
+  background: var(--term-success-dim);
+  border-color: var(--term-success);
+  color: var(--term-success);
+}
+
+/* -- Icon buttons -- */
+sl-icon-button::part(base) {
+  color: var(--term-text-dim);
+}
+
+sl-icon-button::part(base):hover {
+  color: var(--term-accent);
+}
+
+/* -- Dialogs -- */
+sl-dialog::part(panel) {
+  background: var(--term-bg-elevated);
+  color: var(--term-text);
+  border: 1px solid var(--term-border);
+}
+
+sl-dialog::part(title) {
+  font-family: var(--term-mono);
+  color: var(--term-accent);
+}
+
+sl-dialog::part(overlay) {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+sl-dialog::part(body) {
+  color: var(--term-text);
+}
+
+sl-dialog::part(footer) {
+  border-top: 1px solid var(--term-border);
+}
+
+/* -- Spinners -- */
+sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+/* -- Alerts -- */
+sl-alert::part(base) {
+  background: var(--term-bg-elevated);
+  border-color: var(--term-border);
+  color: var(--term-text);
+}
+
+/* -- Progress bars -- */
+sl-progress-bar {
+  --height: 6px;
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}

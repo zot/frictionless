@@ -104,6 +104,7 @@ Write `{base_dir}/apps/<app>/app.lua` — Lua classes and logic.
 ```bash
 .ui/mcp linkapp add <app>
 .ui/mcp audit <app>
+.ui/mcp theme audit <app>
 ```
 
 The audit tool checks Lua code and viewdefs for common violations. Also do **AI-based checks**:

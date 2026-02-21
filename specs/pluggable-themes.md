@@ -66,19 +66,39 @@ The watcher must avoid infinite loops: when InjectThemeBlock itself writes the f
 ## Theme Switching
 
 ### Runtime (Browser)
-```javascript
-document.documentElement.className = 'theme-' + name;
-localStorage.setItem('theme', name);
-```
+When switching to a theme, the browser must:
+1. Ensure the theme's CSS file is loaded (add `<link>` if missing)
+2. Set the `<html>` class to `theme-{name}`
+3. Persist the choice to localStorage
+
+This handles themes added after the page was loaded (e.g., user-created themes whose `<link>` tag isn't yet in `index.html`).
 
 ### Page Load
 Inline script in `<head>` restores theme from localStorage before CSS loads.
 
+### Server-Side Persistence
+When a theme is selected, the server re-injects the theme block into `index.html` so that future page loads include `<link>` tags for all current themes. This is exposed as `mcp:reinjectThemes()` in Lua.
+
 ## CLI Commands
 
 - `theme list` - Scan `.css` files, parse metadata from comments
-- `theme classes [THEME]` - Parse `@class` annotations from CSS comments
-- `theme audit APP [THEME]` - Audit app's CSS class usage against theme
+- `theme classes [THEME]` - Parse `@class` annotations from CSS comments; no theme argument returns the union of classes from all themes, deduplicated
+- `theme audit APP [THEME]` - Audit app's CSS class usage against theme; no theme argument audits against the all-themes class list
+
+## Structural Semantic Classes
+
+Themes define structural semantic classes for layout hooks on common UI patterns:
+
+- `sidebar-panel` — Side panel for navigation or auxiliary lists
+- `content-panel` — Main content area for detail display
+- `content-card` — Discrete content block within a panel
+- `dock-panel` — Docked panel for interactive tools (chat, console)
+
+All theme CSS files declare these classes via `@class` annotations. Individual themes provide styling rules as appropriate (e.g., brume applies glass/blur effects).
+
+### Stock App Convention
+
+Stock app viewdefs use structural semantic classes on their layout elements. Apps defer Shoelace component styling to themes via `base.css` and theme-specific overrides rather than embedding Shoelace `::part()` rules in viewdefs.
 
 ## Installation
 

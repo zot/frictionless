@@ -144,7 +144,7 @@
       </div>
 
       <div class="prefs-content">
-        <div class="prefs-section">
+        <div class="prefs-section content-card">
           <h2>Updates</h2>
           <div style="display: flex; align-items: center; gap: 16px;">
             <sl-checkbox ui-attr-checked="checkUpdates()" ui-event-sl-change="toggleCheckUpdates()">
@@ -154,7 +154,7 @@
           </div>
         </div>
 
-        <div class="prefs-section">
+        <div class="prefs-section content-card">
           <h2>Tutorial</h2>
           <sl-button size="small" variant="default" ui-action="startTutorial()">
             <sl-icon name="mortarboard" slot="prefix"></sl-icon>
@@ -162,7 +162,7 @@
           </sl-button>
         </div>
 
-        <div class="prefs-section" ui-class-hidden="themesHidden()">
+        <div class="prefs-section content-card" ui-class-hidden="themesHidden()">
           <h2>Themes</h2>
           <div class="theme-list" ui-view="themes()?wrapper=lua.ViewList"></div>
         </div>
@@ -177,6 +177,14 @@
       if (!panel) return;
 
       panel.applyTheme = function(name) {
+        // Ensure theme CSS is loaded (new themes may not be in index.html yet)
+        var href = '/themes/' + name + '.css';
+        if (!document.querySelector('link[href="' + href + '"]')) {
+          var link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = href;
+          document.head.appendChild(link);
+        }
         document.documentElement.className = 'theme-' + name;
         // Mirror to localStorage so index.html can apply theme instantly on page load
         localStorage.setItem('theme', name);

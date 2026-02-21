@@ -69,7 +69,7 @@ eb2185e694 initial state      # checkpoint 3
 4. Check `.ui/patterns/` for reusable patterns (if building new features)
 5. **Do the work**, updating progress as you go
 6. **Verify** (see Fast verify below)
-7. Run `.ui/mcp audit APP`
+7. Run `.ui/mcp audit APP` and `.ui/mcp theme audit APP`
 8. **Checkpoint** after finishing
 
 ## Progress Steps

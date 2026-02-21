@@ -974,6 +974,18 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
+		// mcp:reinjectThemes() - re-scan themes and update index.html
+		// CRC: crc-MCPServer.md
+		L.SetField(mcpTable, "reinjectThemes", L.NewFunction(func(L *lua.LState) int {
+			if err := InjectThemeBlock(s.baseDir); err != nil {
+				L.Push(lua.LNil)
+				L.Push(lua.LString(err.Error()))
+				return 2
+			}
+			L.Push(lua.LTrue)
+			return 1
+		}))
+
 		// Register mcp:subscribe(topic, handler) for publisher integration
 		// CRC: crc-MCPSubscribe.md
 		s.registerSubscribeMethod(vendedID, mcpTable)
@@ -1411,30 +1423,17 @@ func (s *Server) handleTheme(ctx context.Context, request mcp.CallToolRequest) (
 		result = listResult
 
 	case "classes":
-		if theme == "" {
-			theme = GetCurrentTheme(baseDir)
-		}
-		if theme == "" {
-			return mcp.NewToolResultError("no theme specified and no current theme set"), nil
-		}
-		fm, classErr := GetThemeClasses(baseDir, theme)
+		// CRC: crc-ThemeManager.md | Seq: seq-theme-audit.md
+		themeName, classes, classErr := ResolveThemeClasses(baseDir, theme)
 		if classErr != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("getting theme classes: %v", classErr)), nil
 		}
-		result = ThemeClassesResult{
-			Theme:   theme,
-			Classes: fm.Classes,
-		}
+		result = ThemeClassesResult{Theme: themeName, Classes: classes}
 
 	case "audit":
+		// CRC: crc-ThemeManager.md | Seq: seq-theme-audit.md
 		if app == "" {
 			return mcp.NewToolResultError("app is required for audit action"), nil
-		}
-		if theme == "" {
-			theme = GetCurrentTheme(baseDir)
-		}
-		if theme == "" {
-			return mcp.NewToolResultError("no theme specified and no current theme set"), nil
 		}
 		result, err = AuditAppTheme(baseDir, app, theme)
 		if err != nil {

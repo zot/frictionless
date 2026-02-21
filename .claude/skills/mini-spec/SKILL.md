@@ -5,11 +5,11 @@ description: **Use proactively**. Use a central index to explore the project. Up
 
 # Mini-spec
 
-## Prerequisite: Get Comment Patterns
+## Prerequisite: Version Check and Comment Patterns
 
-**First**, run `~/.claude/bin/minispec query comment-patterns` to:
-1. Verify the tool is installed (if not, offer to install per the mini-spec skill readme)
-2. Learn the recognized comment patterns for traceability comments in code files
+**First**, run `~/.claude/bin/minispec check-version` to verify the tool is installed and matches this skill's version. If it fails, warn the user: the tool and skill must be the same version or there will be compatibility issues.
+
+**Then**, run `~/.claude/bin/minispec query comment-patterns` to learn the recognized comment patterns for traceability comments in code files.
 
 ## MANDATORY: Create Tasks First
 
@@ -39,6 +39,18 @@ docs/     # user-manual.md, developer-guide.md
 src/      # Code with traceability comments
 ```
 
+## Why This Matters
+
+Each level exists because skipping it has a concrete cost:
+
+- **Verification** — Design is smaller than code. The user can confirm you understood the task *before* you write hundreds of lines.
+- **Preview** — The design tells the user what you're about to change. Without it, they discover unwanted modifications after the fact.
+- **Reference** — During implementation, you look up the design instead of re-reading all the code. This keeps changes consistent across files.
+- **Anchor** — Without a design document, iterative modifications cause **drift**: features silently disappear as code evolves across sessions. The design pins what must survive.
+- **Traceability** — The specs→requirements→design chain ensures nothing is lost between what the user asked for and what gets built. When something breaks, you can trace backward to find out why.
+
+The phases are not ceremony. They are cheaper than debugging a misunderstood requirement after 500 lines of code.
+
 ## Task Tracking
 
 **During implementation**, break down into per-file tasks:
@@ -58,6 +70,7 @@ TaskCreate: "Update design docs"
 - Before using a callback, see if a collaborator reference would be simpler
 - write idiomatic code for the language you use
 - avoid holding locks in sections that have significant functionality
+- **No unanchored design:** every design artifact must trace back to a spec item and requirement. If you need to add something to the design, add it to specs first, then requirements, then design. This prevents features from existing only in the AI's interpretation.
 
 ## Cross-cutting Concerns
 
@@ -272,6 +285,9 @@ The `minispec` CLI tool (at `~/.claude/bin/minispec`) performs structural operat
 - Querying artifact states and coverage
 
 ```bash
+# Version check (run on skill load)
+~/.claude/bin/minispec check-version         # Verify tool and skill versions match
+
 # Phase-specific validation (run after each phase)
 ~/.claude/bin/minispec phase spec            # Verify spec files exist
 ~/.claude/bin/minispec phase requirements    # Verify requirements format

@@ -306,14 +306,6 @@
 .mcp-notification sl-alert {
   font-family: var(--term-mono);
   font-size: 13px;
-  background: var(--term-bg-elevated);
-  border: 1px solid var(--term-border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}
-
-.mcp-notification sl-alert::part(base) {
-  background: var(--term-bg-elevated);
-  border: 1px solid var(--term-border);
 }
 
 .hidden { display: none; }

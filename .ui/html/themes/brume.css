@@ -1,0 +1,468 @@
+/*
+@theme brume
+@description Warm fog theme with golden haze and rounded softness
+
+@class panel-header
+  @description Header bar with soft bottom glow
+  @usage Panel/section headers with title and action buttons
+  @elements div, header
+
+@class panel-header-left
+  @description Header with left accent bar
+  @usage Detail panels, secondary headers
+  @elements div, header
+
+@class section-header
+  @description Collapsible section header with hover effects
+  @usage Collapsible sections within panels
+  @elements div
+
+@class selected-item
+  @description Selected item with warm fog highlight
+  @usage List items in selected state
+  @elements div, li
+
+@class input-area
+  @description Input area with top accent
+  @usage Chat input, form areas
+  @elements div, form
+
+@class sidebar-panel
+  @description Side panel for navigation or auxiliary lists
+  @usage Sidebar panels containing lists or navigation
+  @elements div
+
+@class content-panel
+  @description Main content area for detail display
+  @usage Primary content panels showing detail information
+  @elements div
+
+@class content-card
+  @description Discrete content block within a panel
+  @usage Requirement blocks, test lists, settings sections
+  @elements div
+
+@class dock-panel
+  @description Docked panel for interactive tools
+  @usage Bottom chat panels, console panels
+  @elements div
+*/
+
+/* Font imports - DM Sans for warm geometric clarity + Fira Code for soft ligatures */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Fira+Code:wght@400;500;600&display=swap');
+
+/* ========== Variables ========== */
+.theme-brume {
+  --term-bg: #f3f0ec;
+  --term-bg-elevated: rgba(255,252,248,0.65);
+  --term-bg-hover: rgba(255,252,248,0.7);
+  --term-bg-panel: #f0ece7;
+  --term-border: rgba(190,165,135,0.25);
+  --term-text: #4a4440;
+  --term-text-dim: #8a7e72;
+  --term-text-muted: #a09488;
+  --term-accent: #c49a6c;
+  --term-accent-glow: rgba(196,154,108,0.2);
+  --term-accent-bright: #d4aa7c;
+  --term-accent-dim: rgba(196,154,108,0.1);
+  --term-success: #6a9a5b;
+  --term-success-dim: rgba(106,154,91,0.12);
+  --term-warning: #b5920d;
+  --term-warning-dim: rgba(181,146,13,0.12);
+  --term-danger: #c05050;
+  --term-danger-dim: rgba(192,80,80,0.12);
+  --term-error: #c05050;
+  --term-error-dim: rgba(192,80,80,0.12);
+  --term-info: #7a96b8;
+  --term-mono: 'Fira Code', 'Consolas', monospace;
+  --term-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+/* ========== Base Styles ========== */
+.theme-brume html,
+.theme-brume body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-text);
+}
+
+/* Warm fog atmosphere — stronger gradients to match preview */
+.theme-brume body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 100% 50% at 70% 0%, rgba(210,185,155,0.3) 0%, transparent 65%),
+    radial-gradient(ellipse 80% 70% at 10% 100%, rgba(200,180,160,0.2) 0%, transparent 55%);
+}
+
+/* ========== Theme Classes ========== */
+.theme-brume .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid rgba(190,165,135,0.2);
+  background: var(--term-bg-elevated);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 2px 18px rgba(190,165,135,0.08);
+}
+
+.theme-brume .panel-header-left {
+  border-left: 3px solid var(--term-accent);
+  padding-left: 12px;
+}
+
+.theme-brume .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0 8px 10px;
+  border-left: 2px solid var(--term-border);
+  border-radius: 0 8px 8px 0;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.theme-brume .section-header:hover {
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+  background: var(--term-accent-dim);
+}
+
+.theme-brume .selected-item {
+  background: rgba(196,154,108,0.1);
+  border-left: 3px solid var(--term-accent);
+  border-radius: 0 10px 10px 0;
+  box-shadow: 0 2px 20px rgba(196,154,108,0.14), 0 0 0 1px rgba(196,154,108,0.06);
+}
+
+.theme-brume .input-area {
+  border-top: 1.5px solid var(--term-border);
+  padding-top: 12px;
+}
+
+/* ========== Structural Panels ========== */
+.theme-brume .sidebar-panel {
+  background: rgba(255,252,248,0.6);
+  backdrop-filter: blur(14px);
+  border-right: 1px solid rgba(190,165,135,0.25);
+  box-shadow: 2px 0 24px rgba(190,165,135,0.1);
+}
+
+.theme-brume .content-panel {
+  background: rgba(245,240,234,0.4);
+}
+
+.theme-brume .content-card {
+  background: rgba(255,252,248,0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(190,165,135,0.28);
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(190,165,135,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
+}
+
+.theme-brume .dock-panel {
+  background: rgba(255,252,248,0.6);
+  backdrop-filter: blur(14px);
+  border-top: 1.5px solid rgba(190,165,135,0.25);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 24px rgba(190,165,135,0.1);
+}
+
+/* ========== Scrollbars ========== */
+.theme-brume * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--term-border) transparent;
+}
+
+.theme-brume ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-brume ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.theme-brume ::-webkit-scrollbar-thumb {
+  background: var(--term-border);
+  border-radius: 8px;
+}
+
+.theme-brume ::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent);
+}
+
+.theme-brume ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ========== Shoelace overrides ========== */
+
+/* -- Buttons -- */
+.theme-brume sl-button::part(base) {
+  font-family: var(--term-sans);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.theme-brume sl-button[variant="default"]::part(base) {
+  background: rgba(196,154,108,0.12);
+  border-color: rgba(196,154,108,0.25);
+  color: #9a7a58;
+}
+
+.theme-brume sl-button[variant="default"]::part(base):hover {
+  background: rgba(196,154,108,0.2);
+  border-color: var(--term-accent);
+  color: var(--term-accent);
+}
+
+.theme-brume sl-button[variant="primary"]::part(base) {
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+  color: #fff;
+}
+
+.theme-brume sl-button[variant="primary"]::part(base):hover {
+  background: var(--term-accent-bright);
+  border-color: var(--term-accent-bright);
+  box-shadow: 0 2px 16px rgba(196,154,108,0.25);
+}
+
+.theme-brume sl-button[variant="warning"]::part(base) {
+  background: var(--term-warning-dim);
+  border-color: var(--term-warning);
+  color: var(--term-warning);
+}
+
+.theme-brume sl-button[variant="danger"]::part(base) {
+  background: var(--term-danger-dim);
+  border-color: var(--term-danger);
+  color: var(--term-danger);
+}
+
+.theme-brume sl-button[variant="success"]::part(base) {
+  background: var(--term-success-dim);
+  border-color: var(--term-success);
+  color: var(--term-success);
+}
+
+/* -- Inputs & Textareas -- */
+.theme-brume sl-input::part(base),
+.theme-brume sl-textarea::part(base),
+.theme-brume sl-select::part(combobox) {
+  background: rgba(255,252,248,0.5);
+  border: 1.5px solid rgba(190,165,135,0.2);
+  border-radius: 12px;
+  color: var(--term-text);
+  box-shadow: inset 0 1px 6px rgba(190,165,135,0.08);
+}
+
+.theme-brume sl-input::part(input),
+.theme-brume sl-textarea::part(textarea),
+.theme-brume sl-select::part(display-input) {
+  color: var(--term-text);
+  font-family: var(--term-sans);
+}
+
+.theme-brume sl-input::part(base):hover,
+.theme-brume sl-textarea::part(base):hover,
+.theme-brume sl-select::part(combobox):hover {
+  border-color: rgba(196,154,108,0.4);
+}
+
+.theme-brume sl-input::part(base):focus-within,
+.theme-brume sl-textarea::part(base):focus-within,
+.theme-brume sl-select::part(combobox):focus-within {
+  border-color: var(--term-accent);
+  box-shadow: 0 0 0 3px var(--term-accent-glow), inset 0 1px 6px rgba(190,165,135,0.08);
+}
+
+.theme-brume sl-input::part(form-control-label),
+.theme-brume sl-textarea::part(form-control-label),
+.theme-brume sl-select::part(form-control-label) {
+  color: var(--term-text-dim);
+}
+
+/* -- Badges -- */
+.theme-brume sl-badge::part(base) {
+  font-family: var(--term-mono);
+  border-radius: 10px;
+  padding: 0 0.7em;
+  background: rgba(196,154,108,0.1);
+  color: #9a7a58;
+}
+
+.theme-brume sl-badge[variant="primary"]::part(base) {
+  background: rgba(196,154,108,0.12);
+  color: #9a7a58;
+}
+
+.theme-brume sl-badge[variant="success"]::part(base) {
+  background: var(--term-success-dim);
+  color: var(--term-success);
+}
+
+.theme-brume sl-badge[variant="warning"]::part(base) {
+  background: var(--term-warning-dim);
+  color: var(--term-warning);
+}
+
+.theme-brume sl-badge[variant="danger"]::part(base) {
+  background: var(--term-danger-dim);
+  color: var(--term-danger);
+}
+
+/* -- Icon buttons -- */
+.theme-brume sl-icon-button::part(base) {
+  color: var(--term-text-dim);
+}
+
+.theme-brume sl-icon-button::part(base):hover {
+  color: var(--term-accent);
+}
+
+/* -- Spinner -- */
+.theme-brume sl-spinner {
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+/* -- Alerts -- */
+.theme-brume sl-alert::part(base) {
+  font-family: var(--term-sans);
+  background: rgba(255,252,248,0.85);
+  backdrop-filter: blur(12px);
+  border-color: rgba(190,165,135,0.15);
+  color: var(--term-text);
+  border-radius: 12px;
+  box-shadow: 0 4px 28px rgba(190,165,135,0.12), 0 1px 6px rgba(190,165,135,0.06);
+}
+
+/* -- Dialogs -- */
+.theme-brume sl-dialog::part(panel) {
+  background: rgba(255,252,248,0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(190,165,135,0.15);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(190,165,135,0.2);
+  color: var(--term-text);
+}
+
+.theme-brume sl-dialog::part(title) {
+  font-family: var(--term-mono);
+  color: var(--term-accent);
+}
+
+.theme-brume sl-dialog::part(overlay) {
+  background: rgba(200,190,175,0.3);
+  backdrop-filter: blur(4px);
+}
+
+.theme-brume sl-dialog::part(body) {
+  color: var(--term-text);
+}
+
+.theme-brume sl-dialog::part(footer) {
+  border-top: 1px solid var(--term-border);
+}
+
+/* -- Progress bars -- */
+.theme-brume sl-progress-bar {
+  --height: 6px;
+  --track-color: var(--term-border);
+  --indicator-color: var(--term-accent);
+}
+
+/* -- Checkboxes -- */
+.theme-brume sl-checkbox::part(control) {
+  border-radius: 6px;
+  border-color: var(--term-border);
+}
+
+.theme-brume sl-checkbox::part(control--checked) {
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+}
+
+/* ========== MCP shell overrides (replace LCARS swooshes with warm fog) ========== */
+
+/* Transparent shell so body::before gradient shows through for backdrop-filter */
+.theme-brume .mcp-shell {
+  background: transparent;
+}
+
+/* Status bar — glass with soft top edge */
+.theme-brume .mcp-status-bar {
+  border-top: 1.5px solid rgba(190,165,135,0.2);
+  border-left: none;
+  border-radius: 0;
+  background: rgba(255,252,248,0.5);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 -2px 18px rgba(190,165,135,0.06);
+}
+
+/* Todo header — warm accent underline */
+.theme-brume .mcp-todo-header {
+  border-bottom: 1.5px solid var(--term-accent);
+  border-radius: 0;
+}
+
+/* Panel header (chat/lua) — left accent, glass background */
+.theme-brume .mcp-panel-header {
+  border-left: 3px solid var(--term-accent);
+  border-radius: 0;
+  background: rgba(255,252,248,0.4);
+  backdrop-filter: blur(8px);
+}
+
+/* Chat input area — subtle top edge */
+.theme-brume .mcp-chat-input-area {
+  border-top: 1.5px solid rgba(190,165,135,0.2);
+  border-radius: 0;
+}
+
+/* Menu button — warm glass pill */
+.theme-brume .mcp-menu-button {
+  box-shadow: 0 4px 24px rgba(190,165,135,0.15), 0 1px 3px rgba(190,165,135,0.08);
+  background: rgba(255,252,248,0.85);
+  backdrop-filter: blur(12px);
+}
+
+.theme-brume .mcp-menu-button:hover {
+  box-shadow: 0 4px 24px rgba(190,165,135,0.2), 0 0 15px var(--term-accent-glow);
+}
+
+/* Menu dropdown — rounded glass card */
+.theme-brume .mcp-menu-dropdown {
+  border-left: 3px solid var(--term-accent);
+  border-radius: 12px;
+  background: rgba(255,252,248,0.85);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 40px rgba(190,165,135,0.15), 0 1px 3px rgba(190,165,135,0.06);
+}
+
+.theme-brume .mcp-menu-dropdown::before {
+  border-bottom: 1.5px solid var(--term-accent);
+  border-radius: 0;
+}
+
+/* Notification styling */
+.theme-brume .mcp-notification sl-alert {
+  background: rgba(255,252,248,0.85);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(190,165,135,0.12);
+}
+
+.theme-brume .mcp-notification sl-alert::part(base) {
+  background: rgba(255,252,248,0.85);
+  backdrop-filter: blur(12px);
+}

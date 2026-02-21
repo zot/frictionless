@@ -354,8 +354,6 @@
 .mcp-lua-input-area sl-textarea::part(textarea) {
   font-family: var(--term-mono);
   font-size: 12px;
-  background: var(--term-bg);
-  color: var(--term-text);
 }
 
 .mcp-lua-buttons {
@@ -374,61 +372,7 @@
 .mcp-vars-panel:not(.hidden) { display: flex; }
 .mcp-vars-panel > div { min-width: 0; flex: 1; }
 
-/* Chat panel button styles */
-.mcp-chat-panel sl-button[variant="default"]::part(base) {
-  background: var(--term-bg-elevated);
-  border-color: var(--term-border);
-  color: var(--term-text);
-}
-
-.mcp-chat-panel sl-button[variant="default"]::part(base):hover {
-  background: var(--term-bg-hover);
-  border-color: var(--term-accent);
-  color: var(--term-accent);
-}
-
-.mcp-chat-panel sl-button[variant="primary"]::part(base) {
-  background: var(--term-accent);
-  border-color: var(--term-accent);
-  color: var(--term-bg);
-}
-
-.mcp-chat-panel sl-button[variant="primary"]::part(base):hover {
-  background: var(--term-accent-bright);
-  box-shadow: 0 0 12px var(--term-accent-glow);
-}
-
-/* Shoelace overrides for chat panel inputs */
-.mcp-chat-panel sl-input::part(base),
-.mcp-chat-panel sl-textarea::part(base) {
-  background: var(--term-bg);
-  border-color: var(--term-border);
-  color: var(--term-text);
-}
-
-.mcp-chat-panel sl-input::part(input),
-.mcp-chat-panel sl-textarea::part(textarea) {
-  color: var(--term-text);
-}
-
-.mcp-chat-panel sl-input::part(base):hover,
-.mcp-chat-panel sl-textarea::part(base):hover {
-  border-color: var(--term-accent);
-}
-
-.mcp-chat-panel sl-input::part(base):focus-within,
-.mcp-chat-panel sl-textarea::part(base):focus-within {
-  border-color: var(--term-accent);
-  box-shadow: 0 0 0 3px var(--term-accent-glow);
-}
-
-.mcp-chat-panel sl-icon-button::part(base) {
-  color: var(--term-text-dim);
-}
-
-.mcp-chat-panel sl-icon-button::part(base):hover {
-  color: var(--term-accent);
-}
+/* Shoelace component styling is handled by theme CSS */
 
 /* Chat toggle active state */
 .mcp-build-mode-toggle.panel-active sl-icon {

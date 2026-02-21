@@ -27,6 +27,21 @@ local function exampleAppInstalled()
     return false
 end
 
+local EXAMPLE_URL = "https://github.com/zot/frictionless/tree/main/apps/example"
+
+local function openExampleGitHubForm()
+    if not appConsole then return end
+    appConsole:openGitHubForm()
+    appConsole.github.url = EXAMPLE_URL
+    appConsole.github:investigate()
+end
+
+local function cancelGitHubForm()
+    if appConsole and appConsole.github and appConsole.github.visible then
+        appConsole.github:cancel()
+    end
+end
+
 -- Bottom Controls highlight items: {text, buttonIndex}
 local CONTROLS_ITEMS = {
     {text = "{} variables inspector", idx = 0},
@@ -49,7 +64,9 @@ local STEPS = {
         selector = ".mcp-menu-button",
         position = "left",
         cycling = true,
-        -- Menu open is delayed; handled by JS in triggerReposition
+        run = function(tut, shell)
+            shell.menuOpen = true
+        end,
         cleanup = function(tut, shell) shell.menuOpen = false end
     },
     -- Step 2: Connection Status
@@ -271,21 +288,6 @@ local function resolveField(s, field)
     local val = s[field]
     if type(val) == "function" then return val() end
     return val or ""
-end
-
-local EXAMPLE_URL = "https://github.com/zot/frictionless/tree/main/apps/example"
-
-local function openExampleGitHubForm()
-    if not appConsole then return end
-    appConsole:openGitHubForm()
-    appConsole.github.url = EXAMPLE_URL
-    appConsole.github:investigate()
-end
-
-local function cancelGitHubForm()
-    if appConsole and appConsole.github and appConsole.github.visible then
-        appConsole.github:cancel()
-    end
 end
 
 -- Undo the side effects of the current step before leaving it

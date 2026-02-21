@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137
 
 ## Responsibilities
 
@@ -13,7 +13,7 @@
 - activeSession: Current session for AI interaction
 - config: Server configuration (paths, I/O settings)
 - uiPort: UI server port (serves HTML/JS/WebSocket)
-- mcpPort: MCP server port (serves /state, /wait, /variables)
+- mcpPort: MCP server port (serves /wait, /api/*, redirects /variables and /state to UI port)
 - getSessionCount: Callback to query active browser session count
 - currentVendedID: Current session's vended ID for cleanup on reconfigure
 - stateWaiters: Waiting HTTP requests for current session (channels)
@@ -39,10 +39,10 @@
 - getStatus: Return current URL and session count
 - shutdown: Clean up MCP connection
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
-- handleVariables: Render interactive variable tree (GET /variables)
-- handleState: Return session state JSON (GET /state)
+- handleVariables: Redirect MCP port /variables to UI port variable browser (R130, R135)
+- handleState: Return raw JSON state for the current session (R134)
 - handleAppReadme: Serve app's README.md as HTML (GET /app/{app}/readme); case-insensitive file lookup; renders markdown via goldmark
-- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status)
+- setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status, mcp:reinjectThemes)
 - loadMCPLua: Load `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
 - loadAppInitFiles: Scan `{base_dir}/apps/*/` and load `init.lua` from each app directory if it exists
 - tryStartPublisher: Goroutine started from Start(); creates Publisher and calls ListenAndServe on port 25283; silently exits if port already bound

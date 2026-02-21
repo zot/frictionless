@@ -221,6 +221,53 @@ func GetThemeClasses(baseDir, theme string) (*ThemeFrontmatter, error) {
 	return ParseThemeCSS(content)
 }
 
+// CRC: crc-ThemeManager.md | Seq: seq-theme-audit.md
+// GetAllThemeClasses scans all theme CSS files and returns a deduplicated union of all @class entries.
+func GetAllThemeClasses(baseDir string) ([]ThemeClass, error) {
+	themes, err := ListThemes(baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing themes: %w", err)
+	}
+
+	seen := make(map[string]bool)
+	var classes []ThemeClass
+
+	for _, theme := range themes {
+		fm, err := GetThemeClasses(baseDir, theme)
+		if err != nil {
+			continue // skip themes that fail to parse
+		}
+		for _, c := range fm.Classes {
+			if !seen[c.Name] {
+				seen[c.Name] = true
+				classes = append(classes, c)
+			}
+		}
+	}
+
+	sort.Slice(classes, func(i, j int) bool {
+		return classes[i].Name < classes[j].Name
+	})
+	return classes, nil
+}
+
+// ResolveThemeClasses returns the theme label and class list for a given theme name.
+// If theme is empty, it returns the deduplicated union of all themes with the label "(all)".
+func ResolveThemeClasses(baseDir, theme string) (string, []ThemeClass, error) {
+	if theme == "" {
+		classes, err := GetAllThemeClasses(baseDir)
+		if err != nil {
+			return "", nil, fmt.Errorf("getting all theme classes: %w", err)
+		}
+		return "(all)", classes, nil
+	}
+	fm, err := GetThemeClasses(baseDir, theme)
+	if err != nil {
+		return "", nil, fmt.Errorf("getting theme classes: %w", err)
+	}
+	return theme, fm.Classes, nil
+}
+
 // InjectThemeBlock updates index.html with the frictionless theme block
 func InjectThemeBlock(baseDir string) error {
 	indexPath := filepath.Join(baseDir, "html", "index.html")
@@ -235,7 +282,7 @@ func InjectThemeBlock(baseDir string) error {
 		return fmt.Errorf("listing themes: %w", err)
 	}
 
-	block := GenerateThemeBlock(themes, GetCurrentTheme(baseDir))
+	block := GenerateThemeBlock(baseDir, themes, GetCurrentTheme(baseDir))
 
 	// Remove existing frictionless block if present
 	html := frictionlessBlockPattern.ReplaceAllString(string(content), "")
@@ -277,13 +324,21 @@ func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ..
 	}
 
 	indexPath := filepath.Join(baseDir, "html", "index.html")
+	themesDir := filepath.Join(baseDir, "html", "themes")
 
-	// Watch the directory (not the file) because editors and build tools
-	// often replace files atomically (write tmp + rename), which removes the watch.
+	// Watch the html directory for index.html changes
 	watchDir := filepath.Join(baseDir, "html")
 	if err := watcher.Add(watchDir); err != nil {
 		watcher.Close()
 		return nil, fmt.Errorf("watching %s: %w", watchDir, err)
+	}
+
+	// Watch the themes directory for CSS changes (cache busting)
+	if _, err := os.Stat(themesDir); err == nil {
+		if err := watcher.Add(themesDir); err != nil {
+			watcher.Close()
+			return nil, fmt.Errorf("watching %s: %w", themesDir, err)
+		}
 	}
 
 	go func() {
@@ -293,18 +348,24 @@ func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ..
 				if !ok {
 					return
 				}
-				if event.Name != indexPath {
-					continue
-				}
 				if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
 					continue
 				}
-				if HasThemeBlock(baseDir) {
-					continue
-				}
-				logFn(2, "index.html changed without theme block, re-injecting")
-				if err := InjectThemeBlock(baseDir); err != nil {
-					logFn(0, "Warning: failed to re-inject theme block: %v", err)
+				if event.Name == indexPath {
+					// index.html changed — re-inject if theme block is missing
+					if HasThemeBlock(baseDir) {
+						continue
+					}
+					logFn(2, "index.html changed without theme block, re-injecting")
+					if err := InjectThemeBlock(baseDir); err != nil {
+						logFn(0, "Warning: failed to re-inject theme block: %v", err)
+					}
+				} else if strings.HasSuffix(event.Name, ".css") && strings.HasPrefix(event.Name, themesDir) {
+					// Theme CSS changed — re-inject to update cache-busting timestamps
+					logFn(2, "theme CSS changed: %s, updating cache-busting", filepath.Base(event.Name))
+					if err := InjectThemeBlock(baseDir); err != nil {
+						logFn(0, "Warning: failed to re-inject theme block: %v", err)
+					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -319,7 +380,7 @@ func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ..
 }
 
 // GenerateThemeBlock creates the HTML block to inject into index.html
-func GenerateThemeBlock(themes []string, defaultTheme string) string {
+func GenerateThemeBlock(baseDir string, themes []string, defaultTheme string) string {
 	var sb strings.Builder
 
 	sb.WriteString("  <!-- #frictionless -->\n")
@@ -329,12 +390,16 @@ func GenerateThemeBlock(themes []string, defaultTheme string) string {
 	sb.WriteString(fmt.Sprintf("    document.documentElement.className = 'theme-' + (localStorage.getItem('theme') || '%s');\n", defaultTheme))
 	sb.WriteString("  </script>\n")
 
-	// Base CSS always first
-	sb.WriteString("  <link rel=\"stylesheet\" href=\"/themes/base.css\">\n")
+	themesDir := filepath.Join(baseDir, "html", "themes")
 
-	// Theme CSS files
+	// Base CSS always first (with cache busting)
+	baseCB := cssModTime(filepath.Join(themesDir, "base.css"))
+	sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/base.css%s\">\n", baseCB))
+
+	// Theme CSS files (with cache busting)
 	for _, theme := range themes {
-		sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/%s.css\">\n", theme))
+		cb := cssModTime(filepath.Join(themesDir, theme+".css"))
+		sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/%s.css%s\">\n", theme, cb))
 	}
 
 	// Favicon placeholder - set dynamically by each app's DEFAULT viewdef script
@@ -345,6 +410,16 @@ func GenerateThemeBlock(themes []string, defaultTheme string) string {
 	return sb.String()
 }
 
+// cssModTime returns a cache-busting query string based on the file's modification time.
+// Returns empty string if the file cannot be stat'd.
+func cssModTime(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("?v=%d", info.ModTime().Unix())
+}
+
 // isSkippedClass returns true for classes that should be excluded from auditing
 func isSkippedClass(class string) bool {
 	if class == "" || class == "hidden" {
@@ -353,16 +428,21 @@ func isSkippedClass(class string) bool {
 	return strings.HasPrefix(class, "sl-") || strings.HasPrefix(class, "ui-")
 }
 
-// AuditAppTheme compares an app's CSS class usage against documented theme classes
+// AuditAppTheme compares an app's CSS class usage against documented theme classes.
+// If theme is empty, it audits against the union of all themes.
 func AuditAppTheme(baseDir, appName, theme string) (*ThemeAuditResult, error) {
-	themeFM, err := GetThemeClasses(baseDir, theme)
+	themeName, classes, err := ResolveThemeClasses(baseDir, theme)
 	if err != nil {
-		return nil, fmt.Errorf("getting theme classes: %w", err)
+		return nil, err
 	}
+	return AuditAppWithClasses(baseDir, appName, themeName, classes)
+}
 
+// AuditAppWithClasses compares an app's CSS class usage against a provided class list.
+func AuditAppWithClasses(baseDir, appName, themeName string, classes []ThemeClass) (*ThemeAuditResult, error) {
 	// Build set of documented classes
-	documentedClasses := make(map[string]bool, len(themeFM.Classes))
-	for _, c := range themeFM.Classes {
+	documentedClasses := make(map[string]bool, len(classes))
+	for _, c := range classes {
 		documentedClasses[c.Name] = true
 	}
 
@@ -414,7 +494,7 @@ func AuditAppTheme(baseDir, appName, theme string) (*ThemeAuditResult, error) {
 
 	result := &ThemeAuditResult{
 		App:                 appName,
-		Theme:               theme,
+		Theme:               themeName,
 		UndocumentedClasses: make([]ClassUsage, 0),
 		UnusedThemeClasses:  make([]string, 0),
 	}
@@ -427,7 +507,7 @@ func AuditAppTheme(baseDir, appName, theme string) (*ThemeAuditResult, error) {
 	}
 
 	// Find unused theme classes (in theme but not used by this app)
-	for _, c := range themeFM.Classes {
+	for _, c := range classes {
 		if !themeClassesUsed[c.Name] {
 			result.UnusedThemeClasses = append(result.UnusedThemeClasses, c.Name)
 		}

@@ -127,7 +127,6 @@
       flex-direction: column;
       overflow: auto;
       padding: 20px 24px;
-      background: var(--term-bg);
     }
 
     .detail-content {
@@ -673,118 +672,7 @@
       overflow: hidden;
     }
 
-    /* Shoelace dark theme overrides */
-    sl-input::part(base),
-    sl-textarea::part(base),
-    sl-select::part(combobox) {
-      background: var(--term-bg);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    sl-input::part(input),
-    sl-textarea::part(textarea),
-    sl-select::part(display-input) {
-      color: var(--term-text);
-    }
-
-    sl-input::part(base):hover,
-    sl-textarea::part(base):hover,
-    sl-select::part(combobox):hover {
-      border-color: var(--term-accent);
-    }
-
-    sl-input::part(base):focus-within,
-    sl-textarea::part(base):focus-within,
-    sl-select::part(combobox):focus-within {
-      border-color: var(--term-accent);
-      box-shadow: 0 0 0 3px var(--term-accent-glow);
-    }
-
-    sl-input::part(form-control-label),
-    sl-textarea::part(form-control-label),
-    sl-select::part(form-control-label) {
-      color: var(--term-text-dim);
-    }
-
-    /* Button styles for app-console chrome (not embedded apps) */
-    .app-list-panel sl-button[variant="default"]::part(base),
-    .normal-detail sl-button[variant="default"]::part(base) {
-      background: var(--term-bg-elevated);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    .app-list-panel sl-button[variant="default"]::part(base):hover,
-    .normal-detail sl-button[variant="default"]::part(base):hover {
-      background: var(--term-bg-hover);
-      border-color: var(--term-accent);
-      color: var(--term-accent);
-    }
-
-    .app-list-panel sl-button[variant="primary"]::part(base),
-    .normal-detail sl-button[variant="primary"]::part(base) {
-      background: var(--term-accent);
-      border-color: var(--term-accent);
-      color: var(--term-bg);
-    }
-
-    .app-list-panel sl-button[variant="primary"]::part(base):hover,
-    .normal-detail sl-button[variant="primary"]::part(base):hover {
-      background: var(--term-accent-bright);
-      box-shadow: 0 0 12px var(--term-accent-glow);
-    }
-
-    .app-list-panel sl-button[variant="warning"]::part(base),
-    .normal-detail sl-button[variant="warning"]::part(base) {
-      background: var(--term-warning-dim);
-      border-color: var(--term-warning);
-      color: var(--term-warning);
-    }
-
-    .app-list-panel sl-button[variant="danger"]::part(base),
-    .normal-detail sl-button[variant="danger"]::part(base) {
-      background: var(--term-danger-dim);
-      border-color: var(--term-danger);
-      color: var(--term-danger);
-    }
-
-    .app-list-panel sl-button[variant="success"]::part(base),
-    .normal-detail sl-button[variant="success"]::part(base),
-    .github-form sl-button[variant="success"]::part(base) {
-      background: var(--term-success-dim);
-      border-color: var(--term-success);
-      color: var(--term-success);
-    }
-
-    sl-icon-button::part(base) {
-      color: var(--term-text-dim);
-    }
-
-    sl-icon-button::part(base):hover {
-      color: var(--term-accent);
-    }
-
-    sl-badge::part(base) {
-      font-size: 10px;
-    }
-
-    sl-progress-bar {
-      --height: 6px;
-      --track-color: var(--term-border);
-      --indicator-color: var(--term-accent);
-    }
-
-    sl-alert::part(base) {
-      background: var(--term-bg-elevated);
-      border-color: var(--term-border);
-      color: var(--term-text);
-    }
-
-    sl-alert[variant="danger"]::part(base) {
-      background: var(--term-danger-dim);
-      border-color: var(--term-danger);
-    }
+    /* Shoelace component styling is handled by theme CSS — don't override here */
 
     .hidden { display: none; }
     .hidden.showing { display: block; }
@@ -794,7 +682,7 @@
     <!-- Main content area -->
     <div class="main-content">
       <!-- App List Panel -->
-      <div class="app-list-panel">
+      <div class="app-list-panel sidebar-panel">
         <div class="panel-header app-list-header">
           <h2>Frictionless</h2>
           <div>
@@ -807,7 +695,7 @@
       </div>
 
       <!-- Detail Panel -->
-      <div class="detail-panel">
+      <div class="detail-panel content-panel">
         <!-- Embedded App View -->
         <div class="embedded-view" ui-class-hidden="noEmbeddedApp()">
           <div class="embedded-header">
@@ -876,11 +764,11 @@
                 <sl-icon ui-attr-name="selected.requirementsIcon()"></sl-icon>
                 <h3>Requirements</h3>
               </div>
-              <div class="requirements-content" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
+              <div class="requirements-content content-card" ui-class-hidden="selected.requirementsHidden()" ui-value="selected.requirementsContent"></div>
             </div>
 
             <!-- Build Progress -->
-            <div class="build-progress" ui-class-hidden="selected.notBuilding()">
+            <div class="build-progress content-card" ui-class-hidden="selected.notBuilding()">
               <sl-progress-bar ui-attr-value="selected.buildProgress"></sl-progress-bar>
               <span class="build-stage" ui-value="selected.buildStage"></span>
             </div>
@@ -904,13 +792,13 @@
                 <sl-icon ui-attr-name="selected.gapsIcon()"></sl-icon>
                 <h3>Gaps (design/code mismatch)</h3>
               </div>
-              <div class="gaps-content" ui-class-hidden="selected.gapsHidden()" ui-value="selected.gapsContent"></div>
+              <div class="gaps-content content-card" ui-class-hidden="selected.gapsHidden()" ui-value="selected.gapsContent"></div>
             </div>
 
             <!-- Tests Section -->
             <div class="detail-section" ui-class-hidden="selected.noTests()">
               <h3>Tests (<span ui-value="selected.testsPassing"></span>/<span ui-value="selected.testsTotal"></span>)</h3>
-              <div class="test-list" ui-view="selected.tests?wrapper=lua.ViewList"></div>
+              <div class="test-list content-card" ui-view="selected.tests?wrapper=lua.ViewList"></div>
             </div>
 
             <!-- Known Issues Section -->
@@ -919,7 +807,7 @@
                 <sl-icon ui-attr-name="selected.knownIssuesIcon()"></sl-icon>
                 <h3>Known Issues (<span ui-value="selected.knownIssueCount()"></span>)</h3>
               </div>
-              <div class="issue-list" ui-class-hidden="selected.knownIssuesHidden()" ui-view="selected.knownIssues?wrapper=lua.ViewList"></div>
+              <div class="issue-list content-card" ui-class-hidden="selected.knownIssuesHidden()" ui-view="selected.knownIssues?wrapper=lua.ViewList"></div>
             </div>
 
             <!-- Fixed Issues Section -->
@@ -928,7 +816,7 @@
                 <sl-icon ui-attr-name="selected.fixedIssuesIcon()"></sl-icon>
                 <h3>Fixed Issues (<span ui-value="selected.fixedIssueCount()"></span>)</h3>
               </div>
-              <div class="issue-list" ui-class-hidden="selected.fixedIssuesHidden()" ui-view="selected.fixedIssues?wrapper=lua.ViewList"></div>
+              <div class="issue-list content-card" ui-class-hidden="selected.fixedIssuesHidden()" ui-view="selected.fixedIssues?wrapper=lua.ViewList"></div>
             </div>
           </div>
 

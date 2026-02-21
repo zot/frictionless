@@ -279,6 +279,27 @@ tr.vars-diag-row li::before {
   width: 14px;
 }
 
+/* Click-to-copy toast */
+.vars-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--term-accent, #e07a47);
+  color: var(--term-bg, #1a1a2e);
+  padding: 0.5rem 1.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.vars-toast.show {
+  opacity: 1;
+}
+
 /* Status bar */
 .vars-status {
   font-size: 10px;
