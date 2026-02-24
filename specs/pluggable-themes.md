@@ -52,9 +52,16 @@ Frictionless injects a `<!-- #frictionless -->` block into `.ui/html/index.html`
 3. Scan `.ui/html/themes/*.css` for theme files (excluding base.css)
 4. Generate block containing:
    - Theme restore script (reads localStorage, sets `<html>` class)
-   - `<link>` elements for base.css and each theme
+   - `<link>` elements for base.css and each theme, cache-busted with file modification timestamps
 5. Inject block at start of `<head>`
 6. Write updated index.html
+
+### CSS Cache Busting
+
+Two layers of CSS need cache busting to ensure browsers load fresh stylesheets after changes:
+
+1. **Theme CSS** (in index.html): Server appends `?v={modtime}` from each CSS file's modification timestamp. Re-injected on file change by the watcher.
+2. **App CSS** (in viewdefs): Client-side `Date.now()` nonce via `<script>` that dynamically creates `<link>` elements. Runs on each viewdef load, so every page load gets fresh CSS.
 
 ### When Injection Runs
 

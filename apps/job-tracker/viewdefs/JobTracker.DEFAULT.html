@@ -19,8 +19,6 @@
       overflow: hidden;
     }
 
-    .hidden { display: none !important; }
-
     /* Header */
     .jt-header {
       display: flex;
@@ -315,6 +313,18 @@
       display: flex;
       align-items: center;
       gap: 4px;
+    }
+
+    .jt-website-link {
+      color: var(--term-accent);
+      text-decoration: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+      white-space: nowrap;
+    }
+    .jt-website-link:hover {
+      text-decoration: underline;
     }
 
     /* Notes section */
@@ -865,7 +875,7 @@
       </div>
 
       <div class="jt-url-input input-area">
-        <sl-input placeholder="Paste job posting URL..." ui-value="urlInput" ui-event-keypress-enter="submitUrl()">
+        <sl-input placeholder='Paste job posting URL here or click "bookmarklet" above...' ui-value="urlInput" ui-event-keypress-enter="submitUrl()">
           <sl-icon slot="prefix" name="link-45deg"></sl-icon>
         </sl-input>
         <sl-button class="jt-url-submit" variant="primary" size="small" ui-action="submitUrl()">
@@ -938,6 +948,10 @@
           <span ui-class-hidden="selected.noHq()">
             <sl-icon name="building"></sl-icon>
             <span ui-value="selected.hqAddress"></span>
+          </span>
+          <span ui-class-hidden="selected.noWebsite()">
+            <sl-icon name="globe"></sl-icon>
+            <a ui-attr-href="selected.website" target="_blank" ui-value="selected.website" class="jt-website-link"></a>
           </span>
         </div>
 
@@ -1071,7 +1085,10 @@
           <sl-input label="Location" ui-value="formData.location"></sl-input>
         </div>
         <div class="jt-form-row">
-          <sl-input label="HQ Address" ui-value="formData.hqAddress"></sl-input>
+          <sl-input label="HQ Street Address" ui-value="formData.hqAddress"></sl-input>
+        </div>
+        <div class="jt-form-row">
+          <sl-input label="Company Website" type="url" ui-value="formData.website" placeholder="https://"></sl-input>
         </div>
         <div class="jt-form-row-inline">
           <sl-input label="Salary Min" type="number" ui-value="formData.salaryMin"></sl-input>

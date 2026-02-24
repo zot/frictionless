@@ -175,6 +175,7 @@ JobTracker.Application = session:prototype("JobTracker.Application", {
     dateApplied = "",
     location = "",
     hqAddress = "",
+    website = "",
     salaryMin = 0,
     salaryMax = 0,
     notes = "",
@@ -225,6 +226,7 @@ JobTracker.FormData = session:prototype("JobTracker.FormData", {
     status = "bookmarked",
     location = "",
     hqAddress = "",
+    website = "",
     salaryMin = "",
     salaryMax = "",
     notes = "",
@@ -234,7 +236,7 @@ JobTracker.FormData = session:prototype("JobTracker.FormData", {
 })
 local FormData = JobTracker.FormData
 
-local FORM_FIELDS = {"company", "position", "url", "status", "location", "hqAddress", "salaryMin", "salaryMax", "notes", "dateApplied"}
+local FORM_FIELDS = {"company", "position", "url", "status", "location", "hqAddress", "website", "salaryMin", "salaryMax", "notes", "dateApplied"}
 
 -- Check if form has unsaved changes
 function FormData:hasChanges()
@@ -252,7 +254,7 @@ end
 -- Fields to serialize for applications (excluding timeline which needs special handling)
 local APP_FIELDS = {
     "id", "company", "position", "url", "status",
-    "dateAdded", "dateApplied", "location", "hqAddress",
+    "dateAdded", "dateApplied", "location", "hqAddress", "website",
     "salaryMin", "salaryMax", "notes", "resumeId"
 }
 
@@ -586,6 +588,7 @@ function JobTracker:saveForm()
             dateApplied = fd.status ~= "bookmarked" and today() or "",
             location = fd.location,
             hqAddress = fd.hqAddress,
+            website = fd.website,
             salaryMin = tonumber(fd.salaryMin) or 0,
             salaryMax = tonumber(fd.salaryMax) or 0,
             notes = fd.notes,
@@ -599,6 +602,17 @@ function JobTracker:saveForm()
         app.timeline = { evt }
         table.insert(self._applications, 1, app)
         self.selected = app
+        -- Save pending page content as attachment if present
+        if self._pendingPageFile and self._pendingPageFile ~= "" then
+            local dir = app:attachmentsDir()
+            os.execute('mkdir -p "' .. dir .. '"')
+            local fname = self._pendingPageFilename or "job-listing.md"
+            os.execute('mv "' .. self._pendingPageFile .. '" "' .. dir .. '/' .. fname .. '"')
+            self._pendingPageFile = nil
+            self._pendingPageFilename = nil
+            app:clearAttachmentsCache()
+            commitData("Attach job listing page")
+        end
     else
         local app = self.selected
         app.company = fd.company
@@ -606,6 +620,7 @@ function JobTracker:saveForm()
         app.url = fd.url
         app.location = fd.location
         app.hqAddress = fd.hqAddress
+        app.website = fd.website
         app.salaryMin = tonumber(fd.salaryMin) or 0
         app.salaryMax = tonumber(fd.salaryMax) or 0
         app.notes = fd.notes
@@ -679,6 +694,7 @@ function JobTracker:prefillFromScrape(data)
         status = "bookmarked",
         location = data.location or "",
         hqAddress = data.hqAddress or "",
+        website = data.website or "",
         salaryMin = data.salaryMin and tostring(data.salaryMin) or "",
         salaryMax = data.salaryMax and tostring(data.salaryMax) or "",
         notes = "",
@@ -934,11 +950,13 @@ function JobTracker:noUnlinkableApps() return #self:unlinkableApps() == 0 end
 function JobTracker:showResumePreview() return self.selectedResume ~= nil or self.showMasterResume end
 function JobTracker:hideResumePreview() return self.selectedResume == nil and not self.showMasterResume end
 function JobTracker:currentResumePreviewUrl()
+    local status = mcp:status()
+    local base = "http://localhost:" .. status.mcp_port
     local ts = "?" .. os.time()
     if self.showMasterResume then
-        return "/job-tracker-storage/master-resume.md" .. ts
+        return base .. "/job-tracker-storage/master-resume.md" .. ts
     elseif self.selectedResume then
-        return "/job-tracker-storage/resumes/" .. self.selectedResume.filename .. ts
+        return base .. "/job-tracker-storage/resumes/" .. self.selectedResume.filename .. ts
     end
     return ""
 end
@@ -997,7 +1015,7 @@ function Application:salaryDisplay()
 end
 
 -- Generated has/no methods for optional fields
-for _, field in ipairs({"url", "location", "hqAddress", "notes"}) do
+for _, field in ipairs({"url", "location", "hqAddress", "website", "notes"}) do
     local capField = field:sub(1,1):upper() .. field:sub(2)
     -- Use short names for hqAddress
     local shortName = field == "hqAddress" and "Hq" or capField
@@ -1154,6 +1172,12 @@ function Attachment:downloadUrl()
     return "file://" .. self.path
 end
 
+function Attachment:viewUrl()
+    local idDir = string.format("%04d", self.applicationId)
+    local status = mcp:status()
+    return "http://localhost:" .. status.mcp_port .. "/job-tracker-storage/jobs/" .. idDir .. "/" .. self.filename
+end
+
 -- Resume methods
 function Resume:idStr()
     return tostring(self.id)
@@ -1218,7 +1242,8 @@ function Resume:moreAppsCount()
 end
 
 function Resume:previewUrl()
-    return "/job-tracker-storage/resumes/" .. self.filename .. "?" .. os.time()
+    local status = mcp:status()
+    return "http://localhost:" .. status.mcp_port .. "/job-tracker-storage/resumes/" .. self.filename .. "?" .. os.time()
 end
 
 function Resume:filePath()

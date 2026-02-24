@@ -1,9 +1,13 @@
 ---
 name: mini-spec
-description: **Use proactively**. Use a central index to explore the project. Update it properly when changing it. Covers specs, design, and code
+description: "**MANDATORY: Invoke BEFORE writing or modifying any code.** Without `design/design.md` you lack critical knowledge of component relationships, responsibilities, and code mappings — changes made without this context risk breaking architectural invariants. Do NOT explore code with other tools first. Load this skill before doing anything else."
 ---
 
 # Mini-spec
+
+## Design Docs First — Not Code
+
+**When understanding a feature or planning a change, start with `design/design.md` and the relevant CRC cards/sequences BEFORE using code exploration tools.** Design docs are the project index — they show component relationships, responsibilities, and code file mappings more efficiently than code search. Only drop into code-level tools (Serena, Grep, etc.) after the design docs have oriented you.
 
 ## Prerequisite: Version Check and Comment Patterns
 
@@ -70,7 +74,7 @@ TaskCreate: "Update design docs"
 - Before using a callback, see if a collaborator reference would be simpler
 - write idiomatic code for the language you use
 - avoid holding locks in sections that have significant functionality
-- **No unanchored design:** every design artifact must trace back to a spec item and requirement. If you need to add something to the design, add it to specs first, then requirements, then design. This prevents features from existing only in the AI's interpretation.
+- **No unanchored design:** every design artifact must trace back to a spec item and requirement. If you need to add something to the design, add it to specs first, then requirements, then design. This applies regardless of direction — even when documenting existing code, verify the spec anchor exists before updating design. This prevents features from existing only in the AI's interpretation.
 
 ## Cross-cutting Concerns
 

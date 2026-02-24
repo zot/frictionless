@@ -816,9 +816,9 @@ function AppInfo:noGaps()
 end
 
 function AppInfo:hasCheckpoints()
-    -- Trigger batch refresh if cache is stale
+    -- Trigger batch refresh if cache is stale (10s cache to avoid excessive io.popen calls)
     local now = os.time()
-    if not appConsole._checkpointsTime or (now - appConsole._checkpointsTime) >= 1 then
+    if not appConsole._checkpointsTime or (now - appConsole._checkpointsTime) >= 10 then
         appConsole:refreshCheckpoints()
     end
     return self._hasCheckpoints or false

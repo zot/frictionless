@@ -308,5 +308,5 @@
   font-size: 13px;
 }
 
-.hidden { display: none; }
+.mcp-shell .hidden { display: none; }
 .hidden.showing { display: block; }

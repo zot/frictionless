@@ -27,6 +27,8 @@
 - **R22:** Provide GET /app/{app}/readme endpoint returning app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
 - **R128:** Provide `mcp.sessionId` field containing the current external session ID (internal UUID)
 - **R129:** Install bundled pattern files to `{base_dir}/patterns/` during `ui_install`
+- **R144:** MCP HTTP server serves static files from `{base_dir}/html/` as a catch-all for unmatched paths
+- **R145:** `.md` files served via MCP HTTP port are rendered as HTML (via goldmark) for browser User-Agents, raw for curl
 
 ## Feature: UI Audit
 **Source:** specs/ui-audit.md
@@ -72,6 +74,8 @@
 - **R139:** `theme audit APP` without a theme argument audits against the all-themes class list
 - **R140:** Theme CSS files define structural semantic classes (`sidebar-panel`, `content-panel`, `content-card`, `dock-panel`) for layout hooks
 - **R141:** Stock app viewdefs use structural semantic classes on sidebar, content, card, and dock elements
+- **R142:** Theme CSS `<link>` elements in index.html are cache-busted with `?v={modtime}` from file modification timestamps
+- **R143:** App CSS in viewdefs is loaded via `<script>` that creates `<link>` elements with a `Date.now()` nonce for cache busting
 
 ## Feature: Helper Scripts
 **Source:** specs/helper-scripts.md

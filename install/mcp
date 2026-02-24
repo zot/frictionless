@@ -2,6 +2,7 @@
 # CRC: crc-MCPScript.md, crc-CheckpointManager.md
 dir=$(dirname "$(realpath "$0")")
 port=$(cat "$dir/mcp-port")
+uiport=$(cat "$dir/ui-port")
 prog="$1"
 shift
 
@@ -481,7 +482,13 @@ case "$prog" in
         exec "$HOME/.claude/bin/frictionless" theme "$@" --dir "$dir"
         ;;
     variables)
-        exec curl -s "http://127.0.0.1:$port/variables"
+        if [ "$dir/ui-port" -nt "$dir/session-id" ]; then
+            sid=$(curl -s -X POST "http://127.0.0.1:$port/api/ui_run" -H "Content-Type: application/json" -d '{"code":"return mcp.sessionId"}' | jq -r .result)
+            echo $sid > "$dir/session-id"
+        else
+            sid=$(cat "$dir/session-id")
+        fi
+        exec curl -s "http://127.0.0.1:$uiport/$sid/variables.json"
         ;;
     *)
         echo 1>&2 "Unknown command: $1"

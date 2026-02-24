@@ -1,9 +1,15 @@
 <template>
-  <link rel="stylesheet" href="/mcp/css/shell.css">
-  <link rel="stylesheet" href="/mcp/css/panel.css">
-  <link rel="stylesheet" href="/mcp/css/tutorial.css">
-  <link rel="stylesheet" href="/mcp/css/updates.css">
-  <link rel="stylesheet" href="/mcp/css/dialog.css">
+  <script>
+    (function() {
+      var n = Date.now();
+      ['shell','panel','tutorial','updates','dialog'].forEach(function(f) {
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/mcp/css/' + f + '.css?v=' + n;
+        document.head.appendChild(link);
+      });
+    })();
+  </script>
 
   <script>
     // Client-local wait time counter (updates every 200ms)
@@ -153,6 +159,9 @@
 
     <!-- Hidden element for JavaScript execution -->
     <div style="display:none;" ui-code="code"></div>
+
+    <!-- Viewdef lookup bridge -->
+    <span id="viewdef-bridge" style="display:none" ui-value="viewdefResult?access=rw"></span>
 
     <!-- Image preview lightbox -->
     <div id="image-lightbox" class="image-lightbox" ui-class-visible="lightboxVisible()" ui-event-click="hideLightbox()">
@@ -335,6 +344,27 @@
     })();
   </script>
 
+
+  <script>
+    // Find which viewdef an element belongs to by walking up and checking preceding siblings
+    window.uiApp.findViewdef = function(elementId) {
+      var el = document.getElementById(elementId);
+      while (el) {
+        if (el.getAttribute && el.getAttribute('ui-viewdef')) return el.getAttribute('ui-viewdef');
+        var sib = el.previousElementSibling;
+        while (sib) {
+          if (sib.getAttribute && sib.getAttribute('ui-viewdef')) return sib.getAttribute('ui-viewdef');
+          sib = sib.previousElementSibling;
+        }
+        el = el.parentElement;
+      }
+      return null;
+    };
+    // Find viewdef and send result to Lua via bridge
+    window.uiApp.reportViewdef = function(elementId) {
+      window.uiApp.updateValue('viewdef-bridge', window.uiApp.findViewdef(elementId) || '');
+    };
+  </script>
 
   <script>
     // Close lightbox on Escape key

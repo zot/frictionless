@@ -1,5 +1,12 @@
 <template>
-  <link rel="stylesheet" href="/mcp/css/variables.css">
+  <script>
+    (function() {
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/mcp/css/variables.css?v=' + Date.now();
+      document.head.appendChild(link);
+    })();
+  </script>
 
   <!-- Data bridge: URL from Lua -->
   <span class="vars-url-bridge" style="display:none" ui-value="variablesUrl()"></span>
@@ -48,6 +55,7 @@
       { key: 'id',        label: 'ID',         visible: true,  sortable: true },
       { key: 'path',      label: 'Path',       visible: true,  sortable: true },
       { key: 'type',      label: 'Type',       visible: true,  sortable: true },
+      { key: 'viewdef',   label: 'Viewdef',    visible: true,  sortable: true },
       { key: 'goType',    label: 'GoType',     visible: false, sortable: true },
       { key: 'value',     label: 'Value',      visible: true,  sortable: false },
       { key: 'changes',   label: 'Changes',    visible: false, sortable: true, numeric: true },
@@ -70,6 +78,7 @@
     }
 
     var variables = [];
+    var varById = {};
     var trackerRefreshCount = 0;
     var viewMode = 'flat';
     var sortCol = null;
@@ -146,6 +155,16 @@
       for (var r = 0; r < roots.length; r++) walk(roots[r]);
     }
 
+    function resolveViewdef(v) {
+      var cur = v;
+      while (cur) {
+        var vd = (cur.properties && cur.properties.viewdef) || cur.viewdef;
+        if (vd) return vd;
+        cur = varById[cur.parentId];
+      }
+      return '';
+    }
+
     function fetchVariables() {
       var url = getApiUrl();
       if (!url) return;
@@ -156,6 +175,8 @@
         return resp.json();
       }).then(function(data) {
         variables = data;
+        varById = {};
+        for (var i = 0; i < variables.length; i++) varById[variables[i].id] = variables[i];
         computeImpact();
         render();
         var statusEl = document.querySelector('.vars-status');
@@ -256,6 +277,7 @@
         case 'id': return v.id;
         case 'path': return v.path || '';
         case 'type': return v.type || '';
+        case 'viewdef': return resolveViewdef(v);
         case 'changes': return v.changeCount || 0;
         case 'time': return parseTimeMs(v.computeTime);
         case 'avgTime': return trackerRefreshCount > 0 ? parseTimeMs(v.computeTime) / trackerRefreshCount : 0;
@@ -323,6 +345,9 @@
           case 'type':
             td.textContent = v.type || '';
             break;
+          case 'viewdef':
+            td.textContent = resolveViewdef(v);
+            break;
           case 'value':
             var full = v.value != null ? JSON.stringify(v.value) : '';
             var display = full.length > 100 ? full.slice(0, 100) + '\u2026' : full;
@@ -367,7 +392,7 @@
             var parts = [];
             if (v.properties) {
               for (var k in v.properties) {
-                if (k !== 'type' && k !== 'path' && k !== 'access') {
+                if (k !== 'type' && k !== 'path' && k !== 'access' && k !== 'viewdef') {
                   parts.push(k + '=' + v.properties[k]);
                 }
               }
@@ -496,11 +521,108 @@
     }
 
     // --- Click-to-copy ---
-    function showToast() {
+    function showToast(msg) {
       var toast = document.querySelector('.vars-toast');
       if (!toast) return;
+      toast.textContent = msg || 'Copied';
       toast.classList.add('show');
       setTimeout(function() { toast.classList.remove('show'); }, 1200);
+    }
+
+    function findViewElementId(v) {
+      var cur = v;
+      while (cur) {
+        if ((cur.properties && cur.properties.viewdef) || cur.viewdef) return cur.elementId;
+        cur = varById[cur.parentId];
+      }
+      return null;
+    }
+
+    function highlightView(viewElementId) {
+      if (!viewElementId) return;
+      var viewEl = document.getElementById(viewElementId);
+      if (!viewEl) return;
+      // Find the ui-view-N class on this element
+      var viewClass = null;
+      for (var i = 0; i < viewEl.classList.length; i++) {
+        if (viewEl.classList[i].match(/^ui-view-\d+$/)) {
+          viewClass = viewEl.classList[i];
+          break;
+        }
+      }
+      if (!viewClass) return;
+      // Gather all elements belonging to this view
+      var els = document.querySelectorAll('.' + viewClass);
+      if (!els.length) return;
+      // Compute bounding box across all view elements
+      var top = Infinity, left = Infinity, bottom = 0, right = 0;
+      for (var j = 0; j < els.length; j++) {
+        var r = els[j].getBoundingClientRect();
+        if (r.top < top) top = r.top;
+        if (r.left < left) left = r.left;
+        if (r.bottom > bottom) bottom = r.bottom;
+        if (r.right > right) right = r.right;
+      }
+      // Create translucent overlay matching the view's border-radius
+      var overlay = document.createElement('div');
+      var cs = getComputedStyle(els[0]);
+      var radius = cs.borderRadius || '0';
+      overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:9998;'
+        + 'background:rgba(224,122,71,0.15);border:1px solid rgba(224,122,71,0.3);'
+        + 'border-radius:' + radius + ';'
+        + 'transition:opacity 2s ease-out;'
+        + 'top:' + top + 'px;left:' + left + 'px;'
+        + 'width:' + (right - left) + 'px;height:' + (bottom - top) + 'px;';
+      document.body.appendChild(overlay);
+      // Scroll first element into view
+      els[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      setTimeout(function() { overlay.style.opacity = '0'; }, 1000);
+      setTimeout(function() { overlay.remove(); }, 3000);
+    }
+
+    function highlightElement(elementId) {
+      if (!elementId) return;
+      var el = document.getElementById(elementId);
+      if (!el) return;
+      var cs = getComputedStyle(el);
+      var radius = cs.borderRadius || '0';
+      var prevShadow = el.style.boxShadow;
+      el.style.boxShadow = '0 0 0 2px #E07A47, 0 0 8px rgba(224,122,71,0.4)';
+      el.style.transition = 'box-shadow 2s ease-out';
+      setTimeout(function() { el.style.boxShadow = '0 0 0 2px transparent, 0 0 0 transparent'; }, 1000);
+      setTimeout(function() {
+        el.style.boxShadow = prevShadow || '';
+        el.style.transition = '';
+      }, 3000);
+    }
+
+    function drawConnector(x1, y1, x2, y2) {
+      var ns = 'http://www.w3.org/2000/svg';
+      var svg = document.createElementNS(ns, 'svg');
+      svg.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;';
+      svg.setAttribute('viewBox', '0 0 ' + window.innerWidth + ' ' + window.innerHeight);
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.setAttribute('stroke', '#E07A47');
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke-dasharray', '6 4');
+      line.setAttribute('stroke-opacity', '0.7');
+      svg.appendChild(line);
+      // Small dot at target end
+      var dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', x2);
+      dot.setAttribute('cy', y2);
+      dot.setAttribute('r', '4');
+      dot.setAttribute('fill', '#E07A47');
+      dot.setAttribute('fill-opacity', '0.7');
+      svg.appendChild(dot);
+      svg.style.transition = 'opacity 2s ease-out';
+      document.body.appendChild(svg);
+      setTimeout(function() { svg.style.opacity = '0'; }, 1000);
+      setTimeout(function() { svg.remove(); }, 3000);
     }
 
     var tbody = document.querySelector('.vars-table-body');
@@ -512,7 +634,34 @@
         if (td.classList.contains('col-path') || td.classList.contains('col-diags')) return;
         var tr = td.closest('tr');
         if (!tr || !tr._varData) return;
-        navigator.clipboard.writeText(JSON.stringify(tr._varData, null, 2)).then(showToast);
+        var v = tr._varData;
+
+        // Highlight view and element for any click
+        var viewElId = findViewElementId(v);
+        var viewEl = viewElId ? document.getElementById(viewElId) : null;
+        var viewVisible = viewEl && viewEl.getBoundingClientRect().width > 0;
+        var el = v.elementId ? document.getElementById(v.elementId) : null;
+        var elVisible = el && el.getBoundingClientRect().width > 0;
+        if (viewVisible) highlightView(viewElId);
+        if (elVisible) highlightElement(v.elementId);
+
+        // Draw connector line from click to target
+        var targetEl = elVisible ? el : (viewVisible ? viewEl : null);
+        if (targetEl) {
+          var r = targetEl.getBoundingClientRect();
+          drawConnector(e.clientX, e.clientY, r.left + r.width / 2, r.top + r.height / 2);
+        }
+
+        // Copy: viewdef text for viewdef column, full JSON otherwise
+        var vd = resolveViewdef(v);
+        var suffix = (viewVisible || elVisible) ? '' : ' (not visible)';
+        var toastMsg = vd ? 'Copied: ' + vd + suffix : 'Copied' + suffix;
+        if (td.classList.contains('col-viewdef')) {
+          if (vd) navigator.clipboard.writeText(vd);
+          showToast(toastMsg);
+        } else {
+          navigator.clipboard.writeText(JSON.stringify(v, null, 2)).then(function() { showToast(toastMsg); });
+        }
       });
     }
 

@@ -64,7 +64,8 @@ Legend:
 | Status: [Phone Screen v]                 |
 +------------------------------------------+
 | Applied: Jan 15 | Remote | $180-220k     |
-| HQ: San Francisco, CA                    |
+| HQ: 123 Market St, San Francisco, CA     |
+| Web: acmecorp.com                        |
 | Resume: [AI Engineer 2026 v] [↗]         |
 +------------------------------------------+
 | [Notes (empty)]  <- collapsible section  |
@@ -103,6 +104,7 @@ Legend:
 | Status: [Bookmarked v]                   |
 | Location: [______________]               |
 | HQ Address: [____________]               |
+| Website: [_________________]             |
 | Salary Min: [____] Max: [____]           |
 | Notes:                                   |
 | [                                      ] |
@@ -164,6 +166,8 @@ Legend:
 | sortDirection | string | Sort direction: "asc" or "desc" |
 | selectedStatus | string | Status value for detail view dropdown (synced with selected.status) |
 | _fileUploadData | string | JS-to-Lua bridge for file uploads |
+| _pendingPageFile | string | Temp file path for job listing page to attach on save |
+| _pendingPageFilename | string | Filename for the pending page attachment |
 | showAttachmentWarning | boolean | Show warning dialog when leaving with unsaved attachments |
 | _resumes | Resume[] | All resume instances |
 | selectedResume | Resume | Currently selected resume (nil for master) |
@@ -183,7 +187,8 @@ Legend:
 | dateAdded | string | Date added (ISO) |
 | dateApplied | string | Date applied (ISO, nil if bookmarked) |
 | location | string | Job location / remote |
-| hqAddress | string | Company HQ address |
+| hqAddress | string | Company HQ street address (specific street address, not just city/state) |
+| website | string | Company website URL |
 | salaryMin | number | Salary range min |
 | salaryMax | number | Salary range max |
 | notes | string | Free text notes |
@@ -212,7 +217,8 @@ Legend:
 | url | string | URL input |
 | status | string | Status select |
 | location | string | Location input |
-| hqAddress | string | HQ address input |
+| hqAddress | string | HQ street address input |
+| website | string | Company website URL input |
 | salaryMin | string | Salary min input |
 | salaryMax | string | Salary max input |
 | notes | string | Notes textarea |
@@ -251,6 +257,7 @@ Legend:
 | deleteMe() | Delete this attachment |
 | icon() | Returns icon name based on file extension |
 | downloadUrl() | Returns file:// URL for download |
+| viewUrl() | Returns absolute HTTP URL for viewing attachment in iframe (uses mcp:status().mcp_port) |
 
 ### Resume
 
@@ -263,7 +270,7 @@ Legend:
 | linkedAppsBadges(max) | Returns up to max linked apps for display |
 | hasMoreApps(max) | Returns true if more than max linked apps |
 | moreAppsCount(max) | Returns count of apps beyond max |
-| previewUrl() | Returns URL for iframe preview (with cache-busting timestamp) |
+| previewUrl() | Returns absolute HTTP URL for iframe preview (uses mcp:status().mcp_port, with cache-busting timestamp) |
 | filePath() | Returns full path to markdown file |
 | unlinkApp(app) | Remove app from applicationIds |
 | linkApp(app) | Add app to applicationIds |
@@ -329,6 +336,8 @@ Legend:
 | processFileUpload() | Process file upload from JS-to-Lua bridge |
 | promptAttachUrl() | Placeholder for URL attachment (not implemented) |
 | submitUrl() | Send urlInput to Claude for scraping via pushState |
+| _pendingPageFile | string | Temp file path set by Claude before showAddForm; saveForm() moves it to attachments |
+| _pendingPageFilename | string | Filename for the pending page (default: "job-listing.md") |
 | filterAll() | Set filter to "all" |
 | filterActive() | Set filter to "active" |
 | filterOffers() | Set filter to "offers" |
@@ -377,7 +386,7 @@ Legend:
 | isLinkPickerHidden() | Returns not showLinkPicker |
 | unlinkableApps() | Returns apps not linked to selected resume |
 | linkAppToResume(app) | Link app to selected resume |
-| currentResumePreviewUrl() | Returns URL for current preview (selected or master) with cache-busting timestamp |
+| currentResumePreviewUrl() | Returns absolute HTTP URL for current preview (selected or master, uses mcp:status().mcp_port, with cache-busting timestamp) |
 | hasSelectedResume() | Returns selectedResume ~= nil |
 | noSelectedResume() | Returns selectedResume == nil |
 | loadResumes() | Load resumes from data.json |
@@ -401,6 +410,8 @@ Legend:
 | noSalary() | Returns salary display is empty |
 | hasHq() | Returns hqAddress is not empty |
 | noHq() | Returns hqAddress is empty |
+| hasWebsite() | Returns website is not empty |
+| noWebsite() | Returns website is empty |
 | hasNotes() | Returns notes is not empty |
 | noNotes() | Returns notes is empty |
 | idDir() | Returns zero-padded 4-digit ID string |
@@ -459,8 +470,18 @@ Legend:
 
 When the chat text is a URL (job posting link):
 
-1. **Fetch and scrape** the job posting for: company, position, location, salary (if available)
-2. **Show add form** with prefilled data:
+1. **Fetch and scrape** the job posting for: company, position, location, salary, company website (if available)
+2. **Save page as markdown** for attachment:
+   - Convert the fetched page content to clean markdown (headings, lists, key details)
+   - Write to `.ui/storage/job-tracker/data/tmp/job-listing.md`
+   - Set pending fields via `.ui/mcp run`:
+     ```lua
+     jobTracker._pendingPageFile = ".ui/storage/job-tracker/data/tmp/job-listing.md"
+     jobTracker._pendingPageFilename = "job-listing.md"
+     ```
+   - When the user saves the form, `saveForm()` automatically moves this file to the app's attachments dir
+   - The `.md` file is viewable in-browser since ui-engine auto-renders markdown as HTML
+3. **Show add form** with prefilled data:
    ```lua
    jobTracker:showAddForm()
    jobTracker.formData.company = "..."
@@ -468,16 +489,18 @@ When the chat text is a URL (job posting link):
    jobTracker.formData.url = "<the URL>"
    jobTracker.formData.location = "..."
    ```
-3. **If salary is empty**, web search for typical salary range:
+4. **If salary is empty**, web search for typical salary range:
    - Search for "{company} {position} salary range"
    - Use data from sources like Glassdoor, Levels.fyi, LinkedIn, or similar
    - Fill in salaryMin and salaryMax with the found range
    - Note in chat that salary was estimated from market data
-4. **If hqAddress is empty**, search for company HQ:
+5. **If hqAddress is empty**, search for company HQ street address:
+   - Find the specific street address (e.g., "1 Hacker Way, Menlo Park, CA"), not just city/state
    - First try: US headquarters
    - Fallback: international HQ if no US location
    - Update the formData
-5. **Reply in chat** with confirmation of what was found
+6. **If website is empty**, search for the company's website URL and update formData
+7. **Reply in chat** with confirmation of what was found
 
 #### Page Received Handling (Bookmarklet)
 
@@ -485,8 +508,12 @@ When a `page_received` event arrives (from the publisher bookmarklet via `init.l
 
 The event contains `url`, `title`, and `text` (the page's `innerText`, already clean — no HTML, no fetching needed).
 
-1. **Extract structured data** from the `text` and `title` fields: company, position, location, salary (if available)
-2. **Show add form** with prefilled data:
+1. **Extract structured data** from the `text` and `title` fields: company, position, location, salary, company website (if available)
+2. **Save page as markdown** for attachment:
+   - Convert the `text` (innerText) to clean markdown (headings, lists, key details)
+   - Write to `.ui/storage/job-tracker/data/tmp/job-listing.md`
+   - Set pending fields via `.ui/mcp run` (same as URL flow step 2)
+3. **Show add form** with prefilled data:
    ```lua
    jobTracker:showAddForm()
    jobTracker.formData.company = "..."
@@ -494,9 +521,10 @@ The event contains `url`, `title`, and `text` (the page's `innerText`, already c
    jobTracker.formData.url = "<the url from the event>"
    jobTracker.formData.location = "..."
    ```
-3. **If salary is empty**, web search for typical salary range (same as URL flow)
-4. **If hqAddress is empty**, search for company HQ (same as URL flow)
-5. **Reply in chat** with confirmation: "Added application for {company} - {position}"
+4. **If salary is empty**, web search for typical salary range (same as URL flow)
+5. **If hqAddress is empty**, search for company HQ street address (same as URL flow)
+6. **If website is empty**, search for the company's website URL (same as URL flow)
+7. **Reply in chat** with confirmation: "Added application for {company} - {position}"
 
 This flow is identical to URL Chat Handling except:
 - The page content is already available (no WebFetch/Playwright needed)
@@ -530,9 +558,10 @@ To render markdown as HTML in iframes, a symlink is created on app initializatio
 .ui/html/job-tracker-storage -> .ui/storage/job-tracker/data
 ```
 
-Preview URLs:
-- Master resume: `/job-tracker-storage/master-resume.md`
-- Resume variant: `/job-tracker-storage/resumes/ai-engineer-2026.md`
+Preview URLs (absolute, using `mcp:status().mcp_port` for system browser compatibility):
+- Master resume: `http://localhost:{port}/job-tracker-storage/master-resume.md`
+- Resume variant: `http://localhost:{port}/job-tracker-storage/resumes/ai-engineer-2026.md`
+- Attachment: `http://localhost:{port}/job-tracker-storage/jobs/{id}/{filename}`
 
 The ui-engine auto-renders `.md` files as HTML when served.
 
@@ -560,7 +589,8 @@ Files are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is th
       "dateAdded": "2025-01-15",
       "dateApplied": "2025-01-15",
       "location": "Remote",
-      "hqAddress": "San Francisco, CA",
+      "hqAddress": "123 Market St, San Francisco, CA 94105",
+      "website": "https://acmecorp.com",
       "salaryMin": 180000,
       "salaryMax": 220000,
       "notes": "",

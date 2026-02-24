@@ -1766,39 +1766,19 @@ func (s *Server) handleAPIResource(w http.ResponseWriter, r *http.Request) {
 
 		// Render markdown as HTML for browsers
 		if ext == ".md" && !isCurl {
-			var buf bytes.Buffer
-			if err := goldmark.Convert(content, &buf); err != nil {
+			html, err := renderMarkdownHTML(content, filepath.Base(fullPath))
+			if err != nil {
 				apiError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head>
-  <title>%s</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
-    h1, h2, h3 { color: #333; }
-    code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 3px; }
-    pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 4px; }
-    pre code { background: none; padding: 0; }
-    a { color: #0066cc; }
-    table { border-collapse: collapse; width: 100%%; }
-    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
-    th { background: #f4f4f4; }
-  </style>
-</head>
-<body>
-%s
-</body>
-</html>
-`, filepath.Base(fullPath), buf.String())
+			w.Write(html)
 			return
 		}
 
-		// Set content type based on extension
+		// Set content type based on extension (browsers returned early above for .md)
 		switch ext {
-		case ".md":
+		case ".md": // curl only; browsers get rendered HTML above
 			w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 		case ".json":
 			w.Header().Set("Content-Type", "application/json")
@@ -1879,31 +1859,107 @@ func (s *Server) handleAppReadme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var buf bytes.Buffer
-	if err := goldmark.Convert(content, &buf); err != nil {
+	html, err := renderMarkdownHTML(content, appName+" - README")
+	if err != nil {
 		apiError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	w.Write(html)
+}
+
+// renderMarkdownHTML converts markdown content to a complete styled HTML page.
+// CRC: crc-MCPTool.md
+func renderMarkdownHTML(content []byte, title string) ([]byte, error) {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, `<!DOCTYPE html>
 <html>
 <head>
-  <title>%s - README</title>
+  <title>%s</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
     h1, h2, h3 { color: #333; }
     code { background: #f4f4f4; padding: 0.2em 0.4em; border-radius: 3px; }
     pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; border-radius: 4px; }
     pre code { background: none; padding: 0; }
+    a { color: #0066cc; }
     table { border-collapse: collapse; width: 100%%; }
     th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
     th { background: #f4f4f4; }
   </style>
 </head>
 <body>
-%s
-</body>
-</html>
-`, appName, buf.String())
+`, title)
+	if err := goldmark.Convert(content, &buf); err != nil {
+		return nil, err
+	}
+	buf.WriteString("\n</body>\n</html>\n")
+	return buf.Bytes(), nil
+}
+
+// handleStaticFile serves static files from {base_dir}/html/ as a catch-all.
+// .md files are rendered as HTML via goldmark for browser User-Agents.
+// CRC: crc-MCPTool.md
+func (s *Server) handleStaticFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.mu.RLock()
+	baseDir := s.baseDir
+	s.mu.RUnlock()
+
+	// Clean path and prevent traversal
+	cleanPath := filepath.Clean(r.URL.Path)
+	if strings.Contains(cleanPath, "..") {
+		http.Error(w, "invalid path", http.StatusBadRequest)
+		return
+	}
+
+	fullPath := filepath.Join(baseDir, "html", cleanPath)
+
+	info, err := os.Stat(fullPath)
+	if os.IsNotExist(err) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Directory: try index.html
+	if info.IsDir() {
+		indexPath := filepath.Join(fullPath, "index.html")
+		if _, err := os.Stat(indexPath); err == nil {
+			fullPath = indexPath
+		} else {
+			http.NotFound(w, r)
+			return
+		}
+	}
+
+	// Render .md as HTML for browsers
+	ext := filepath.Ext(fullPath)
+	userAgent := r.Header.Get("User-Agent")
+	isCurl := strings.Contains(userAgent, "curl")
+
+	if ext == ".md" && !isCurl {
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		html, err := renderMarkdownHTML(content, filepath.Base(fullPath))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(html)
+		return
+	}
+
+	http.ServeFile(w, r, fullPath)
 }

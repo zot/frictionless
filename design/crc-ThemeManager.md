@@ -1,7 +1,7 @@
 # ThemeManager
 
 **Source Spec:** specs/pluggable-themes.md
-**Requirements:** R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53, R136, R137, R138, R139, R140, R141
+**Requirements:** R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51, R52, R53, R136, R137, R138, R139, R140, R141, R142, R143
 
 Manages theme CSS files and index.html injection.
 
@@ -22,7 +22,7 @@ Manages theme CSS files and index.html injection.
   - `@theme`, `@description` for theme-level metadata
   - `@class` blocks with `@description`, `@usage`, `@elements` attributes
 - **InjectThemeBlock(baseDir)**: Updates index.html with frictionless block (skips if block already present)
-- **GenerateThemeBlock(themes, defaultTheme)**: Generates HTML with script + link elements
+- **GenerateThemeBlock(baseDir, themes, defaultTheme)**: Generates HTML with script + cache-busted link elements + favicon placeholder
 - **ListThemesWithInfo(baseDir)**: Returns themes with descriptions, accent colors, current theme
 - **GetThemeAccentColor(cssContent)**: Extracts `--term-accent` value from CSS
 - **GetAllThemeClasses(baseDir)**: Scans all theme CSS files, returns deduplicated union of all `@class` entries

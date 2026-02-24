@@ -143,6 +143,19 @@ if not session.reloading then
 end
 ```
 
+## Chat Messages
+
+To send a message back to the user in the MCP shell's chat panel:
+
+```lua
+mcp:addAgentMessage("Your message here")
+```
+
+This is the standard way to reply to `chat` events. Use it via `.ui/mcp run`:
+```
+.ui/mcp run 'mcp:addAgentMessage("Found salary data: $150k-$180k")'
+```
+
 ## Building or Modifying UIs
 
 When the user asks for changes outside an event loop, ask which mode they prefer or default to `/ui-fast` for small changes.

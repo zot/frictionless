@@ -96,6 +96,7 @@ Tool API (Spec 2.5) - enables curl access for spawned agents:
 - `GET /api/resource/`: List resources directory (JSON for curl, HTML for browsers)
 - `GET /api/resource/{path}`: Serve resource file (markdown rendered as HTML via goldmark for browsers, raw for curl)
 - `GET /app/{app}/readme`: Serve app's README.md as HTML (case-insensitive lookup, rendered via goldmark)
+- `GET /*`: Static file server from `{base_dir}/html/` as catch-all (R144, R145). `.md` files rendered as HTML via goldmark for browsers, raw for curl. Uses `renderMarkdownHTML` helper (shared with `/api/resource/` and `/app/{app}/readme`).
 
 ### Lua Loading Sequence (Spec 4.2)
 During startup, Go executes:

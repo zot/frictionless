@@ -41,7 +41,8 @@ Each application tracks:
 - Current status (dropdown to change)
 - Salary range (min/max)
 - Location / Remote status
-- Company HQ address
+- Company HQ street address (specific street address, not just city/state)
+- Company website URL
 - Notes (free text, shown in collapsible section)
 - File attachments (resumes, cover letters, etc.)
 - Linked resume (dropdown to select from available resumes)
@@ -98,7 +99,8 @@ Each application has a timeline:
 | Status: [Phone Screen v]                 |
 +------------------------------------------+
 | Applied: Jan 15 | Remote | $180-220k     |
-| HQ: San Francisco, CA                    |
+| HQ: 123 Market St, San Francisco, CA     |
+| Web: acmecorp.com                        |
 | Resume: [AI Engineer 2026 v]             |
 +------------------------------------------+
 | [Open in new tab]                        |
@@ -124,6 +126,7 @@ Each application has a timeline:
 | Status: [Bookmarked v]                   |
 | Location: [______________]               |
 | HQ: [____________________]               |
+| Website: [_________________]             |
 | Salary Min: [____] Max: [____]           |
 | Notes:                                   |
 | [                                      ] |

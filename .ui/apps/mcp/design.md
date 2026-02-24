@@ -517,6 +517,15 @@ Separate prototype loaded from `tutorial.lua` via `require("mcp.tutorial")`. Ins
 | popOutCode() | Returns pending pop-out JS code (one-shot: clears after return) |
 | popOut() | Generate JS code to open full variable browser in new tab (stored in _pendingPopOut) |
 
+**Variable Browser Viewdef (JS features):**
+
+The viewdef renders a sortable table of all variables with these columns: (diags), ID, Path, Type, **Viewdef**, GoType, Value, Changes, Time, Avg Time, Max Time, Impact, Max Impact, Error, Access, Active, Props. Columns are togglable via a column picker.
+
+- **Viewdef column**: Resolves the `viewdef` property from the variable or walks up the `parentId` chain to find the nearest ancestor with a `viewdef` property. Sortable.
+- **Click-to-highlight**: Clicking any cell (except Path/Diags) highlights the variable's view (translucent overlay matching the view's `border-radius`) and element (`box-shadow` ring). Both fade after 3s (1s solid + 2s fade). A dashed connector line is drawn from the click point to the target center. If only the view is visible (element hidden), only the view overlay shows. If neither is visible, the toast shows "(not visible)".
+- **Toast**: Shows the resolved viewdef name on every click (e.g., "Copied: AppConsole.DEFAULT"). Viewdef column copies the viewdef name; other columns copy the full variable JSON.
+- **Props column**: Excludes `type`, `path`, `access`, and `viewdef` (shown in their own columns).
+
 ### MCP.OutputLine (Lua console output)
 
 | Field | Type | Description |
@@ -684,7 +693,7 @@ Unknown labels get auto-calculated percentages based on position.
 |------|------|---------|
 | MCP.DEFAULT.html | MCP | Shell with app view, chat/lua/vars panel, menu button, icon grid, notifications, status bar, update star/dialogs/notification/progress |
 | MCP.Tutorial.DEFAULT.html | MCP.Tutorial | Tutorial overlay with spotlight, description card, highlight cycling, and repositioning JS |
-| MCP.VariableBrowser.DEFAULT.html | MCP.VariableBrowser | Variable browser panel with iframe and pop-out button |
+| MCP.VariableBrowser.DEFAULT.html | MCP.VariableBrowser | Variable browser with table, viewdef column, click-to-highlight, connector lines |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
 | MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |
