@@ -986,6 +986,19 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
+		// mcp:renderMarkdown(text) - convert markdown text to HTML fragment
+		// CRC: crc-MCPServer.md | R147
+		L.SetField(mcpTable, "renderMarkdown", L.NewFunction(func(L *lua.LState) int {
+			text := L.CheckString(2) // arg 1 is self (colon notation)
+			html, err := renderMarkdownFragment([]byte(text))
+			if err != nil {
+				L.Push(lua.LString(""))
+				return 1
+			}
+			L.Push(lua.LString(string(html)))
+			return 1
+		}))
+
 		// Register mcp:subscribe(topic, handler) for publisher integration
 		// CRC: crc-MCPSubscribe.md
 		s.registerSubscribeMethod(vendedID, mcpTable)
@@ -1894,6 +1907,16 @@ func renderMarkdownHTML(content []byte, title string) ([]byte, error) {
 		return nil, err
 	}
 	buf.WriteString("\n</body>\n</html>\n")
+	return buf.Bytes(), nil
+}
+
+// renderMarkdownFragment converts markdown content to an HTML fragment via goldmark (no page wrapper).
+// CRC: crc-MCPTool.md
+func renderMarkdownFragment(content []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := goldmark.Convert(content, &buf); err != nil {
+		return nil, err
+	}
 	return buf.Bytes(), nil
 }
 

@@ -1,7 +1,7 @@
 # MCPTool
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R4, R5, R6, R7, R8, R18, R21, R128, R129, R47, R48, R49, R138, R139, R144, R145
+**Requirements:** R4, R5, R6, R7, R8, R18, R21, R128, R129, R47, R48, R49, R138, R139, R144, R145, R146
 
 ## Responsibilities
 
@@ -26,6 +26,7 @@
 ### HTTP Handlers
 - `handleStaticFile`: Catch-all handler for `GET /*`. Serves files from `{base_dir}/html/`. For `.md` files with browser User-Agent, renders via `renderMarkdownHTML`. Otherwise delegates to `http.ServeFile`. Prevents `..` traversal via `path.Clean`. Appends `/index.html` for directories.
 - `renderMarkdownHTML`: Shared helper that converts markdown bytes to a complete styled HTML page via goldmark. Used by `handleStaticFile`, `handleAPIResource`, and `handleAppReadme`.
+- `renderMarkdownFragment`: Converts markdown bytes to an HTML fragment via goldmark (no page wrapper). Used by `mcp:renderMarkdown()` Lua binding.
 
 ## Collaborators
 

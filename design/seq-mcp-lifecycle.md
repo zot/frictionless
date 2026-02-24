@@ -174,8 +174,14 @@ The AI agent reconfigures the server with a different base directory.
           │                      │Handle("ui_configure")│                       │                  │
           │                      │─────────────────────>│                       │                  │
           │                      │                      │                       │                  │
-          │                      │                      │  StopServer()         │                  │
-          │                      │                      │──────────────────────>│                  │
+          │                      │                      │  Stop()               │                  │
+          │                      │                      │────┐                  │                  │
+          │                      │                      │    │ pushStateEvent(  │                  │
+          │                      │                      │    │  {event:         │                  │
+          │                      │                      │    │  "server_        │                  │
+          │                      │                      │    │  reconfigured"}) │                  │
+          │                      │                      │<───┘ (R155: unblocks  │                  │
+          │                      │                      │       /wait clients)  │                  │
           │                      │                      │                       │                  │
           │                      │                      │ DestroySession()      │                  │
           │                      │                      │──────────────────────>│                  │
@@ -210,6 +216,7 @@ The AI agent reconfigures the server with a different base directory.
 
 **Notes:**
 - Calling `ui_configure` triggers a full reconfigure
+- Before destroying the session, `Stop()` pushes a `server_reconfigured` event to unblock `/wait` clients (R155)
 - Current session is destroyed, HTTP server stops
 - Log files in `{base_dir}/log/` are cleared (deleted or truncated)
 - Go log file handles (`mcp.log`) are reopened to point to fresh files

@@ -172,6 +172,9 @@ Cross-platform binary builds via Makefile:
 ### Spec→Design
 *None*
 
+### Requirements→Design
+- [x] A1: R148-R154 (rich messages UI-side) are covered by `.ui/apps/mcp/design.md`, not project-level CRC cards
+
 ### Design→Code
 *None*
 

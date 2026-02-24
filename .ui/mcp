@@ -399,29 +399,35 @@ case "$prog" in
              -d "$(jq -n --arg name "$name" '{name: $name}')"
         ;;
     event)
-        # kill previous event watcher for this config if there is one
+        # check for existing event watcher
         if [ -f "$dir/.eventpid" ]; then
-            if [ "$(ps --no-headers -o comm $(cat "$dir/.eventpid"))" = bash ]; then
-                kill "$dir/.eventpid"
+            oldpid="$(cat "$dir/.eventpid")"
+            if kill -0 "$oldpid" 2>/dev/null; then
+                echo "Error: event listener already running (pid $oldpid). Stop it first or wait for it to finish." >&2
+                exit 1
             fi
+            rm -f "$dir/.eventpid"
         fi
         echo $BASHPID > "$dir/.eventpid"
         while true; do
             out="$(curl -s "http://127.0.0.1:$port/wait?timeout=120")"
             status=$?
             if [ -n "$out" ]; then
+                # On server_reconfigured or transient responses, re-read port and retry
+                if echo "$out" | grep -q '"server_reconfigured"\|No active session'; then
+                    sleep 1
+                    port=$(cat "$dir/mcp-port")
+                    continue
+                fi
                 echo "$out"
                 rm "$dir/.eventpid"
                 echo '{"note":"Restart the event loop in the background: .ui/mcp event"}'
                 break
             elif [ $status != 0 ]; then
-                rm "$dir/.eventpid"
-                if [ $status = 127 ]; then
-                    echo '{"note":"Event loop timed out. Restart: .ui/mcp event"}'
-                else
-                    echo '{"note":"Event exited with an error. Restart: .ui/mcp event"}'
-                fi
-                exit $status
+                # Connection failed — server may have restarted on a new port
+                sleep 1
+                port=$(cat "$dir/mcp-port")
+                continue
             fi
         done
         ;;

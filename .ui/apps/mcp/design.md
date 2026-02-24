@@ -331,8 +331,10 @@ The global `mcp` object is provided by the server. This app adds:
 | clearAttachments() | Remove all attachments, delete files |
 | lightboxVisible() | Returns true if lightboxUri is non-empty |
 | hideLightbox() | Clears lightboxUri to close the lightbox |
-| addAgentMessage(text) | Add agent message to chat, clear statusLine/statusClass |
+| addAgentMessage(text) | Add agent message to chat (renders text as markdown), clear statusLine/statusClass |
 | addAgentThinking(text) | Add thinking message to chat, update statusLine/statusClass |
+| addRichMessage(html) | Add agent message with pre-built HTML content (no markdown rendering) |
+| highlightLink(elementId, label) | Returns anchor tag HTML that calls window.uiApp.highlight() on click |
 | clearChat() | Clear messages list |
 | clearPanel() | Clear chat or lua output based on panelMode (no-op in vars mode) |
 | runLua() | Execute luaInput, append output to luaOutputLines |
@@ -442,19 +444,22 @@ Separate prototype loaded from `tutorial.lua` via `require("mcp.tutorial")`. Ins
 | Field | Type | Description |
 |-------|------|-------------|
 | sender | string | "You" or "Agent" |
-| text | string | Message content |
+| text | string | Raw message content (markdown source) |
+| html | string | Rendered HTML content (from markdown or agent-provided) |
 | style | string | "normal" (default) or "thinking" for interstitial progress |
 | _thumbnails | ChatThumbnail[] | Thumbnail images attached to this message |
 
 | Method | Description |
 |--------|-------------|
-| new(sender, text, style, thumbnails) | Create a new ChatMessage with optional thumbnail list |
+| new(sender, text, style, thumbnails) | Create a new ChatMessage; renders text as markdown into html via mcp:renderMarkdown() |
 | isUser() | Returns true if sender == "You" |
 | isThinking() | Returns true if style == "thinking" |
+| isRich() | Returns true if html is non-empty |
+| isPlain() | Returns true if html is empty |
 | hasThumbnails() | Returns true if _thumbnails is non-empty |
 | noThumbnails() | Returns true if _thumbnails is empty |
 | chatThumbnails() | Returns _thumbnails for binding |
-| mutate() | Initialize style and _thumbnails if nil (hot-load migration) |
+| mutate() | Initialize style, html, and _thumbnails if nil (hot-load migration) |
 | prefix() | Returns "> " for user messages, "" for agent |
 
 ### MCP.ChatThumbnail (image thumbnail in chat message)
@@ -696,7 +701,7 @@ Unknown labels get auto-calculated percentages based on position.
 | MCP.VariableBrowser.DEFAULT.html | MCP.VariableBrowser | Variable browser with table, viewdef column, click-to-highlight, connector lines |
 | MCP.AppMenuItem.list-item.html | MCP.AppMenuItem | Icon card with icon HTML and name below |
 | MCP.Notification.list-item.html | MCP.Notification | Toast notification with message and close button |
-| MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, text, and optional thumbnail gallery |
+| MCP.ChatMessage.list-item.html | MCP.ChatMessage | Chat message with prefix, rich HTML or plain text, and optional thumbnail gallery |
 | MCP.ChatThumbnail.list-item.html | MCP.ChatThumbnail | Clickable thumbnail image (opens lightbox on click) |
 | MCP.TodoItem.list-item.html | MCP.TodoItem | Todo item with status icon and text |
 | MCP.OutputLine.list-item.html | MCP.OutputLine | Clickable Lua output line (copies to input) |

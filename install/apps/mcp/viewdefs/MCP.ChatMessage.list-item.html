@@ -1,7 +1,7 @@
 <template>
   <div class="chat-message" ui-class-user-message="isUser()" ui-class-thinking-message="isThinking()">
     <div class="chat-message-content">
-      <span class="chat-prefix" ui-value="prefix()"></span><span class="chat-message-text" ui-value="text"></span>
+      <span class="chat-prefix" ui-value="prefix()" ui-class-hidden="isRich()"></span><span class="chat-message-text" ui-value="text" ui-class-hidden="isRich()"></span><span class="chat-message-rich" ui-html="html" ui-class-hidden="isPlain()"></span>
     </div>
     <div class="chat-thumbs" ui-class-hidden="noThumbnails()">
       <div ui-view="chatThumbnails()?wrapper=lua.ViewList"></div>

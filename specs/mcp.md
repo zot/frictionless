@@ -164,6 +164,7 @@ Calling `ui_configure` while running triggers a full reconfigure:
 *   **Trigger:** Successful execution of `ui_configure`.
 *   **Conditions:** `base_dir` is valid and writable.
 *   **Effects:**
+    *   Clients blocked on `/wait` receive a `server_reconfigured` event before the session is destroyed, so they terminate cleanly instead of hanging until timeout.
     *   Current session is destroyed, HTTP server stops.
     *   Filesystem (logs, config) is re-initialized for new base_dir.
     *   HTTP listener restarts on new ephemeral port.
@@ -898,6 +899,7 @@ UI can display a "waiting for Claude..." indicator that shows elapsed time, help
 4. Returns HTTP 204 (No Content) on timeout (no events).
 5. Returns HTTP 404 if session does not exist.
 6. **Triggers UI update** after draining the queue by calling `SafeExecuteInSession` with an empty function (see Section 4.1). This ensures UIs monitoring the event queue refresh.
+7. **On reconfigure:** Receives a `server_reconfigured` event pushed by `Stop()` before the session is destroyed (see Section 3.2). This unblocks the client immediately instead of hanging until timeout.
 
 **Example Request:**
 ```

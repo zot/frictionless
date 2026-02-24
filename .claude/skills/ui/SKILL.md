@@ -91,14 +91,13 @@ Do NOT skip reading design.md — even for events that seem obvious like `app_cr
 
 ### Step C: Event loop lifecycle
 
-**Only ONE listener may exist at a time** — multiple listeners race and cause lost/duplicate events.
+**Only ONE listener may exist at a time** — the script enforces this via `.ui/.eventpid` and will error if a listener is already running.
 
 **Task lifecycle:**
-1. **Check for existing listener:** If a background `.ui/mcp event` is already running, reuse it — do NOT start another
-2. Only if none exists: run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id
-3. When the background task completes, **ALWAYS read the output file immediately** — do NOT assume timeout. Failing to read means silently dropping events.
-4. Handle any events received
-5. `TaskStop` the old task, then start a fresh listener (go to step 2)
+1. Run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", reuse the existing listener.
+2. When the background task completes, **ALWAYS read the output file immediately** — do NOT assume timeout. Failing to read means silently dropping events.
+3. Handle any events received
+4. Start a fresh listener (go to step 1)
 
 **Exit codes:**
 - 0 + JSON output = events received (may be empty array `[]` for timeout)
@@ -145,16 +144,38 @@ end
 
 ## Chat Messages
 
-To send a message back to the user in the MCP shell's chat panel:
+All chat messages render markdown. Use it via `.ui/mcp run`:
+```
+.ui/mcp run 'mcp:addAgentMessage("Found **salary data**: $150k-$180k")'
+```
+
+### Pointing at UI elements
+
+When the user asks "where is X?" or "show me the Y", **both highlight the element AND include a clickable link** in your response so the user can re-trigger the highlight later:
+
+1. Find the element's DOM id (from variables, viewdefs, or Playwright)
+2. Highlight it immediately: `mcp.code = [=[window.uiApp.highlight("ui-42")// ]=] .. os.time()`
+3. Reply with a rich message containing a highlight link:
 
 ```lua
-mcp:addAgentMessage("Your message here")
+mcp:addRichMessage(
+    "The search box is "
+    .. mcp:highlightLink("ui-42", "right here")
+    .. ". Type to filter the list."
+)
 ```
 
-This is the standard way to reply to `chat` events. Use it via `.ui/mcp run`:
-```
-.ui/mcp run 'mcp:addAgentMessage("Found salary data: $150k-$180k")'
-```
+The link stays in the chat history — the user can click it anytime to re-highlight the element.
+
+### Message methods
+
+| Method | Description |
+|--------|-------------|
+| `mcp:addAgentMessage(text)` | Agent message with markdown rendering |
+| `mcp:addRichMessage(html)` | Agent message with raw HTML (for highlight links, custom content) |
+| `mcp:highlightLink(elementId, label)` | Returns anchor HTML that highlights an element on click |
+| `mcp:addAgentThinking(text)` | Thinking/progress message (italic, updates status bar) |
+| `mcp:renderMarkdown(text)` | Convert markdown to HTML fragment (for custom use) |
 
 ## Building or Modifying UIs
 

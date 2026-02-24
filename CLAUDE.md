@@ -25,6 +25,15 @@ You can use the playwright browser to connect to it.
 ### JSON parsing
 Use `jq` for parsing JSON from tool outputs and command results. Don't use python3 one-liners for JSON extraction.
 
+## Session execution queue pattern
+`SafeExecuteInSession` uses a strict queue — operations execute in order. Use this to serialize work that must happen after an event flush. For example, to notify `/wait` clients and then destroy the session without a race:
+```go
+s.pushStateEvent(vendedID, event)           // queue the event, signal waiters
+s.SafeExecuteInSession(vendedID, func() {   // runs after the /wait handler's drain
+    sessions.DestroySession(internalID)     // safe — event has been flushed
+})
+```
+
 ## Debugging
 When trouble arises, look at the most recent changes first. If you changed a CSS pattern, check every JS/Lua consumer of that pattern. If you changed a class convention (e.g. `hidden` to `hidden`+`showing`), grep for all code that checks those classes — it's probably broken.
 

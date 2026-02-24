@@ -50,8 +50,9 @@ type Server struct {
 	mcpPort         int          // Port for MCP HTTP server (written to baseDir/mcp-port)
 	uiPort          int          // Port for UI HTTP server (written to baseDir/ui-port)
 	currentVendedID string       // Current session's vended ID (e.g., "1")
-	logPath         string       // Path for Lua log file (set at configure time)
-	errPath         string       // Path for Lua error log file (set at configure time)
+	logPath              string // Path for Lua log file (set at configure time)
+	errPath              string // Path for Lua error log file (set at configure time)
+	variablesRegistered  bool   // Whether /variables route has been registered on the mux
 
 	// State change waiting (mcp.state queue)
 	stateWaiters   map[string][]chan struct{} // sessionID -> list of waiting channels
@@ -340,23 +341,27 @@ func (s *Server) ClearLogs() error {
 // Spec: mcp.md Section 3.1 - Server auto-starts
 // Sequence: seq-mcp-lifecycle.md (Scenario 1)
 func (s *Server) StartAndCreateSession() (string, error) {
-	// Register /variables route on UI server (before Start so the mux is ready)
-	s.UiServer.HttpEndpoint.HandleFunc("/variables", func(w http.ResponseWriter, r *http.Request) {
-		sessionID := s.GetCurrentSessionID()
-		if sessionID != "" {
-			http.SetCookie(w, &http.Cookie{
-				Name:     "ui-session",
-				Value:    sessionID,
-				Path:     "/",
-				HttpOnly: false,
-				SameSite: http.SameSiteLaxMode,
-			})
-		}
-		s.mu.RLock()
-		baseDir := s.baseDir
-		s.mu.RUnlock()
-		http.ServeFile(w, r, filepath.Join(baseDir, "html", "variables.html"))
-	})
+	// Register /variables route on UI server (before Start so the mux is ready).
+	// Only register once — http.ServeMux panics on duplicate patterns.
+	if !s.variablesRegistered {
+		s.UiServer.HttpEndpoint.HandleFunc("/variables", func(w http.ResponseWriter, r *http.Request) {
+			sessionID := s.GetCurrentSessionID()
+			if sessionID != "" {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "ui-session",
+					Value:    sessionID,
+					Path:     "/",
+					HttpOnly: false,
+					SameSite: http.SameSiteLaxMode,
+				})
+			}
+			s.mu.RLock()
+			baseDir := s.baseDir
+			s.mu.RUnlock()
+			http.ServeFile(w, r, filepath.Join(baseDir, "html", "variables.html"))
+		})
+		s.variablesRegistered = true
+	}
 
 	// Start the UI HTTP server
 	baseURL, err := s.Start()
@@ -476,6 +481,7 @@ func (s *Server) tryStartPublisher() {
 
 // Stop destroys the current session and resets state.
 // This allows reconfiguration via ui_configure.
+// CRC: crc-MCPServer.md | Seq: seq-mcp-lifecycle.md (Scenario 3)
 func (s *Server) Stop() error {
 	s.mu.Lock()
 	if s.state != Running {
@@ -486,6 +492,18 @@ func (s *Server) Stop() error {
 	// Capture session info while holding lock
 	vendedID := s.currentVendedID
 	s.mu.Unlock() // Release before calling DestroySession to avoid deadlock
+
+	// Notify waiters before destroying session. Use SafeExecuteInSession to
+	// serialize with other Lua operations (prevents stomping on stdout writes).
+	// Spec: mcp.md Section 3.2 - Reconfiguration notifies waiters
+	if vendedID != "" {
+		s.SafeExecuteInSession(vendedID, func() (interface{}, error) {
+			s.pushStateEvent(vendedID, map[string]interface{}{
+				"event": "server_reconfigured",
+			})
+			return nil, nil
+		})
+	}
 
 	// Destroy the session outside the lock (may trigger callbacks)
 	if vendedID != "" {

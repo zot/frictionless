@@ -4,6 +4,7 @@ package mcp
 // Theme management: parsing CSS themes, listing, auditing, and index.html injection
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -203,11 +204,20 @@ func GetThemeAccentColor(baseDir, theme string) string {
 	return ""
 }
 
-// GetCurrentTheme returns the default theme (from config or hardcoded default)
+// GetCurrentTheme reads the theme from storage/settings.json, falling back to the default
 func GetCurrentTheme(baseDir string) string {
-	// TODO: Read from config file when implemented
-	// For now, return default
-	return defaultThemeName
+	settingsPath := filepath.Join(baseDir, "storage", "settings.json")
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return defaultThemeName
+	}
+	var settings struct {
+		Theme string `json:"theme"`
+	}
+	if err := json.Unmarshal(data, &settings); err != nil || settings.Theme == "" {
+		return defaultThemeName
+	}
+	return settings.Theme
 }
 
 // GetThemeClasses parses a theme CSS file and returns its documented classes

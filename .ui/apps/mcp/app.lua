@@ -169,7 +169,8 @@ local UI_STEP_DEFS = {
 MCP.ChatMessage = session:prototype("MCP.ChatMessage", {
     sender = "",
     text = "",
-    style = "normal",  -- "normal" or "thinking"
+    html = "",          -- rendered HTML (from markdown or agent-provided)
+    style = "normal",   -- "normal" or "thinking"
     _thumbnails = EMPTY
 })
 local ChatMessage = MCP.ChatMessage
@@ -186,7 +187,21 @@ function ChatThumbnail:showFull()
 end
 
 function ChatMessage:new(sender, text, style, thumbnails)
-    local msg = session:create(ChatMessage, { sender = sender, text = text, style = style or "normal" })
+    local html = ""
+    if text and text ~= "" then
+        html = mcp:renderMarkdown(text)
+        -- Inject prefix inside first <p> tag for user messages
+        -- (prefix is inline but goldmark wraps text in block <p>, causing a line break)
+        if sender == "You" then
+            local injected = html:gsub("^<p>", '<p><span class="chat-prefix">&gt; </span>', 1)
+            if injected ~= html then
+                html = injected
+            else
+                html = '<span class="chat-prefix">&gt; </span>' .. html
+            end
+        end
+    end
+    local msg = session:create(ChatMessage, { sender = sender, text = text, html = html, style = style or "normal" })
     msg._thumbnails = thumbnails or {}
     return msg
 end
@@ -197,6 +212,14 @@ end
 
 function ChatMessage:isThinking()
     return self.style == "thinking"
+end
+
+function ChatMessage:isRich()
+    return self.html ~= ""
+end
+
+function ChatMessage:isPlain()
+    return self.html == ""
 end
 
 function ChatMessage:hasThumbnails()
@@ -214,6 +237,20 @@ end
 function ChatMessage:mutate()
     if self.style == nil then
         self.style = "normal"
+    end
+    if (self.html == nil or self.html == "") and self.text and self.text ~= "" then
+        self.html = mcp:renderMarkdown(self.text)
+        if self.sender == "You" then
+            local injected = self.html:gsub("^<p>", '<p><span class="chat-prefix">&gt; </span>', 1)
+            if injected ~= self.html then
+                self.html = injected
+            else
+                self.html = '<span class="chat-prefix">&gt; </span>' .. self.html
+            end
+        end
+    end
+    if self.html == nil then
+        self.html = ""
     end
     if self._thumbnails == nil then
         self._thumbnails = {}
@@ -869,6 +906,18 @@ function mcp:addAgentThinking(text)
     table.insert(self.messages, ChatMessage:new("Agent", text, "thinking"))
     self.statusLine = text
     self.statusClass = "thinking"
+end
+
+function mcp:addRichMessage(html)
+    local msg = session:create(ChatMessage, { sender = "Agent", text = "", html = html, style = "normal" })
+    msg._thumbnails = {}
+    table.insert(self.messages, msg)
+    self.statusLine = ""
+    self.statusClass = ""
+end
+
+function mcp:highlightLink(elementId, label)
+    return '<a class="rich-link" onclick="window.uiApp.highlight(\'' .. elementId .. '\')">' .. label .. '</a>'
 end
 
 function mcp:clearChat()

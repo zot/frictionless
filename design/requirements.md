@@ -191,3 +191,21 @@
 - **R133:** Click-to-copy shows a brief toast notification confirming the copy
 - **R134:** MCP port `/state` returns raw JSON (not embedded HTML) for script consumption
 - **R135:** MCP port `/variables` redirects to the UI port's variable browser
+
+## Feature: Rich Messages
+**Source:** specs/rich-messages.md
+
+- **R146:** Provide `renderMarkdownFragment(content)` Go function that converts markdown to an HTML fragment via goldmark (no page wrapper)
+- **R147:** Expose markdown rendering to Lua as `mcp:renderMarkdown(text)` returning an HTML string
+- **R148:** ChatMessage prototype has an `html` field for rendered/rich HTML content
+- **R149:** ChatMessage viewdef displays `html` field (via `ui-html`) when present, plain `text` (via `ui-value`) otherwise
+- **R150:** `mcp:addRichMessage(html)` creates an agent message with pre-built HTML content
+- **R151:** `mcp:highlightLink(elementId, label)` returns an anchor tag HTML string that calls `window.uiApp.highlight()` on click
+- **R152:** All chat messages (user and agent) render `text` as markdown into `html` at creation time via `mcp:renderMarkdown()`
+- **R153:** Raw `text` field is preserved as source alongside rendered `html`
+- **R154:** Goldmark renders with default settings (no `html.WithUnsafe()`) so raw HTML in markdown input is escaped
+
+## Feature: Reconfigure Waiter Notification
+**Source:** specs/mcp.md
+
+- **R155:** When `Stop()` is called during reconfiguration, it pushes a `server_reconfigured` event to the state queue for the current session before destroying it, so clients blocked on `/wait` unblock immediately
