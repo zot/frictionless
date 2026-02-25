@@ -9,9 +9,9 @@ Foundation for building and running ui-engine UIs with Lua apps connected to wid
 
 ## Simple Requests
 
-When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright if connected.
+When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright if the user has been using it.
 
-When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if connected.
+When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if the user has been using it.
 
 When the user says `events` it means to start the event loop, but not use `.ui/mcp display` or `.ui/mcp browser` as in Quick Start.
 
@@ -94,7 +94,7 @@ Do NOT skip reading design.md — even for events that seem obvious like `app_cr
 **Only ONE listener may exist at a time** — the script enforces this via `.ui/.eventpid` and will error if a listener is already running.
 
 **Task lifecycle:**
-1. Run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", reuse the existing listener.
+1. Run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", do nothing — the script manages the PID lock itself. Do NOT manually check PIDs or the `.eventpid` file; just wait for the existing listener to complete.
 2. When the background task completes, **ALWAYS read the output file immediately** — do NOT assume timeout. Failing to read means silently dropping events.
 3. Handle any events received
 4. Start a fresh listener (go to step 1)

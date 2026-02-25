@@ -129,25 +129,25 @@
         <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
           <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
         </span>
+        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
+          <sl-icon name="grid-3x3-gap-fill"></sl-icon>
+          <!-- Update available star -->
+          <sl-icon class="mcp-update-star-inline hidden" name="star-fill"
+                   ui-class-showing="updateAvailable()"
+                   ui-event-click="startUpdate()"
+                   title="Update available!"></sl-icon>
+        </span>
       </span>
     </div>
 
-    <!-- App switcher menu button -->
-    <div class="mcp-menu-container">
-      <button class="mcp-menu-button" ui-action="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
-        <sl-icon class="mcp-icon" name="grid-3x3-gap-fill"></sl-icon>
-        <span class="mcp-wait-counter"></span>
-        <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
-        <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
-      </button>
-      <!-- Update available star -->
-      <sl-icon class="mcp-update-star hidden" name="star-fill"
-               ui-class-showing="updateAvailable()"
-               ui-event-click="startUpdate()"
-               title="Update available! Click to update."></sl-icon>
+    <!-- Wait counter overlay (stays top-right, click-through) -->
+    <div class="mcp-wait-overlay" ui-class-waiting="isWaiting()">
+      <span class="mcp-wait-counter"></span>
+      <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
+      <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
     </div>
 
-    <!-- Dropdown menu with icon grid -->
+    <!-- Dropdown menu with icon grid (opens upward from status bar) -->
     <div class="mcp-menu-dropdown hidden" ui-class-showing="menuShowing()">
       <div class="mcp-icon-grid" ui-viewlist="availableApps()" ui-namespace="list-item">
         <div></div>

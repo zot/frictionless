@@ -8,8 +8,8 @@ require (
 	github.com/mark3labs/mcp-go v0.43.2
 	github.com/yuin/goldmark v1.7.16
 	github.com/yuin/gopher-lua v1.1.1
-	github.com/zot/change-tracker v1.2.0
-	github.com/zot/ui-engine v0.18.0
+	github.com/zot/change-tracker v1.3.1
+	github.com/zot/ui-engine v0.19.0
 	golang.org/x/net v0.49.0
 )
 

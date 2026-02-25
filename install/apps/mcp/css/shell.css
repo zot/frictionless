@@ -118,108 +118,82 @@
   filter: drop-shadow(0 0 6px var(--term-accent-glow)) drop-shadow(0 0 12px var(--term-accent-glow));
 }
 
-/* Menu container - floating terminal widget */
-.mcp-menu-container {
+/* Menu toggle in status bar */
+.mcp-menu-toggle {
+  position: relative;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 999px;
+  transition: all 0.2s;
+  color: var(--term-text-dim);
+}
+
+.mcp-menu-toggle:hover {
+  background: var(--term-bg-hover);
+  color: var(--term-accent);
+  box-shadow: 0 0 8px var(--term-accent-glow);
+}
+
+.mcp-menu-toggle sl-icon {
+  font-size: 1rem;
+  vertical-align: middle;
+}
+
+
+/* Inline update star (inside menu toggle) */
+.mcp-update-star-inline {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  font-size: 0.55rem;
+  color: var(--term-accent);
+  animation: star-pulse 2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* Wait counter overlay - stays top-right, fully click-through */
+.mcp-wait-overlay {
   position: absolute;
   top: 12px;
   right: 12px;
   z-index: 10000;
-}
-
-.mcp-menu-button {
-  position: relative;
+  pointer-events: none;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 2px solid var(--term-border);
-  background: var(--term-bg-elevated);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow:
-    0 0 20px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.mcp-menu-button:hover {
-  border-color: var(--term-accent);
-  box-shadow:
-    0 0 20px rgba(0, 0, 0, 0.5),
-    0 0 15px var(--term-accent-glow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.mcp-menu-button .mcp-icon {
-  font-size: 1.4rem;
-  color: var(--term-text-dim);
-  transition: color 0.2s;
-}
-
-.mcp-menu-button:hover .mcp-icon {
-  color: var(--term-accent);
-}
-
-/* Waiting state - pulsating glow */
-.mcp-menu-button.waiting {
-  border-color: var(--term-accent);
-  animation: button-pulse 2s ease-in-out infinite;
-}
-
-.mcp-menu-button.waiting .mcp-icon {
-  opacity: 0.3;
-}
-
-@keyframes button-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 20px rgba(0, 0, 0, 0.5),
-      0 0 15px var(--term-accent-glow),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  }
-  50% {
-    box-shadow:
-      0 0 20px rgba(0, 0, 0, 0.5),
-      0 0 30px var(--term-accent-glow),
-      0 0 50px rgba(224, 122, 71, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  }
-}
-
-.mcp-menu-button .mcp-wait-counter {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--term-mono);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--term-accent);
-  text-shadow: 0 0 8px var(--term-accent-glow);
-  pointer-events: none;
-  z-index: 1;
   opacity: 0;
   transition: opacity 0.2s;
 }
 
-.mcp-menu-button.waiting .mcp-wait-counter {
+.mcp-wait-overlay.waiting {
   opacity: 1;
+  box-shadow: 0 0 0 2px var(--term-accent), 0 0 8px var(--term-accent-glow);
+  border-radius: 50%;
 }
 
-/* Dropdown menu - terminal panel with LCARS accent */
+.mcp-wait-overlay .mcp-wait-counter {
+  font-family: var(--term-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--term-accent);
+  text-shadow: 0 0 8px var(--term-accent-glow), 0 0 16px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* Dropdown menu - opens upward from status bar */
 .mcp-menu-dropdown {
-  position: absolute;
-  top: 68px;
+  position: fixed;
+  bottom: 40px;
   right: 12px;
   z-index: 10000;
   background: var(--term-bg-elevated);
   border: 1px solid var(--term-border);
   border-left: 4px solid var(--term-accent);
-  border-radius: 0 8px 8px 8px;
+  border-radius: 8px 8px 0 8px;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 -8px 32px rgba(0, 0, 0, 0.6),
     0 0 1px rgba(255, 255, 255, 0.1);
   padding: 12px 12px 12px 14px;
 }
@@ -294,7 +268,7 @@
 /* Notifications - terminal alerts */
 .mcp-notifications {
   position: fixed;
-  top: 64px;
+  top: 12px;
   right: 12px;
   z-index: 9999;
   display: flex;

@@ -21,10 +21,10 @@
   50% { opacity: 0.6; }
 }
 
-/* Update notification bar */
+/* Update notification bar - above status bar */
 .mcp-update-notification {
   position: fixed;
-  top: 72px;
+  bottom: 40px;
   right: 12px;
   z-index: 9998;
   max-width: 360px;

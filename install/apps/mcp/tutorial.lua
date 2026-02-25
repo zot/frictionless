@@ -29,11 +29,19 @@ end
 
 local EXAMPLE_URL = "https://github.com/zot/frictionless/tree/main/apps/example"
 
-local function openExampleGitHubForm()
+local function openExampleGitHubForm(tut)
     if not appConsole then return end
     appConsole:openGitHubForm()
     appConsole.github.url = EXAMPLE_URL
-    appConsole.github:investigate()
+    -- Defer investigate() so the step transition renders immediately
+    -- (investigate does a synchronous curl to the GitHub API)
+    session:setImmediate(function()
+        appConsole.github:investigate()
+        -- Delay reposition so the browser renders the form content first
+        session:setTimeout(function()
+            if tut and tut.active then tut:triggerReposition() end
+        end, 300)
+    end)
 end
 
 local function cancelGitHubForm()
@@ -50,6 +58,7 @@ local CONTROLS_ITEMS = {
     {text = "rocket/gem build mode (fast vs thorough)", idx = 3},
     {text = "hourglass foreground/background", idx = 4},
     {text = "speech bubble for the chat panel", idx = 5},
+    {text = "grid icon for the app menu", idx = 6},
 }
 
 --------------------------------------------------------------------
@@ -61,8 +70,8 @@ local STEPS = {
     {
         title = "App Menu",
         description = "Tap the grid icon to switch between apps. Your installed apps appear here as an icon grid.",
-        selector = ".mcp-menu-button",
-        position = "left",
+        selector = ".mcp-menu-toggle",
+        position = "top",
         cycling = true,
         run = function(tut, shell)
             shell.menuOpen = true
@@ -73,8 +82,8 @@ local STEPS = {
     {
         title = "Connection Status",
         description = "When Claude disconnects, this button pulses and counts seconds waiting. Use /ui events in Claude Code to reconnect.",
-        selector = ".mcp-menu-button",
-        position = "left",
+        selector = ".mcp-wait-overlay",
+        position = "below",
         run = function(tut, shell) tut:startFakeWait() end,
         cleanup = function(tut, shell) tut:stopFakeWait() end
     },
@@ -188,7 +197,11 @@ local STEPS = {
         description = '<span data-console-idx="0">The left panel lists all apps</span> with build status and test results. '
             .. '<span data-console-idx="1">Use + to create a new app</span> or '
             .. '<span data-console-idx="2">the GitHub icon to download one</span>.',
-        run = function(tut, shell) shell:display("app-console") end
+        run = function(tut, shell)
+            if shell:currentAppName() ~= "app-console" then
+                shell:display("app-console")
+            end
+        end
     },
     -- Step 8: Download from GitHub
     {
@@ -206,7 +219,7 @@ local STEPS = {
             return "We've pre-filled the URL for an example app and fetched its files. The tabs show each file for you to review before installing."
         end,
         run = function(tut, shell)
-            if not exampleAppInstalled() then openExampleGitHubForm() end
+            if not exampleAppInstalled() then openExampleGitHubForm(tut) end
         end
     },
     -- Step 9: Security Review
@@ -227,7 +240,7 @@ local STEPS = {
             -- Reopen the GitHub form if it was closed (e.g. coming back from step 10)
             if not exampleAppInstalled()
                and (not appConsole or not appConsole.github or not appConsole.github.visible) then
-                openExampleGitHubForm()
+                openExampleGitHubForm(tut)
             end
             if appConsole and appConsole.github and appConsole.github.tabs then
                 for _, tab in ipairs(appConsole.github.tabs) do
@@ -269,9 +282,13 @@ local STEPS = {
     -- Step 11: Preferences
     {
         title = "Preferences",
-        description = "Find the Prefs app in the app menu to change themes and update settings. You can re-run this tutorial anytime from there.",
-        selector = ".mcp-menu-button",
-        position = "left"
+        description = "The Prefs app lets you change themes and update settings. You can re-run this tutorial anytime from there.",
+        selector = ".mcp-menu-dropdown",
+        position = "left",
+        run = function(tut, shell)
+            shell.menuOpen = true
+        end,
+        cleanup = function(tut, shell) shell.menuOpen = false end
     },
 }
 

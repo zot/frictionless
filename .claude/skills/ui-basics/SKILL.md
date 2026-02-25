@@ -367,6 +367,59 @@ See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
 
 ---
 
+# Observability
+
+Every variable in the system carries instrumentation data. Use `.ui/mcp variables` to query all variables as JSON, or open the variable browser in the UI (the `{}` icon in the status bar).
+
+## Variable Instrumentation
+
+Each variable has these fields (when applicable):
+
+| Field | Description |
+|-------|-------------|
+| `computeTime` | Time for the most recent recomputation (e.g., "2.0us") |
+| `maxComputeTime` | Worst-case compute time ever observed |
+| `avgComputeTime` | Average compute time |
+| `error` | Error message if the variable's path/method failed |
+| `diags` | Array of diagnostic messages from `diag()` calls |
+| `changeCount` | Number of times this variable's value has changed |
+| `elementId` | The DOM element this variable is bound to |
+
+## Diagnostics: `diag(level, message)`
+
+Global Lua function. Call it inside any method that runs during variable recomputation — the message automatically attaches to whichever variable triggered the computation.
+
+```lua
+function MyApp:filteredItems()
+    local result = {}
+    for _, item in ipairs(self._items) do
+        if item.active then table.insert(result, item) end
+    end
+    diag(1, "filtered " .. #self._items .. " items down to " .. #result)
+    return result
+end
+```
+
+- `level` is an integer. Messages only appear when the server's verbosity (`-v` flags) >= level.
+- Shared functions taint all calling variables — if `helper()` calls `diag()`, every variable whose method calls `helper()` gets the message.
+- Messages reset on each recomputation (they reflect the current state, not history).
+
+## Debugging with Variables
+
+**Find slow methods:** Sort by Time in the variable browser, or query:
+```bash
+.ui/mcp variables | jq '[.[] | select(.computeTime)] | sort_by(.maxComputeTime) | reverse | .[:10] | .[] | {path, computeTime, maxComputeTime}'
+```
+
+**Find errors:** Check the `error` field:
+```bash
+.ui/mcp variables | jq '[.[] | select(.error)] | .[] | {path, error}'
+```
+
+**Find which element a variable is bound to:** Check `elementId` — this is the DOM element ID (e.g., `ui-42`). The variable browser lets you click any variable to highlight its element in the UI.
+
+---
+
 # MCP Methods
 
 | Method | Description |

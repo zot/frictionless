@@ -43,6 +43,9 @@
         // Also clean up any menu glow left behind
         var md = document.querySelector('.mcp-menu-dropdown');
         if (md) md.classList.remove('tut-menu-glow');
+        // Clean up wait overlay glow
+        var wo = document.querySelector('.mcp-wait-overlay');
+        if (wo) wo.classList.remove('tut-wait-glow');
       }
     };
   </script>
@@ -127,6 +130,7 @@
             window._tutSched._phase2 = false;
             window._tutSched._remeasured = false;
             window._tutSched._step1Polling = false;
+            window._tutSched._step11Polling = false;
             // Enter: resize panel for steps 5-6
             if (step === 5 || step === 6) {
               var p = document.querySelector('.mcp-chat-panel');
@@ -186,10 +190,15 @@
           card.style.left = Math.max(margin, contentRight - cardWidth - 3 * margin + off) + 'px';
           card.style.top = Math.max(margin, y2 - cardHeight - margin) + 'px';
         } else if (position === 'below') {
-          // Position card's upper-left at anchor element's lower-left
+          // Position card below anchor (or target). Right-align if target is near right edge.
           var anchorEl = anchor ? document.querySelector(anchor) : null;
           var aRect = anchorEl ? anchorEl.getBoundingClientRect() : rect;
-          card.style.left = Math.max(margin, aRect.left) + 'px';
+          var leftPos = aRect.left;
+          // If target's right edge is in the right third of the viewport, right-align the card
+          if (aRect.right > window.innerWidth * 0.66) {
+            leftPos = aRect.right - cardWidth;
+          }
+          card.style.left = Math.max(margin, leftPos) + 'px';
           card.style.top = (aRect.bottom + margin + off) + 'px';
         } else if (position === 'top' || position === 'center-top') {
           if (position === 'center-top') {
@@ -215,6 +224,34 @@
           });
         }
 
+        // Step 2: add glow to wait overlay (connection status demo)
+        if (step === 2) {
+          var wo = document.querySelector('.mcp-wait-overlay');
+          if (wo) wo.classList.add('tut-wait-glow');
+        }
+
+        // Step 11: highlight prefs item in the menu dropdown
+        if (step === 11 && !window._tutSched._step11Polling) {
+          window._tutSched._step11Polling = true;
+          var pollId11 = setInterval(function() {
+            var md = document.querySelector('.mcp-menu-dropdown');
+            if (md && md.classList.contains('showing')) {
+              clearInterval(pollId11);
+              md.classList.add('tut-menu-glow');
+              // Find and spotlight the prefs menu item
+              var items = md.querySelectorAll('.mcp-menu-item-name');
+              for (var i = 0; i < items.length; i++) {
+                if (items[i].textContent.trim().toLowerCase() === 'prefs') {
+                  items[i].closest('.mcp-menu-item').classList.add('tut-spotlight');
+                  break;
+                }
+              }
+              window._tutSched._phase2 = true;
+            }
+          }, 100);
+          window._tutSched.after(10000, function() { clearInterval(pollId11); });
+        }
+
         // Step 1 phase 2: menu opened from Lua (run action);
         // poll until dropdown is visible, then add glow and reposition card
         if (step === 1 && !window._tutSched._step1Polling) {
@@ -226,7 +263,7 @@
               md.classList.add('tut-menu-glow');
               var mr = md.getBoundingClientRect();
               card.style.left = Math.max(margin, mr.right - cardWidth) + 'px';
-              card.style.top = (mr.bottom + margin) + 'px';
+              card.style.top = Math.max(margin, mr.top - cardHeight - margin) + 'px';
               window._tutSched._phase2 = true;
             }
           }, 100);
@@ -248,6 +285,8 @@
         window._tutSched._step = 0;
       }
       document.querySelectorAll('.tut-spotlight').forEach(function(el) { el.classList.remove('tut-spotlight'); });
+      var wo = document.querySelector('.mcp-wait-overlay');
+      if (wo) wo.classList.remove('tut-wait-glow');
     };
   </script>
 
@@ -277,7 +316,7 @@
       var CYCLING_STEPS = {
         '4': {
           attr: 'data-ctrl-idx',
-          listSel: '.mcp-status-toggles .mcp-build-mode-toggle',
+          listSel: '.mcp-status-toggles .mcp-build-mode-toggle, .mcp-status-toggles .mcp-menu-toggle',
           listClass: 'tut-active'
         },
         '5': {

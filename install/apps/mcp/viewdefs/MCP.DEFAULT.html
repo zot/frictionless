@@ -129,25 +129,25 @@
         <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
           <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
         </span>
+        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
+          <sl-icon name="grid-3x3-gap-fill"></sl-icon>
+          <!-- Update available star -->
+          <sl-icon class="mcp-update-star-inline hidden" name="star-fill"
+                   ui-class-showing="updateAvailable()"
+                   ui-event-click="startUpdate()"
+                   title="Update available!"></sl-icon>
+        </span>
       </span>
     </div>
 
-    <!-- App switcher menu button -->
-    <div class="mcp-menu-container">
-      <button class="mcp-menu-button" ui-action="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
-        <sl-icon class="mcp-icon" name="grid-3x3-gap-fill"></sl-icon>
-        <span class="mcp-wait-counter"></span>
-        <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
-        <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
-      </button>
-      <!-- Update available star -->
-      <sl-icon class="mcp-update-star hidden" name="star-fill"
-               ui-class-showing="updateAvailable()"
-               ui-event-click="startUpdate()"
-               title="Update available! Click to update."></sl-icon>
+    <!-- Wait counter overlay (stays top-right, click-through) -->
+    <div class="mcp-wait-overlay" ui-class-waiting="isWaiting()">
+      <span class="mcp-wait-counter"></span>
+      <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
+      <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
     </div>
 
-    <!-- Dropdown menu with icon grid -->
+    <!-- Dropdown menu with icon grid (opens upward from status bar) -->
     <div class="mcp-menu-dropdown hidden" ui-class-showing="menuShowing()">
       <div class="mcp-icon-grid" ui-viewlist="availableApps()" ui-namespace="list-item">
         <div></div>
@@ -364,6 +364,55 @@
     window.uiApp.reportViewdef = function(elementId) {
       window.uiApp.updateValue('viewdef-bridge', window.uiApp.findViewdef(elementId) || '');
     };
+  </script>
+
+  <script>
+    // Mouse tracker + highlight utility for agent-driven UI pointing
+    (function() {
+      window._mousePos = {x: 0, y: 0};
+      document.addEventListener("mousemove", function(e) {
+        window._mousePos.x = e.clientX;
+        window._mousePos.y = e.clientY;
+      });
+
+      window.uiApp.highlight = function(elementId) {
+        var mp = window._mousePos;
+        var el = document.getElementById(elementId);
+        if (el == null) return;
+        var r = el.getBoundingClientRect();
+        if (r.width == 0) return;
+        var br = getComputedStyle(el).borderRadius;
+        // Box-shadow ring
+        el.style.boxShadow = "0 0 0 3px #E07A47, 0 0 12px rgba(224,122,71,0.6)";
+        el.style.transition = "box-shadow 2s ease-out";
+        setTimeout(function() { el.style.boxShadow = "0 0 0 3px transparent"; }, 2000);
+        setTimeout(function() { el.style.boxShadow = ""; el.style.transition = ""; }, 4000);
+        // Translucent overlay
+        var ov = document.createElement("div");
+        ov.style.cssText = "position:fixed;pointer-events:none;z-index:9998;background:rgba(224,122,71,0.15);border:2px solid rgba(224,122,71,0.5);border-radius:" + br + ";transition:opacity 2s ease-out;";
+        ov.style.left = r.left + "px"; ov.style.top = r.top + "px";
+        ov.style.width = r.width + "px"; ov.style.height = r.height + "px";
+        document.body.appendChild(ov);
+        setTimeout(function() { ov.style.opacity = "0"; }, 1000);
+        setTimeout(function() { ov.remove(); }, 3000);
+        // SVG dashed connector from mouse to element center
+        var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;";
+        var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", mp.x); line.setAttribute("y1", mp.y);
+        line.setAttribute("x2", cx); line.setAttribute("y2", cy);
+        line.setAttribute("stroke", "#E07A47"); line.setAttribute("stroke-width", "2");
+        line.setAttribute("stroke-dasharray", "6 4");
+        var dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+        dot.setAttribute("r", "4"); dot.setAttribute("fill", "#E07A47");
+        svg.appendChild(line); svg.appendChild(dot);
+        document.body.appendChild(svg);
+        setTimeout(function() { svg.style.transition = "opacity 2s ease-out"; svg.style.opacity = "0"; }, 1000);
+        setTimeout(function() { svg.remove(); }, 3000);
+      };
+    })();
   </script>
 
   <script>

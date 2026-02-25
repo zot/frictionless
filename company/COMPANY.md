@@ -10,7 +10,7 @@ NOTES: |
 
 ## The Thesis
 
-Frictionless turns Claude Code from a text terminal into a **visual application platform**. This is transformational but temporary — Anthropic will eventually build native UI into Claude Code. The window is now.
+Frictionless turns Claude into a **personal software platform**. This is transformational but temporary — Anthropic will eventually build native UI into Claude. The window is now.
 
 Two win conditions:
 1. **Anthropic notices, bundles it, hires me** — the ideal outcome
@@ -22,13 +22,13 @@ Both paths require the same thing: **maximum reach, fast**.
 
 ## What Makes This Special (The Pitch)
 
-Frictionless isn't "another UI builder." It's the missing half of Claude Code:
+Frictionless isn't "another UI builder." It's a personal software platform powered by Claude:
 
 - **Claude has full access to the running app** — sees state, calls functions, mutates data live
 - **Apps poke Claude back** — bidirectional integration, not just one-way generation
 - **Fully hot-loadable** — structural data changes without restart, rename a field and all instances update
 - **Radically less code** — no API layer, no frontend JS, no sync wiring = fewer tokens = faster builds
-- **Personal software ecosystem** — downloadable apps from GitHub, share and remix
+- **Personal software ecosystem** — downloadable from GitHub, share and remix
 
 **Elevator pitch candidates:**
 
@@ -52,21 +52,21 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 18. [ ] "Claude doesn't just build your app — it runs inside as part of it. On-demand GUIs where Claude handles the smart parts, reshapes things live, and never leaves the loop."
 19. [ ] "Let Claude run inside the apps it builds as part of them. On-demand GUIs where Claude handles the smart parts, reshapes things live, and never leaves the loop."
 20. [ ] "Claude doesn't just build your app and leave — it builds itself into it. On-demand GUIs where Claude is part of every smart action, and reshapes the app live while it keeps running."
-21. [x] "Build Claude into your apps. On-demand GUIs where Claude handles app requests normal code can't, reshapes the app live, and never leaves the loop."
+21. [x] "Personal software with Claude built in. Describe what you need, use it immediately. Claude handles what normal code can't, reshapes it live, and never leaves the loop. No API key — runs on your Pro/Max subscription."
 
 ---
 
 ## Audience Segments
 
-### Primary: Claude Code Power Users
-- Already paying for Claude, already in the CLI daily
-- Pain: Claude Code is powerful but text-only; complex workflows are clunky
+### Primary: Claude Pro/Max Power Users
+- Already on Pro or Max, already using Claude daily
+- Pain: Claude is powerful but text-only; complex workflows are clunky
 - They'll try it because it's one command to install
 - **Size:** Tens of thousands, growing fast
 
 ### Secondary: AI-Curious Developers
-- Heard about Claude Code, haven't committed
-- Frictionless could be the reason they start — "build apps by chatting"
+- Heard about Claude, haven't committed to Pro/Max
+- Frictionless could be the reason they start — "build personal software by chatting"
 - **Size:** Hundreds of thousands
 
 ### Tertiary: Anthropic Employees & Leadership
@@ -86,10 +86,10 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 - **Title angle:**
   - [ ] "Show HN: I gave Claude Code a GUI — now it builds and runs visual apps"
   - [ ] "Show HN: Frictionless — a personal software ecosystem where Claude is the runtime"
-  - [x] "Show HN: A personal software ecosystem where Claude is literally the runtime"
+  - [x] "Show HN: A personal software ecosystem for Claude Pro/Max — no API key needed"
 - **Post timing:** Tuesday or Wednesday, 8-9 AM ET
 - **Comment strategy:** Be in the thread immediately. Answer every question. Show the job tracker demo live. Be humble but confident.
-- **Key narrative:** "Claude Code writes code. But what if it could also *use* code? Frictionless lets Claude build UIs, run them, and interact with them — live. Paste a job URL, Claude scrapes it, fills the form, finds the salary. All in a hot-loadable app that never restarts."
+- **Key narrative:** "Claude writes code. But what if it could also *use* code? Frictionless lets Claude build personal software, run it, and interact with it live. Paste a job URL, Claude scrapes it, fills the form, finds the salary. All in a hot-loadable app that never restarts."
 
 #### Reddit Blitz (same week)
 - r/ClaudeAI (483K members) — primary audience, biggest reach, they get it immediately
@@ -101,7 +101,7 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 
 #### Twitter/X Campaign
 - **Demo video (60-90 sec):** Screen recording of building an app from scratch via chat, then using it. The job tracker URL-paste demo is gold.
-- **Thread format:** "I built a personal software ecosystem for Claude Code. Here's what it can do: 🧵" with GIFs of each feature
+- **Thread format:** "I built a personal software ecosystem for Claude Pro/Max users. No API key. Here's what it can do: 🧵" with GIFs of each feature
 - **Tag:** @AnthropicAI, @alexalbert__, @amanrsanger, @alexjc (Anthropic folks active on X)
 - **Hashtags:** #ClaudeCode #AI #BuildInPublic
 
@@ -111,7 +111,7 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
   - [ ] "Claude Code Can Now Build and Run Visual Apps — Frictionless Demo"
   - [ ] "Claude Code Can Now Run Inside Visual Apps it Builds — Frictionless Demo"
   - [ ] "Claude Code Can Now Run Inside as Part of the Visual Apps it Builds — Frictionless Demo"
-  - [x] "Claude Code Becoming Part of the Visual Apps it Builds"
+  - [x] "Personal Software with Claude Built In (Pro/Max, No API Key)"
 
 ### Phase 2: Momentum (Weeks 3-6)
 
@@ -120,12 +120,12 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 #### Content Machine
 - **Blog post:** "How I Eliminated 80% of the Code Claude Writes" — the technical story of no-API, no-frontend, no-sync
 - **Blog post:** "Building a Job Tracker in 5 Minutes with Claude" — practical tutorial
-- **Blog post:** "The Architecture of a Claude-Native App Platform" — for the Anthropic audience (see [What the Architecture Demonstrates](#what-the-architecture-demonstrates))
+- **Blog post:** "The Architecture of a Claude-Native Personal Software Platform" — for the Anthropic audience (see [What the Architecture Demonstrates](#what-the-architecture-demonstrates))
 
-#### Community Apps
-- **App marketplace/gallery:** Encourage users to share apps via GitHub
-- **Bounties:** "Build an app, get featured" — spotlight community apps weekly
-- **Template apps:** Ship 5-10 useful starter apps (expense tracker, habit tracker, project board, API dashboard, git dashboard)
+#### Community Software
+- **Software gallery:** Encourage users to share personal software via GitHub
+- **Bounties:** "Build something, get featured" — spotlight community creations weekly
+- **Starter software:** Ship 5-10 useful examples (expense tracker, habit tracker, project board, API dashboard, git dashboard)
 
 #### Direct Anthropic Outreach
 - **Email to Developer Relations:** Share usage numbers, link to HN thread
@@ -135,16 +135,16 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 
 ### Phase 3: Moat (Weeks 7-12)
 
-**Goal:** Establish Frictionless as the de facto UI layer for Claude Code.
+**Goal:** Establish Frictionless as the de facto personal software platform for Claude.
 
 #### Personal Software Ecosystem Flywheel
-- More apps → more users → more apps
-- GitHub app directory with categories, ratings, install counts
+- More software → more users → more software
+- GitHub directory with categories, ratings, install counts
 - "One-click install" from the console makes sharing frictionless (pun intended)
 
 #### Enterprise Angle
-- Teams sharing internal tool apps via Git
-- Dashboard apps that surface project metrics
+- Teams sharing internal tools via Git
+- Dashboards that surface project metrics
 - "Build a team dashboard by describing it to Claude"
 
 #### Integration Depth
@@ -158,13 +158,13 @@ Frictionless isn't "another UI builder." It's the missing half of Claude Code:
 
 ### Free Tier (Open Source Core)
 - Everything that exists today stays free and open source
-- The engine, the console, the build system, community apps
+- The engine, the console, the build system, community software
 
 ### Paid Tier (Frictionless Pro)
-- **App hosting/sharing:** Deploy apps to a URL others can use (not just localhost)
-- **Team features:** Shared app libraries, role-based access, collaborative editing
-- **Premium apps:** Polished, maintained apps for specific workflows (CRM, project management, etc.)
-- **Priority support:** Direct help building complex apps
+- **Hosting/sharing:** Deploy personal software to a URL others can use (not just localhost)
+- **Team features:** Shared software libraries, role-based access, collaborative editing
+- **Premium software:** Polished, maintained software for specific workflows (CRM, project management, etc.)
+- **Priority support:** Direct help building complex software
 - **Price:** $15-29/month — priced below the pain threshold for Claude Pro subscribers
 
 ### Enterprise
@@ -200,7 +200,7 @@ These aren't the choices an AI makes when you say "build me a hot-loadable app f
 ### Positioning
 - "I built the thing you need to build next"
 - Not "hire me to work on Claude Code" but "I already built the next feature of Claude Code"
-- Reference: Frictionless solves the UI gap that's the #1 request in Claude Code feedback
+- Reference: Frictionless solves the personal software gap in Claude
 
 ### Networking Targets
 - Alex Albert (Head of Claude Relations)
@@ -221,7 +221,7 @@ These aren't the choices an AI makes when you say "build me a hot-loadable app f
 |---------------------|---------------|----------|---------|
 | GitHub stars        | 500           | 2,000    | 5,000   |
 | Installs (estimate) | 200           | 1,000    | 3,000   |
-| Community apps      | 3             | 15       | 50      |
+| Community software  | 3             | 15       | 50      |
 | HN front page       | Yes           | —        | —       |
 | Anthropic contact   | Outreach sent | Response | Meeting |
 | Twitter impressions | 50K           | 200K     | 500K    |
@@ -245,18 +245,18 @@ These aren't the choices an AI makes when you say "build me a hot-loadable app f
 | Risk                                   | Mitigation                                                    |
 |----------------------------------------|---------------------------------------------------------------|
 | Anthropic builds native UI tomorrow    | Speed. Be so established they acquire rather than rebuild.    |
-| Low adoption despite awareness         | More apps, better onboarding, tutorial content                |
+| Low adoption despite awareness         | More software, better onboarding, tutorial content            |
 | Claude Code changes break Frictionless | Stay tight with MCP spec, keep integration surface small      |
-| Burnout from solo development          | Focus on highest-leverage activities, delegate community apps |
-| Someone forks and out-executes         | Build community loyalty, stay the canonical source, move fast |
+| Burnout from solo development          | Focus on highest-leverage activities, delegate to community   |
+| Someone forks and out-executes         | Community loyalty, stay the canonical source, move fast       |
 
 ---
 
 ## The Clock
 
-This window won't stay open forever. Anthropic is almost certainly thinking about UI for Claude Code. The question is whether they build from scratch or build on what already works.
+This window won't stay open forever. Anthropic is almost certainly thinking about personal software for Claude. The question is whether they build from scratch or build on what already works.
 
-Every week of adoption makes "bundle Frictionless" more attractive than "build from scratch." Every user is an argument. Every app is evidence.
+Every week of adoption makes "bundle Frictionless" more attractive than "build from scratch." Every user is an argument. Every creation is evidence.
 
 Move fast. Ship loud. Make it obvious.
 
