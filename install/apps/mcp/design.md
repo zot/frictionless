@@ -62,6 +62,8 @@ When the agent event loop is not connected to `/wait` (Claude is processing):
 - A wait time counter appears centered over the button
 - The button remains fully clickable during wait state
 
+Note: The `.mcp-menu-toggle` (status bar) no longer has its own waiting animation — waiting state is shown only on the menu button.
+
 ### Wait Time Counter (Client-Local JavaScript)
 
 Client-side JavaScript manages the counter display without server round-trips:
@@ -140,7 +142,7 @@ local STEPS = {
      run=function(tut, shell) --[[ open panel, inject sample content ]] end,
      cleanup=function(tut, shell) --[[ restore saved content, close panel ]] end},
     {title="App Console", selector=".app-list-panel", position="right", cycling=true,
-     run=function(tut, shell) shell:display("app-console") end},
+     run=function(tut, shell) if shell:currentAppName() ~= "app-console" then shell:display("app-console") end end},
     {title="Download from GitHub", position="below", anchor=".github-safety-message",
      selector=function() --[[ conditional: .app-list-header or .github-form ]] end,
      description=function() --[[ conditional based on exampleAppInstalled() ]] end,
@@ -151,7 +153,10 @@ local STEPS = {
      run=function(tut, shell) --[[ reopen GitHub form if needed, select first Lua tab ]] end},
     {title="App Info", selector=".detail-panel", position="below", anchor=".requirements-section", cycling=true,
      run=function(tut, shell) --[[ close GitHub form, select app ]] end},
-    {title="Preferences", selector=".mcp-menu-button", position="left"},
+    {title="Preferences", selector=".mcp-menu-dropdown", position="left",
+     description="The Prefs app lets you change themes and update settings. You can re-run this tutorial anytime from there.",
+     run=function(tut, shell) shell.menuOpen = true end,
+     cleanup=function(tut, shell) shell.menuOpen = false end},
 }
 ```
 
@@ -159,7 +164,7 @@ local STEPS = {
 
 `exampleAppInstalled()` checks whether the "example" app exists in `appConsole._apps`.
 
-**Path A (no example app):** Step 8 opens the GitHub download form, pre-fills the example app URL, and auto-investigates. Step 9 selects the first Lua tab with danger highlights (reopens GitHub form if needed when navigating back). Step 10 closes the GitHub form and selects the installed app.
+**Path A (no example app):** Step 8 opens the GitHub download form, pre-fills the example app URL, and defers `investigate()` via `session:setImmediate` so the step transition renders immediately (investigate does synchronous curl). After investigate completes, a 300ms `setTimeout` triggers `triggerReposition()` to re-measure the form. Step 9 selects the first Lua tab with danger highlights (reopens GitHub form if needed when navigating back). Step 10 closes the GitHub form and selects the installed app.
 
 **Path B (example app exists):** Step 8 spotlights the app list header, describes the flow, and shows a "Delete example app" button (`deleteExampleApp()`, hidden via `deleteExampleHidden()`) so the user can remove it and re-run the tutorial for the live demo. Step 9 describes security features without opening the form. Step 10 selects the example/downloaded app.
 
@@ -183,10 +188,11 @@ local STEPS = {
 - Sets `clip-path: polygon(...)` on `.tutorial-backdrop` to create the cutout
 - Adds `.tut-spotlight` class to the target element (removes from previous)
 - Positions `.tutorial-card` relative to the target based on position ("top", "left", "right", "center-top", "below", "inside-bottom-right")
-  - `below`: positions card below an anchor element (or target if no anchor)
+  - `below`: positions card below an anchor element (or target if no anchor); right-aligns the card if the target's right edge is in the right third of the viewport
   - `inside-bottom-right`: positions card at the bottom-right of the target's content area
 - Delayed re-measure: after 800ms, re-runs positioning to catch async rendering
-- Step 1 phase 2: after 3s delay, clicks menu button, polls for dropdown visibility, adds `.tut-menu-glow`, repositions card below dropdown
+- Step 1 phase 2: after 3s delay, clicks menu button, polls for dropdown visibility, adds `.tut-menu-glow`, repositions card right-aligned above dropdown
+- Step 11: polls for `.mcp-menu-dropdown.showing`, adds `.tut-menu-glow` to dropdown, finds and spotlights the "Prefs" menu item (`.tut-spotlight` on closest `.mcp-menu-item`)
 - Uses a `_repoCounter` suffix to ensure value changes trigger `ui-code`
 
 ### Draggable Tutorial Card
@@ -202,7 +208,7 @@ The tutorial card can be repositioned by dragging. Uses the RAF-loop drag patter
 Global JS object managing delayed tutorial actions:
 - `after(delay, fn)` — schedules a callback, only fires if tutorial overlay still has `showing` class
 - `cancelAll()` — clears all pending timers, removes `.tut-menu-glow` from dropdown
-- Tracks `_step` (current step number) and `_phase2` (whether phase 2 completed for current step)
+- Tracks `_step` (current step number), `_phase2` (whether phase 2 completed for current step), `_step1Polling` and `_step11Polling` (whether polling is active for those steps)
 
 ### Highlight Cycling (JavaScript)
 
@@ -214,7 +220,7 @@ A 200ms `setInterval` polls `.tut-highlight-bridge` for the active step number. 
 
 **Step-specific configs (`CYCLING_STEPS`):**
 - Step 1: 3s progress bar countdown (no cycling, just timer fill)
-- Step 4: cycles status bar toggles via `listSel`, highlights matching `data-ctrl-idx` spans in description
+- Step 4: cycles status bar toggles and menu toggle via `listSel` (`.mcp-build-mode-toggle, .mcp-menu-toggle`), highlights matching `data-ctrl-idx` spans in description
 - Step 5: demonstrates variable browser sorting (clicks ID header twice for desc sort, then Time header), 5s interval, highlights `data-vars-idx` spans
 - Step 6: clicks chat/lua tabs, spotlights todo column and resize handle, highlights `data-panel-idx` spans
 - Step 7: spotlights app list, new button, GitHub button, highlights `data-console-idx` spans
@@ -354,6 +360,8 @@ The global `mcp` object is provided by the server. This app adds:
 | checkForUpdates() | Fetch latest version from GitHub, compare with current, persist result to settings |
 | showUpdatePreferenceDialog() | Show the first-run update preference dialog |
 | setUpdatePreference(enabled) | Save checkUpdate preference to settings; triggers checkForUpdates() if enabled |
+| enableUpdates() | Convenience wrapper: calls setUpdatePreference(true) |
+| disableUpdates() | Convenience wrapper: calls setUpdatePreference(false) |
 | getUpdatePreference() | Read checkUpdate boolean from settings |
 | currentVersion() | Returns version string from mcp:status().version |
 | noUpdateAvailable() | Returns not _needsUpdate |
@@ -603,7 +611,7 @@ When `settings.checkUpdate == true` on startup:
 
 **First-run preference dialog** (`sl-dialog`):
 - Bound to `showUpdatePrefDialog` via `ui-attr-open`
-- Footer buttons: No → `setUpdatePreference(false)`, Yes → `setUpdatePreference(true)`
+- Footer buttons: No → `disableUpdates()`, Yes → `enableUpdates()`
 
 **Update confirmation dialog** (`sl-dialog`):
 - Bound to `showUpdateConfirmDialog` via `ui-attr-open`

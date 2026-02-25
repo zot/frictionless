@@ -1,6 +1,6 @@
 # Frictionless
 
-**Version: 0.25.0**
+**Version: 0.25.1**
 
 **A personal software ecosystem for Claude. Share the love. Or steal it.**
 

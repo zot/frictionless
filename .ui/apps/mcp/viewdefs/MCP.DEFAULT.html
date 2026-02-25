@@ -171,8 +171,8 @@
     <!-- First-run: update preference dialog -->
     <sl-dialog label="Check for Updates?" ui-attr-open="showUpdatePrefDialog">
       <p>Would you like Frictionless to check for updates on startup?</p>
-      <sl-button slot="footer" variant="default" ui-action="setUpdatePreference(false)">No</sl-button>
-      <sl-button slot="footer" variant="primary" ui-action="setUpdatePreference(true)">Yes</sl-button>
+      <sl-button slot="footer" variant="default" ui-action="disableUpdates()">No</sl-button>
+      <sl-button slot="footer" variant="primary" ui-action="enableUpdates()">Yes</sl-button>
     </sl-dialog>
 
     <!-- Update confirm dialog -->

@@ -803,6 +803,14 @@ function mcp:setUpdatePreference(enabled)
     end
 end
 
+function mcp:enableUpdates()
+    self:setUpdatePreference(true)
+end
+
+function mcp:disableUpdates()
+    self:setUpdatePreference(false)
+end
+
 function mcp:getUpdatePreference()
     local settings = self:readSettings()
     return settings.checkUpdate == true
