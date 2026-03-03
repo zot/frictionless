@@ -264,10 +264,12 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		{"skills/ui", "SKILL.md"},
 		{"skills/ui-basics", "SKILL.md"},
 		{"skills/ui-fast", "SKILL.md"},
+		{"skills/ui-highlight", "SKILL.md"},
 		{"skills/ui-thorough", "SKILL.md"},
 		{"skills/ui-testing", "SKILL.md"},
 		{"skills/ui-testing", "TESTING-TEMPLATE.md"},
 		{"skills/ui-themer", "SKILL.md"},
+		{"skills/ui-variables", "SKILL.md"},
 	}
 	for _, f := range skillFiles {
 		bundlePath := filepath.Join(f.category, f.file)
@@ -642,10 +644,12 @@ func (s *Server) Update() (*UpdateResult, error) {
 		{"skills/ui", "SKILL.md"},
 		{"skills/ui-basics", "SKILL.md"},
 		{"skills/ui-fast", "SKILL.md"},
+		{"skills/ui-highlight", "SKILL.md"},
 		{"skills/ui-thorough", "SKILL.md"},
 		{"skills/ui-testing", "SKILL.md"},
 		{"skills/ui-testing", "TESTING-TEMPLATE.md"},
 		{"skills/ui-themer", "SKILL.md"},
+		{"skills/ui-variables", "SKILL.md"},
 	}
 	for _, f := range skillFiles {
 		bundlePath := filepath.Join(f.category, f.file)

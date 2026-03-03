@@ -560,11 +560,13 @@ Module-level functions (not methods on mcp):
 
 ## Tutorial First-Run Flow
 
-During initialization (`if not session.reloading`):
-1. Read user settings via `mcp:readUserSettings()` (from `~/.claude/frictionless.json`)
-2. If `tutorialCompleted` is not true, call `mcp:startTutorial()` after a short delay (to let the UI render first)
+The tutorial runs after the update preference dialog, not concurrently:
 
-The tutorial runs the update preference dialog check first (existing behavior), then checks for the tutorial.
+1. During initialization, if `userSettings.checkUpdate == nil` (first run), the update preference dialog shows. The tutorial does NOT start yet.
+2. When the user dismisses the update dialog (either yes or no), `setUpdatePreference()` checks `tutorialCompleted` in user settings. If not true, it calls `mcp:startTutorial()`.
+3. If the update dialog is NOT showing (returning user with `checkUpdate` already set), the startup code checks `tutorialCompleted` directly and starts the tutorial if needed.
+
+Both `checkUpdate` and `tutorialCompleted` are stored in `~/.claude/frictionless.json` (global user settings), so they survive `.ui/` deletion.
 
 ## Update Check System
 

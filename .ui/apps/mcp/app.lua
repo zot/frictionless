@@ -780,13 +780,13 @@ function mcp:checkForUpdates()
     if not latest then return end
     self.latestVersion = latest
     self._needsUpdate = compareVersions(current, latest)
-    -- Persist to settings
-    local settings = self:readSettings()
-    settings.needsUpdate = self._needsUpdate
+    -- Persist to user settings (global, survives .ui/ deletion)
+    local userSettings = self:readUserSettings()
+    userSettings.needsUpdate = self._needsUpdate
     if self._needsUpdate then
-        settings.latestVersion = latest
+        userSettings.latestVersion = latest
     end
-    self:writeSettings(settings)
+    self:writeUserSettings(userSettings)
 end
 
 function mcp:showUpdatePreferenceDialog()
@@ -795,11 +795,15 @@ end
 
 function mcp:setUpdatePreference(enabled)
     self.showUpdatePrefDialog = false
-    local settings = self:readSettings()
-    settings.checkUpdate = enabled
-    self:writeSettings(settings)
+    local userSettings = self:readUserSettings()
+    userSettings.checkUpdate = enabled
+    self:writeUserSettings(userSettings)
     if enabled then
         self:checkForUpdates()
+    end
+    -- Start tutorial after update dialog dismisses (if not already completed)
+    if not userSettings.tutorialCompleted then
+        self:startTutorial()
     end
 end
 
@@ -812,8 +816,8 @@ function mcp:disableUpdates()
 end
 
 function mcp:getUpdatePreference()
-    local settings = self:readSettings()
-    return settings.checkUpdate == true
+    local userSettings = self:readUserSettings()
+    return userSettings.checkUpdate == true
 end
 
 function mcp:currentVersion()
@@ -1112,24 +1116,26 @@ end
 if not session.reloading then
     mcp:scanAvailableApps()
 
-    -- Update check startup logic
-    local settings = mcp:readSettings()
-    if settings.checkUpdate == nil then
+    -- Update check startup logic (user settings are global, survive .ui/ deletion)
+    local userSettings = mcp:readUserSettings()
+    if userSettings.checkUpdate == nil then
         -- First run: show preference dialog
         mcp:showUpdatePreferenceDialog()
-    elseif settings.checkUpdate then
-        -- Restore cached needsUpdate from settings
-        if settings.needsUpdate then
+    elseif userSettings.checkUpdate then
+        -- Restore cached needsUpdate from user settings
+        if userSettings.needsUpdate then
             mcp._needsUpdate = true
-            mcp.latestVersion = settings.latestVersion or ""
+            mcp.latestVersion = userSettings.latestVersion or ""
         end
         -- Check for updates (runs curl in background-ish, may block briefly)
         mcp:checkForUpdates()
     end
 
-    -- Tutorial first-run check
-    local userSettings = mcp:readUserSettings()
-    if not userSettings.tutorialCompleted then
-        mcp:startTutorial()
+    -- Tutorial first-run check (only if update dialog is not showing —
+    -- when it IS showing, tutorial starts after the dialog dismisses)
+    if not mcp.showUpdatePrefDialog then
+        if not userSettings.tutorialCompleted then
+            mcp:startTutorial()
+        end
     end
 end
