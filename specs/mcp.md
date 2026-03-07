@@ -143,6 +143,38 @@ Or on error:
 .ui/mcp display 'contacts'
 ```
 
+### 2.6 Library Embedding (`flib` package)
+
+Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). The `flib` package provides a public API that wraps the internal MCP server and ui-engine without exposing internal packages.
+
+**Import:** `github.com/zot/frictionless/flib`
+
+**API:**
+
+| Type / Function | Description |
+|-----------------|-------------|
+| `Config{Dir, Host}` | Configuration: base directory and bind host (default `"127.0.0.1"`) |
+| `New(Config) (*Runtime, error)` | Create a runtime (ui-engine + MCP server), not yet started |
+| `Runtime.Configure() error` | Prepare environment (directories, auto-install) |
+| `Runtime.Start() (string, error)` | Start UI HTTP server and create Lua session; returns base URL |
+| `Runtime.RegisterAPI(mux *http.ServeMux)` | Mount `/api/*`, `/wait`, `/state`, `/variables` on an external mux |
+| `Runtime.StartAPI() (int, error)` | Start a standalone HTTP API server; returns port |
+| `Runtime.Shutdown(ctx) error` | Graceful shutdown of UI and API servers |
+
+**Lifecycle:**
+1. `New(cfg)` — allocates ui-engine server, MCP server, cleanup worker
+2. `Configure()` — creates base directory, runs auto-install if needed
+3. `Start()` — starts UI HTTP server, creates session with `mcp` global
+4. Either `RegisterAPI(mux)` to mount on an existing listener, or `StartAPI()` for a standalone listener
+5. `Shutdown(ctx)` — tears down both servers
+
+**Route registration:** `RegisterAPI` delegates to `Server.RegisterAPIRoutes`, which registers the same handlers used by `StartHTTPServer` and `ServeSSE`. This allows an embedding binary to serve Frictionless endpoints on its own listener (e.g. a Unix domain socket) alongside its own routes. The embedding binary is responsible for the static file catch-all (`/`) if desired.
+
+**Design Rationale:**
+- Downstream projects get the full Frictionless stack (Lua, MCP tools, themes, apps) without forking
+- `RegisterAPI` vs `StartAPI` choice lets embedders control their own HTTP topology
+- Internal packages remain internal — `flib` is the only public surface
+
 ## 3. Server Lifecycle
 
 ### 3.1 Startup Behavior
@@ -749,9 +781,24 @@ After installation, `ui_install` checks for optional external dependencies and i
 
 Suggestions are informational only and do not affect the success of installation.
 
+**CLAUDE.md Command Declaration:**
+
+Skill files use `{cmd}` as a placeholder for the Frictionless command. After installing skills, `ui_install` ensures the project's `CLAUDE.md` declares what `{cmd}` resolves to:
+
+```markdown
+## Frictionless UI
+
+The Frictionless command is `.ui/mcp`. UI skills use `{cmd}` as a placeholder for this.
+```
+
+- The command value is `{base_dir}/mcp` (e.g., `.ui/mcp`)
+- The section is inserted at the top of CLAUDE.md (after any existing front matter)
+- If the section already exists, it is updated to reflect the current command
+- If CLAUDE.md does not exist, it is created with just this section
+
 **Design Rationale:**
+- Skills use `{cmd}` placeholder so they are project-agnostic — each project declares its own command in CLAUDE.md
 - Separates installation from configuration (user controls when files are added)
-- Skill files are self-describing (no CLAUDE.md augmentation needed)
 - Skill files are only overwritten with explicit `force=true`
 - Enables easy updates: `ui_install(force=true)` reinstalls latest bundled versions
 

@@ -14,9 +14,9 @@ Test Frictionless apps in Playwright browser against their requirements.md.
 Always make sure you have `base_dir` from `ui_status` first. All paths below use `{base_dir}` as a placeholder for this value.
 ```
 1. Find requirements: {base_dir}/apps/<app>/requirements.md
-2. Check server: `.ui/mcp status` → get base_dir and url
-3. Load app: `.ui/mcp display("<app>")`
-4. Open browser: `.ui/mcp browser` OR navigate Playwright to {url}/?conserve=true
+2. Check server: `{cmd} status` → get base_dir and url
+3. Load app: `{cmd} display("<app>")`
+4. Open browser: `{cmd} browser` OR navigate Playwright to {url}/?conserve=true
 5. Create TESTING.md from requirements
 6. Test each feature, update checklist
 7. Document bugs in Known Issues section
@@ -28,13 +28,13 @@ Always make sure you have `base_dir` from `ui_status` first. All paths below use
 
 ```bash
 # Get server info (auto-started)
-`.ui/mcp status`  # → base_dir, url
+`{cmd} status`  # → base_dir, url
 
 # Load the app
-`.ui/mcp display("<app-name>")`
+`{cmd} display("<app-name>")`
 
-# Open in Playwright (use url from `.ui/mcp status`)
-`.ui/mcp browser`  # or navigate to {url}/?conserve=true
+# Open in Playwright (use url from `{cmd} status`)
+`{cmd} browser`  # or navigate to {url}/?conserve=true
 ```
 
 ### 2. Create TESTING.md
@@ -45,7 +45,7 @@ Create `{base_dir}/apps/<app>/TESTING.md` based on requirements.md:
 # <App Name> Testing Checklist
 
 ## Gaps
-(Design/code mismatches from `.ui/mcp audit` - investigate before testing)
+(Design/code mismatches from `{cmd} audit` - investigate before testing)
 
 ## <Feature Category 1>
 - [ ] Requirement from requirements.md

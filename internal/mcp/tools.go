@@ -282,6 +282,15 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		track(relPath, status)
 	}
 
+	// 1b. Patch CLAUDE.md with {cmd} declaration (R157-R160)
+	claudeMDPath := filepath.Join(projectRoot, "CLAUDE.md")
+	cmdValue := filepath.Join(s.cfg.Server.Dir, "mcp")
+	if err := patchClaudeMD(claudeMDPath, cmdValue); err != nil {
+		s.cfg.Log(1, "Warning: failed to patch CLAUDE.md: %v", err)
+	} else {
+		track("CLAUDE.md", "installed")
+	}
+
 	// 2. Install resources to {base_dir}/resources/
 	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md", "ui_audit.md"} {
 		bundlePath := filepath.Join("resources", file)
@@ -405,6 +414,50 @@ func readInstalledVersion(baseDir string) string {
 		return ""
 	}
 	return parseReadmeVersion(content)
+}
+
+// patchClaudeMD ensures CLAUDE.md has a Frictionless UI section declaring {cmd}.
+// CRC: crc-MCPTool.md
+// Inserts at top if missing, updates if exists, creates file if needed (R157-R160).
+func patchClaudeMD(claudeMDPath, cmdValue string) error {
+	const sectionHeader = "## Frictionless UI"
+	sectionBody := fmt.Sprintf(
+		"%s\n\nThe Frictionless command is `%s`. UI skills use `{cmd}` as a placeholder for this.\n",
+		sectionHeader, cmdValue,
+	)
+
+	content, err := os.ReadFile(claudeMDPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// R160: create CLAUDE.md with just the declaration
+			return os.WriteFile(claudeMDPath, []byte(sectionBody), 0644)
+		}
+		return err
+	}
+
+	text := string(content)
+
+	// R159: find and replace existing section
+	idx := strings.Index(text, sectionHeader)
+	if idx >= 0 {
+		// Find end of section: next ## heading or EOF
+		rest := text[idx+len(sectionHeader):]
+		endIdx := strings.Index(rest, "\n## ")
+		var newText string
+		if endIdx >= 0 {
+			newText = text[:idx] + sectionBody + "\n" + rest[endIdx+1:]
+		} else {
+			newText = text[:idx] + sectionBody
+		}
+		if newText == text {
+			return nil // no change needed
+		}
+		return os.WriteFile(claudeMDPath, []byte(newText), 0644)
+	}
+
+	// R158: insert at top
+	newText := sectionBody + "\n" + text
+	return os.WriteFile(claudeMDPath, []byte(newText), 0644)
 }
 
 // buildFileInfoMap creates a lookup map for bundle file metadata (used for symlink detection).

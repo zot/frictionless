@@ -13,32 +13,32 @@ When the user says `/ui`, show app-console as in Quick Start. Prefer Playwright 
 
 When the user says `show APP`, show APP as in Quick Start. Prefer Playwright if the user has been using it.
 
-When the user says `events` it means to start the event loop, but not use `.ui/mcp display` or `.ui/mcp browser` as in Quick Start.
+When the user says `events` it means to start the event loop, but not use `{cmd} display` or `{cmd} browser` as in Quick Start.
 
 ## Helper Script Reference
 
-The `.ui/mcp` script provides commands for interacting with the UI server. **Always use relative paths** (never absolute — absolute paths break the user's permission rules).
+The `{cmd}` script provides commands for interacting with the UI server. **Always use relative paths** (never absolute — absolute paths break the user's permission rules).
 
-**`{url}` means the UI server URL** — read the port from `.ui/ui-port` and construct `http://localhost:{port}`. This is NOT the MCP connection port — it's the UI's own HTTP server. Use `.ui/mcp status` when you also need session count or base_dir.
+**`{url}` means the UI server URL** — read the port from `.ui/ui-port` and construct `http://localhost:{port}`. This is NOT the MCP connection port — it's the UI's own HTTP server. Use `{cmd} status` when you also need session count or base_dir.
 
 **CRITICAL: URLs must NEVER include session IDs.** Always use `{url}/?conserve=true` (root URL). Session IDs in URLs will cause problems.
 
 | Command | Description |
 |---------|-------------|
-| `.ui/mcp status` | Get server status (url, sessions, base_dir) |
-| `.ui/mcp browser` | Open browser to `{url}/?conserve=true` |
-| `.ui/mcp display APP` | Display APP in the browser |
-| `.ui/mcp run 'lua code'` | Execute Lua code in session |
-| `.ui/mcp event` | Wait for next UI event (120s timeout) |
-| `.ui/mcp state` | Get current session state |
-| `.ui/mcp variables` | Get current variable values |
-| `.ui/mcp audit APP` | Run code quality audit on APP |
-| `.ui/mcp progress APP PERCENT STAGE` | Report build progress |
-| `.ui/mcp linkapp add\|remove APP` | Manage app symlinks |
-| `.ui/mcp checkpoint CMD APP [MSG]` | Manage checkpoints (save/list/rollback/diff/clear) |
-| `.ui/mcp theme list` | List available themes |
-| `.ui/mcp theme classes [THEME]` | List semantic classes for theme |
-| `.ui/mcp theme audit APP [THEME]` | Audit app's theme class usage |
+| `{cmd} status` | Get server status (url, sessions, base_dir) |
+| `{cmd} browser` | Open browser to `{url}/?conserve=true` |
+| `{cmd} display APP` | Display APP in the browser |
+| `{cmd} run 'lua code'` | Execute Lua code in session |
+| `{cmd} event` | Wait for next UI event (120s timeout) |
+| `{cmd} state` | Get current session state |
+| `{cmd} variables` | Get current variable values |
+| `{cmd} audit APP` | Run code quality audit on APP |
+| `{cmd} progress APP PERCENT STAGE` | Report build progress |
+| `{cmd} linkapp add\|remove APP` | Manage app symlinks |
+| `{cmd} checkpoint CMD APP [MSG]` | Manage checkpoints (save/list/rollback/diff/clear) |
+| `{cmd} theme list` | List available themes |
+| `{cmd} theme classes [THEME]` | List semantic classes for theme |
+| `{cmd} theme audit APP [THEME]` | Audit app's theme class usage |
 
 ## Quick Start: Show an Existing App
 
@@ -48,19 +48,19 @@ Read `{base_dir}/apps/APP/design.md` to learn the global variable name (e.g., `c
 
 ### B. Display the app
 
-- Use `.ui/mcp run` to check if `mcp.value.type == AppName` (PascalCase version of app-name)
-  - If not, use `.ui/mcp display app-name`
+- Use `{cmd} run` to check if `mcp.value.type == AppName` (PascalCase version of app-name)
+  - If not, use `{cmd} display app-name`
 - If Playwright is connected:
   - `browser_evaluate` with `function: "() => window.location.href"` to get current URL
   - If URL does NOT start with `{url}/`, then `browser_navigate` to `{url}/mark-playwright.html?url={url}/?conserve=true`
-  - **ONLY use mark-playwright.html when navigating via Playwright.** Never use it for `.ui/mcp browser`.
+  - **ONLY use mark-playwright.html when navigating via Playwright.** Never use it for `{cmd} browser`.
   - Do not wait for page to display or take a snapshot
-- Otherwise, run `.ui/mcp browser`
+- Otherwise, run `{cmd} browser`
 
 ### C. Start the event loop
 
 ```
-Bash(.ui/mcp event, run_in_background=true)
+Bash({cmd} event, run_in_background=true)
 ```
 
 The UI will NOT respond to clicks until this is running.
@@ -70,8 +70,8 @@ The UI will NOT respond to clicks until this is running.
 - Parse JSON: `[{"app":"app-console","event":"select","name":"contacts"}]`
 - Read design.md's "Events" section for how to handle each event type
 - **For UI changes**: Check event's `handler` field and invoke that skill
-- Simple state changes: use `.ui/mcp run` directly
-- Kill old task, then restart: `Bash(.ui/mcp event, run_in_background=true)`
+- Simple state changes: use `{cmd} run` directly
+- Kill old task, then restart: `Bash({cmd} event, run_in_background=true)`
 
 ---
 
@@ -94,7 +94,7 @@ Do NOT skip reading design.md — even for events that seem obvious like `app_cr
 **Only ONE listener may exist at a time** — the script enforces this via `.ui/.eventpid` and will error if a listener is already running.
 
 **Task lifecycle:**
-1. Run `.ui/mcp event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", do nothing — the script manages the PID lock itself. Do NOT manually check PIDs or the `.eventpid` file; just wait for the existing listener to complete.
+1. Run `{cmd} event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", do nothing — the script manages the PID lock itself. Do NOT manually check PIDs or the `.eventpid` file; just wait for the existing listener to complete.
 2. When the background task completes, **ALWAYS read the output file immediately** — do NOT assume timeout. Failing to read means silently dropping events.
 3. Handle any events received
 4. Start a fresh listener (go to step 1)
@@ -103,7 +103,7 @@ Do NOT skip reading design.md — even for events that seem obvious like `app_cr
 - 0 + JSON output = events received (may be empty array `[]` for timeout)
 - 52 = server restarted (restart both server and event loop)
 
-**After `ui_configure`:** Restart the event loop — reconfiguring changes the MCP port that `.ui/mcp event` uses.
+**After `ui_configure`:** Restart the event loop — reconfiguring changes the MCP port that `{cmd} event` uses.
 
 ### Step D: Handler dispatch and build settings
 
@@ -125,7 +125,7 @@ Task(subagent_type="ui-builder", run_in_background=true, prompt="invoke {handler
 
 ## App Variable Convention
 
-Each app defines a **global variable** for interacting with it via `.ui/mcp run`:
+Each app defines a **global variable** for interacting with it via `{cmd} run`:
 
 | App Name       | Global Variable | Example Call                        |
 |----------------|-----------------|-------------------------------------|
@@ -144,9 +144,9 @@ end
 
 ## Chat Messages
 
-All chat messages render markdown. Use it via `.ui/mcp run`:
+All chat messages render markdown. Use it via `{cmd} run`:
 ```
-.ui/mcp run 'mcp:addAgentMessage("Found **salary data**: $150k-$180k")'
+{cmd} run 'mcp:addAgentMessage("Found **salary data**: $150k-$180k")'
 ```
 
 ### Pointing at UI elements
@@ -227,8 +227,8 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 
 - **Lua logs:** `{base_dir}/log/lua.log` for Lua errors
 - **MCP server stderr:** `.ui/log/mcp.log`
-- **Variable inspector:** `http://localhost:{mcp-port}/variables` (read port from `.ui/mcp-port`) — curl for JSON, browser for interactive inspector
+- **Variable inspector:** `http://localhost:{mcp-port}/variables` (read port from `{cmd}-port`) — curl for JSON, browser for interactive inspector
 - **MCP resources:** `ui://variables` (full variable tree), `ui://state` (live state JSON)
 - **JS diagnostics:** `window.uiApp.getStore()` (variable state) and `window.uiApp.getBinding()` (widget bindings) in browser console
 - **Remote JS execution:** Set `mcp.code` from Lua — bound to `ui-code` in the MCP shell, enabling JS execution in the browser. Critical when using a system browser instead of Playwright. Re-assigning the same value is a no-op (change detection); append a nonce to re-execute (e.g., `code .. "\n// " .. nonce`)
-- `.ui/mcp run` returns error messages
+- `{cmd} run` returns error messages

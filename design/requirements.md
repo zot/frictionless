@@ -209,3 +209,24 @@
 **Source:** specs/mcp.md
 
 - **R155:** When `Stop()` is called during reconfiguration, it pushes a `server_reconfigured` event to the state queue for the current session before destroying it, so clients blocked on `/wait` unblock immediately
+
+## Feature: Project-Agnostic Skills
+**Source:** specs/mcp.md
+
+- **R156:** Skill files use `{cmd}` as a placeholder for the Frictionless command, making skills project-agnostic
+- **R157:** `ui_install` patches the project's CLAUDE.md to declare what `{cmd}` resolves to (e.g., `.ui/mcp`)
+- **R158:** The `{cmd}` declaration is inserted at the top of CLAUDE.md (after any front matter)
+- **R159:** If the declaration section already exists in CLAUDE.md, it is updated rather than duplicated
+- **R160:** If CLAUDE.md does not exist, it is created with just the declaration section
+
+## Feature: Library Embedding
+**Source:** specs/mcp.md
+
+- **R161:** The `flib` package provides a public API for embedding Frictionless as a Go library; internal packages remain unexposed
+- **R162:** `flib.New(Config)` creates a runtime with ui-engine server, MCP server, and cleanup worker without starting anything
+- **R163:** `Runtime.Configure()` prepares the base directory and runs auto-install if needed
+- **R164:** `Runtime.Start()` starts the UI HTTP server and creates a Lua session with the `mcp` global; returns the base URL
+- **R165:** `Runtime.RegisterAPI(mux)` mounts Frictionless API handlers (`/api/*`, `/wait`, `/state`, `/variables`) on an external `http.ServeMux`
+- **R166:** `Runtime.StartAPI()` starts a standalone HTTP API server and returns its port; alternative to `RegisterAPI` when no external listener exists
+- **R167:** `Runtime.Shutdown(ctx)` gracefully shuts down both UI and API servers
+- **R168:** `Server.RegisterAPIRoutes(mux)` extracts route registration from `StartHTTPServer` so both standalone and embedded modes share the same handler set

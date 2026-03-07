@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168
 
 ## Responsibilities
 
@@ -39,6 +39,7 @@
 - triggerBrowserUpdate: Call SafeExecuteInSession with empty function to push state changes to browsers
 - getStatus: Return current URL and session count
 - shutdown: Clean up MCP connection
+- registerAPIRoutes: Register /api/*, /wait, /state, /variables handlers on an external mux (R168); used by StartHTTPServer, ServeSSE, and flib.RegisterAPI
 - serveSSE: Start MCP server on HTTP with SSE transport (serve command)
 - handleVariables: Redirect MCP port /variables to UI port variable browser (R130, R135)
 - handleState: Return raw JSON state for the current session (R134)

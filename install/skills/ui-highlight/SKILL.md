@@ -24,7 +24,7 @@ mcp.code = [=[window.uiApp.highlight("ui-42")// ]=] .. os.time()
 
 **Important:** `mcp.code` uses change detection — re-assigning the same value is a no-op. Append a nonce (e.g. `.. os.time()`) to force re-execution.
 
-**Bash escaping:** When JS is passed through `.ui/mcp run` via bash, `!` gets escaped to `\!`, producing invalid JS. **Avoid `!` in JS code** — use `== null` instead of `!el`, `== 0` instead of `!width`, etc.
+**Bash escaping:** When JS is passed through `{cmd} run` via bash, `!` gets escaped to `\!`, producing invalid JS. **Avoid `!` in JS code** — use `== null` instead of `!el`, `== 0` instead of `!width`, etc.
 
 ### Via rich messages (inline "here" links)
 

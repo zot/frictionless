@@ -18,7 +18,7 @@ Then invoke `/frontend-design` using the Skill tool if it is available.
 Then run this command:
 
 ```bash
-.ui/mcp patterns
+{cmd} patterns
 ```
 
 ## How Frictionless Works
@@ -275,7 +275,7 @@ List item viewdef (`MyApp.Item.list-item.html`):
 
 ### Semantic Theme Classes
 
-**Live discovery:** Run `.ui/mcp theme classes` to get the authoritative list of all semantic classes across all installed themes — including user-added themes. Always check this before writing viewdefs for a new app or major feature.
+**Live discovery:** Run `{cmd} theme classes` to get the authoritative list of all semantic classes across all installed themes — including user-added themes. Always check this before writing viewdefs for a new app or major feature.
 
 These additional classes are used in viewdefs but not declared as `@class` in theme CSS:
 
@@ -286,7 +286,7 @@ These additional classes are used in viewdefs but not declared as `@class` in th
 
 Compose theme + app classes: `<div class="panel-header app-list-header">` — theme class for styling, app class for layout overrides.
 
-**Theme audit:** Run `.ui/mcp theme audit APP` after writing viewdefs to catch undocumented classes and missed opportunities to use semantic classes.
+**Theme audit:** Run `{cmd} theme audit APP` after writing viewdefs to catch undocumented classes and missed opportunities to use semantic classes.
 
 ### Creating Themes
 
@@ -314,7 +314,7 @@ Every theme CSS file **must** have a comment block at the top with these annotat
 - `@description` — theme-level description
 - `@class` blocks — one per semantic class, each with `@description`, `@usage`, and `@elements`
 
-Before creating a theme, run `.ui/mcp theme classes` to see the existing semantic classes. A new theme should declare and style all of them and may add new ones. `@description` should describe what the class looks like in *this* theme (e.g. "Header bar with soft bottom glow"). `@usage` should be generic and structural — it describes *when* to use the class, not how it looks (e.g. "Panel/section headers with title and action buttons").
+Before creating a theme, run `{cmd} theme classes` to see the existing semantic classes. A new theme should declare and style all of them and may add new ones. `@description` should describe what the class looks like in *this* theme (e.g. "Header bar with soft bottom glow"). `@usage` should be generic and structural — it describes *when* to use the class, not how it looks (e.g. "Panel/section headers with title and action buttons").
 
 ## Favicons
 
@@ -369,7 +369,7 @@ See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
 
 # Observability
 
-Every variable in the system carries instrumentation data. Use `.ui/mcp variables` to query all variables as JSON, or open the variable browser in the UI (the `{}` icon in the status bar).
+Every variable in the system carries instrumentation data. Use `{cmd} variables` to query all variables as JSON, or open the variable browser in the UI (the `{}` icon in the status bar).
 
 ## Variable Instrumentation
 
@@ -408,12 +408,12 @@ end
 
 **Find slow methods:** Sort by Time in the variable browser, or query:
 ```bash
-.ui/mcp variables | jq '[.[] | select(.computeTime)] | sort_by(.maxComputeTime) | reverse | .[:10] | .[] | {path, computeTime, maxComputeTime}'
+{cmd} variables | jq '[.[] | select(.computeTime)] | sort_by(.maxComputeTime) | reverse | .[:10] | .[] | {path, computeTime, maxComputeTime}'
 ```
 
 **Find errors:** Check the `error` field:
 ```bash
-.ui/mcp variables | jq '[.[] | select(.error)] | .[] | {path, error}'
+{cmd} variables | jq '[.[] | select(.error)] | .[] | {path, error}'
 ```
 
 **Find which element a variable is bound to:** Check `elementId` — this is the DOM element ID (e.g., `ui-42`). The variable browser lets you click any variable to highlight its element in the UI.

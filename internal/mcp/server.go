@@ -132,12 +132,10 @@ func (s *Server) ServeSSE(addr string) error {
 	return httpServer.ListenAndServe()
 }
 
-// StartHTTPServer starts a standalone HTTP server in stdio mode.
-// Serves debug pages and state wait endpoint.
-// Returns the port number.
-// Spec: mcp.md Section 2.2
-func (s *Server) StartHTTPServer() (int, error) {
-	mux := http.NewServeMux()
+// RegisterAPIRoutes registers Frictionless API handlers on an external mux.
+// This allows an embedding binary to serve /api/*, /wait, /state, /variables
+// on its own listener (e.g. a Unix domain socket) instead of a separate TCP port.
+func (s *Server) RegisterAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/variables", s.handleVariables)
 	mux.HandleFunc("/state", s.handleState)
 	mux.HandleFunc("/wait", s.handleWait)
@@ -154,6 +152,15 @@ func (s *Server) StartHTTPServer() (int, error) {
 	mux.HandleFunc("/api/ui_theme", s.handleAPITheme)
 	mux.HandleFunc("/api/resource/", s.handleAPIResource)
 	mux.HandleFunc("/app/", s.handleAppReadme)
+}
+
+// StartHTTPServer starts a standalone HTTP server in stdio mode.
+// Serves debug pages and state wait endpoint.
+// Returns the port number.
+// Spec: mcp.md Section 2.2
+func (s *Server) StartHTTPServer() (int, error) {
+	mux := http.NewServeMux()
+	s.RegisterAPIRoutes(mux)
 	mux.HandleFunc("/", s.handleStaticFile)
 
 	// Listen on random port

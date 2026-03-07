@@ -19,7 +19,7 @@ Workflow for auditing and standardizing semantic CSS class usage across UI apps.
 
 1. **Audit the app**
    ```bash
-   .ui/mcp theme audit my-app
+   {cmd} theme audit my-app
    ```
 
    This returns:

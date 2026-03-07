@@ -22,7 +22,7 @@ Follow these steps in order.
 **Check for existing checkpoints from `/ui-fast` prototyping:**
 
 ```bash
-.ui/mcp checkpoint list <app>
+{cmd} checkpoint list <app>
 ```
 
 If checkpoints exist (output is not "No checkpoints for <app>"):
@@ -54,7 +54,7 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
 
 5. **Clear checkpoints:**
    ```bash
-   .ui/mcp checkpoint clear <app>
+   {cmd} checkpoint clear <app>
    ```
 
 This ensures prototyping work is captured in the design before proceeding.
@@ -102,9 +102,9 @@ Write `{base_dir}/apps/<app>/app.lua` — Lua classes and logic.
 ## Step 6: Link and Audit
 
 ```bash
-.ui/mcp linkapp add <app>
-.ui/mcp audit <app>
-.ui/mcp theme audit <app>
+{cmd} linkapp add <app>
+{cmd} audit <app>
+{cmd} theme audit <app>
 ```
 
 The audit tool checks Lua code and viewdefs for common violations. Also do **AI-based checks**:
@@ -133,8 +133,8 @@ prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
 Commit the audited code to the local branch and set a clean baseline for future `/ui-fast` iterations:
 
 ```bash
-.ui/mcp checkpoint local <app> "thorough: <brief description>"
-.ui/mcp checkpoint baseline <app>
+{cmd} checkpoint local <app> "thorough: <brief description>"
+{cmd} checkpoint baseline <app>
 ```
 
 The `local` commit preserves audited code on a permanent branch that survives baseline resets.
@@ -143,9 +143,9 @@ The `baseline` clears trunk for fresh `/ui-fast` checkpoints.
 ## Step 9: Complete
 
 ```bash
-.ui/mcp run "mcp:completeTodos()"
-.ui/mcp run "mcp:appUpdated('APP_NAME')"
-.ui/mcp run "mcp:addAgentMessage('Done - built APP_NAME')"
+{cmd} run "mcp:completeTodos()"
+{cmd} run "mcp:appUpdated('APP_NAME')"
+{cmd} run "mcp:addAgentMessage('Done - built APP_NAME')"
 ```
 
 ---

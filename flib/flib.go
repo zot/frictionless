@@ -1,0 +1,115 @@
+// Package flib provides an embeddable Frictionless runtime.
+// Downstream binaries (e.g. ark) import this to get the full
+// Frictionless stack — ui-engine, MCP tools, Lua globals, HTTP
+// API — without needing to access internal packages.
+package flib
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/zot/frictionless/internal/mcp"
+	"github.com/zot/ui-engine/cli"
+)
+
+// Config holds configuration for an embedded Frictionless runtime.
+type Config struct {
+	Dir  string // base directory for UI assets and state
+	Host string // bind host (default "127.0.0.1")
+}
+
+// Runtime is an embedded Frictionless server. Create with New,
+// then call Configure, Start, and StartAPI in sequence.
+type Runtime struct {
+	cfg       *cli.Config
+	uiServer  *cli.Server
+	mcpServer *mcp.Server
+}
+
+// New creates a Frictionless runtime configured for embedding.
+// Call Configure, Start, and StartAPI to bring it up.
+func New(cfg Config) (*Runtime, error) {
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	uiCfg := cli.DefaultConfig()
+	uiCfg.Server.Dir = cfg.Dir
+	uiCfg.Server.Port = 0 // auto-select
+	uiCfg.Server.Host = host
+	uiCfg.Lua.Enabled = true
+	uiCfg.Lua.Hotload = true
+
+	srv := cli.NewServer(uiCfg)
+	srv.StartCleanupWorker(time.Hour)
+
+	mcpSrv := mcp.NewServer(
+		uiCfg,
+		srv,
+		srv.GetViewdefManager(),
+		func(port int) (string, error) {
+			return srv.StartAsync(port)
+		},
+		func() int {
+			return srv.GetSessions().Count()
+		},
+	)
+
+	srv.SetRootSessionProvider(func() string {
+		return mcpSrv.GetCurrentSessionID()
+	})
+
+	return &Runtime{
+		cfg:       uiCfg,
+		uiServer:  srv,
+		mcpServer: mcpSrv,
+	}, nil
+}
+
+// Configure prepares the server environment — creates directories,
+// runs auto-install if needed. Call before Start.
+func (r *Runtime) Configure() error {
+	return r.mcpServer.Configure(r.cfg.Server.Dir)
+}
+
+// Start starts the UI HTTP server and creates a Lua session with
+// the mcp global. Returns the base URL (e.g. "http://127.0.0.1:PORT").
+func (r *Runtime) Start() (string, error) {
+	url, err := r.mcpServer.StartAndCreateSession()
+	if err != nil {
+		return "", fmt.Errorf("frictionless start: %w", err)
+	}
+	return url, nil
+}
+
+// RegisterAPI registers Frictionless API handlers (/api/*, /wait,
+// /state, /variables) on an external mux. Use this instead of
+// StartAPI when the embedding binary has its own listener.
+func (r *Runtime) RegisterAPI(mux *http.ServeMux) {
+	r.mcpServer.RegisterAPIRoutes(mux)
+}
+
+// StartAPI starts a standalone HTTP API server that serves /api/*,
+// /wait, /state, /variables endpoints. Returns the port number.
+// Use RegisterAPI instead when embedding into an existing server.
+func (r *Runtime) StartAPI() (int, error) {
+	port, err := r.mcpServer.StartHTTPServer()
+	if err != nil {
+		return 0, fmt.Errorf("frictionless API: %w", err)
+	}
+	return port, nil
+}
+
+// Shutdown gracefully stops both the UI and API servers.
+func (r *Runtime) Shutdown(ctx context.Context) error {
+	r.mcpServer.RemovePortFiles()
+	if err := r.mcpServer.ShutdownHTTPServer(ctx); err != nil {
+		log.Printf("flib: API shutdown error: %v", err)
+	}
+	r.uiServer.Shutdown(ctx)
+	return nil
+}

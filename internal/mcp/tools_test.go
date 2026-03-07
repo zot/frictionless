@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -627,4 +628,77 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestPatchClaudeMD(t *testing.T) {
+	t.Run("creates file if missing", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "CLAUDE.md")
+		if err := patchClaudeMD(path, ".ui/mcp"); err != nil {
+			t.Fatal(err)
+		}
+		content, _ := os.ReadFile(path)
+		got := string(content)
+		if !strings.Contains(got, "## Frictionless UI") {
+			t.Error("missing section header")
+		}
+		if !strings.Contains(got, "`.ui/mcp`") {
+			t.Error("missing command value")
+		}
+	})
+
+	t.Run("inserts at top of existing file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "CLAUDE.md")
+		os.WriteFile(path, []byte("# Project\n\nSome content.\n"), 0644)
+		if err := patchClaudeMD(path, ".ui/mcp"); err != nil {
+			t.Fatal(err)
+		}
+		content, _ := os.ReadFile(path)
+		got := string(content)
+		if got[:len("## Frictionless UI")] != "## Frictionless UI" {
+			t.Error("section not at top of file")
+		}
+		if !strings.Contains(got, "# Project") {
+			t.Error("original content lost")
+		}
+	})
+
+	t.Run("updates existing section", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "CLAUDE.md")
+		existing := "# Project\n\n## Frictionless UI\n\nThe Frictionless command is `old/cmd`. UI skills use `{cmd}` as a placeholder for this.\n\n## Other Section\n\nKeep this.\n"
+		os.WriteFile(path, []byte(existing), 0644)
+		if err := patchClaudeMD(path, ".ui/mcp"); err != nil {
+			t.Fatal(err)
+		}
+		content, _ := os.ReadFile(path)
+		got := string(content)
+		if strings.Contains(got, "old/cmd") {
+			t.Error("old command value not replaced")
+		}
+		if !strings.Contains(got, "`.ui/mcp`") {
+			t.Error("new command value not present")
+		}
+		if !strings.Contains(got, "## Other Section") {
+			t.Error("following section lost")
+		}
+		if !strings.Contains(got, "Keep this.") {
+			t.Error("following section content lost")
+		}
+	})
+
+	t.Run("no-op when already correct", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "CLAUDE.md")
+		correct := "## Frictionless UI\n\nThe Frictionless command is `.ui/mcp`. UI skills use `{cmd}` as a placeholder for this.\n"
+		os.WriteFile(path, []byte(correct), 0644)
+		if err := patchClaudeMD(path, ".ui/mcp"); err != nil {
+			t.Fatal(err)
+		}
+		content, _ := os.ReadFile(path)
+		if string(content) != correct {
+			t.Error("file was modified unnecessarily")
+		}
+	})
 }
