@@ -753,12 +753,53 @@ README.md
 - `{project}` is the parent of `base_dir` (e.g., if `base_dir` is `.ui`, project is `.`)
 - Creates `.claude/` and `.claude/skills/` directories if they don't exist
 
+**Install Manifest (Content Hashing):**
+
+The install manifest tracks every installed file by its SHA-256 hash and a per-file collision policy. It is stored in `{base_dir}/storage/settings.json` under the `"installManifest"` key, alongside other prefs data.
+
+Each entry:
+```json
+{
+  "hash": "a1b2c3...",
+  "onCollision": "skip",
+  "group": "skills"
+}
+```
+
+Collision policies:
+- **skip** — keep the user's version, report the file in `user_modified`
+- **overwrite** — replace with the bundled version
+- **backup** — save the user's version as `{file}.bak`, then install the bundled version
+
+Default policies by group:
+
+| Group | Default | Rationale |
+|-------|---------|-----------|
+| skills | skip | Users customize skills for their project |
+| resources | skip | Users may add project-specific notes |
+| lua | skip | Users extend Lua files with app logic |
+| apps | skip | Users modify app code and viewdefs |
+| scripts | overwrite | Shell scripts should match the installed version |
+| engine | overwrite | Core HTML/JS must match the installed version |
+| docs | overwrite | README.md carries the version marker |
+| patterns | skip | Users may edit pattern docs |
+| viewdefs | overwrite | Symlinks to app viewdefs, managed by install |
+
 **Behavior:**
 1. **Check State:** Server must be running.
-2. **Skill/Resource Files:**
-   - If file doesn't exist: install from bundle
-   - If exists and `force=false`: skip (no-op)
-   - If exists and `force=true`: overwrite
+2. **Load manifest** from `{base_dir}/storage/settings.json` (`installManifest` key). Missing manifest is treated as empty (first install or upgrade from pre-manifest version).
+3. **Per-file decision:**
+   - If file doesn't exist on disk: install from bundle, record hash and default policy in manifest.
+   - If file exists but has no manifest entry: treat as unmodified (permissive — preserves current upgrade behavior for pre-manifest installs). Install, record hash and default policy.
+   - If file exists and manifest entry exists:
+     - Compute SHA-256 of file on disk.
+     - If hash matches manifest: file is unmodified. Install new version, update hash.
+     - If hash differs (user modified): apply the file's `onCollision` policy:
+       - `skip`: leave file, report in `user_modified` array
+       - `overwrite`: replace file, update hash
+       - `backup`: copy file to `{file}.bak`, install new version, update hash
+   - If `force=true`: overwrite regardless of hash or policy, update hash.
+4. **Write manifest** back to settings.json after all files are processed.
 
 **Returns:**
 - JSON object listing installed files:
@@ -766,6 +807,8 @@ README.md
 {
   "installed": [".claude/skills/ui-builder/SKILL.md", ".ui/resources/reference.md"],
   "skipped": [],
+  "user_modified": [".claude/skills/ui-basics/SKILL.md"],
+  "backed_up": [".ui/lua/mcp.lua"],
   "appended": [],
   "suggestions": ["Run `claude plugin install code-simplifier` to enable code simplification"]
 }
@@ -799,8 +842,11 @@ The Frictionless command is `.ui/mcp`. UI skills use `{cmd}` as a placeholder fo
 **Design Rationale:**
 - Skills use `{cmd}` placeholder so they are project-agnostic — each project declares its own command in CLAUDE.md
 - Separates installation from configuration (user controls when files are added)
-- Skill files are only overwritten with explicit `force=true`
-- Enables easy updates: `ui_install(force=true)` reinstalls latest bundled versions
+- Content hashing detects user modifications without requiring the user to declare them
+- Per-file collision policies give users control over upgrade behavior (via prefs app)
+- Missing manifest is treated permissively so pre-manifest installs upgrade smoothly
+- `force=true` remains the escape hatch for full reinstall
+- Manifest lives in settings.json so the prefs app can display and edit collision policies
 
 ## 7. Resources
 

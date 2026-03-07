@@ -1,7 +1,7 @@
 # MCPTool
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R4, R5, R6, R7, R8, R18, R21, R128, R129, R47, R48, R49, R138, R139, R144, R145, R146, R156, R157, R158, R159, R160
+**Requirements:** R4, R5, R6, R7, R8, R18, R21, R128, R129, R47, R48, R49, R138, R139, R144, R145, R146, R156, R157, R158, R159, R160, R169, R170, R171, R172, R173, R174, R175, R176
 
 ## Responsibilities
 
@@ -20,7 +20,7 @@
 - `ui_run`: Execute Lua code in session context
 - `ui_open_browser`: Open system browser to session URL (defaults to ?conserve=true)
 - `ui_status`: Get server state, version, base_dir, URL, mcp_port, and session count
-- `ui_install`: Install bundled files with version checking (skills, resources, viewdefs, scripts). Patches project CLAUDE.md with `{cmd}` declaration at top (creates if missing, updates if exists). Checks for optional external dependencies (e.g., code-simplifier agent) and includes suggestions in response.
+- `ui_install`: Install bundled files with version checking (skills, resources, viewdefs, scripts). Tracks installed file hashes in install manifest (`settings.json`); on upgrade, compares on-disk hash to detect user modifications and applies per-file collision policy (skip/overwrite/backup). Patches project CLAUDE.md with `{cmd}` declaration at top (creates if missing, updates if exists). Checks for optional external dependencies (e.g., code-simplifier agent) and includes suggestions in response.
 - `ui_theme`: Theme management with `action` parameter: `list` (themes with metadata/accents), `classes [theme]` (class annotations; no theme = union of all themes), `audit app [theme]` (viewdef class usage vs documented classes; no theme = all themes)
 
 ### HTTP Handlers

@@ -74,6 +74,8 @@ Support multiple MCP transport modes:
   - MCP resources to `{base_dir}/resources/`
   - Lua files and viewdef symlinks to `{base_dir}/lua/` and `{base_dir}/viewdefs/`
   - Helper scripts (mcp, linkapp) to `{base_dir}/`
+- Install manifest in `{base_dir}/storage/settings.json` tracks SHA-256 hashes and per-file collision policies (R169-R176)
+- On upgrade: hash comparison detects user modifications; collision policy (skip/overwrite/backup) controls per-file behavior
 - Auto-starts HTTP server
 - `ui_configure` optional—triggers full reconfigure (stop, reinitialize, restart)
 

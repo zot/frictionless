@@ -230,3 +230,15 @@
 - **R166:** `Runtime.StartAPI()` starts a standalone HTTP API server and returns its port; alternative to `RegisterAPI` when no external listener exists
 - **R167:** `Runtime.Shutdown(ctx)` gracefully shuts down both UI and API servers
 - **R168:** `Server.RegisterAPIRoutes(mux)` extracts route registration from `StartHTTPServer` so both standalone and embedded modes share the same handler set
+
+## Feature: Install Manifest
+**Source:** specs/mcp.md
+
+- **R169:** `ui_install` records a SHA-256 hash for each installed file in an install manifest stored in `{base_dir}/storage/settings.json` under the `installManifest` key
+- **R170:** Each manifest entry has a collision policy (`skip`, `overwrite`, or `backup`) and a group identifier
+- **R171:** On upgrade, `ui_install` compares the on-disk file hash to the manifest hash to detect user modifications
+- **R172:** If a file is user-modified, `ui_install` applies the file's collision policy: `skip` leaves it, `overwrite` replaces it, `backup` saves it as `{file}.bak` then replaces
+- **R173:** Default collision policies are assigned by group (e.g. skills→skip, engine→overwrite)
+- **R174:** A missing manifest (pre-manifest install or first install) is treated as empty — all existing files are considered unmodified for backward compatibility
+- **R175:** `force=true` overrides all collision policies and overwrites every file, updating manifest hashes
+- **R176:** The install result includes `user_modified` and `backed_up` arrays alongside existing `installed` and `skipped` arrays

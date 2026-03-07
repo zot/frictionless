@@ -61,9 +61,9 @@ func (s *Server) registerTools() {
 		mcp.WithBoolean("force", mcp.Description("If true, overwrites existing files. Defaults to false.")),
 	), s.handleInstall)
 
-	// ui_update
+	// ui_update — alias for Install(false) with manifest-aware conflict detection
 	s.mcpServer.AddTool(mcp.NewTool("ui_update",
-		mcp.WithDescription("Smart update: installs new bundled files, overwrites unmodified files, detects conflicts for user-modified files. Uses hash-based manifest for conflict detection."),
+		mcp.WithDescription("Smart update: uses content hashing to detect user-modified files. Unmodified files are updated; modified files are handled per collision policy (skip/overwrite/backup). Same as ui_install without force."),
 	), s.handleUpdate)
 
 	// ui_display
@@ -153,6 +153,8 @@ func parseReadmeVersion(content []byte) string {
 type InstallResult struct {
 	Installed        []string `json:"installed"`
 	Skipped          []string `json:"skipped"`
+	UserModified     []string `json:"user_modified,omitempty"`
+	BackedUp         []string `json:"backed_up,omitempty"`
 	Appended         []string `json:"appended"`
 	Suggestions      []string `json:"suggestions,omitempty"`
 	VersionSkipped   bool     `json:"version_skipped,omitempty"`
@@ -161,51 +163,120 @@ type InstallResult struct {
 	Hint             string   `json:"hint,omitempty"`
 }
 
-// installFile installs a single file from the bundle.
-// Returns: "installed", "skipped", or "" (file not found in bundle)
-func (s *Server) installFile(bundlePath, destPath string, mode os.FileMode, force bool, fileInfoMap map[string]cli.BundleFileInfo) (string, error) {
-	fileExists := false
-	if _, err := os.Stat(destPath); err == nil {
-		if !force {
-			return "skipped", nil
-		}
-		fileExists = true
-	}
+// installFileResult is the outcome of a manifest-aware file install.
+type installFileResult struct {
+	status string // "installed", "skipped", "user_modified", "backed_up", ""
+	hash   string // SHA-256 hash of installed content (empty if not installed)
+}
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		return "", fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
-	}
-
-	// Handle symlinks
+// installFile installs a single file from the bundle with manifest-aware conflict detection.
+// CRC: crc-MCPTool.md (R169-R176)
+func (s *Server) installFile(bundlePath, destPath, relPath, group string, mode os.FileMode, force bool, manifest *InstallManifest, fileInfoMap map[string]cli.BundleFileInfo) (installFileResult, error) {
+	// Handle symlinks — no hash tracking
 	if info, ok := fileInfoMap[bundlePath]; ok && info.IsSymlink {
-		if fileExists {
+		if _, err := os.Lstat(destPath); err == nil {
+			if !force {
+				return installFileResult{status: "skipped"}, nil
+			}
 			os.Remove(destPath)
 		}
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
+		}
 		if err := os.Symlink(info.SymlinkTarget, destPath); err != nil {
-			return "", fmt.Errorf("failed to create symlink %s: %v", filepath.Base(destPath), err)
+			return installFileResult{}, fmt.Errorf("failed to create symlink %s: %v", filepath.Base(destPath), err)
 		}
 		s.cfg.Log(1, "Installed symlink: %s -> %s", destPath, info.SymlinkTarget)
-		return "installed", nil
+		return installFileResult{status: "installed"}, nil
 	}
 
-	// Handle regular files
+	// Read bundled content
 	content, err := cli.BundleReadFile(bundlePath)
 	if err != nil || len(content) == 0 {
 		s.cfg.Log(1, "File not found in bundle: %s", bundlePath)
-		return "", nil
+		return installFileResult{}, nil
+	}
+	bundledHash := computeContentHash(content)
+
+	// File doesn't exist on disk — fresh install
+	if _, statErr := os.Stat(destPath); statErr != nil {
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
+		}
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed: %s", destPath)
+		return installFileResult{status: "installed", hash: bundledHash}, nil
 	}
 
-	if err := os.WriteFile(destPath, content, mode); err != nil {
-		return "", fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+	// force=true overrides everything (R175)
+	if force {
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to create directory for %s: %v", bundlePath, err)
+		}
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed (forced): %s", destPath)
+		return installFileResult{status: "installed", hash: bundledHash}, nil
 	}
 
-	s.cfg.Log(1, "Installed: %s", destPath)
-	return "installed", nil
+	// File exists — check manifest for conflict detection
+	entry, inManifest := manifest.Files[relPath]
+
+	if !inManifest {
+		// No manifest entry — treat as unmodified for backward compat (R174)
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed (no manifest entry): %s", destPath)
+		return installFileResult{status: "installed", hash: bundledHash}, nil
+	}
+
+	// Compare on-disk hash to manifest hash
+	currentHash, hashErr := computeFileHash(destPath)
+	if hashErr != nil || currentHash == entry.Hash {
+		// Hash matches or can't read — safe to overwrite
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed (unmodified): %s", destPath)
+		return installFileResult{status: "installed", hash: bundledHash}, nil
+	}
+
+	// Hash differs — user modified. Apply collision policy.
+	policy := entry.OnCollision
+	if policy == "" {
+		policy = defaultCollisionPolicy(group)
+	}
+
+	switch policy {
+	case "overwrite":
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed (overwrite policy): %s", destPath)
+		return installFileResult{status: "installed", hash: bundledHash}, nil
+	case "backup":
+		bakPath := destPath + ".bak"
+		if err := os.Rename(destPath, bakPath); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to backup %s: %v", filepath.Base(destPath), err)
+		}
+		if err := os.WriteFile(destPath, content, mode); err != nil {
+			return installFileResult{}, fmt.Errorf("failed to write %s: %v", filepath.Base(destPath), err)
+		}
+		s.cfg.Log(1, "Installed (backed up): %s", destPath)
+		return installFileResult{status: "backed_up", hash: bundledHash}, nil
+	default: // "skip"
+		s.cfg.Log(1, "Skipped (user modified): %s", destPath)
+		return installFileResult{status: "user_modified"}, nil
+	}
 }
 
-// Install installs bundled configuration files.
-// This is the core install logic used by both Configure (auto-install) and handleInstall (MCP tool).
-// Spec: mcp.md section 5.7
+// Install installs bundled configuration files with manifest-aware conflict detection.
+// This is the core install logic used by Configure (auto-install), handleInstall (MCP tool),
+// and handleUpdate (smart update). Spec: mcp.md section 5.5
 func (s *Server) Install(force bool) (*InstallResult, error) {
 	if s.baseDir == "" {
 		return nil, fmt.Errorf("server not configured (baseDir not set)")
@@ -234,27 +305,51 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	// Build file info map for symlink detection
 	fileInfoMap := buildFileInfoMap()
 
-	var installed, skipped []string
-	track := func(relPath, status string) {
-		if status == "installed" {
+	// Load manifest (R174: missing manifest treated as empty)
+	manifest, _ := readManifest(s.baseDir)
+	if manifest == nil {
+		manifest = &InstallManifest{Files: make(map[string]ManifestEntry)}
+	}
+
+	var installed, skipped, userModified, backedUp []string
+	track := func(relPath, group string, result installFileResult) {
+		switch result.status {
+		case "installed", "backed_up":
+			if result.status == "backed_up" {
+				backedUp = append(backedUp, relPath)
+			}
 			installed = append(installed, relPath)
-		} else if status == "skipped" {
+			// Update manifest entry with new hash
+			if result.hash != "" {
+				policy := defaultCollisionPolicy(group)
+				if existing, ok := manifest.Files[relPath]; ok && existing.OnCollision != "" {
+					policy = existing.OnCollision // preserve user's policy choice
+				}
+				manifest.Files[relPath] = ManifestEntry{
+					Hash:        result.hash,
+					OnCollision: policy,
+					Group:       group,
+				}
+			}
+		case "skipped":
 			skipped = append(skipped, relPath)
+		case "user_modified":
+			userModified = append(userModified, relPath)
 		}
 	}
 
 	// installBundleFiles installs files from a bundle directory to a destination
-	installBundleFiles := func(bundleDir, destDir string, mode os.FileMode) error {
+	installBundleFiles := func(bundleDir, destDir, group string, mode os.FileMode) error {
 		files, _ := cli.BundleListFiles(bundleDir)
 		for _, bundlePath := range files {
 			fileName := filepath.Base(bundlePath)
 			destPath := filepath.Join(destDir, fileName)
 			relPath := filepath.Join(bundleDir, fileName)
-			status, err := s.installFile(bundlePath, destPath, mode, force, fileInfoMap)
+			result, err := s.installFile(bundlePath, destPath, relPath, group, mode, force, manifest, fileInfoMap)
 			if err != nil {
 				return err
 			}
-			track(relPath, status)
+			track(relPath, group, result)
 		}
 		return nil
 	}
@@ -275,11 +370,11 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		bundlePath := filepath.Join(f.category, f.file)
 		destPath := filepath.Join(projectRoot, ".claude", f.category, f.file)
 		relPath := filepath.Join(".claude", f.category, f.file)
-		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
+		result, err := s.installFile(bundlePath, destPath, relPath, "skills", 0644, force, manifest, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
-		track(relPath, status)
+		track(relPath, "skills", result)
 	}
 
 	// 1b. Patch CLAUDE.md with {cmd} declaration (R157-R160)
@@ -288,77 +383,76 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	if err := patchClaudeMD(claudeMDPath, cmdValue); err != nil {
 		s.cfg.Log(1, "Warning: failed to patch CLAUDE.md: %v", err)
 	} else {
-		track("CLAUDE.md", "installed")
+		track("CLAUDE.md", "docs", installFileResult{status: "installed"})
 	}
 
 	// 2. Install resources to {base_dir}/resources/
 	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md", "ui_audit.md"} {
 		bundlePath := filepath.Join("resources", file)
 		destPath := filepath.Join(s.baseDir, "resources", file)
-		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
+		result, err := s.installFile(bundlePath, destPath, bundlePath, "resources", 0644, force, manifest, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
-		track(bundlePath, status)
+		track(bundlePath, "resources", result)
 	}
 
 	// 3. Install apps to {base_dir}/apps/ (recursively, includes symlinks)
 	appFiles, _ := cli.BundleListFilesRecursive("apps")
 	for _, bundlePath := range appFiles {
 		destPath := filepath.Join(s.baseDir, bundlePath)
-		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
+		result, err := s.installFile(bundlePath, destPath, bundlePath, "apps", 0644, force, manifest, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
-		track(bundlePath, status)
+		track(bundlePath, "apps", result)
 	}
 
 	// 4. Install viewdefs to {base_dir}/viewdefs/
-	if err := installBundleFiles("viewdefs", filepath.Join(s.baseDir, "viewdefs"), 0644); err != nil {
+	if err := installBundleFiles("viewdefs", filepath.Join(s.baseDir, "viewdefs"), "viewdefs", 0644); err != nil {
 		return nil, err
 	}
 
 	// 5. Install lua files to {base_dir}/lua/
-	if err := installBundleFiles("lua", filepath.Join(s.baseDir, "lua"), 0644); err != nil {
+	if err := installBundleFiles("lua", filepath.Join(s.baseDir, "lua"), "lua", 0644); err != nil {
 		return nil, err
 	}
 
 	// 6. Install scripts to {base_dir}/ (executable)
 	for _, file := range []string{"mcp", "linkapp"} {
 		destPath := filepath.Join(s.baseDir, file)
-		status, err := s.installFile(file, destPath, 0755, force, fileInfoMap)
+		result, err := s.installFile(file, destPath, file, "scripts", 0755, force, manifest, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
-		track(file, status)
+		track(file, "scripts", result)
 	}
 
 	// 7. Install html files to {base_dir}/html/
-	if err := installBundleFiles("html", filepath.Join(s.baseDir, "html"), 0644); err != nil {
+	if err := installBundleFiles("html", filepath.Join(s.baseDir, "html"), "engine", 0644); err != nil {
 		return nil, err
 	}
 
 	// 8. Install README.md to {base_dir}/
-	status, err := s.installFile("README.md", filepath.Join(s.baseDir, "README.md"), 0644, force, fileInfoMap)
+	result, err := s.installFile("README.md", filepath.Join(s.baseDir, "README.md"), "README.md", "docs", 0644, force, manifest, fileInfoMap)
 	if err != nil {
 		return nil, err
 	}
-	track("README.md", status)
+	track("README.md", "docs", result)
 
 	// 9. Install themes to {base_dir}/html/themes/
 	themeFiles, _ := cli.BundleListFiles("html/themes")
 	for _, bundlePath := range themeFiles {
 		destPath := filepath.Join(s.baseDir, bundlePath)
-		status, err := s.installFile(bundlePath, destPath, 0644, force, fileInfoMap)
+		result, err := s.installFile(bundlePath, destPath, bundlePath, "engine", 0644, force, manifest, fileInfoMap)
 		if err != nil {
 			return nil, err
 		}
-		track(bundlePath, status)
+		track(bundlePath, "engine", result)
 	}
 
 	// 10. Install patterns to {base_dir}/patterns/
-	// CRC: crc-MCPTool.md
-	if err := installBundleFiles("patterns", filepath.Join(s.baseDir, "patterns"), 0644); err != nil {
+	if err := installBundleFiles("patterns", filepath.Join(s.baseDir, "patterns"), "patterns", 0644); err != nil {
 		return nil, err
 	}
 
@@ -369,32 +463,18 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		suggestions = append(suggestions, "Run `claude plugin install code-simplifier` to enable code simplification")
 	}
 
-	// 12. Write install manifest with file hashes
-	manifest, _ := readManifest(s.baseDir)
-	if manifest == nil {
-		manifest = &InstallManifest{Files: make(map[string]string)}
-	}
+	// 12. Write manifest (R169)
 	manifest.Version = bundledVersion
-	for _, relPath := range installed {
-		// .claude/ paths are relative to projectRoot, everything else to baseDir
-		var absPath string
-		if strings.HasPrefix(relPath, ".claude/") || strings.HasPrefix(relPath, ".claude\\") {
-			absPath = filepath.Join(projectRoot, relPath)
-		} else {
-			absPath = filepath.Join(s.baseDir, relPath)
-		}
-		if hash, err := computeFileHash(absPath); err == nil {
-			manifest.Files[relPath] = hash
-		}
-	}
 	if err := writeManifest(s.baseDir, manifest); err != nil {
 		s.cfg.Log(1, "Warning: failed to write install manifest: %v", err)
 	}
 
 	return &InstallResult{
-		Installed:   installed,
-		Skipped:     skipped,
-		Suggestions: suggestions,
+		Installed:    installed,
+		Skipped:      skipped,
+		UserModified: userModified,
+		BackedUp:     backedUp,
+		Suggestions:  suggestions,
 	}, nil
 }
 
@@ -515,10 +595,19 @@ func compareSemver(a, b string) int {
 	return 0
 }
 
-// InstallManifest records the SHA256 hashes of installed files for smart update.
+// ManifestEntry records the installed state and upgrade policy for a single file.
+// CRC: crc-MCPTool.md (R169-R176)
+type ManifestEntry struct {
+	Hash        string `json:"hash"`
+	OnCollision string `json:"onCollision"`
+	Group       string `json:"group"`
+}
+
+// InstallManifest records SHA-256 hashes and collision policies for installed files.
+// Stored in settings.json under the "installManifest" key.
 type InstallManifest struct {
-	Version string            `json:"version"`
-	Files   map[string]string `json:"files"`
+	Version string                   `json:"version"`
+	Files   map[string]ManifestEntry `json:"files"`
 }
 
 // computeFileHash returns "sha256:<hex>" for the file at path, or error.
@@ -531,276 +620,81 @@ func computeFileHash(path string) (string, error) {
 	return "sha256:" + hex.EncodeToString(h[:]), nil
 }
 
-// readManifest reads the install manifest from storage/install-manifest.json.
+// computeContentHash computes the SHA-256 hash of content bytes.
+func computeContentHash(content []byte) string {
+	h := sha256.Sum256(content)
+	return "sha256:" + hex.EncodeToString(h[:])
+}
+
+// defaultCollisionPolicy returns the default collision policy for a file group.
+func defaultCollisionPolicy(group string) string {
+	switch group {
+	case "scripts", "engine", "docs", "viewdefs":
+		return "overwrite"
+	default: // skills, resources, lua, apps, patterns
+		return "skip"
+	}
+}
+
+// readManifest reads the install manifest from settings.json.
 func readManifest(baseDir string) (*InstallManifest, error) {
-	data, err := os.ReadFile(filepath.Join(baseDir, "storage", "install-manifest.json"))
+	data, err := os.ReadFile(filepath.Join(baseDir, "storage", "settings.json"))
 	if err != nil {
 		return nil, err
 	}
+	var settings map[string]json.RawMessage
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil, err
+	}
+	raw, ok := settings["installManifest"]
+	if !ok {
+		return nil, fmt.Errorf("no installManifest in settings")
+	}
 	var m InstallManifest
-	if err := json.Unmarshal(data, &m); err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return nil, err
 	}
 	return &m, nil
 }
 
-// writeManifest writes the install manifest to storage/install-manifest.json.
+// writeManifest writes the install manifest to settings.json, preserving other keys.
 func writeManifest(baseDir string, m *InstallManifest) error {
-	dir := filepath.Join(baseDir, "storage")
+	settingsPath := filepath.Join(baseDir, "storage", "settings.json")
+	dir := filepath.Dir(settingsPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(m, "", "  ")
+
+	// Read existing settings to preserve other keys
+	var settings map[string]json.RawMessage
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		json.Unmarshal(data, &settings)
+	}
+	if settings == nil {
+		settings = make(map[string]json.RawMessage)
+	}
+
+	manifestJSON, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "install-manifest.json"), data, 0644)
-}
+	settings["installManifest"] = manifestJSON
 
-// UpdateResult contains the results of an update operation.
-type UpdateResult struct {
-	Updated    []string         `json:"updated"`
-	Skipped    []string         `json:"skipped"`
-	Conflicts  []UpdateConflict `json:"conflicts,omitempty"`
-	NewVersion string           `json:"new_version,omitempty"`
-}
-
-// UpdateConflict describes a file that couldn't be updated because the user modified it.
-type UpdateConflict struct {
-	Path        string `json:"path"`
-	Reason      string `json:"reason"`
-	OldHash     string `json:"old_hash"`
-	CurrentHash string `json:"current_hash"`
-	MergePath   string `json:"merge_path,omitempty"`
-}
-
-// Update performs a smart update using the install manifest for conflict detection.
-// Files unchanged by the user are overwritten; modified files get a .merge copy.
-func (s *Server) Update() (*UpdateResult, error) {
-	if s.baseDir == "" {
-		return nil, fmt.Errorf("server not configured (baseDir not set)")
+	data, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
 	}
-
-	if bundled, _ := cli.IsBundled(); !bundled {
-		return nil, fmt.Errorf("update requires a bundled binary (use 'make build')")
-	}
-
-	manifest, err := readManifest(s.baseDir)
-	if err != nil || manifest == nil {
-		// No manifest — fall back to force install
-		result, err := s.Install(true)
-		if err != nil {
-			return nil, err
-		}
-		return &UpdateResult{
-			Updated:    result.Installed,
-			Skipped:    result.Skipped,
-			NewVersion: result.BundledVersion,
-		}, nil
-	}
-
-	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
-	bundledVersion := readBundledVersion()
-	fileInfoMap := buildFileInfoMap()
-
-	var updated, skipped []string
-	var conflicts []UpdateConflict
-
-	// updateFile handles a single file update with conflict detection.
-	updateFile := func(bundlePath, destPath, relPath string, mode os.FileMode) error {
-		// Check if file exists on disk
-		_, statErr := os.Stat(destPath)
-		fileExists := statErr == nil
-
-		if !fileExists {
-			// File doesn't exist → install it
-			status, err := s.installFile(bundlePath, destPath, mode, true, fileInfoMap)
-			if err != nil {
-				return err
-			}
-			if status == "installed" {
-				updated = append(updated, relPath)
-				// Update manifest hash
-				if hash, err := computeFileHash(destPath); err == nil {
-					manifest.Files[relPath] = hash
-				}
-			}
-			return nil
-		}
-
-		// File exists — check hash against manifest
-		manifestHash, inManifest := manifest.Files[relPath]
-		currentHash, hashErr := computeFileHash(destPath)
-
-		if !inManifest || hashErr != nil {
-			// Not in manifest (new file from older install) → treat as user-modified, skip
-			skipped = append(skipped, relPath)
-			return nil
-		}
-
-		if currentHash == manifestHash {
-			// Hash matches manifest → user hasn't changed it → safe to overwrite
-			status, err := s.installFile(bundlePath, destPath, mode, true, fileInfoMap)
-			if err != nil {
-				return err
-			}
-			if status == "installed" {
-				updated = append(updated, relPath)
-				if hash, err := computeFileHash(destPath); err == nil {
-					manifest.Files[relPath] = hash
-				}
-			}
-			return nil
-		}
-
-		// Hash differs → user modified → write .merge file
-		mergeDir := destPath + ".merge"
-		mergePath := relPath + ".merge"
-
-		// For symlinks, just record conflict without merge file
-		if info, ok := fileInfoMap[bundlePath]; ok && info.IsSymlink {
-			conflicts = append(conflicts, UpdateConflict{
-				Path:        relPath,
-				Reason:      "user_modified",
-				OldHash:     manifestHash,
-				CurrentHash: currentHash,
-			})
-			return nil
-		}
-
-		content, err := cli.BundleReadFile(bundlePath)
-		if err != nil || len(content) == 0 {
-			return nil
-		}
-
-		if err := os.MkdirAll(filepath.Dir(mergeDir), 0755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(mergeDir, content, mode); err != nil {
-			return err
-		}
-
-		conflicts = append(conflicts, UpdateConflict{
-			Path:        relPath,
-			Reason:      "user_modified",
-			OldHash:     manifestHash,
-			CurrentHash: currentHash,
-			MergePath:   mergePath,
-		})
-		return nil
-	}
-
-	// Same file iteration order as Install()
-
-	// 1. Skills → {project}/.claude/skills/
-	skillFiles := []struct{ category, file string }{
-		{"skills/ui", "SKILL.md"},
-		{"skills/ui-basics", "SKILL.md"},
-		{"skills/ui-fast", "SKILL.md"},
-		{"skills/ui-highlight", "SKILL.md"},
-		{"skills/ui-thorough", "SKILL.md"},
-		{"skills/ui-testing", "SKILL.md"},
-		{"skills/ui-testing", "TESTING-TEMPLATE.md"},
-		{"skills/ui-themer", "SKILL.md"},
-		{"skills/ui-variables", "SKILL.md"},
-	}
-	for _, f := range skillFiles {
-		bundlePath := filepath.Join(f.category, f.file)
-		destPath := filepath.Join(projectRoot, ".claude", f.category, f.file)
-		relPath := filepath.Join(".claude", f.category, f.file)
-		if err := updateFile(bundlePath, destPath, relPath, 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 2. Resources
-	for _, file := range []string{"intro.md", "reference.md", "viewdefs.md", "lua.md", "mcp.md", "ui_audit.md"} {
-		bundlePath := filepath.Join("resources", file)
-		destPath := filepath.Join(s.baseDir, "resources", file)
-		if err := updateFile(bundlePath, destPath, bundlePath, 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 3. Apps (recursive)
-	appFiles, _ := cli.BundleListFilesRecursive("apps")
-	for _, bundlePath := range appFiles {
-		destPath := filepath.Join(s.baseDir, bundlePath)
-		if err := updateFile(bundlePath, destPath, bundlePath, 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 4. Viewdefs
-	vdFiles, _ := cli.BundleListFiles("viewdefs")
-	for _, bundlePath := range vdFiles {
-		destPath := filepath.Join(s.baseDir, bundlePath)
-		if err := updateFile(bundlePath, destPath, filepath.Join("viewdefs", filepath.Base(bundlePath)), 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 5. Lua files
-	luaFiles, _ := cli.BundleListFiles("lua")
-	for _, bundlePath := range luaFiles {
-		destPath := filepath.Join(s.baseDir, bundlePath)
-		if err := updateFile(bundlePath, destPath, filepath.Join("lua", filepath.Base(bundlePath)), 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 6. Scripts (executable)
-	for _, file := range []string{"mcp", "linkapp"} {
-		destPath := filepath.Join(s.baseDir, file)
-		if err := updateFile(file, destPath, file, 0755); err != nil {
-			return nil, err
-		}
-	}
-
-	// 7. HTML files
-	htmlFiles, _ := cli.BundleListFiles("html")
-	for _, bundlePath := range htmlFiles {
-		destPath := filepath.Join(s.baseDir, bundlePath)
-		if err := updateFile(bundlePath, destPath, filepath.Join("html", filepath.Base(bundlePath)), 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// 8. README.md
-	if err := updateFile("README.md", filepath.Join(s.baseDir, "README.md"), "README.md", 0644); err != nil {
-		return nil, err
-	}
-
-	// 9. Themes
-	themeFiles, _ := cli.BundleListFiles("html/themes")
-	for _, bundlePath := range themeFiles {
-		destPath := filepath.Join(s.baseDir, bundlePath)
-		if err := updateFile(bundlePath, destPath, bundlePath, 0644); err != nil {
-			return nil, err
-		}
-	}
-
-	// Write updated manifest
-	manifest.Version = bundledVersion
-	if err := writeManifest(s.baseDir, manifest); err != nil {
-		s.cfg.Log(1, "Warning: failed to write install manifest: %v", err)
-	}
-
-	return &UpdateResult{
-		Updated:    updated,
-		Skipped:    skipped,
-		Conflicts:  conflicts,
-		NewVersion: bundledVersion,
-	}, nil
+	return os.WriteFile(settingsPath, data, 0644)
 }
 
 // handleUpdate handles the ui_update MCP tool.
+// Delegates to Install(false) — manifest-aware conflict detection is now built into Install.
 func (s *Server) handleUpdate(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s.state != Running {
 		return mcp.NewToolResultError("ui_update requires the server to be running"), nil
 	}
 
-	result, err := s.Update()
+	result, err := s.Install(false)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

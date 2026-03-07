@@ -702,3 +702,106 @@ func TestPatchClaudeMD(t *testing.T) {
 		}
 	})
 }
+
+func TestManifestReadWrite(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write manifest
+	m := &InstallManifest{
+		Version: "0.26.0",
+		Files: map[string]ManifestEntry{
+			"skills/ui/SKILL.md": {Hash: "sha256:abc123", OnCollision: "skip", Group: "skills"},
+			"html/index.html":    {Hash: "sha256:def456", OnCollision: "overwrite", Group: "engine"},
+		},
+	}
+	if err := writeManifest(dir, m); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify it's in settings.json with other keys preserved
+	settingsPath := filepath.Join(dir, "storage", "settings.json")
+	os.MkdirAll(filepath.Dir(settingsPath), 0755)
+
+	// Write settings with an extra key first, then re-write manifest
+	os.WriteFile(settingsPath, []byte(`{"theme":"lcars"}`), 0644)
+	if err := writeManifest(dir, m); err != nil {
+		t.Fatal(err)
+	}
+
+	// Read back raw to verify theme key preserved
+	raw, _ := os.ReadFile(settingsPath)
+	if !strings.Contains(string(raw), `"theme"`) {
+		t.Error("writeManifest clobbered other settings keys")
+	}
+
+	// Read manifest back
+	got, err := readManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != "0.26.0" {
+		t.Errorf("version: got %q, want %q", got.Version, "0.26.0")
+	}
+	if len(got.Files) != 2 {
+		t.Errorf("files: got %d, want 2", len(got.Files))
+	}
+	entry := got.Files["skills/ui/SKILL.md"]
+	if entry.Hash != "sha256:abc123" || entry.OnCollision != "skip" || entry.Group != "skills" {
+		t.Errorf("entry mismatch: %+v", entry)
+	}
+}
+
+func TestManifestReadMissing(t *testing.T) {
+	dir := t.TempDir()
+	_, err := readManifest(dir)
+	if err == nil {
+		t.Error("expected error for missing settings.json")
+	}
+}
+
+func TestManifestReadNoKey(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "storage"), 0755)
+	os.WriteFile(filepath.Join(dir, "storage", "settings.json"), []byte(`{"theme":"lcars"}`), 0644)
+	_, err := readManifest(dir)
+	if err == nil {
+		t.Error("expected error for missing installManifest key")
+	}
+}
+
+func TestDefaultCollisionPolicy(t *testing.T) {
+	cases := []struct {
+		group, want string
+	}{
+		{"skills", "skip"},
+		{"resources", "skip"},
+		{"lua", "skip"},
+		{"apps", "skip"},
+		{"patterns", "skip"},
+		{"scripts", "overwrite"},
+		{"engine", "overwrite"},
+		{"docs", "overwrite"},
+		{"viewdefs", "overwrite"},
+	}
+	for _, c := range cases {
+		if got := defaultCollisionPolicy(c.group); got != c.want {
+			t.Errorf("defaultCollisionPolicy(%q) = %q, want %q", c.group, got, c.want)
+		}
+	}
+}
+
+func TestComputeContentHash(t *testing.T) {
+	content := []byte("hello world")
+	hash := computeContentHash(content)
+	if !strings.HasPrefix(hash, "sha256:") {
+		t.Errorf("hash should start with sha256: prefix, got %q", hash)
+	}
+	// Same content should give same hash
+	if hash2 := computeContentHash(content); hash != hash2 {
+		t.Error("same content produced different hashes")
+	}
+	// Different content should give different hash
+	if hash3 := computeContentHash([]byte("different")); hash == hash3 {
+		t.Error("different content produced same hash")
+	}
+}
