@@ -22,7 +22,7 @@ Follow these steps in order.
 **Check for existing checkpoints from `/ui-fast` prototyping:**
 
 ```bash
-.ui/mcp checkpoint list <app>
+{cmd} checkpoint list <app>
 ```
 
 If checkpoints exist (output is not "No checkpoints for <app>"):
@@ -43,7 +43,7 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
    Run the code-simplifier agent on the app's Lua code:
    ```
    Task tool with subagent_type="code-simplifier"
-   prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+   prompt: "Simplify the code in {ui_dir}/apps/<app>/app.lua"
    ```
 
 4. **Record as fast code gaps:**
@@ -54,7 +54,7 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
 
 5. **Clear checkpoints:**
    ```bash
-   .ui/mcp checkpoint clear <app>
+   {cmd} checkpoint clear <app>
    ```
 
 This ensures prototyping work is captured in the design before proceeding.
@@ -71,16 +71,16 @@ Use `mcp:createTodos(STEPS, APP)` with the steps list and app name. The listed s
 
 ## Step 2: Requirements
 
-- Read `{base_dir}/apps/<app>/requirements.md` (create with prose if missing)
+- Read `{ui_dir}/apps/<app>/requirements.md` (create with prose if missing)
 - Read `TESTING.md` if it exists — note Known Issues
 - Update requirements if the task requires changes
 - Ensure requirements are complete and unambiguous before designing
 
 ## Step 3: Design
 
-- Check `.ui/patterns/` for reusable patterns
-- Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>`
-- Write `{base_dir}/apps/<app>/design.md`:
+- Check `{ui_dir}/patterns/` for reusable patterns
+- Write `{ui_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>`
+- Write `{ui_dir}/apps/<app>/design.md`:
    - **Intent**: What the UI accomplishes
    - **Layout**: ASCII wireframe showing structure
    - **Data Model**: Tables of types, fields, descriptions
@@ -90,7 +90,7 @@ Use `mcp:createTodos(STEPS, APP)` with the steps list and app name. The listed s
 
 ## Step 4: Write Code
 
-Write `{base_dir}/apps/<app>/app.lua` — Lua classes and logic.
+Write `{ui_dir}/apps/<app>/app.lua` — Lua classes and logic.
 
 **Write code BEFORE viewdefs** — viewdefs may reference types that must exist first.
 
@@ -102,9 +102,9 @@ Write `{base_dir}/apps/<app>/app.lua` — Lua classes and logic.
 ## Step 6: Link and Audit
 
 ```bash
-.ui/mcp linkapp add <app>
-.ui/mcp audit <app>
-.ui/mcp theme audit <app>
+{cmd} linkapp add <app>
+{cmd} audit <app>
+{cmd} theme audit <app>
 ```
 
 The audit tool checks Lua code and viewdefs for common violations. Also do **AI-based checks**:
@@ -125,7 +125,7 @@ If there were gaps and they are all gone now, leave the `## Gaps` section empty,
 Use the `code-simplifier` agent:
 ```
 Task tool with subagent_type="code-simplifier"
-prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+prompt: "Simplify the code in {ui_dir}/apps/<app>/app.lua"
 ```
 
 ## Step 8: Set Baseline
@@ -133,8 +133,8 @@ prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
 Commit the audited code to the local branch and set a clean baseline for future `/ui-fast` iterations:
 
 ```bash
-.ui/mcp checkpoint local <app> "thorough: <brief description>"
-.ui/mcp checkpoint baseline <app>
+{cmd} checkpoint local <app> "thorough: <brief description>"
+{cmd} checkpoint baseline <app>
 ```
 
 The `local` commit preserves audited code on a permanent branch that survives baseline resets.
@@ -143,15 +143,15 @@ The `baseline` clears trunk for fresh `/ui-fast` checkpoints.
 ## Step 9: Complete
 
 ```bash
-.ui/mcp run "mcp:completeTodos()"
-.ui/mcp run "mcp:appUpdated('APP_NAME')"
-.ui/mcp run "mcp:addAgentMessage('Done - built APP_NAME')"
+{cmd} run "mcp:completeTodos()"
+{cmd} run "mcp:appUpdated('APP_NAME')"
+{cmd} run "mcp:addAgentMessage('Done - built APP_NAME')"
 ```
 
 ---
 
 # Examples
 
-See `.ui/apps/app-console` for complete examples:
+See `{ui_dir}/apps/app-console` for complete examples:
 - `requirements.md` — Requirements spec
 - `design.md` — Design spec

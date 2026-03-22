@@ -17,14 +17,16 @@ import (
 
 // Config holds configuration for an embedded Frictionless runtime.
 type Config struct {
-	Dir  string // base directory for UI assets and state
-	Host string // bind host (default "127.0.0.1")
+	Dir     string // base directory for UI assets and state
+	Host    string // bind host (default "127.0.0.1")
+	Project string // project directory for skill installation (optional; derived from Dir if empty)
+	Port    int    // preferred HTTP port (0 = auto-select)
 }
 
 // Runtime is an embedded Frictionless server. Create with New,
 // then call Configure, Start, and StartAPI in sequence.
 type Runtime struct {
-	cfg       *cli.Config
+	Cfg       *cli.Config
 	uiServer  *cli.Server
 	mcpServer *mcp.Server
 }
@@ -39,7 +41,7 @@ func New(cfg Config) (*Runtime, error) {
 
 	uiCfg := cli.DefaultConfig()
 	uiCfg.Server.Dir = cfg.Dir
-	uiCfg.Server.Port = 0 // auto-select
+	uiCfg.Server.Port = cfg.Port // 0 = auto-select
 	uiCfg.Server.Host = host
 	uiCfg.Lua.Enabled = true
 	uiCfg.Lua.Hotload = true
@@ -59,12 +61,16 @@ func New(cfg Config) (*Runtime, error) {
 		},
 	)
 
+	if cfg.Project != "" {
+		mcpSrv.ProjectDir = cfg.Project
+	}
+
 	srv.SetRootSessionProvider(func() string {
 		return mcpSrv.GetCurrentSessionID()
 	})
 
 	return &Runtime{
-		cfg:       uiCfg,
+		Cfg:       uiCfg,
 		uiServer:  srv,
 		mcpServer: mcpSrv,
 	}, nil
@@ -73,7 +79,7 @@ func New(cfg Config) (*Runtime, error) {
 // Configure prepares the server environment — creates directories,
 // runs auto-install if needed. Call before Start.
 func (r *Runtime) Configure() error {
-	return r.mcpServer.Configure(r.cfg.Server.Dir)
+	return r.mcpServer.Configure(r.Cfg.Server.Dir)
 }
 
 // Start starts the UI HTTP server and creates a Lua session with
@@ -102,6 +108,39 @@ func (r *Runtime) StartAPI() (int, error) {
 		return 0, fmt.Errorf("frictionless API: %w", err)
 	}
 	return port, nil
+}
+
+// RunLua executes Lua code in the current session.
+// Returns the result as a string (or empty on nil result).
+func (r *Runtime) RunLua(code string) (string, error) {
+	result, err := r.mcpServer.CallRun(code)
+	if err != nil {
+		return "", err
+	}
+	if result == nil {
+		return "", nil
+	}
+	return fmt.Sprintf("%v", result), nil
+}
+
+// WithLua executes a closure in the Lua executor goroutine (thread-safe)
+// without triggering afterBatch (no UI update push). This is the passive
+// execution path — use it to register Go functions on the Lua mcp table
+// or perform other Lua-side setup after Start returns.
+// CRC: crc-FlibRuntime.md
+func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
+	vendedID := r.mcpServer.GetCurrentVendedID()
+	if vendedID == "" {
+		return fmt.Errorf("no active session")
+	}
+	luaSession := r.uiServer.GetLuaSession(vendedID)
+	if luaSession == nil {
+		return fmt.Errorf("session %s not found", vendedID)
+	}
+	_, err := luaSession.ExecuteInSession(vendedID, func() (interface{}, error) {
+		return nil, fn(luaSession)
+	})
+	return err
 }
 
 // Shutdown gracefully stops both the UI and API servers.

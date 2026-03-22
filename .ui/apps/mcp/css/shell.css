@@ -30,11 +30,6 @@
   isolation: isolate;
 }
 
-.mcp-app-container > div {
-  height: 100% !important;
-  max-height: 100% !important;
-}
-
 /* Status bar - terminal style with LCARS accent */
 .mcp-status-bar {
   flex-shrink: 0;

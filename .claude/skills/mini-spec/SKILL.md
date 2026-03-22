@@ -37,13 +37,33 @@ Do NOT proceed until tasks exist. This is required for user visibility into prog
 3-level architecture: specs → design → code.
 
 ```
-specs/    # Human specs (language, environment required)
-design/   # SOURCE OF TRUTH: requirements.md, crc-*, seq-*, ui-*, test-*, manifest-ui.md
+specs/    # Human intent — what to build and why, in the user's own words
+design/   # AI translation — requirements.md, crc-*, seq-*, ui-*, test-*, manifest-ui.md
 docs/     # user-manual.md, developer-guide.md
 src/      # Code with traceability comments
 ```
 
-## Why This Matters
+### What each level is for
+
+**Specs** are the human's voice. They describe what the system should
+do in natural language, organized by feature area. The user writes or
+approves them. They communicate intent — not implementation, not
+internal structure. A spec should read like someone explaining the
+feature to a colleague. For libraries, API signatures belong in specs
+because they *are* the face of the project — they must be agreed upon
+before design begins. Specs must state the language and environment
+so the AI knows what it's building for.
+
+**Design** is the AI's translation of specs into buildable structure.
+Requirements extract testable statements. CRC cards assign
+responsibilities to components. Sequences show how components
+interact. The user reviews this translation before code is written —
+catching a misunderstanding here costs minutes, not hours.
+
+**Code** implements the design with traceability comments linking back
+to the design artifacts that justify each component's existence.
+
+### Why this matters
 
 Each level exists because skipping it has a concrete cost:
 
@@ -107,7 +127,11 @@ Referenced from other design artifacts: Cards, sequences, and layouts can all sa
 **Then:** Proceed through phases
 
 1. Spec Phase
-Create in `specs/`: human readable, natural language descriptions
+Create in `specs/`: human-readable descriptions organized by feature
+area. Specs are the user's intent in their own words. For applications,
+this means behavior and user-facing concepts. For libraries, include
+the public API signatures — they are the contract that design must
+satisfy. Do not include internal structure or implementation choices.
 
 **Upon completion**, run `~/.claude/bin/minispec phase spec` to verify spec files exist, then offer Requirements Phase. Do not jump to Design.
 
@@ -193,12 +217,15 @@ Add traceability comments:
 // CRC: crc-Store.md | Seq: seq-crud.md
 add(data): Item {
 ```
+
+**Block-comment languages:** The `minispec query comment-patterns` output lists any `comment_closers`. If a closer exists for the file extension, you MUST append it to every traceability comment. An unclosed block comment silently swallows all subsequent code. See `config-reference.md` (in this skill directory) if you need to configure closers for a new language.
+
 Mark implemented using minispec:
 ```bash
 ~/.claude/bin/minispec update check design.md crc-Store.md
 ```
 
-Look out for language-specific "gotchas" like mixing functions an methods in Lua.
+Look out for language-specific "gotchas" like mixing functions and methods in Lua.
 
 **Upon completion**, run `~/.claude/bin/minispec phase implementation` to verify traceability, then run the Simplification Phase.
 
@@ -319,6 +346,7 @@ The `minispec` CLI tool (at `~/.claude/bin/minispec`) performs structural operat
 # Updates - gaps
 ~/.claude/bin/minispec update add-gap O "Test coverage needed" # Add oversight gap
 ~/.claude/bin/minispec update resolve-gap O3                   # Mark gap resolved
+~/.claude/bin/minispec update approve-gap D3                   # Convert gap to approved (A) type
 ```
 
 Use the tool to:

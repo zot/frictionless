@@ -137,3 +137,27 @@ The default `lua.ViewList` and `lua.ViewListItem` viewdefs use `<div>` container
 - All three viewdefs (ViewList, ViewListItem, and the item prototype) need the namespace suffix
 - **Put `white-space: nowrap` on the ViewList span**, not on child elements - the ViewList is the layout container
 - Parent container needs `overflow-x: auto` for the scrollbar to appear
+
+### Namespace Cascade Warning
+
+**`ui-namespace` cascades to all descendants.** If your custom ViewList
+contains items that themselves use `ui-view` with `wrapper=lua.ViewList`,
+those inner ViewLists will also inherit the namespace — and use your
+custom horizontal/inline layout instead of the default vertical one.
+
+**Fix:** Reset the namespace on inner ViewLists:
+
+```html
+<!-- Outer: horizontal columns via KANBAN namespace -->
+<div ui-view="columns()?wrapper=lua.ViewList" ui-namespace="KANBAN"></div>
+
+<!-- Inside each column's list-item viewdef: reset to DEFAULT -->
+<div class="column-cards">
+  <div ui-view="items()?wrapper=lua.ViewList" ui-namespace="DEFAULT"></div>
+</div>
+```
+
+Without the `ui-namespace="DEFAULT"` reset, the inner card list renders
+horizontally (using the KANBAN ViewList viewdef) instead of vertically.
+This is easy to miss because the outer layout looks correct — only the
+contents inside each item are wrong.

@@ -13,7 +13,8 @@ local STATUS_CONFIG = {
     archived = { display = "Archived", variant = "neutral" },
 }
 
-local STORAGE_DIR = ".ui/storage/job-tracker/data"
+local BASE_DIR = mcp.status().base_dir
+local STORAGE_DIR = BASE_DIR .. "/storage/job-tracker/data"
 local DATA_FILE = STORAGE_DIR .. "/data.json"
 local RESUMES_DIR = STORAGE_DIR .. "/resumes"
 local MASTER_RESUME_FILE = STORAGE_DIR .. "/master-resume.md"
@@ -81,14 +82,14 @@ end
 -- Commit data.json changes to fossil using shell script
 local function commitData(message)
     message = message or "Update data"
-    local cmd = string.format('.ui/apps/job-tracker/data-commit.sh "%s" 2>/dev/null', message:gsub('"', '\\"'))
+    local cmd = string.format('%s/apps/job-tracker/data-commit.sh "%s" 2>/dev/null', BASE_DIR, message:gsub('"', '\\"'))
     os.execute(cmd)
 end
 
 -- Ensure HTML serving symlink exists for markdown preview
 local function ensureStorageSymlink()
     local target = "../storage/job-tracker/data"
-    local link = ".ui/html/job-tracker-storage"
+    local link = BASE_DIR .. "/html/job-tracker-storage"
     -- Check if symlink already exists and points to correct target
     local handle = io.popen('readlink "' .. link .. '" 2>/dev/null')
     if handle then

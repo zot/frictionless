@@ -45,6 +45,7 @@ type Server struct {
 	mu              sync.RWMutex
 	state           State
 	baseDir         string
+	ProjectDir      string // Explicit project root for skill/CLAUDE.md installation (optional; derived from baseDir if empty)
 	url             string
 	httpServer      *http.Server // HTTP server for debug endpoints (in stdio mode)
 	mcpPort         int          // Port for MCP HTTP server (written to baseDir/mcp-port)
@@ -434,6 +435,14 @@ func (s *Server) GetCurrentSessionID() string {
 	return s.UiServer.GetSessions().GetInternalID(vendedID)
 }
 
+// GetCurrentVendedID returns the vended (small counter) session ID.
+// Used by flib.WithLua to access the Lua session directly.
+func (s *Server) GetCurrentVendedID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.currentVendedID
+}
+
 // Start transitions the server to the Running state and starts the HTTP server.
 // Called by handleConfigure after Configure() completes.
 // Spec: mcp.md
@@ -446,8 +455,8 @@ func (s *Server) Start() (string, error) {
 	}
 	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
-	// Select random port (0)
-	url, err := s.startFunc(0)
+	// Use configured port (0 = auto-select) (R180)
+	url, err := s.startFunc(s.cfg.Server.Port)
 	if err != nil {
 		return "", err
 	}

@@ -18,14 +18,14 @@ Then invoke `/frontend-design` using the Skill tool if it is available.
 Then run this command:
 
 ```bash
-.ui/mcp patterns
+{cmd} patterns
 ```
 
 ## How Frictionless Works
 
 This is not a conventional web framework. It's an **object-oriented system where objects present themselves**.
 
-- **Declarative frontend.** HTML uses `ui-*` bindings, not code. JS is only for browser-native capabilities (file I/O, DOM measurement, timing/animation) — see `.ui/patterns/` for established solutions.
+- **Declarative frontend.** HTML uses `ui-*` bindings, not code. JS is only for browser-native capabilities (file I/O, DOM measurement, timing/animation) — see `{ui_dir}/patterns/` for established solutions.
 - **Backend is source of truth.** State AND logic live in a persistent Lua session. Page refresh restores the view without resetting state.
 - **The frontend creates most variables, not the backend.** The backend creates the root app variable; viewdef binding paths create the rest by reaching into backend objects.
 - **Simple paths.** Properties, indexing, methods. No operators.
@@ -81,6 +81,20 @@ Both Lua and viewdefs hot-load from disk:
 - **`session.reloading`** is only true for hot-reload (file changes), NOT browser page reloads.
 - **`ui-code` re-fires on page reload.** Clear `ui-code` properties when their action is complete to prevent stale re-fires.
 
+## Side-Effect Dependencies Between Bindings
+
+When one binding's method has a **side effect** (mutating a field on another object) that a second binding reads, you **must** use `priority` to guarantee evaluation order. Without it, the reading binding may evaluate before the writing binding in any given cycle, producing stale values.
+
+**Example:** `columns()` computes match counts on FilterChip objects. `chipClass()` reads those counts to determine styling. If `chipClass()` evaluates before `columns()`, it sees stale counts.
+
+**Fix:** Give the writing binding higher priority:
+```html
+<!-- columns() must run before chipClass() evaluates -->
+<div ui-view="columns()?wrapper=lua.ViewList&priority=high" ...></div>
+```
+
+This is not a visibility issue (public vs private fields) — it's an ordering issue. Making a field public may appear to fix it by accident, but the evaluation order is still undefined without priority. Use priority whenever a binding has downstream dependents.
+
 ---
 
 # Object Model
@@ -97,9 +111,9 @@ apps/my-app/
 ├── favicon.svg          # Browser tab icon
 └── README.md            # App description
 
-.ui/storage/my-app/      # Optional local storage (isolated from app updates)
-.ui/html/my-app          # Symlink to app dir (serves static files at /my-app/)
-.ui/html/my-app-storage  # Symlink to storage dir (serves at /my-app-storage/)
+{ui_dir}/storage/my-app/      # Optional local storage (isolated from app updates)
+{ui_dir}/html/my-app          # Symlink to app dir (serves static files at /my-app/)
+{ui_dir}/html/my-app-storage  # Symlink to storage dir (serves at /my-app-storage/)
 ```
 
 Use `require("appname.module")` to split code into multiple files (see `mcp` app for examples).
@@ -131,6 +145,14 @@ end
 - `session:prototype(name)` sets the `type` field for viewdef resolution
 - `session.reloading` is true during hot-reload
 - Each app defines a PascalCase type (`MyApp`) and a camelCase instance (`myApp`)
+
+## Lua Gotchas
+
+**Forward references:** `local function` is not visible until the interpreter reaches it. Methods on prototypes (`function MyApp:foo()`) resolve at call time, but `local function helper()` must be defined *above* any code that calls it. If you get `attempt to call a non-function object`, check definition order.
+
+**Colon vs dot:** `function MyApp:save()` defines a method — `self` is the implicit first argument. `function MyApp.helper()` defines a plain function on the table — no `self`. Calling `obj:save()` passes `obj` as `self`; calling `obj.helper()` does not. Mixing them up causes subtle bugs: defining with `.` and calling with `:` shifts all arguments by one.
+
+**1-based indexing:** Lua arrays start at 1, not 0. `#t` returns the length, `ipairs` iterates from 1. But binding paths in viewdefs are 0-based (`items.0`, `items.1`) — the engine translates. Don't mix these up when working across Lua and viewdefs.
 
 ## Hot-Loading Mutations
 
@@ -260,7 +282,7 @@ List item viewdef (`MyApp.Item.list-item.html`):
 
 **Put ALL CSS in the main app viewdef only** (e.g. `MyApp.DEFAULT.html`). Never in list-item or other sub-viewdefs.
 
-**Theme:** See `.ui/themes/theme.md` for CSS variables, colors, and reusable classes.
+**Theme:** See `{ui_dir}/themes/theme.md` for CSS variables, colors, and reusable classes.
 
 ### Shoelace Component Styling
 
@@ -275,7 +297,7 @@ List item viewdef (`MyApp.Item.list-item.html`):
 
 ### Semantic Theme Classes
 
-**Live discovery:** Run `.ui/mcp theme classes` to get the authoritative list of all semantic classes across all installed themes — including user-added themes. Always check this before writing viewdefs for a new app or major feature.
+**Live discovery:** Run `{cmd} theme classes` to get the authoritative list of all semantic classes across all installed themes — including user-added themes. Always check this before writing viewdefs for a new app or major feature.
 
 These additional classes are used in viewdefs but not declared as `@class` in theme CSS:
 
@@ -286,7 +308,7 @@ These additional classes are used in viewdefs but not declared as `@class` in th
 
 Compose theme + app classes: `<div class="panel-header app-list-header">` — theme class for styling, app class for layout overrides.
 
-**Theme audit:** Run `.ui/mcp theme audit APP` after writing viewdefs to catch undocumented classes and missed opportunities to use semantic classes.
+**Theme audit:** Run `{cmd} theme audit APP` after writing viewdefs to catch undocumented classes and missed opportunities to use semantic classes.
 
 ### Creating Themes
 
@@ -314,7 +336,7 @@ Every theme CSS file **must** have a comment block at the top with these annotat
 - `@description` — theme-level description
 - `@class` blocks — one per semantic class, each with `@description`, `@usage`, and `@elements`
 
-Before creating a theme, run `.ui/mcp theme classes` to see the existing semantic classes. A new theme should declare and style all of them and may add new ones. `@description` should describe what the class looks like in *this* theme (e.g. "Header bar with soft bottom glow"). `@usage` should be generic and structural — it describes *when* to use the class, not how it looks (e.g. "Panel/section headers with title and action buttons").
+Before creating a theme, run `{cmd} theme classes` to see the existing semantic classes. A new theme should declare and style all of them and may add new ones. `@description` should describe what the class looks like in *this* theme (e.g. "Header bar with soft bottom glow"). `@usage` should be generic and structural — it describes *when* to use the class, not how it looks (e.g. "Panel/section headers with title and action buttons").
 
 ## Favicons
 
@@ -332,7 +354,7 @@ The MCP shell app (`mcp`) must NOT set a favicon — it wraps other apps.
 
 # JavaScript API
 
-`window.uiApp.updateValue(elementId, value?)` — send a value from JS to Lua (e.g., file pickers, clipboard). See `.ui/patterns/js-to-lua-bridge.md` for the full pattern.
+`window.uiApp.updateValue(elementId, value?)` — send a value from JS to Lua (e.g., file pickers, clipboard). See `{ui_dir}/patterns/js-to-lua-bridge.md` for the full pattern.
 
 ---
 
@@ -369,7 +391,7 @@ See `.scratch/APP-DESIGN.md` for detailed patterns and examples.
 
 # Observability
 
-Every variable in the system carries instrumentation data. Use `.ui/mcp variables` to query all variables as JSON, or open the variable browser in the UI (the `{}` icon in the status bar).
+Every variable in the system carries instrumentation data. Use `{cmd} variables` to query all variables as JSON, or open the variable browser in the UI (the `{}` icon in the status bar).
 
 ## Variable Instrumentation
 
@@ -408,12 +430,12 @@ end
 
 **Find slow methods:** Sort by Time in the variable browser, or query:
 ```bash
-.ui/mcp variables | jq '[.[] | select(.computeTime)] | sort_by(.maxComputeTime) | reverse | .[:10] | .[] | {path, computeTime, maxComputeTime}'
+{cmd} variables | jq '[.[] | select(.computeTime)] | sort_by(.maxComputeTime) | reverse | .[:10] | .[] | {path, computeTime, maxComputeTime}'
 ```
 
 **Find errors:** Check the `error` field:
 ```bash
-.ui/mcp variables | jq '[.[] | select(.error)] | .[] | {path, error}'
+{cmd} variables | jq '[.[] | select(.error)] | .[] | {path, error}'
 ```
 
 **Find which element a variable is bound to:** Check `elementId` — this is the DOM element ID (e.g., `ui-42`). The variable browser lets you click any variable to highlight its element in the UI.
@@ -424,7 +446,7 @@ end
 
 | Method | Description |
 |--------|-------------|
-| `mcp:status()` | Get server status including `base_dir` |
+| `mcp:status()` | Get server status including `base_dir` (= `{ui_dir}`) |
 | `mcp:display(appName)` | Get URL for displaying an app |
 | `mcp:appUpdated(name)` | Trigger dashboard rescan |
 | `mcp.pushState(event)` | Send event to Claude agent |

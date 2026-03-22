@@ -410,7 +410,8 @@ function mcp:scanAvailableApps()
 
     for _, name in ipairs(listDirs(appsPath)) do
         local appPath = appsPath .. "/" .. name
-        if name ~= "mcp" and fileExists(appPath .. "/app.lua") then
+        local skip = {mcp=true, prefs=true, ["app-console"]=true}
+        if not skip[name] and fileExists(appPath .. "/app.lua") then
             local item = session:create(AppMenuItem, {
                 _name = name,
                 _iconHtml = readFileTrimmed(appPath .. "/icon.html"),
@@ -444,6 +445,10 @@ end
 function mcp:selectApp(name)
     mcp:display(name)
     self.menuOpen = false
+end
+
+function mcp:displayPrefs()
+    mcp:display("prefs")
 end
 
 -- Build mode toggle (fast/thorough)
@@ -780,13 +785,13 @@ function mcp:checkForUpdates()
     if not latest then return end
     self.latestVersion = latest
     self._needsUpdate = compareVersions(current, latest)
-    -- Persist to user settings (global, survives .ui/ deletion)
-    local userSettings = self:readUserSettings()
-    userSettings.needsUpdate = self._needsUpdate
+    -- Persist to settings
+    local settings = self:readSettings()
+    settings.needsUpdate = self._needsUpdate
     if self._needsUpdate then
-        userSettings.latestVersion = latest
+        settings.latestVersion = latest
     end
-    self:writeUserSettings(userSettings)
+    self:writeSettings(settings)
 end
 
 function mcp:showUpdatePreferenceDialog()
@@ -795,9 +800,9 @@ end
 
 function mcp:setUpdatePreference(enabled)
     self.showUpdatePrefDialog = false
-    local userSettings = self:readUserSettings()
-    userSettings.checkUpdate = enabled
-    self:writeUserSettings(userSettings)
+    local settings = self:readSettings()
+    settings.checkUpdate = enabled
+    self:writeSettings(settings)
     if enabled then
         self:checkForUpdates()
     end
@@ -816,8 +821,8 @@ function mcp:disableUpdates()
 end
 
 function mcp:getUpdatePreference()
-    local userSettings = self:readUserSettings()
-    return userSettings.checkUpdate == true
+    local settings = self:readSettings()
+    return settings.checkUpdate == true
 end
 
 function mcp:currentVersion()
@@ -1116,16 +1121,16 @@ end
 if not session.reloading then
     mcp:scanAvailableApps()
 
-    -- Update check startup logic (user settings are global, survive .ui/ deletion)
-    local userSettings = mcp:readUserSettings()
-    if userSettings.checkUpdate == nil then
+    -- Update check startup logic
+    local settings = mcp:readSettings()
+    if settings.checkUpdate == nil then
         -- First run: show preference dialog
         mcp:showUpdatePreferenceDialog()
-    elseif userSettings.checkUpdate then
-        -- Restore cached needsUpdate from user settings
-        if userSettings.needsUpdate then
+    elseif settings.checkUpdate then
+        -- Restore cached needsUpdate from settings
+        if settings.needsUpdate then
             mcp._needsUpdate = true
-            mcp.latestVersion = userSettings.latestVersion or ""
+            mcp.latestVersion = settings.latestVersion or ""
         end
         -- Check for updates (runs curl in background-ish, may block briefly)
         mcp:checkForUpdates()

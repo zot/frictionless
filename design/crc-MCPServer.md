@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178
 
 ## Responsibilities
 
@@ -19,6 +19,7 @@
 - stateWaiters: Waiting HTTP requests for current session (channels)
 - mcpStateQueue: Event queue for current session (mcp.state)
 - goLogFile: Current Go log file handle (`mcp.log`) for reopening on reconfigure
+- ProjectDir: Explicit project root for install targeting (R178; empty = derive from baseDir)
 - waitStartTime: Timestamp when agent last responded (updated on startup and when /wait returns)
 
 ### Does

@@ -15,25 +15,25 @@ Rapid prototyping for ui-engine apps. Make changes, checkpoint, try alternatives
 
 # Checkpointing
 
-Checkpoints use fossil SCM under the hood, managed via `.ui/mcp checkpoint` commands. Fossil is auto-downloaded to `~/.claude/bin` on first use.
+Checkpoints use fossil SCM under the hood, managed via `{cmd} checkpoint` commands. Fossil is auto-downloaded to `~/.claude/bin` on first use.
 
 ## Commands
 
 ```bash
 # Save a checkpoint (creates repo on first use, no-op if no changes)
-.ui/mcp checkpoint save <app> "description"
+{cmd} checkpoint save <app> "description"
 
 # List checkpoints
-.ui/mcp checkpoint list <app>
+{cmd} checkpoint list <app>
 
 # Show diff from nth checkpoint to current (1 = most recent)
-.ui/mcp checkpoint diff <app> [n]
+{cmd} checkpoint diff <app> [n]
 
 # Rollback to nth checkpoint
-.ui/mcp checkpoint rollback <app> <n>
+{cmd} checkpoint rollback <app> <n>
 
 # Clear all checkpoints (deletes fossil repo)
-.ui/mcp checkpoint clear <app>
+{cmd} checkpoint clear <app>
 ```
 
 **Key behavior**: `save` is a no-op if nothing changed since last checkpoint. This allows a simple "save, work, save" rhythm.
@@ -65,11 +65,11 @@ eb2185e694 initial state      # checkpoint 3
 
 1. **Checkpoint** before starting
 2. **Create progress steps** appropriate to the work (see below)
-3. Write `{base_dir}/apps/<app>/icon.html` (if new app)
-4. Check `.ui/patterns/` for reusable patterns (if building new features)
+3. Write `{ui_dir}/apps/<app>/icon.html` (if new app)
+4. Check `{ui_dir}/patterns/` for reusable patterns (if building new features)
 5. **Do the work**, updating progress as you go
 6. **Verify** (see Fast verify below)
-7. Run `.ui/mcp audit APP` and `.ui/mcp theme audit APP`
+7. Run `{cmd} audit APP` and `{cmd} theme audit APP`
 8. **Checkpoint** after finishing
 
 ## Progress Steps

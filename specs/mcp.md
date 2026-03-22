@@ -153,12 +153,13 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 
 | Type / Function | Description |
 |-----------------|-------------|
-| `Config{Dir, Host}` | Configuration: base directory and bind host (default `"127.0.0.1"`) |
+| `Config{Dir, Host, Project, Port}` | Configuration: base directory, bind host (default `"127.0.0.1"`), optional project directory, and preferred HTTP port (0 = auto-select) |
 | `New(Config) (*Runtime, error)` | Create a runtime (ui-engine + MCP server), not yet started |
 | `Runtime.Configure() error` | Prepare environment (directories, auto-install) |
 | `Runtime.Start() (string, error)` | Start UI HTTP server and create Lua session; returns base URL |
 | `Runtime.RegisterAPI(mux *http.ServeMux)` | Mount `/api/*`, `/wait`, `/state`, `/variables` on an external mux |
 | `Runtime.StartAPI() (int, error)` | Start a standalone HTTP API server; returns port |
+| `Runtime.WithLua(fn func(rt *cli.LuaRuntime) error) error` | Execute a closure in the Lua executor goroutine (thread-safe) without triggering afterBatch (no UI update push). Used by downstream binaries to register Go functions on the Lua `mcp` table after `Start()` returns. |
 | `Runtime.Shutdown(ctx) error` | Graceful shutdown of UI and API servers |
 
 **Lifecycle:**
@@ -169,6 +170,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 5. `Shutdown(ctx)` — tears down both servers
 
 **Route registration:** `RegisterAPI` delegates to `Server.RegisterAPIRoutes`, which registers the same handlers used by `StartHTTPServer` and `ServeSSE`. This allows an embedding binary to serve Frictionless endpoints on its own listener (e.g. a Unix domain socket) alongside its own routes. The embedding binary is responsible for the static file catch-all (`/`) if desired.
+
+**Project directory:** When `Config.Project` is set, `ui_install` uses it as `{project}` instead of deriving it from `{base_dir}`. This is required when the base directory is not a child of the project (e.g. ark uses `~/.ark/` as base_dir but installs skills to the caller's working project). Affects skill destinations (`{project}/.claude/skills/`), CLAUDE.md patching, and agent file checks. The install manifest stays in `{base_dir}/storage/settings.json` regardless.
 
 **Design Rationale:**
 - Downstream projects get the full Frictionless stack (Lua, MCP tools, themes, apps) without forking
@@ -676,7 +679,7 @@ Installation behavior:
 4. Skip installation if installed version >= bundled version (unless `force=true`)
 5. Return `version_skipped: true` and both versions when skipping due to version
 
-**Install Manifest:**
+**Bundled Files:**
 
 Skills installed to `{project}/.claude/skills/`:
 ```

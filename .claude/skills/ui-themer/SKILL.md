@@ -19,7 +19,7 @@ Workflow for auditing and standardizing semantic CSS class usage across UI apps.
 
 1. **Audit the app**
    ```bash
-   .ui/mcp theme audit my-app
+   {cmd} theme audit my-app
    ```
 
    This returns:
@@ -36,7 +36,7 @@ Workflow for auditing and standardizing semantic CSS class usage across UI apps.
 
 3. **Add new theme classes** (if needed)
 
-   Edit `{base_dir}/html/themes/lcars.css` — add to the metadata block:
+   Edit `{ui_dir}/html/themes/lcars.css` — add to the metadata block:
    ```css
    /*
    @theme lcars

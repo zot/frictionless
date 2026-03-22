@@ -7,7 +7,7 @@ Be sure you have loaded /ui-basics.
 
 # Getting the current variables
 
-`.ui/mcp variables` produces the current variables as a JSON array of variable objects.
+`{cmd} variables` produces the current variables as a JSON array of variable objects.
 
 Variable object properties and their meanings:
 - id: the variable's id
@@ -45,7 +45,7 @@ Every variable with a DOM binding has an `elementId` property — the id of the 
 To find which **viewdef** a variable belongs to, look for a `viewdef` property on the variable itself. Only view-level variables have one (e.g. `"JobTracker.DEFAULT"`). For child variables, walk up via `parentId` until you find an ancestor with a `viewdef` property.
 
 **Example:** find the element for a slow-computing variable:
-1. Fetch variables with `.ui/mcp variables`
+1. Fetch variables with `{cmd} variables`
 2. Sort/filter by `computeTime` or `maxComputeTime`
 3. Read the target's `elementId` — that's the DOM element
 4. Walk `parentId` chain to find the enclosing `viewdef`

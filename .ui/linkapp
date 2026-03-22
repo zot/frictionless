@@ -56,6 +56,8 @@ add_app() {
         for f in "$APPS_DIR/$app/viewdefs"/*.html; do
             [[ -e "$f" ]] || continue
             name=$(basename "$f")
+            # Skip Emacs lockfiles (.#filename) — dangling symlinks break viewdef loading
+            [[ "$name" == .#* ]] && continue
             ln -sf "../apps/$app/viewdefs/$name" "$VIEWDEFS_DIR/$name"
             echo "Linked: $VIEWDEFS_DIR/$name"
         done

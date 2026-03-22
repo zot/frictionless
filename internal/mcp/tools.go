@@ -286,7 +286,10 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 		return nil, fmt.Errorf("install requires a bundled binary (use 'make build')")
 	}
 
-	projectRoot := filepath.Dir(filepath.Dir(s.baseDir))
+	projectRoot := s.ProjectDir
+	if projectRoot == "" {
+		projectRoot = filepath.Dir(filepath.Dir(s.baseDir))
+	}
 
 	// Check versions to skip unnecessary reinstalls
 	bundledVersion := readBundledVersion()
@@ -1479,6 +1482,12 @@ func (s *Server) callMCPHandler(
 		}
 	}
 	return nil, nil
+}
+
+// CallRun executes Lua code in the current session programmatically.
+// Used by flib.RunLua for embedded callers that don't go through HTTP.
+func (s *Server) CallRun(code string) (interface{}, error) {
+	return s.callMCPHandler(s.handleRun, map[string]interface{}{"code": code})
 }
 
 // handleAPIStatus handles GET /api/ui_status

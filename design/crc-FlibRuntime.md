@@ -1,7 +1,7 @@
 # FlibRuntime
 
 **Source Spec:** specs/mcp.md (Section 2.6)
-**Requirements:** R161, R162, R163, R164, R165, R166, R167
+**Requirements:** R161, R162, R163, R164, R165, R166, R167, R177, R179, R180
 
 ## Responsibilities
 
@@ -16,13 +16,14 @@
 - Start: Start UI HTTP server, create Lua session with mcp global; return base URL (R164)
 - RegisterAPI: Mount /api/*, /wait, /state, /variables on external mux (R165)
 - StartAPI: Start standalone HTTP API server; return port (R166)
+- WithLua: Execute closure in Lua executor (passive path, no afterBatch); resolves vendedID internally (R179)
 - Shutdown: Graceful shutdown of UI and API servers, remove port files (R167)
 
 ## Collaborators
 
 - MCPServer: Delegates Configure, StartAndCreateSession, RegisterAPIRoutes, StartHTTPServer, ShutdownHTTPServer
 - UIServer (cli.Server): Provides StartAsync, GetSessions, GetViewdefManager, Shutdown, StartCleanupWorker
-- Config: Holds Dir and Host; converted to cli.Config internally
+- Config: Holds Dir, Host, and Project; converted to cli.Config internally. Project sets MCPServer.ProjectDir for install targeting.
 
 ## Sequences
 

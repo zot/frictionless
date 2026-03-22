@@ -230,6 +230,10 @@
 - **R166:** `Runtime.StartAPI()` starts a standalone HTTP API server and returns its port; alternative to `RegisterAPI` when no external listener exists
 - **R167:** `Runtime.Shutdown(ctx)` gracefully shuts down both UI and API servers
 - **R168:** `Server.RegisterAPIRoutes(mux)` extracts route registration from `StartHTTPServer` so both standalone and embedded modes share the same handler set
+- **R177:** `flib.Config.Project` sets an explicit project directory for skill installation; when empty, `{project}` is derived from `{base_dir}` as before
+- **R178:** `Server.ProjectDir` is the internal field that `Install()` uses; `flib` sets it from `Config.Project`
+- **R179:** `Runtime.WithLua(fn)` executes a closure in the Lua executor goroutine (thread-safe, passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
+- **R180:** `flib.Config.Port` sets a preferred HTTP port for the ui-engine server (0 = auto-select, default); enables downstream binaries to persist the port across restarts so browsers reconnect automatically
 
 ## Feature: Install Manifest
 **Source:** specs/mcp.md
