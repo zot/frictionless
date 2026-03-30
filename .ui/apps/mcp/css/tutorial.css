@@ -157,6 +157,11 @@
   animation: tut-btn-pulse 1.2s ease-in-out infinite;
 }
 
+/* Force tooltip visible during tutorial (no hover needed) */
+.mcp-menu-toggle.tut-wait-glow .mcp-menu-tip:not(:empty) {
+  display: block;
+}
+
 .tutorial-inline-action {
   display: inline-block;
   margin-top: 8px;

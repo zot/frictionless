@@ -960,19 +960,11 @@ function AppInfo:requestAnalyze()
 end
 
 function AppInfo:openApp()
-    appConsole:openEmbedded(self.name)
+    mcp:display(self.name)
 end
 
-function AppInfo:isSelf()
-    return self.name == "app-console"
-end
-
-function AppInfo:isMcp()
-    return self.name == "mcp"
-end
-
-function AppInfo:openButtonDisabled()
-    return self:isSelf() or self:isMcp()
+function AppInfo:showButtonHidden()
+    return self:needsBuild() or self.name == "app-console" or self.name == "mcp"
 end
 
 -- Protected apps that cannot be deleted

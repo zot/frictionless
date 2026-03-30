@@ -90,6 +90,11 @@ func runMCP(args []string) int {
 	if cfg.Server.Dir == "" {
 		cfg.Server.Dir = ".ui"
 	}
+	// Use random port for UI server unless user explicitly passed --port.
+	// ui-engine defaults to 8080 which collides in MCP mode.
+	if !hasFlag(args, "port") {
+		cfg.Server.Port = 0
+	}
 
 	// Track the current log file for reopening after log clearing
 	var currentLogFile *os.File
@@ -514,4 +519,15 @@ func runServe(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+// hasFlag reports whether args contains --name or --name=value.
+func hasFlag(args []string, name string) bool {
+	prefix := "--" + name
+	for _, a := range args {
+		if a == prefix || strings.HasPrefix(a, prefix+"=") {
+			return true
+		}
+	}
+	return false
 }

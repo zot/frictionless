@@ -83,7 +83,7 @@ local STEPS = {
         title = "Connection Status",
         description = "When Claude disconnects, this button pulses orange. Hover it to see wait time and pending events. Use /ui events in Claude Code to reconnect.",
         selector = ".mcp-menu-toggle",
-        position = "below",
+        position = "top",
         run = function(tut, shell) tut:startFakeWait() end,
         cleanup = function(tut, shell) tut:stopFakeWait() end
     },
@@ -188,7 +188,17 @@ local STEPS = {
             shell.panelOpen = false
         end
     },
-    -- Step 7: App Console
+    -- Step 7: App Console Button
+    {
+        title = "App Console",
+        selector = "[ui-event-click='openTools()']",
+        position = "top",
+        description = "Click the tools icon to open the App Console — your command center for building and managing apps.",
+        run = function(tut, shell)
+            -- Ensure we're not already showing app-console so the button is meaningful
+        end
+    },
+    -- Step 8: App Console Panel
     {
         title = "App Console",
         selector = ".app-list-panel",
