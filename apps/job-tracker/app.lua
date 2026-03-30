@@ -460,7 +460,9 @@ local function getSortValue(app, col)
     if col == "company" then return (app.company or ""):lower() end
     if col == "position" then return (app.position or ""):lower() end
     if col == "status" then return app.status or "" end
-    return app.dateApplied or app.dateAdded or ""  -- date (default)
+    local d = app.dateApplied
+    if not d or d == "" then d = app.dateAdded end
+    return (d or ""):sub(1, 10)  -- date (default), normalize to YYYY-MM-DD
 end
 
 function JobTracker:applications()
@@ -474,7 +476,7 @@ function JobTracker:applications()
     local col, asc = self.sortColumn, self.sortDirection == "asc"
     table.sort(result, function(a, b)
         local va, vb = getSortValue(a, col), getSortValue(b, col)
-        return asc and va < vb or va > vb
+        if asc then return va < vb else return va > vb end
     end)
 
     return result

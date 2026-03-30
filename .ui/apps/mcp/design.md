@@ -57,22 +57,18 @@ The tools icon shows the current app in app-console when clicked. If the current
 
 When the agent event loop is not connected to `/wait` (Claude is processing):
 - The menu button enters a `.waiting` state via `ui-class-waiting="isWaiting()"`
-- A pulsating orange glow effect animates around the button (CSS `button-pulse` animation)
+- CSS `menu-pulse` animation pulses an orange glow around the button
 - The grid icon dims to 30% opacity
-- A wait time counter appears centered over the button
+- The button tooltip shows wait time and pending event count (no overlay, no screen real estate)
 - The button remains fully clickable during wait state
 
-Note: The `.mcp-menu-toggle` (status bar) no longer has its own waiting animation — waiting state is shown only on the menu button.
+### Wait Tooltip (Client-Local JavaScript)
 
-### Wait Time Counter (Client-Local JavaScript)
-
-Client-side JavaScript manages the counter display without server round-trips:
+Client-side JavaScript updates the menu button tooltip without server round-trips:
 - A `<script>` block with `setInterval(200ms)` reads timestamp from hidden element
-- Server provides `waitStartOffset()` - UNIX timestamp when wait started, or 0 if connected
-- Counter calculates elapsed seconds client-side
-- Counter shows seconds elapsed, empty when <= 5 seconds
-- Bold orange text with glow, centered in button (`.mcp-wait-counter`)
-- CSS controls visibility via parent `.waiting` class
+- Server provides `waitStartOffset()` (UNIX timestamp) via hidden span
+- Tooltip shows "Waiting" initially, then "Waiting (Ns)" after 5 seconds elapsed
+- Reverts to "App Menu" when `waitStartOffset()` returns 0
 
 ### pushState Override
 

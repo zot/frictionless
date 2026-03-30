@@ -12,18 +12,18 @@
   </script>
 
   <script>
-    // Client-local wait time counter (updates every 200ms)
+    // Client-local wait time — updates live tooltip every 200ms
     (function() {
       function update() {
+        const tip = document.querySelector('.mcp-menu-tip');
         const timestampEl = document.querySelector('.mcp-wait-timestamp');
-        const counterEl = document.querySelector('.mcp-wait-counter');
-        if (!timestampEl || !counterEl) return;
+        if (!tip || !timestampEl) return;
 
         const serverTimestamp = parseInt(timestampEl.textContent, 10) || 0;
-        const elapsed = Math.floor(Date.now() / 1000) - serverTimestamp;
+        if (!serverTimestamp) { tip.textContent = ''; return; }
 
-        // Show counter text only after 5 seconds of waiting
-        counterEl.textContent = (serverTimestamp && elapsed > 5) ? elapsed : '';
+        const elapsed = Math.floor(Date.now() / 1000) - serverTimestamp;
+        tip.textContent = elapsed > 5 ? 'Waiting (' + elapsed + 's)' : 'Waiting';
       }
 
       if (document.readyState === 'loading') {
@@ -118,6 +118,9 @@
         <span class="mcp-build-mode-toggle" ui-event-click="openTools()" ui-class-has-checkpoints="currentAppHasCheckpoints()" ui-attr-title="toolsTooltip()">
           <sl-icon name="tools"></sl-icon>
         </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="displayPrefs()" title="Preferences">
+          <sl-icon name="gear"></sl-icon>
+        </span>
         <span class="mcp-build-mode-toggle" ui-event-click="toggleBuildMode()" ui-attr-title="buildModeTooltip()">
           <sl-icon name="rocket-takeoff-fill" ui-class-hidden="isThoroughMode()"></sl-icon>
           <sl-icon name="gem" class="hidden" ui-class-showing="isThoroughMode()"></sl-icon>
@@ -129,23 +132,21 @@
         <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
           <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
         </span>
-        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()" title="App Menu">
+        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()">
           <sl-icon name="grid-3x3-gap-fill"></sl-icon>
           <!-- Update available star -->
           <sl-icon class="mcp-update-star-inline hidden" name="star-fill"
                    ui-class-showing="updateAvailable()"
                    ui-event-click="startUpdate()"
                    title="Update available!"></sl-icon>
+          <span class="mcp-menu-tip"></span>
         </span>
       </span>
     </div>
 
-    <!-- Wait counter overlay (stays top-right, click-through) -->
-    <div class="mcp-wait-overlay" ui-class-waiting="isWaiting()">
-      <span class="mcp-wait-counter"></span>
-      <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
-      <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
-    </div>
+    <!-- Hidden: wait state data for JS tooltip updates -->
+    <span class="mcp-wait-timestamp" style="display:none;" ui-value="waitStartOffset()"></span>
+    <span style="display:none;" ui-value="checkDisconnectNotify()"></span>
 
     <!-- Dropdown menu with icon grid (opens upward from status bar) -->
     <div class="mcp-menu-dropdown hidden" ui-class-showing="menuShowing()">

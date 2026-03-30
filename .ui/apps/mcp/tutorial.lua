@@ -81,8 +81,8 @@ local STEPS = {
     -- Step 2: Connection Status
     {
         title = "Connection Status",
-        description = "When Claude disconnects, this button pulses and counts seconds waiting. Use /ui events in Claude Code to reconnect.",
-        selector = ".mcp-wait-overlay",
+        description = "When Claude disconnects, this button pulses orange. Hover it to see wait time and pending events. Use /ui events in Claude Code to reconnect.",
+        selector = ".mcp-menu-toggle",
         position = "below",
         run = function(tut, shell) tut:startFakeWait() end,
         cleanup = function(tut, shell) tut:stopFakeWait() end

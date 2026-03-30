@@ -30,11 +30,6 @@
   isolation: isolate;
 }
 
-.mcp-app-container > div {
-  height: 100% !important;
-  max-height: 100% !important;
-}
-
 /* Status bar - terminal style with LCARS accent */
 .mcp-status-bar {
   flex-shrink: 0;
@@ -151,35 +146,41 @@
   cursor: pointer;
 }
 
-/* Wait counter overlay - stays top-right, fully click-through */
-.mcp-wait-overlay {
+/* Live tooltip — shown on hover when waiting, updated by JS */
+.mcp-menu-tip {
+  display: none;
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10000;
-  pointer-events: none;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.mcp-wait-overlay.waiting {
-  opacity: 1;
-  box-shadow: 0 0 0 2px var(--term-accent), 0 0 8px var(--term-accent-glow);
-  border-radius: 50%;
-}
-
-.mcp-wait-overlay .mcp-wait-counter {
+  bottom: calc(100% + 8px);
+  right: 0;
+  white-space: nowrap;
   font-family: var(--term-mono);
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--term-accent);
-  text-shadow: 0 0 8px var(--term-accent-glow), 0 0 16px rgba(0, 0, 0, 0.8);
+  background: var(--term-bg-elevated);
+  border: 1px solid var(--term-border);
+  border-radius: 4px;
+  padding: 3px 8px;
   pointer-events: none;
+  text-shadow: 0 0 6px var(--term-accent-glow);
+}
+
+.mcp-menu-toggle.waiting:hover .mcp-menu-tip:not(:empty) {
+  display: block;
+}
+
+/* Menu toggle pulse when waiting for Claude */
+.mcp-menu-toggle.waiting {
+  animation: menu-pulse 2s ease-in-out infinite;
+}
+
+.mcp-menu-toggle.waiting sl-icon:first-child {
+  opacity: 0.3;
+}
+
+@keyframes menu-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 3px var(--term-accent), 0 0 12px var(--term-accent-glow); }
 }
 
 /* Dropdown menu - opens upward from status bar */

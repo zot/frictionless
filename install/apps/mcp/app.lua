@@ -410,7 +410,8 @@ function mcp:scanAvailableApps()
 
     for _, name in ipairs(listDirs(appsPath)) do
         local appPath = appsPath .. "/" .. name
-        if name ~= "mcp" and fileExists(appPath .. "/app.lua") then
+        local skip = {mcp=true, ark=true, prefs=true, ["app-console"]=true}
+        if not skip[name] and fileExists(appPath .. "/app.lua") then
             local item = session:create(AppMenuItem, {
                 _name = name,
                 _iconHtml = readFileTrimmed(appPath .. "/icon.html"),
@@ -444,6 +445,10 @@ end
 function mcp:selectApp(name)
     mcp:display(name)
     self.menuOpen = false
+end
+
+function mcp:displayPrefs()
+    mcp:display("prefs")
 end
 
 -- Build mode toggle (fast/thorough)

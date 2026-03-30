@@ -410,7 +410,7 @@ function mcp:scanAvailableApps()
 
     for _, name in ipairs(listDirs(appsPath)) do
         local appPath = appsPath .. "/" .. name
-        local skip = {mcp=true, prefs=true, ["app-console"]=true}
+        local skip = {mcp=true, ark=true, prefs=true, ["app-console"]=true}
         if not skip[name] and fileExists(appPath .. "/app.lua") then
             local item = session:create(AppMenuItem, {
                 _name = name,
@@ -806,10 +806,6 @@ function mcp:setUpdatePreference(enabled)
     if enabled then
         self:checkForUpdates()
     end
-    -- Start tutorial after update dialog dismisses (if not already completed)
-    if not userSettings.tutorialCompleted then
-        self:startTutorial()
-    end
 end
 
 function mcp:enableUpdates()
@@ -1136,11 +1132,9 @@ if not session.reloading then
         mcp:checkForUpdates()
     end
 
-    -- Tutorial first-run check (only if update dialog is not showing —
-    -- when it IS showing, tutorial starts after the dialog dismisses)
-    if not mcp.showUpdatePrefDialog then
-        if not userSettings.tutorialCompleted then
-            mcp:startTutorial()
-        end
+    -- Tutorial first-run check
+    local userSettings = mcp:readUserSettings()
+    if not userSettings.tutorialCompleted then
+        mcp:startTutorial()
     end
 end

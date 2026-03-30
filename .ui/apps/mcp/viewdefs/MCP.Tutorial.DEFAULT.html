@@ -43,8 +43,8 @@
         // Also clean up any menu glow left behind
         var md = document.querySelector('.mcp-menu-dropdown');
         if (md) md.classList.remove('tut-menu-glow');
-        // Clean up wait overlay glow
-        var wo = document.querySelector('.mcp-wait-overlay');
+        // Clean up menu toggle wait glow
+        var wo = document.querySelector('.mcp-menu-toggle');
         if (wo) wo.classList.remove('tut-wait-glow');
       }
     };
@@ -224,9 +224,9 @@
           });
         }
 
-        // Step 2: add glow to wait overlay (connection status demo)
+        // Step 2: add glow to menu toggle (connection status demo)
         if (step === 2) {
-          var wo = document.querySelector('.mcp-wait-overlay');
+          var wo = document.querySelector('.mcp-menu-toggle');
           if (wo) wo.classList.add('tut-wait-glow');
         }
 
@@ -285,7 +285,7 @@
         window._tutSched._step = 0;
       }
       document.querySelectorAll('.tut-spotlight').forEach(function(el) { el.classList.remove('tut-spotlight'); });
-      var wo = document.querySelector('.mcp-wait-overlay');
+      var wo = document.querySelector('.mcp-menu-toggle');
       if (wo) wo.classList.remove('tut-wait-glow');
     };
   </script>

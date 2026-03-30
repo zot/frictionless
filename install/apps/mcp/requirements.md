@@ -39,18 +39,17 @@ Indicate processing state via a pulsating glow effect on the menu button:
 - When `isWaiting()` returns true, the button enters a `.waiting` state
 - The button border glows orange and pulses via CSS animation
 - The grid icon dims to 30% opacity
-- A wait time counter appears centered over the button
+- The button tooltip shows wait time and pending event count
+- No permanent screen real estate consumed — all info is in the tooltip
 - The button remains clickable in waiting state
-- When `isWaiting()` becomes false, the glow stops and counter disappears
+- When `isWaiting()` becomes false, the pulse stops and tooltip reverts to "App Menu"
 
-### Wait Time Counter (Client-Local)
+### Wait Tooltip (Client-Local)
 
-Display a counter showing seconds elapsed since waiting started:
-- Entirely client-side JavaScript — no server round-trips needed
+The tooltip updates client-side showing wait time:
 - JavaScript interval (200ms) reads timestamp from hidden element
-- Counter displays as bold orange text with glow, centered in button
-- Only shown when elapsed time exceeds 5 seconds
-- Text clears when not waiting
+- Tooltip shows "Waiting" initially, then "Waiting (Ns)" after 5 seconds
+- Reverts to "App Menu" when not waiting
 
 ### Busy Notification
 

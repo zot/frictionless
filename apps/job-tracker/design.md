@@ -473,10 +473,11 @@ When the chat text is a URL (job posting link):
 1. **Fetch and scrape** the job posting for: company, position, location, salary, company website (if available)
 2. **Save page as markdown** for attachment:
    - Convert the fetched page content to clean markdown (headings, lists, key details)
-   - Write to `.ui/storage/job-tracker/data/tmp/job-listing.md`
-   - Set pending fields via `.ui/mcp run`:
+   - Get `{base_dir}` from `{cmd} status` (the `base_dir` field)
+   - Write to `{base_dir}/storage/job-tracker/data/tmp/job-listing.md`
+   - Set pending fields via `{cmd} run` using the **absolute path**:
      ```lua
-     jobTracker._pendingPageFile = ".ui/storage/job-tracker/data/tmp/job-listing.md"
+     jobTracker._pendingPageFile = "{base_dir}/storage/job-tracker/data/tmp/job-listing.md"
      jobTracker._pendingPageFilename = "job-listing.md"
      ```
    - When the user saves the form, `saveForm()` automatically moves this file to the app's attachments dir
@@ -511,8 +512,8 @@ The event contains `url`, `title`, and `text` (the page's `innerText`, already c
 1. **Extract structured data** from the `text` and `title` fields: company, position, location, salary, company website (if available)
 2. **Save page as markdown** for attachment:
    - Convert the `text` (innerText) to clean markdown (headings, lists, key details)
-   - Write to `.ui/storage/job-tracker/data/tmp/job-listing.md`
-   - Set pending fields via `.ui/mcp run` (same as URL flow step 2)
+   - Write to `{base_dir}/storage/job-tracker/data/tmp/job-listing.md`
+   - Set pending fields via `{cmd} run` using absolute paths (same as URL flow step 2)
 3. **Show add form** with prefilled data:
    ```lua
    jobTracker:showAddForm()
@@ -536,7 +537,7 @@ This flow is identical to URL Chat Handling except:
 
 ### Storage Structure
 ```
-.ui/storage/job-tracker/
+{base_dir}/storage/job-tracker/
 ├── data/
 │   ├── data.json           # Application data + resume metadata
 │   ├── master-resume.md    # Master resume template
@@ -555,7 +556,7 @@ This flow is identical to URL Chat Handling except:
 
 To render markdown as HTML in iframes, a symlink is created on app initialization:
 ```
-.ui/html/job-tracker-storage -> .ui/storage/job-tracker/data
+{base_dir}/html/job-tracker-storage -> {base_dir}/storage/job-tracker/data
 ```
 
 Preview URLs (absolute, using `mcp:status().mcp_port` for system browser compatibility):
@@ -568,13 +569,13 @@ The ui-engine auto-renders `.md` files as HTML when served.
 **Implementation:** The symlink is created in the app's init code (not manually) so it works for all users who install the app. The `JobTracker:new()` method calls `ensureStorageSymlink()` which creates the symlink if it doesn't exist.
 
 ### Loading
-On app init, call `loadData()` which reads `.ui/storage/job-tracker/data/data.json` using Lua `io.open`.
+On app init, call `loadData()` which reads `{base_dir}/storage/job-tracker/data/data.json` using Lua `io.open`.
 
 ### Saving
 After any modification (add, edit, delete, status change, note), call `saveData()` which writes to `data.json` and commits to fossil.
 
 ### Attachments
-Files are stored in `.ui/storage/job-tracker/data/jobs/<id>/` where `<id>` is the zero-padded 4-digit application ID. Attachment changes are tracked separately and must be explicitly saved or reverted.
+Files are stored in `{base_dir}/storage/job-tracker/data/jobs/<id>/` where `<id>` is the zero-padded 4-digit application ID. Attachment changes are tracked separately and must be explicitly saved or reverted.
 
 ### JSON Format
 ```json
