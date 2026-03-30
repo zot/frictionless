@@ -17,15 +17,15 @@ When the user says `events` it means to start the event loop, but not use `{cmd}
 
 ## Helper Script Reference
 
-The `{cmd}` script provides commands for interacting with the UI server. **Always use relative paths** (never absolute — absolute paths break the user's permission rules).
+The `{cmd}` command provides tools for interacting with the UI server. **Always use `{cmd}` exactly as defined in CLAUDE.md** — do not alter the path (relative vs absolute) or substitute your own.
 
-**`{url}` means the UI server URL** — read the port from `.ui/ui-port` and construct `http://localhost:{port}`. This is NOT the MCP connection port — it's the UI's own HTTP server. Use `{cmd} status` when you also need session count or base_dir.
+**`{url}` and `{ui_dir}`** — run `{cmd} status` to get both. The `url` field is `{url}`, the `base_dir` field is `{ui_dir}`.
 
 **CRITICAL: URLs must NEVER include session IDs.** Always use `{url}/?conserve=true` (root URL). Session IDs in URLs will cause problems.
 
 | Command | Description |
 |---------|-------------|
-| `{cmd} status` | Get server status (url, sessions, base_dir) |
+| `{cmd} status` | Get server status (url, sessions, base_dir=`{ui_dir}`) |
 | `{cmd} browser` | Open browser to `{url}/?conserve=true` |
 | `{cmd} display APP` | Display APP in the browser |
 | `{cmd} run 'lua code'` | Execute Lua code in session |
@@ -44,7 +44,7 @@ The `{cmd}` script provides commands for interacting with the UI server. **Alway
 
 ### A. Read the design
 
-Read `{base_dir}/apps/APP/design.md` to learn the global variable name (e.g., `claudePanel`) and event types.
+Read `{ui_dir}/apps/APP/design.md` to learn the global variable name (e.g., `claudePanel`) and event types.
 
 ### B. Display the app
 
@@ -84,14 +84,14 @@ The UI will NOT respond to clicks until this is running.
 ```
 Event: {"app":"app-console", "event":"app_created", "name":"contacts", "context":"contacts"}
        ^^^^^^^^^^^^^^^^
-Read:  .ui/apps/app-console/design.md  <-- ONLY use the "app" field
+Read:  {ui_dir}/apps/app-console/design.md  <-- ONLY use the "app" field
 ```
 
 Do NOT skip reading design.md — even for events that seem obvious like `app_created`.
 
 ### Step C: Event loop lifecycle
 
-**Only ONE listener may exist at a time** — the script enforces this via `.ui/.eventpid` and will error if a listener is already running.
+**Only ONE listener may exist at a time** — the event system enforces this and will error if a listener is already running.
 
 **Task lifecycle:**
 1. Run `{cmd} event` with `Bash(run_in_background=true)`, save the task_id. If it errors with "already running", do nothing — the script manages the PID lock itself. Do NOT manually check PIDs or the `.eventpid` file; just wait for the existing listener to complete.
@@ -182,8 +182,8 @@ The link stays in the chat history — the user can click it anytime to re-highl
 When the user asks for changes outside an event loop, ask which mode they prefer or default to `/ui-fast` for small changes.
 
 **Before building a new app:**
-1. Create the app directory: `mkdir -p {base_dir}/apps/<app>`
-2. Write requirements to `{base_dir}/apps/<app>/requirements.md`
+1. Create the app directory: `mkdir -p {ui_dir}/apps/<app>`
+2. Write requirements to `{ui_dir}/apps/<app>/requirements.md`
 
 ### Requirements Format
 
@@ -201,7 +201,7 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 ## Directory Structure
 
 ```
-{base_dir}/
+{ui_dir}/
 ├── apps/<app>/           # App source files
 │   ├── requirements.md   # What to build (you write this)
 │   ├── design.md         # How it works (generated)
@@ -225,9 +225,9 @@ The first line is a descriptive title (e.g., "# Contact Manager"), followed by p
 
 ## Debugging
 
-- **Lua logs:** `{base_dir}/log/lua.log` for Lua errors
-- **MCP server stderr:** `.ui/log/mcp.log`
-- **Variable inspector:** `http://localhost:{mcp-port}/variables` (read port from `{cmd}-port`) — curl for JSON, browser for interactive inspector
+- **Lua logs:** `{ui_dir}/log/lua.log` for Lua errors
+- **MCP server stderr:** `{ui_dir}/log/mcp.log`
+- **Variable inspector:** `http://localhost:{mcp-port}/variables` (read port from `{ui_dir}/mcp-port`) — curl for JSON, browser for interactive inspector
 - **MCP resources:** `ui://variables` (full variable tree), `ui://state` (live state JSON)
 - **JS diagnostics:** `window.uiApp.getStore()` (variable state) and `window.uiApp.getBinding()` (widget bindings) in browser console
 - **Remote JS execution:** Set `mcp.code` from Lua — bound to `ui-code` in the MCP shell, enabling JS execution in the browser. Critical when using a system browser instead of Playwright. Re-assigning the same value is a no-op (change detection); append a nonce to re-execute (e.g., `code .. "\n// " .. nonce`)

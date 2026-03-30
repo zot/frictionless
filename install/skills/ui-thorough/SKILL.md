@@ -43,7 +43,7 @@ If checkpoints exist (output is not "No checkpoints for <app>"):
    Run the code-simplifier agent on the app's Lua code:
    ```
    Task tool with subagent_type="code-simplifier"
-   prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+   prompt: "Simplify the code in {ui_dir}/apps/<app>/app.lua"
    ```
 
 4. **Record as fast code gaps:**
@@ -71,16 +71,16 @@ Use `mcp:createTodos(STEPS, APP)` with the steps list and app name. The listed s
 
 ## Step 2: Requirements
 
-- Read `{base_dir}/apps/<app>/requirements.md` (create with prose if missing)
+- Read `{ui_dir}/apps/<app>/requirements.md` (create with prose if missing)
 - Read `TESTING.md` if it exists — note Known Issues
 - Update requirements if the task requires changes
 - Ensure requirements are complete and unambiguous before designing
 
 ## Step 3: Design
 
-- Check `.ui/patterns/` for reusable patterns
-- Write `{base_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>`
-- Write `{base_dir}/apps/<app>/design.md`:
+- Check `{ui_dir}/patterns/` for reusable patterns
+- Write `{ui_dir}/apps/<app>/icon.html` with an emoji, `<sl-icon>`, or `<img>`
+- Write `{ui_dir}/apps/<app>/design.md`:
    - **Intent**: What the UI accomplishes
    - **Layout**: ASCII wireframe showing structure
    - **Data Model**: Tables of types, fields, descriptions
@@ -90,7 +90,7 @@ Use `mcp:createTodos(STEPS, APP)` with the steps list and app name. The listed s
 
 ## Step 4: Write Code
 
-Write `{base_dir}/apps/<app>/app.lua` — Lua classes and logic.
+Write `{ui_dir}/apps/<app>/app.lua` — Lua classes and logic.
 
 **Write code BEFORE viewdefs** — viewdefs may reference types that must exist first.
 
@@ -125,7 +125,7 @@ If there were gaps and they are all gone now, leave the `## Gaps` section empty,
 Use the `code-simplifier` agent:
 ```
 Task tool with subagent_type="code-simplifier"
-prompt: "Simplify the code in {base_dir}/apps/<app>/app.lua"
+prompt: "Simplify the code in {ui_dir}/apps/<app>/app.lua"
 ```
 
 ## Step 8: Set Baseline
@@ -152,6 +152,6 @@ The `baseline` clears trunk for fresh `/ui-fast` checkpoints.
 
 # Examples
 
-See `.ui/apps/app-console` for complete examples:
+See `{ui_dir}/apps/app-console` for complete examples:
 - `requirements.md` — Requirements spec
 - `design.md` — Design spec

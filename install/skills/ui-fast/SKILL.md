@@ -65,8 +65,8 @@ eb2185e694 initial state      # checkpoint 3
 
 1. **Checkpoint** before starting
 2. **Create progress steps** appropriate to the work (see below)
-3. Write `{base_dir}/apps/<app>/icon.html` (if new app)
-4. Check `.ui/patterns/` for reusable patterns (if building new features)
+3. Write `{ui_dir}/apps/<app>/icon.html` (if new app)
+4. Check `{ui_dir}/patterns/` for reusable patterns (if building new features)
 5. **Do the work**, updating progress as you go
 6. **Verify** (see Fast verify below)
 7. Run `{cmd} audit APP` and `{cmd} theme audit APP`

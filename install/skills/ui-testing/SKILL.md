@@ -11,10 +11,10 @@ Test Frictionless apps in Playwright browser against their requirements.md.
 
 ## Quick Start
 
-Always make sure you have `base_dir` from `ui_status` first. All paths below use `{base_dir}` as a placeholder for this value.
+All paths below use `{ui_dir}` as a placeholder — get the value from `{cmd} status` (the `base_dir` field).
 ```
-1. Find requirements: {base_dir}/apps/<app>/requirements.md
-2. Check server: `{cmd} status` → get base_dir and url
+1. Find requirements: {ui_dir}/apps/<app>/requirements.md
+2. Check server: `{cmd} status` → get `{ui_dir}` and `{url}`
 3. Load app: `{cmd} display("<app>")`
 4. Open browser: `{cmd} browser` OR navigate Playwright to {url}/?conserve=true
 5. Create TESTING.md from requirements
@@ -28,7 +28,7 @@ Always make sure you have `base_dir` from `ui_status` first. All paths below use
 
 ```bash
 # Get server info (auto-started)
-`{cmd} status`  # → base_dir, url
+`{cmd} status`  # → {ui_dir}, {url}
 
 # Load the app
 `{cmd} display("<app-name>")`
@@ -39,7 +39,7 @@ Always make sure you have `base_dir` from `ui_status` first. All paths below use
 
 ### 2. Create TESTING.md
 
-Create `{base_dir}/apps/<app>/TESTING.md` based on requirements.md:
+Create `{ui_dir}/apps/<app>/TESTING.md` based on requirements.md:
 
 ```markdown
 # <App Name> Testing Checklist
@@ -132,7 +132,7 @@ Use snapshot for interaction, screenshot to verify visual changes (themes, styli
 
 ## Example TESTING.md
 
-See `{base_dir}/apps/contacts/TESTING.md` for a complete example with:
+See `{ui_dir}/apps/contacts/TESTING.md` for a complete example with:
 - Feature checklists organized by category
 - Bug documentation with root cause analysis
 - Clear marking of blocked features
