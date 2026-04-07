@@ -160,6 +160,7 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 | `Runtime.RegisterAPI(mux *http.ServeMux)` | Mount `/api/*`, `/wait`, `/state`, `/variables` on an external mux |
 | `Runtime.StartAPI() (int, error)` | Start a standalone HTTP API server; returns port |
 | `Runtime.WithLua(fn func(rt *cli.LuaRuntime) error) error` | Execute a closure in the Lua executor goroutine (thread-safe) without triggering afterBatch (no UI update push). Used by downstream binaries to register Go functions on the Lua `mcp` table after `Start()` returns. |
+| `Runtime.UIHandleFunc(pattern string, handler http.HandlerFunc)` | Register a custom HTTP handler on the UI server's mux. Delegates to the ui-engine `HTTPEndpoint.HandleFunc`. |
 | `Runtime.Shutdown(ctx) error` | Graceful shutdown of UI and API servers |
 
 **Lifecycle:**

@@ -234,6 +234,7 @@
 - **R178:** `Server.ProjectDir` is the internal field that `Install()` uses; `flib` sets it from `Config.Project`
 - **R179:** `Runtime.WithLua(fn)` executes a closure in the Lua executor goroutine (thread-safe, passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
 - **R180:** `flib.Config.Port` sets a preferred HTTP port for the ui-engine server (0 = auto-select, default); enables downstream binaries to persist the port across restarts so browsers reconnect automatically
+- **R181:** `Runtime.UIHandleFunc(pattern, handler)` registers a custom HTTP handler on the UI server's mux by delegating to `ui-engine HTTPEndpoint.HandleFunc`; enables downstream binaries to add routes to the UI port
 
 ## Feature: Install Manifest
 **Source:** specs/mcp.md
@@ -246,3 +247,10 @@
 - **R174:** A missing manifest (pre-manifest install or first install) is treated as empty — all existing files are considered unmodified for backward compatibility
 - **R175:** `force=true` overrides all collision policies and overwrites every file, updating manifest hashes
 - **R176:** The install result includes `user_modified` and `backed_up` arrays alongside existing `installed` and `skipped` arrays
+
+### Multi-File Theme Injection
+- **R177:** `InjectThemeBlockInFile(baseDir, filePath)` patches any HTML file with the theme block, replacing content between markers if present
+- **R178:** `InjectAllThemeBlocks(baseDir)` scans `html/*.html` for files containing frictionless markers and patches them all
+- **R179:** Theme CSS watcher calls `InjectAllThemeBlocks` instead of `InjectThemeBlock` to update all HTML files on CSS changes
+- **R180:** `flib.ThemeBlock(baseDir)` returns the generated theme HTML block string for in-memory injection by embedders
+- **R181:** `flib.InjectAllThemeBlocks(baseDir)` exposes disk-patching for embedders to call at startup

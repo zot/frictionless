@@ -1,6 +1,6 @@
 # Mini-Spec
 
-Version: 2.4.0
+Version: 2.4.1
 Location: github.com/zot/mini-spec
 
 **Create and maintain designs at minimal token cost.**

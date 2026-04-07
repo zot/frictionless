@@ -278,13 +278,19 @@ func ResolveThemeClasses(baseDir, theme string) (string, []ThemeClass, error) {
 	return theme, fm.Classes, nil
 }
 
-// InjectThemeBlock updates index.html with the frictionless theme block
+// InjectThemeBlock updates index.html with the frictionless theme block.
 func InjectThemeBlock(baseDir string) error {
-	indexPath := filepath.Join(baseDir, "html", "index.html")
+	return InjectThemeBlockInFile(baseDir, filepath.Join(baseDir, "html", "index.html"))
+}
 
-	content, err := os.ReadFile(indexPath)
+// InjectThemeBlockInFile patches a single HTML file with the frictionless theme block.
+// If the file has <!-- #frictionless -->...<!-- /frictionless --> markers, the content
+// between them is replaced. Otherwise the block is inserted after <head>.
+// CRC: crc-ThemeManager.md | R177
+func InjectThemeBlockInFile(baseDir, filePath string) error {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("reading index.html: %w", err)
+		return fmt.Errorf("reading %s: %w", filepath.Base(filePath), err)
 	}
 
 	themes, err := ListThemes(baseDir)
@@ -292,26 +298,74 @@ func InjectThemeBlock(baseDir string) error {
 		return fmt.Errorf("listing themes: %w", err)
 	}
 
-	block := GenerateThemeBlock(baseDir, themes, GetCurrentTheme(baseDir))
+	html := string(content)
 
-	// Remove existing frictionless block if present
-	html := frictionlessBlockPattern.ReplaceAllString(string(content), "")
-
-	// Find <head> tag (case-insensitive)
-	headIndex := strings.Index(strings.ToLower(html), "<head>")
-	if headIndex == -1 {
-		return fmt.Errorf("no <head> tag found in index.html")
+	// Detect indent from marker line (or default to 2 spaces)
+	indent := "  "
+	startMarker := "<!-- #frictionless -->"
+	startIdx := strings.Index(html, startMarker)
+	if startIdx >= 0 {
+		// Walk back to find the start of the line
+		lineStart := strings.LastIndex(html[:startIdx], "\n") + 1
+		indent = html[lineStart:startIdx]
 	}
 
-	// Insert after <head> tag, preserving any trailing newline
+	block := GenerateThemeBlock(baseDir, themes, GetCurrentTheme(baseDir), indent)
+
+	// If markers exist, replace content between them (including the trailing newline)
+	endMarker := "<!-- /frictionless -->"
+	endIdx := strings.Index(html, endMarker)
+	if startIdx >= 0 && endIdx > startIdx {
+		// Include the whole marker line (from line start of opening marker)
+		lineStart := strings.LastIndex(html[:startIdx], "\n") + 1
+		endPos := endIdx + len(endMarker)
+		// Consume trailing newline if present
+		if endPos < len(html) && html[endPos] == '\n' {
+			endPos++
+		}
+		newHTML := html[:lineStart] + block + html[endPos:]
+		return os.WriteFile(filePath, []byte(newHTML), 0644)
+	}
+
+	// No markers — remove existing block and insert after <head>
+	html = frictionlessBlockPattern.ReplaceAllString(html, "")
+	headIndex := strings.Index(strings.ToLower(html), "<head>")
+	if headIndex == -1 {
+		return fmt.Errorf("no <head> tag found in %s", filepath.Base(filePath))
+	}
 	insertPos := headIndex + len("<head>")
 	if insertPos < len(html) && html[insertPos] == '\n' {
 		insertPos++
 	}
-
 	newHTML := html[:insertPos] + "\n" + block + html[insertPos:]
+	return os.WriteFile(filePath, []byte(newHTML), 0644)
+}
 
-	return os.WriteFile(indexPath, []byte(newHTML), 0644)
+// InjectAllThemeBlocks patches all HTML files in html/ that contain
+// frictionless markers with the current theme block.
+// CRC: crc-ThemeManager.md | R178
+func InjectAllThemeBlocks(baseDir string) error {
+	htmlDir := filepath.Join(baseDir, "html")
+	entries, err := os.ReadDir(htmlDir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") {
+			continue
+		}
+		path := filepath.Join(htmlDir, e.Name())
+		content, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if frictionlessBlockPattern.Match(content) || strings.Contains(string(content), "<!-- #frictionless -->") {
+			if err := InjectThemeBlockInFile(baseDir, path); err != nil {
+				return fmt.Errorf("%s: %w", e.Name(), err)
+			}
+		}
+	}
+	return nil
 }
 
 // HasThemeBlock checks if index.html already contains the frictionless theme block.
@@ -362,19 +416,19 @@ func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ..
 					continue
 				}
 				if event.Name == indexPath {
-					// index.html changed — re-inject if theme block is missing
+					// index.html changed — re-inject all if theme block is missing
 					if HasThemeBlock(baseDir) {
 						continue
 					}
-					logFn(2, "index.html changed without theme block, re-injecting")
-					if err := InjectThemeBlock(baseDir); err != nil {
-						logFn(0, "Warning: failed to re-inject theme block: %v", err)
+					logFn(2, "index.html changed without theme block, re-injecting all")
+					if err := InjectAllThemeBlocks(baseDir); err != nil {
+						logFn(0, "Warning: failed to re-inject theme blocks: %v", err)
 					}
 				} else if strings.HasSuffix(event.Name, ".css") && strings.HasPrefix(event.Name, themesDir) {
-					// Theme CSS changed — re-inject to update cache-busting timestamps
+					// Theme CSS changed — re-inject all HTML files to update cache-busting timestamps
 					logFn(2, "theme CSS changed: %s, updating cache-busting", filepath.Base(event.Name))
-					if err := InjectThemeBlock(baseDir); err != nil {
-						logFn(0, "Warning: failed to re-inject theme block: %v", err)
+					if err := InjectAllThemeBlocks(baseDir); err != nil {
+						logFn(0, "Warning: failed to re-inject theme blocks: %v", err)
 					}
 				}
 			case err, ok := <-watcher.Errors:
@@ -389,33 +443,37 @@ func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ..
 	return func() { watcher.Close() }, nil
 }
 
-// GenerateThemeBlock creates the HTML block to inject into index.html
-func GenerateThemeBlock(baseDir string, themes []string, defaultTheme string) string {
+// GenerateThemeBlock creates the HTML block to inject into an HTML file.
+// The indent parameter is the leading whitespace to use for each line
+// (detected from the marker's position in the source file).
+func GenerateThemeBlock(baseDir string, themes []string, defaultTheme, indent string) string {
 	var sb strings.Builder
+	i := indent    // shorthand
+	ii := i + "  " // nested indent
 
-	sb.WriteString("  <!-- #frictionless -->\n")
+	sb.WriteString(i + "<!-- #frictionless -->\n")
 
 	// Theme restore script - runs before CSS loads
-	sb.WriteString("  <script>\n")
-	sb.WriteString(fmt.Sprintf("    document.documentElement.className = 'theme-' + (localStorage.getItem('theme') || '%s');\n", defaultTheme))
-	sb.WriteString("  </script>\n")
+	sb.WriteString(i + "<script>\n")
+	sb.WriteString(fmt.Sprintf("%sdocument.documentElement.className = 'theme-' + (localStorage.getItem('theme') || '%s');\n", ii, defaultTheme))
+	sb.WriteString(i + "</script>\n")
 
 	themesDir := filepath.Join(baseDir, "html", "themes")
 
 	// Base CSS always first (with cache busting)
 	baseCB := cssModTime(filepath.Join(themesDir, "base.css"))
-	sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/base.css%s\">\n", baseCB))
+	sb.WriteString(fmt.Sprintf("%s<link rel=\"stylesheet\" href=\"/themes/base.css%s\">\n", i, baseCB))
 
 	// Theme CSS files (with cache busting)
 	for _, theme := range themes {
 		cb := cssModTime(filepath.Join(themesDir, theme+".css"))
-		sb.WriteString(fmt.Sprintf("  <link rel=\"stylesheet\" href=\"/themes/%s.css%s\">\n", theme, cb))
+		sb.WriteString(fmt.Sprintf("%s<link rel=\"stylesheet\" href=\"/themes/%s.css%s\">\n", i, theme, cb))
 	}
 
 	// Favicon placeholder - set dynamically by each app's DEFAULT viewdef script
-	sb.WriteString("  <link rel=\"icon\" id=\"app-favicon\" href=\"data:,\">\n")
+	sb.WriteString(i + "<link rel=\"icon\" id=\"app-favicon\" href=\"data:,\">\n")
 
-	sb.WriteString("  <!-- /frictionless -->\n")
+	sb.WriteString(i + "<!-- /frictionless -->\n")
 
 	return sb.String()
 }

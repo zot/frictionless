@@ -928,10 +928,10 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return 1
 		}))
 
-		// mcp:reinjectThemes() - re-scan themes and update index.html
+		// mcp:reinjectThemes() - re-scan themes and update all HTML files with theme blocks
 		// CRC: crc-MCPServer.md
 		L.SetField(mcpTable, "reinjectThemes", L.NewFunction(func(L *lua.LState) int {
-			if err := InjectThemeBlock(s.baseDir); err != nil {
+			if err := InjectAllThemeBlocks(s.baseDir); err != nil {
 				L.Push(lua.LNil)
 				L.Push(lua.LString(err.Error()))
 				return 2

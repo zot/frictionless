@@ -143,6 +143,31 @@ func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 	return err
 }
 
+// UIHandleFunc registers a custom HTTP handler on the UI server's mux.
+// CRC: crc-FlibRuntime.md
+func (r *Runtime) UIHandleFunc(pattern string, handler http.HandlerFunc) {
+	r.uiServer.HttpEndpoint.HandleFunc(pattern, handler)
+}
+
+// ThemeBlock returns the frictionless theme HTML block (script + CSS links)
+// for the given base directory. Suitable for injecting into HTML templates
+// between <!-- #frictionless --> markers.
+func ThemeBlock(baseDir string) (string, error) {
+	themes, err := mcp.ListThemes(baseDir)
+	if err != nil {
+		return "", fmt.Errorf("listing themes: %w", err)
+	}
+	defaultTheme := mcp.GetCurrentTheme(baseDir)
+	return mcp.GenerateThemeBlock(baseDir, themes, defaultTheme, "  "), nil
+}
+
+// InjectAllThemeBlocks patches all HTML files in html/ that contain
+// frictionless markers with the current theme block (script + CSS links
+// with cache-busting). Called at startup and when themes change.
+func InjectAllThemeBlocks(baseDir string) error {
+	return mcp.InjectAllThemeBlocks(baseDir)
+}
+
 // Shutdown gracefully stops both the UI and API servers.
 func (r *Runtime) Shutdown(ctx context.Context) error {
 	r.mcpServer.RemovePortFiles()

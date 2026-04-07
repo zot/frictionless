@@ -96,6 +96,20 @@ TaskCreate: "Update design docs"
 - avoid holding locks in sections that have significant functionality
 - **No unanchored design:** every design artifact must trace back to a spec item and requirement. If you need to add something to the design, add it to specs first, then requirements, then design. This applies regardless of direction — even when documenting existing code, verify the spec anchor exists before updating design. This prevents features from existing only in the AI's interpretation.
 
+### Why anchoring matters
+
+Specs and design docs are the project's memory bank. AI context dies every
+session — code changes compound across sessions without any single agent
+seeing the full history. Unanchored code has no justification trail: a
+future session can't tell whether a function was designed or accidental,
+required or leftover. When that session makes changes, unanchored features
+silently disappear because nothing in the design said they should exist.
+
+Anchoring is cheap (a few lines of spec + a requirement number). The cost
+of *not* anchoring is discovering, three sessions later, that a feature
+vanished during an unrelated refactor and no one noticed because the design
+never mentioned it. The spec is the pin that says "this must survive."
+
 ## Cross-cutting Concerns
 
 `design.md` Cross-cutting Concerns section: Patterns spanning components (auth, errors, logging, routing, theming).

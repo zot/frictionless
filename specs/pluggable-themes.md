@@ -65,10 +65,30 @@ Two layers of CSS need cache busting to ensure browsers load fresh stylesheets a
 
 ### When Injection Runs
 
-- **Server startup:** inject once on start (existing behavior)
+- **Server startup:** inject all HTML files with markers on start
 - **File watcher:** watch `.ui/html/index.html` for writes and re-inject when modified by external processes (e.g., `make cache` updating ui-engine assets)
+- **Theme CSS change:** re-inject all HTML files to update cache-busting timestamps
 
 The watcher must avoid infinite loops: when InjectThemeBlock itself writes the file, the watcher should not re-trigger. Use a guard flag or check whether the block is already present before injecting.
+
+### Multi-File Injection
+
+Embedding binaries (e.g., ark) may ship additional HTML files
+alongside `index.html` that also need theme injection. Any HTML
+file in the `html/` directory containing `<!-- #frictionless -->`
+markers gets patched by `InjectAllThemeBlocks`. This runs at
+server startup and when theme CSS changes.
+
+`InjectThemeBlockInFile` generalizes `InjectThemeBlock` to accept
+any file path. If markers are present, content between them is
+replaced. Otherwise it falls back to the `<head>` insertion logic.
+
+### flib Exports
+
+`flib.ThemeBlock(baseDir)` returns the generated HTML block string
+for embedders that need in-memory injection (e.g., template loading).
+
+`flib.InjectAllThemeBlocks(baseDir)` patches all HTML files on disk.
 
 ## Theme Switching
 
