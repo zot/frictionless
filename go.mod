@@ -23,8 +23,10 @@ require (
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	golang.org/x/sys v0.40.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
