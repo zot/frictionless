@@ -95,6 +95,7 @@ TaskCreate: "Update design docs"
 - write idiomatic code for the language you use
 - avoid holding locks in sections that have significant functionality
 - **No unanchored design:** every design artifact must trace back to a spec item and requirement. If you need to add something to the design, add it to specs first, then requirements, then design. This applies regardless of direction — even when documenting existing code, verify the spec anchor exists before updating design. This prevents features from existing only in the AI's interpretation.
+- in HTML, use the slimmest DOM Possible. Fewer elements makes everything in the browser better: less memory, more speed, better responsiveness
 
 ### Why anchoring matters
 

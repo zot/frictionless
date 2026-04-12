@@ -47,7 +47,7 @@ This is not a conventional web framework. It's an **object-oriented system where
 
 1. **Use SOLID principles**
 2. **Write idiomatic Lua code**
-
+3. **Slimmest DOM Possible** -- fewer elements makes everything in the browser better: less memory, more speed, better responsiveness
 ## Why design.md
 
 `requirements.md` is the user's spec — what they want. `design.md` is Claude's interpretation — a compact intermediate form between requirements and code that serves multiple roles:
