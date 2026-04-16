@@ -247,6 +247,8 @@ Look out for language-specific "gotchas" like mixing functions and methods in Lu
 5. Simplification Phase
 Invoke the `code-simplifier` agent on the recently modified code. This refines code for clarity, consistency, and maintainability while preserving functionality.
 
+**CRITICAL: Preserve all traceability comments.** The `// CRC:`, `// Seq:`, and requirement references (`R123`) in code comments are load-bearing — they connect code to the design artifacts that justify its existence. Removing or reformatting them breaks the traceability chain that `minispec validate` checks. Simplification means cleaner *logic*, not fewer comments.
+
 **Upon completion**, proceed to Gaps Phase.
 
 6. Gaps Phase
