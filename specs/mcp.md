@@ -170,6 +170,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 4. Either `RegisterAPI(mux)` to mount on an existing listener, or `StartAPI()` for a standalone listener
 5. `Shutdown(ctx)` — tears down both servers
 
+**Backend socket isolation:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the ui-engine's shared `/tmp/ui.sock` default. Each embedded runtime owns a private control socket keyed to its base directory, so multiple embedded runtimes (e.g. a disposable ark running alongside a live one) no longer collide on the fixed default. The embedder may still override the socket through the ui-engine config if it needs a specific path. (R182)
+
 **Route registration:** `RegisterAPI` delegates to `Server.RegisterAPIRoutes`, which registers the same handlers used by `StartHTTPServer` and `ServeSSE`. This allows an embedding binary to serve Frictionless endpoints on its own listener (e.g. a Unix domain socket) alongside its own routes. The embedding binary is responsible for the static file catch-all (`/`) if desired.
 
 **Project directory:** When `Config.Project` is set, `ui_install` uses it as `{project}` instead of deriving it from `{base_dir}`. This is required when the base directory is not a child of the project (e.g. ark uses `~/.ark/` as base_dir but installs skills to the caller's working project). Affects skill destinations (`{project}/.claude/skills/`), CLAUDE.md patching, and agent file checks. The install manifest stays in `{base_dir}/storage/settings.json` regardless.

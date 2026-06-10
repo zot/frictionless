@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/zot/frictionless/internal/mcp"
@@ -43,6 +44,12 @@ func New(cfg Config) (*Runtime, error) {
 	uiCfg.Server.Dir = cfg.Dir
 	uiCfg.Server.Port = cfg.Port // 0 = auto-select
 	uiCfg.Server.Host = host
+	// CRC: crc-FlibRuntime.md | R182 — site the ui-engine backend control
+	// socket per-Dir so multiple embedded runtimes don't collide on the
+	// shared /tmp/ui.sock default. Empty Dir keeps the ui-engine default.
+	if cfg.Dir != "" {
+		uiCfg.Server.Socket = filepath.Join(cfg.Dir, "ui.sock")
+	}
 	uiCfg.Lua.Enabled = true
 	uiCfg.Lua.Hotload = true
 

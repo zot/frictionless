@@ -48,10 +48,8 @@ github.com/zot/change-tracker v1.4.0 h1:cxElyc25DHuLQRE/HY0bkuu4pfVTOWtak8mjc4bx
 github.com/zot/change-tracker v1.4.0/go.mod h1:V9pUIOLAIfmi+oNDrI2ObW2dHkkTXs/OzoYQ0VybnQQ=
 github.com/zot/ui-engine v0.21.0 h1:KLpLTjtbyyuMNhU6fF3MG4i4KwlyHQf8IxS7sFgwDUs=
 github.com/zot/ui-engine v0.21.0/go.mod h1:6TtU3/30oHHPBJrbs+XtuyfRniQyHj+9vu0tAKE24nc=
-golang.org/x/net v0.49.0 h1:eeHFmOGUTtaaPSGNmjBKpbng9MulQsJURQUAfUwY++o=
-golang.org/x/net v0.49.0/go.mod h1:/ysNB2EvaqvesRkuLAyjI1ycPZlQHM3q01F02UY/MV8=
-golang.org/x/sys v0.40.0 h1:DBZZqJ2Rkml6QMQsZywtnjnnGvHza6BTfYFWY9kjEWQ=
-golang.org/x/sys v0.40.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
+golang.org/x/net v0.52.0 h1:He/TN1l0e4mmR3QqHMT2Xab3Aj3L9qjbhRm78/6jrW0=
+golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33q108Sa+fhmuc+sWQYwY=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

@@ -1,7 +1,7 @@
 # FlibRuntime
 
 **Source Spec:** specs/mcp.md (Section 2.6)
-**Requirements:** R161, R162, R163, R164, R165, R166, R167, R177, R179, R180, R181
+**Requirements:** R161, R162, R163, R164, R165, R166, R167, R177, R179, R180, R181, R182
 
 ## Responsibilities
 
@@ -11,7 +11,7 @@
 - mcpServer: MCP Server instance
 
 ### Does
-- New: Allocate ui-engine server, MCP server, and cleanup worker from Config (R162)
+- New: Allocate ui-engine server, MCP server, and cleanup worker from Config (R162). When Config.Dir is non-empty, derive the ui-engine backend control socket as {Dir}/ui.sock instead of the shared /tmp/ui.sock default, isolating each embedded runtime's control socket (R182)
 - Configure: Prepare base directory, run auto-install if needed (R163)
 - Start: Start UI HTTP server, create Lua session with mcp global; return base URL (R164)
 - RegisterAPI: Mount /api/*, /wait, /state, /variables on external mux (R165)

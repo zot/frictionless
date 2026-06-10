@@ -1,6 +1,6 @@
 # Mini-Spec
 
-Version: 2.4.1
+Version: 2.8.0
 Location: github.com/zot/mini-spec
 
 **Create and maintain designs at minimal token cost.**
@@ -56,6 +56,17 @@ Mini-spec gives you just enough structure to catch misalignment early, without t
 5. Tell Claude: **"design this"** → generates design docs, no code
 6. Review the design, iterate if needed
 7. Tell Claude: **"implement this"** → writes code, updates traceability
+
+### Cursor
+
+Same methodology, different host:
+
+1. Install `minispec` on your `PATH`, or set environment variable `MINISPEC` to the binary path ([releases](https://github.com/zot/mini-spec/releases)).
+2. Open the repo in Cursor (or copy `.cursor/rules/*.mdc` and root `AGENTS.md` into your project).
+3. The rule **mini-spec** applies in every chat (`alwaysApply`). For focused design/architecture work comparable to Claude’s **spec-agent**, pick the rule **mini-spec — spec-agent** from the rule picker.
+4. Run `minispec check-version` and match `.claude/skills/mini-spec/README.md`. There is no `code-simplifier` plugin in Cursor; the rule tells the agent to run an in-session simplification pass instead.
+
+Maintainers: after editing `.claude/skills/mini-spec/SKILL.md`, regenerate the Cursor rule with `python tool/gen_cursor_rule.py`.
 
 ## What's Included
 

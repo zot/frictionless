@@ -235,6 +235,7 @@
 - **R179:** `Runtime.WithLua(fn)` executes a closure in the Lua executor goroutine (thread-safe, passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
 - **R180:** `flib.Config.Port` sets a preferred HTTP port for the ui-engine server (0 = auto-select, default); enables downstream binaries to persist the port across restarts so browsers reconnect automatically
 - **R181:** `Runtime.UIHandleFunc(pattern, handler)` registers a custom HTTP handler on the UI server's mux by delegating to `ui-engine HTTPEndpoint.HandleFunc`; enables downstream binaries to add routes to the UI port
+- **R182:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the shared `/tmp/ui.sock` default, so each embedded runtime owns a private control socket and multiple embedded runtimes no longer collide on the fixed default
 
 ## Feature: Install Manifest
 **Source:** specs/mcp.md

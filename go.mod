@@ -10,7 +10,7 @@ require (
 	github.com/yuin/gopher-lua v1.1.1
 	github.com/zot/change-tracker v1.4.0
 	github.com/zot/ui-engine v0.21.0
-	golang.org/x/net v0.49.0
+	golang.org/x/net v0.52.0
 )
 
 require (
@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

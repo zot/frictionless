@@ -30,6 +30,21 @@ TaskCreate: "Gaps Phase: [feature name]"
 
 Do NOT proceed until tasks exist. This is required for user visibility into progress.
 
+## MANDATORY: Check for In-Flight Migrations
+
+Before any phase, run `~/.claude/bin/minispec query migrations`. It
+lists in-flight migration specs (the `*.md` files in
+`specs/migrations/`, excluding `complete/`). Each file is an
+in-process migration — record formats, APIs, or internal structures
+are mid-flux. If any are present:
+
+- Surface them to the user before doing other work.
+- In-flight migrations take priority. Do not start unrelated changes
+  that touch the same code paths until the migration is complete.
+- If your task IS the in-flight migration, proceed.
+
+Migrations are temporary by design — see "Migration Workflow" below.
+
 ---
 
 ## Overview
@@ -37,10 +52,12 @@ Do NOT proceed until tasks exist. This is required for user visibility into prog
 3-level architecture: specs → design → code.
 
 ```
-specs/    # Human intent — what to build and why, in the user's own words
-design/   # AI translation — requirements.md, crc-*, seq-*, ui-*, test-*, manifest-ui.md
-docs/     # user-manual.md, developer-guide.md
-src/      # Code with traceability comments
+specs/                # Human intent — current state of the project, in the user's own words
+  migrations/         # In-flight migrations — temporary, get moved on completion
+    complete/         # Completed migrations, numbered in landing order
+design/               # AI translation — requirements.md, crc-*, seq-*, ui-*, test-*, manifest-ui.md
+docs/                 # user-manual.md, developer-guide.md
+src/                  # Code with traceability comments
 ```
 
 ### What each level is for
@@ -53,6 +70,12 @@ feature to a colleague. For libraries, API signatures belong in specs
 because they *are* the face of the project — they must be agreed upon
 before design begins. Specs must state the language and environment
 so the AI knows what it's building for.
+
+Most specs are **per-feature** — one spec, one capability, one cohesive
+slice of behavior. A second kind, **summary specs**, indexes existing
+behavior along a cross-cutting axis (CLI surface, storage layout, API
+set, capabilities) without introducing any new behavior of its own.
+See *Summary specs* below.
 
 **Design** is the AI's translation of specs into buildable structure.
 Requirements extract testable statements. CRC cards assign
@@ -74,6 +97,50 @@ Each level exists because skipping it has a concrete cost:
 - **Traceability** — The specs→requirements→design chain ensures nothing is lost between what the user asked for and what gets built. When something breaks, you can trace backward to find out why.
 
 The phases are not ceremony. They are cheaper than debugging a misunderstood requirement after 500 lines of code.
+
+### Summary specs
+
+A **summary spec** is a spec that doesn't introduce behavior — it
+*indexes* behavior owned by per-feature specs, along one cross-cutting
+axis. Per-feature specs answer "what does this feature do?"; summary
+specs answer "what's the full set of X in this project?"
+
+Examples that recur across projects:
+
+- A **CLI inventory** spec lists every subcommand and flag (e.g.
+  `specs/cli-commands.md`).
+- A **storage layout** spec lists every record class with key/value
+  layout (e.g. `specs/record-formats.md`).
+- An **API surface** spec lists every public binding exposed to a
+  scripting or extension layer (e.g. `specs/lua-api.md`).
+- A **capabilities** spec lists every named feature with motivation
+  and objective (e.g. `specs/features.md`).
+
+When to create one:
+
+- A question of the form "what's the full set of X across this
+  project?" keeps coming up, and answering it requires touching many
+  per-feature specs.
+- A cross-cutting axis has enough items that someone (or some future
+  you) would want a directory to navigate them.
+
+Maintenance rules:
+
+- **Per-feature specs are canonical; summary specs are mirrors.**
+  When the two disagree, the per-feature spec wins. Update the summary
+  to match.
+- **Per-feature anchoring does not maintain summary specs.** Mini-spec's
+  normal anchoring (specs → requirements → design → code) catches the
+  per-feature edits but cannot tell that a CLI-inventory or
+  capabilities spec should also have been updated. Updating summary
+  specs is the maintainer's job, performed explicitly.
+- **Pin the summary-spec list somewhere persistent** — typically
+  CLAUDE.md or the project's top-level reference doc — so a future
+  agent or maintainer knows which summary specs to keep in sync when
+  they add, rename, or retire something along the relevant axis.
+- **Don't anchor new requirements from a summary spec.** Rn numbers
+  belong to the per-feature spec that owns the behavior. A summary
+  spec entry references that spec; it does not own the contract.
 
 ## Task Tracking
 
@@ -182,7 +249,7 @@ Guidelines:
 Create in `design/`:
 - `design.md`: Intent + Artifacts (design files → code file checkboxes)
 - `crc-*`: CRC cards (see format below)
-- `seq-*`: sequence diagrams (≤150 chars wide)
+- `seq-*`: sequence diagrams (≤150 chars wide; number their steps — see "Numbered Sequence Anchors" below)
 - `ui-*`: ASCII layouts, reference CRC cards
 - `test-*`: test designs (see format below)
 - `manifest-ui.md`: routes, theme, global components
@@ -224,14 +291,35 @@ Format rules:
 - Backticks around code paths are optional
 - Checkbox state applies to all code files on that line
 
+**Numbered Sequence Anchors:** Number the steps in your sequence diagrams using dotted notation so code can pin to specific steps. Place the number wherever the diagram style allows:
+
+- Tree/outline: `1.4. step description` on the line itself
+- UML actor-lane: `1.4` on its own line directly above the arrow
+- Mermaid/pseudo-Mermaid: `1.4` at the start of the step
+
+A file may contain more than one numbered diagram. Items in the first numbered diagram begin with `1.`, the second with `2.`, and so on (`1`, `1.1`, `1.1.1`, `2`, `2.1`, ...). The first segment K is the diagram index. Numbers are local to the file: `1.4` in seq-foo.md is unrelated to `1.4` in seq-bar.md.
+
+Reference a numbered step from code with `Seq: seq-foo.md#1.4`. File-only refs (`Seq: seq-foo.md`) remain valid for diagrams that aren't numbered.
+
+**Why number:** the anchor creates a bidirectional, grep-able link.
+- Agent generating code: drop `seq-foo.md#1.4` in a traceability comment as a promise that this code implements that step.
+- Agent making a code change: follow the anchor to verify what the diagram says the step does.
+- Human reading code: `grep "seq-foo.md#1.4" src/` finds every implementation of that step.
+
+For this to work, the number must be uniquely findable in the diagram source (avoid prose that starts with dotted numbers at the same indentation). Within a single file, every dotted ID may appear at most once. Append new steps with new numbers; renumbering existing steps orphans the code that pins to them — same discipline as Rn IDs.
+
+The validator checks per-K tree contiguity (under K.x, children must be K.x.1, K.x.2, … with no gaps), K-sequence contiguity within the file (Ks are 1, 2, 3, …), and intra-file ID uniqueness. Unnumbered seq files are silently skipped — numbering is opt-in per file.
+
 **Upon completion**, run `~/.claude/bin/minispec phase design` to verify coverage, then offer Implementation Phase. Do not jump to Gaps.
 
 4. Implementation Phase
-Add traceability comments:
+Add traceability comments with optional inline requirement refs:
 ```
-// CRC: crc-Store.md | Seq: seq-crud.md
+// CRC: crc-Store.md | Seq: seq-crud.md#1.4 | R4, R5
 add(data): Item {
 ```
+
+The third `| Rn, Rn` section is optional but recommended — it links specific code locations directly to requirements, enabling implementation coverage validation.
 
 **Block-comment languages:** The `minispec query comment-patterns` output lists any `comment_closers`. If a closer exists for the file extension, you MUST append it to every traceability comment. An unclosed block comment silently swallows all subsequent code. See `config-reference.md` (in this skill directory) if you need to configure closers for a new language.
 
@@ -259,29 +347,96 @@ Run `~/.claude/bin/minispec phase gaps` to validate the gaps section, then run `
 
 1. **Specs ↔ Requirements:** Each spec item maps to exactly one requirement in `requirements.md`
 2. **Requirements ↔ Design:** Each requirement is referenced by at least one design artifact
+3. **Requirements ↔ Code:** Each requirement appears as an inline Rn ref in at least one code file
 
-`design.md` Gaps section tracks (use S1/R1/D1/C1/O1/A1 numbering):
+`design.md` Gaps section tracks (use S1/R1/D1/C1/I1/O1/A1/T1 numbering):
 - **Spec→Requirements (Sn):** Spec items not captured in requirements.md
 - **Requirements→Design (Rn):** Requirements without design artifacts referencing them
 - **Design→Code (Dn):** Designed features without code
 - **Code→Design (Cn):** Code without design artifacts
+- **Implementation (In):** Requirements with design coverage but no inline Rn ref in any code file
 - **Oversights (On):** Missing tests, tech debt, enhancements, security concerns, etc.
-- **Approved (An):** Approved gap, never checked off to ensure they stay in place
+- **Approved (An):** Approved gap. Permanent — written without a checkbox.
+- **'Tired (Tn):** Retired requirement — obsoleted by a later change. Each Tn names the original Rn, the replacement Rn (or "no replacement" if removed outright), and the reason (usually a migration or refactor). Retired Rn entries stay in requirements.md with their original text but get a `~~Rn:~~ (Retired Tn — see Rxxx)` marker so old design/code references still resolve. Permanent — written without a checkbox.
 
-Nest related items with checkboxes:
+Nest related items with checkboxes (only S/R/D/C/I/O take checkboxes; A and T are permanent and never carry one):
 ```markdown
 - [ ] R1: Requirement R5 has no design artifact
 - [ ] O1: Test coverage gaps
   - [ ] Feature A (5 scenarios)
   - [ ] Feature B (3 scenarios)
-- [ ] A1: Dangling methods, these are never called
-  - [ ] Maluba.go: Maluba.Frobnicate, Maluba.Enreify
+- A1: Dangling methods, these are never called
+  - Maluba.go: Maluba.Frobnicate, Maluba.Enreify
+- T1: R1598 retired by R1833 (2026-04-23 ec-rekey)
+  - reason: EC keys moved from (fileID, chunkIdx) to chunkID
+- T2: R1099 retired by R1281 (2026-04-09 tag-embeddings)
+  - reason: V key gained trailing tvid varint
 ```
+
+If you encounter legacy `- [ ] An:` lines, drop the `[ ]` —
+`minispec validate` reports them as `permanent gaps with checkbox`.
+
+Use `minispec update add-gap` to add gaps; it writes the right
+shape automatically (no checkbox for A/T, checkbox for the rest).
 
 **Upon completion**, offer to update Documentation (Documentation Phase).
 
 7. Documentation Phase, Optional -- offer to user after Gaps
 Create `docs/user-manual.md` and `docs/developer-guide.md` with traceability links.
+
+## Migration Workflow
+
+Specs in `specs/` describe how the system *is* — they're the
+canonical "current state." Migration specs describe how to get from
+state A to state B. They have a built-in expiration: once
+implemented, the "Problem" they describe no longer exists.
+
+To keep `specs/` from accumulating stale migration narratives:
+
+1. **Create migration specs in `specs/migrations/`**, not in
+   `specs/`. One file or several — one per coherent migration.
+2. **Run the mini-spec phases** on the migration specs as normal
+   (Spec → Requirements → Design → Implementation → Simplification
+   → Gaps).
+3. **When implementation lands**, the migration is complete. The
+   code now embodies state B.
+4. **Update the affected `specs/*.md` files** to describe state B
+   as the current truth — fold in record formats, API contracts,
+   or other steady-state material that the migration changed.
+5. **Retire obsoleted requirements.** For each obsolete Rn run:
+
+   ```
+   ~/.claude/bin/minispec update retire R<old> R<new> "<reason>"
+   ```
+
+   Use `-` instead of `R<new>` if there is no replacement. The
+   command rewrites the R<old> line in `requirements.md` to
+   `**~~R<old>:~~** (Retired Tn — see R<new>) <original text>` AND
+   appends a new Tn entry to `design.md` Gaps in one atomic step.
+   Outputs the assigned Tn.
+
+   If a CRC card or inline code comment still references the
+   retired Rn but the code no longer fulfills it, update the
+   reference to the replacement Rn. (References to retired Rn in
+   code that was removed are fine — the comment went with the
+   code.)
+
+6. **Move the migration spec(s)** by running:
+
+   ```
+   ~/.claude/bin/minispec update migration-complete <name>
+   ```
+
+   The command moves `specs/migrations/<name>.md` to
+   `specs/migrations/complete/<NNN>-<name>.md` where NNN is the
+   next zero-padded three-digit prefix. Numbers are assigned at
+   completion time, not creation time, so concurrent in-flight
+   migrations don't fight over numbers and the prefix reflects
+   actual landing order. Outputs the new path.
+
+`specs/migrations/complete/` is the migration history — a
+chronological record of what changed and why. `specs/` always
+reflects the present.
 
 ## CRC Card Format
 ```markdown
@@ -320,6 +475,7 @@ Cover: happy path, errors, edge cases.
 - [ ] UI Specs: ASCII layouts, refs to CRCs and manifest-ui.md
 - [ ] Traceability: design files in Artifacts, code files have checkboxes, all Rn referenced
 - [ ] Tests: test-*.md for key behaviors
+- [ ] Summary specs: any cross-cutting axis touched by this change has been mirrored in the relevant summary spec (CLI inventory, storage layout, API surface, capabilities, …) — see the project's pinned list
 - [ ] Phase validation: `~/.claude/bin/minispec phase <phase>` passes after each phase
 - [ ] Full validation: `~/.claude/bin/minispec validate` passes
 
@@ -351,6 +507,7 @@ The `minispec` CLI tool (at `~/.claude/bin/minispec`) performs structural operat
 ~/.claude/bin/minispec query uncovered       # List Rn without design refs
 ~/.claude/bin/minispec query gaps            # List gap items
 ~/.claude/bin/minispec query requirements    # List all requirements
+~/.claude/bin/minispec query migrations      # List in-flight migration specs
 
 # Updates - artifact checkboxes (in design.md)
 ~/.claude/bin/minispec update check design.md crc-Store.md     # Check artifact
@@ -360,10 +517,16 @@ The `minispec` CLI tool (at `~/.claude/bin/minispec`) performs structural operat
 ~/.claude/bin/minispec update add-ref crc-Store.md R5          # Add requirement to CRC
 ~/.claude/bin/minispec update remove-ref crc-Store.md R5       # Remove requirement from CRC
 
-# Updates - gaps
+# Updates - gaps (S/R/D/C/I/O get checkboxes; A/T are permanent)
 ~/.claude/bin/minispec update add-gap O "Test coverage needed" # Add oversight gap
 ~/.claude/bin/minispec update resolve-gap O3                   # Mark gap resolved
 ~/.claude/bin/minispec update approve-gap D3                   # Convert gap to approved (A) type
+~/.claude/bin/minispec update add-gap T "R5 retired by R10"    # Add retired-requirement gap
+
+# Updates - migrations
+~/.claude/bin/minispec update retire R5 R10 "2026-04-27 schema-v2"   # Retire R5, replaced by R10
+~/.claude/bin/minispec update retire R7 - "no replacement"           # Retire with no replacement
+~/.claude/bin/minispec update migration-complete schema-v2           # Move spec to complete/ with NNN- prefix
 ```
 
 Use the tool to:
