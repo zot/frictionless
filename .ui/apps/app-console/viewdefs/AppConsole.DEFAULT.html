@@ -726,7 +726,7 @@
                 <sl-icon slot="prefix" name="hammer"></sl-icon>
                 Build
               </sl-button>
-              <sl-button variant="default" ui-class-hidden="selected.showButtonHidden()" ui-action="selected.openApp()">
+              <sl-button variant="default" ui-class-hidden="selected.needsBuild()" ui-attr-disabled="selected.openButtonDisabled()" ui-action="selected.openApp()">
                 <sl-icon slot="prefix" name="eye"></sl-icon>
                 Show
               </sl-button>

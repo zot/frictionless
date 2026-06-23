@@ -11,6 +11,11 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--term-bg);
+}
+
+.mcp-shell.maximized {
+  max-width: none;
+  margin: 0;
   /* Subtle scan line overlay */
   background-image:
     repeating-linear-gradient(
@@ -151,7 +156,7 @@
   display: none;
   position: absolute;
   bottom: calc(100% + 8px);
-  right: 0;
+  left: 0;
   white-space: nowrap;
   font-family: var(--term-mono);
   font-size: 0.75rem;
@@ -187,12 +192,12 @@
 .mcp-menu-dropdown {
   position: fixed;
   bottom: 40px;
-  right: 12px;
+  left: 12px;
   z-index: 10000;
   background: var(--term-bg-elevated);
   border: 1px solid var(--term-border);
   border-left: 4px solid var(--term-accent);
-  border-radius: 8px 8px 0 8px;
+  border-radius: 8px 8px 8px 0;
   box-shadow:
     0 -8px 32px rgba(0, 0, 0, 0.6),
     0 0 1px rgba(255, 255, 255, 0.1);

@@ -92,16 +92,19 @@ A status bar at the bottom of the viewport:
 
 ### Status Bar Icons
 
-Icons at the right edge of the status bar, grouped tightly together from left to right:
+Icons at the **left edge** of the status bar, grouped tightly together (status text fills the space to their right). Order, left to right:
 
 | Icon | Action | Description |
 |------|--------|-------------|
-| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
-| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab - documentation |
+| ↔ arrow-left-right | toggleMaximize() | Toggle shell between centered (default 800px max-width) and full viewport width |
+| ▦ grid-3x3-gap-fill | toggleMenu() | App menu |
+| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel |
 | 🔧 tools | openTools() | Opens app-console, selects current app |
+| ⚙ gear | displayPrefs() | Preferences |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
-| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel |
+| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
+| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab - documentation |
 
 The braces icon toggles the inline variable browser panel (see Variable Browser section). The question mark icon uses `ui-html` to generate an anchor tag that opens in a new tab. Both are styled in purple (#bb88ff) with a brighter hover state (#dd99ff). The braces icon shows `braces-asterisk` when the vars panel is active, `braces` otherwise.
 

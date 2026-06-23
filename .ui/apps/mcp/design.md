@@ -34,16 +34,19 @@ Chat panel is between the app content and status bar. Toggled by the 💬 icon (
 
 Fixed at the bottom of the viewport, always visible. Compact horizontal padding (6px). Displays `mcp.statusLine` text with `mcp.statusClass` CSS class applied. The `.thinking` class styles text as orange bold-italic.
 
-At the right end of the status bar are icons grouped tightly together in a `.mcp-status-toggles` container (no gap between icons):
+At the **left end** of the status bar are icons grouped tightly together in a `.mcp-status-toggles` container (no gap between icons). The status text fills the remaining space to the right of the toggles. Order, left to right:
 
 | Icon | Action | Description |
 |------|--------|-------------|
-| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
-| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab (documentation) |
+| ↔ arrow-left-right | toggleMaximize() | Toggle shell between centered (max-width 800px) and full-width |
+| ▦ grid-3x3-gap-fill | toggleMenu() | App menu (also hosts wait pulse + update star) |
+| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel |
 | 🔧 tools | openTools() | Opens app-console, selects current app |
+| ⚙ gear | displayPrefs() | Preferences |
 | 🚀/💎 | toggleBuildMode() | fast / thorough |
 | ⏳/🔄 | toggleBackground() | foreground / background |
-| 💬 chat-dots | togglePanel() | Toggle chat/lua/todo panel (rightmost) |
+| `{}` braces | toggleVarsPanel() | Toggles inline variable browser panel |
+| ❓ question mark | helpLinkHtml() | Opens `/api/resource/` in new tab (documentation) |
 
 Icon styling: minimal padding (2px vertical, 3px horizontal), no gap between icons. Click triggers action. Hover shows dynamic tooltip.
 
@@ -149,10 +152,8 @@ local STEPS = {
      run=function(tut, shell) --[[ reopen GitHub form if needed, select first Lua tab ]] end},
     {title="App Info", selector=".detail-panel", position="below", anchor=".requirements-section", cycling=true,
      run=function(tut, shell) --[[ close GitHub form, select app ]] end},
-    {title="Preferences", selector=".mcp-menu-dropdown", position="left",
-     description="The Prefs app lets you change themes and update settings. You can re-run this tutorial anytime from there.",
-     run=function(tut, shell) shell.menuOpen = true end,
-     cleanup=function(tut, shell) shell.menuOpen = false end},
+    {title="Preferences", selector='.mcp-build-mode-toggle[title="Preferences"]', position="top",
+     description="The Prefs app lets you change themes and update settings. You can re-run this tutorial anytime from there."},
 }
 ```
 
@@ -187,8 +188,8 @@ local STEPS = {
   - `below`: positions card below an anchor element (or target if no anchor); right-aligns the card if the target's right edge is in the right third of the viewport
   - `inside-bottom-right`: positions card at the bottom-right of the target's content area
 - Delayed re-measure: after 800ms, re-runs positioning to catch async rendering
-- Step 1 phase 2: after 3s delay, clicks menu button, polls for dropdown visibility, adds `.tut-menu-glow`, repositions card right-aligned above dropdown
-- Step 11: polls for `.mcp-menu-dropdown.showing`, adds `.tut-menu-glow` to dropdown, finds and spotlights the "Prefs" menu item (`.tut-spotlight` on closest `.mcp-menu-item`)
+- Step 1 phase 2: after the menu opens (Lua sets `menuOpen=true`), polls for `.mcp-menu-dropdown.showing`, adds `.tut-menu-glow`, repositions card left-aligned above the dropdown (the dropdown is anchored bottom-left now)
+- Step 11: standard path — selector targets the gear icon (`.mcp-build-mode-toggle[title="Preferences"]`); the spotlight + card-above behaviour is handled by the normal `top` position branch (no special polling)
 - Uses a `_repoCounter` suffix to ensure value changes trigger `ui-code`
 
 ### Draggable Tutorial Card
@@ -204,7 +205,7 @@ The tutorial card can be repositioned by dragging. Uses the RAF-loop drag patter
 Global JS object managing delayed tutorial actions:
 - `after(delay, fn)` — schedules a callback, only fires if tutorial overlay still has `showing` class
 - `cancelAll()` — clears all pending timers, removes `.tut-menu-glow` from dropdown
-- Tracks `_step` (current step number), `_phase2` (whether phase 2 completed for current step), `_step1Polling` and `_step11Polling` (whether polling is active for those steps)
+- Tracks `_step` (current step number), `_phase2` (whether phase 2 completed for current step), `_step1Polling` (whether step 1's dropdown poll is active)
 
 ### Highlight Cycling (JavaScript)
 
@@ -249,6 +250,7 @@ The global `mcp` object is provided by the server. This app adds:
 | _notifications | Notification[] | Active notification toasts |
 | buildMode | string | "fast" or "thorough" - global build mode setting |
 | runInBackground | boolean | Whether to run builds in background |
+| shellMaximized | boolean | Whether the shell is full-width (max-width/margin overridden via `.maximized` class) |
 | _notifiedForDisconnect | boolean | Whether disconnect warning has been shown (prevents duplicate notifications) |
 | panelOpen | boolean | Whether chat/lua/todo panel is visible |
 | messages | ChatMessage[] | Chat message history |
@@ -298,6 +300,7 @@ The global `mcp` object is provided by the server. This app adds:
 | dismissNotification(n) | Remove notification from list |
 | helpLinkHtml() | Returns cached HTML anchor for /api/resource/ (opens in new tab) |
 | openTools() | Display app-console and select the current app |
+| displayPrefs() | Switch to the prefs app |
 | currentAppName() | Returns kebab-case name of current app from mcp.value.type |
 | currentAppHasCheckpoints() | Returns true if current app has checkpoints (via appConsole:findApp) |
 | currentAppNoCheckpoints() | Returns not currentAppHasCheckpoints() |
@@ -310,6 +313,9 @@ The global `mcp` object is provided by the server. This app adds:
 | isBackground() | Returns true if runInBackground is true |
 | isForeground() | Returns true if runInBackground is false |
 | backgroundTooltip() | Returns tooltip text for current execution mode |
+| toggleMaximize() | Toggle shellMaximized — adds `.maximized` to `.mcp-shell` to override `.app-container`'s max-width/auto-margin |
+| isMaximized() | Returns shellMaximized (for ui-class-maximized binding) |
+| maximizeTooltip() | Returns tooltip text for current shell width state |
 | togglePanel() | Toggle panel; if open in non-chat mode, switch to chat first instead of closing |
 | panelHidden() | Returns not panelOpen |
 | panelShowing() | Returns panelOpen (for ui-class-showing) |

@@ -360,6 +360,7 @@ mcp.menuOpen = mcp.menuOpen or false
 mcp._notifications = mcp._notifications or {}
 mcp.buildMode = mcp.buildMode or "fast"  -- "fast" or "thorough"
 mcp.runInBackground = mcp.runInBackground or false  -- foreground or background execution
+mcp.shellMaximized = mcp.shellMaximized or false  -- collapse left/right margins for full-width
 
 -- Chat/Lua/Todo panel state
 mcp.panelOpen = mcp.panelOpen or false
@@ -483,6 +484,19 @@ end
 
 function mcp:backgroundTooltip()
     return self.runInBackground and "Background (click to change)" or "Foreground (click to change)"
+end
+
+-- Shell maximize toggle: collapses .app-container's max-width/auto-margin
+function mcp:toggleMaximize()
+    self.shellMaximized = not self.shellMaximized
+end
+
+function mcp:isMaximized()
+    return self.shellMaximized
+end
+
+function mcp:maximizeTooltip()
+    return self.shellMaximized and "Restore margins (click to change)" or "Expand to full width (click to change)"
 end
 
 -- Generate HTML link for help documentation (opens in new tab)
