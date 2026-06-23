@@ -34,7 +34,7 @@
     })();
   </script>
 
-  <div class="mcp-shell">
+  <div class="mcp-shell" ui-class-maximized="isMaximized()">
     <!-- Current app content -->
     <div class="mcp-app-container" ui-view="value"></div>
 
@@ -105,16 +105,22 @@
 
     <!-- Status bar -->
     <div class="mcp-status-bar">
-      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine" ui-class-hidden="isUpdating()"></span>
-      <span class="mcp-status-text updating hidden" ui-class-showing="isUpdating()">
-        Updating to v<span ui-value="latestVersion"></span>...
-        <sl-progress-bar indeterminate></sl-progress-bar>
-      </span>
       <span class="mcp-status-toggles">
-        <span class="mcp-build-mode-toggle" ui-event-click="toggleVarsPanel()" title="Variables">
-          <sl-icon name="braces" ui-attr-name="varsIcon()"></sl-icon>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleMaximize()" ui-attr-title="maximizeTooltip()">
+          <sl-icon name="arrow-left-right"></sl-icon>
         </span>
-        <span class="mcp-build-mode-toggle" ui-html="helpLinkHtml()"></span>
+        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()">
+          <sl-icon name="grid-3x3-gap-fill"></sl-icon>
+          <!-- Update available star -->
+          <sl-icon class="mcp-update-star-inline hidden" name="star-fill"
+                   ui-class-showing="updateAvailable()"
+                   ui-event-click="startUpdate()"
+                   title="Update available!"></sl-icon>
+          <span class="mcp-menu-tip"></span>
+        </span>
+        <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
+          <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
+        </span>
         <span class="mcp-build-mode-toggle" ui-event-click="openTools()" ui-class-has-checkpoints="currentAppHasCheckpoints()" ui-attr-title="toolsTooltip()">
           <sl-icon name="tools"></sl-icon>
         </span>
@@ -129,18 +135,15 @@
           <sl-icon name="hourglass-split" ui-class-hidden="isBackground()"></sl-icon>
           <sl-icon name="arrow-repeat" class="hidden" ui-class-showing="isBackground()"></sl-icon>
         </span>
-        <span class="mcp-build-mode-toggle" ui-event-click="togglePanel()" title="Chat panel">
-          <sl-icon name="chat-dots" ui-attr-name="panelIcon()"></sl-icon>
+        <span class="mcp-build-mode-toggle" ui-event-click="toggleVarsPanel()" title="Variables">
+          <sl-icon name="braces" ui-attr-name="varsIcon()"></sl-icon>
         </span>
-        <span class="mcp-menu-toggle" ui-event-click="toggleMenu()" ui-class-waiting="isWaiting()">
-          <sl-icon name="grid-3x3-gap-fill"></sl-icon>
-          <!-- Update available star -->
-          <sl-icon class="mcp-update-star-inline hidden" name="star-fill"
-                   ui-class-showing="updateAvailable()"
-                   ui-event-click="startUpdate()"
-                   title="Update available!"></sl-icon>
-          <span class="mcp-menu-tip"></span>
-        </span>
+        <span class="mcp-build-mode-toggle" ui-html="helpLinkHtml()"></span>
+      </span>
+      <span class="mcp-status-text" ui-attr-class="statusClass" ui-value="statusLine" ui-class-hidden="isUpdating()"></span>
+      <span class="mcp-status-text updating hidden" ui-class-showing="isUpdating()">
+        Updating to v<span ui-value="latestVersion"></span>...
+        <sl-progress-bar indeterminate></sl-progress-bar>
       </span>
     </div>
 

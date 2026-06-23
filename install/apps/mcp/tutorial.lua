@@ -52,13 +52,15 @@ end
 
 -- Bottom Controls highlight items: {text, buttonIndex}
 local CONTROLS_ITEMS = {
-    {text = "{} variables inspector", idx = 0},
-    {text = "? help docs", idx = 1},
-    {text = "wrench app tools", idx = 2},
-    {text = "rocket/gem build mode (fast vs thorough)", idx = 3},
-    {text = "hourglass foreground/background", idx = 4},
-    {text = "speech bubble for the chat panel", idx = 5},
-    {text = "grid icon for the app menu", idx = 6},
+    {text = "↔ resize the shell to full width or back", idx = 0},
+    {text = "grid icon for the app menu", idx = 1},
+    {text = "speech bubble for the chat panel", idx = 2},
+    {text = "wrench: go to current app in app-console", idx = 3},
+    {text = "preferences", idx = 4},
+    {text = "rocket/gem build mode (fast vs thorough)", idx = 5},
+    {text = "hourglass foreground/background", idx = 6},
+    {text = "{} variables inspector", idx = 7},
+    {text = "? help docs", idx = 8},
 }
 
 --------------------------------------------------------------------
@@ -213,7 +215,7 @@ local STEPS = {
             end
         end
     },
-    -- Step 8: Download from GitHub
+    -- Step 9: Download from GitHub
     {
         title = "Download from GitHub",
         position = "below",
@@ -232,7 +234,7 @@ local STEPS = {
             if not exampleAppInstalled() then openExampleGitHubForm(tut) end
         end
     },
-    -- Step 9: Security Review
+    -- Step 10: Security Review
     {
         title = "Security Review",
         position = "inside-bottom-right",
@@ -263,7 +265,7 @@ local STEPS = {
             end
         end
     },
-    -- Step 10: App Info
+    -- Step 11: App Info
     {
         title = "App Info",
         selector = ".detail-panel",
@@ -289,7 +291,7 @@ local STEPS = {
             end
         end
     },
-    -- Step 11: Preferences
+    -- Step 12: Preferences
     {
         title = "Preferences",
         description = "The Prefs app lets you change themes and update settings. You can re-run this tutorial anytime from there.",

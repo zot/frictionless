@@ -16,9 +16,46 @@
     </div>
     <!-- Trigger repositioning when repositionCode changes -->
     <div style="display:none" ui-code="repositionCode"></div>
+    <!-- Bridge: exposes the current repositionCode JS string so a page-reload
+         init script can re-fire it (ui-code doesn't fire when the value hasn't
+         changed across the reload). -->
+    <span id="tut-repo-bridge" style="display:none" ui-value="repositionCode"></span>
     <!-- Tutorial highlight bridge: JS polls this span (Lua-to-JS data bridge) -->
     <span class="tut-highlight-bridge" style="display:none" ui-value="highlightActive()"></span>
   </div>
+
+  <script>
+    // Page-reload kick: if the tutorial overlay comes back already showing
+    // (active==true persisted in Lua), explicitly evaluate the stored
+    // repositionCode once. On a cold page load, the ui-code binding can fire
+    // before window._tutReposition is defined (a TypeError appears in the
+    // console). We poll until the function exists AND the bridge span is
+    // populated, then run the code.
+    (function() {
+      var attempts = 0;
+      function tryKick() {
+        var overlay = document.querySelector('.tutorial-overlay');
+        var bridge = document.getElementById('tut-repo-bridge');
+        if (!overlay || !bridge) {
+          if (attempts++ < 60) setTimeout(tryKick, 50);
+          return;
+        }
+        if (!overlay.classList.contains('showing')) return;  // tutorial inactive
+        if (window._tutSched && window._tutSched._lastRepo) return;  // already fired
+        if (typeof window._tutReposition !== 'function') {
+          if (attempts++ < 60) setTimeout(tryKick, 50);  // function not defined yet
+          return;
+        }
+        var code = bridge.textContent || '';
+        if (code.indexOf('window._tutReposition') === -1) {
+          if (attempts++ < 60) setTimeout(tryKick, 50);  // bridge value not populated yet
+          return;
+        }
+        try { eval(code); } catch (e) { console.error('[tutorial] reload kick failed:', e); }
+      }
+      setTimeout(tryKick, 200);
+    })();
+  </script>
 
   <script>
     // Central tutorial timer scheduler — all delayed tutorial actions go through this.
@@ -106,15 +143,27 @@
   <script>
     // Tutorial card positioning + backdrop cutout + spotlight
     // Called from Lua via ui-code="repositionCode" with data arguments
-    window._tutReposition = function(selector, position, step, topOffset, anchor) {
+    // (showingAttempt is internal — used to retry on page reload while the
+    //  .showing class binding settles; not passed by Lua)
+    window._tutReposition = function(selector, position, step, topOffset, anchor, showingAttempt) {
       if (window._tutSched) window._tutSched._lastRepo = {sel: selector, pos: position, step: step, off: topOffset, anc: anchor};
       requestAnimationFrame(function() { setTimeout(function() {
         var overlay = document.querySelector('.tutorial-overlay');
         var backdrop = document.querySelector('.tutorial-backdrop');
         var card = document.querySelector('.tutorial-card');
         if (!overlay || !backdrop || !card) return;
-        // Don't reposition if tutorial overlay is hidden (stale ui-code on page reload)
-        if (!overlay.classList.contains('showing')) return;
+        // On page reload the overlay's .showing class may not have been applied yet
+        // (the ui-code binding can fire before the ui-class binding settles). Retry
+        // briefly; if .showing is still missing, the tutorial really isn't active.
+        if (!overlay.classList.contains('showing')) {
+          var n = showingAttempt || 0;
+          if (n < 10) {
+            setTimeout(function() {
+              window._tutReposition(selector, position, step, topOffset, anchor, n + 1);
+            }, 50);
+          }
+          return;
+        }
 
         // Step transition: runs before measurement so DOM changes take effect
         if (window._tutSched) {
@@ -130,7 +179,6 @@
             window._tutSched._phase2 = false;
             window._tutSched._remeasured = false;
             window._tutSched._step1Polling = false;
-            window._tutSched._step11Polling = false;
             // Enter: resize panel for steps 5-6
             if (step === 5 || step === 6) {
               var p = document.querySelector('.mcp-chat-panel');
@@ -230,27 +278,9 @@
           if (wo) wo.classList.add('tut-wait-glow');
         }
 
-        // Step 12: highlight prefs item in the menu dropdown
-        if (step === 12 && !window._tutSched._step12Polling) {
-          window._tutSched._step12Polling = true;
-          var pollId11 = setInterval(function() {
-            var md = document.querySelector('.mcp-menu-dropdown');
-            if (md && md.classList.contains('showing')) {
-              clearInterval(pollId11);
-              md.classList.add('tut-menu-glow');
-              // Find and spotlight the prefs menu item
-              var items = md.querySelectorAll('.mcp-menu-item-name');
-              for (var i = 0; i < items.length; i++) {
-                if (items[i].textContent.trim().toLowerCase() === 'prefs') {
-                  items[i].closest('.mcp-menu-item').classList.add('tut-spotlight');
-                  break;
-                }
-              }
-              window._tutSched._phase2 = true;
-            }
-          }, 100);
-          window._tutSched.after(10000, function() { clearInterval(pollId11); });
-        }
+        // (Step 11 used to open the apps dropdown and spotlight the Prefs menu
+        // item there; Prefs is now its own status-bar icon, so the standard
+        // path above handles it via selector + spotlight.)
 
         // Step 1 phase 2: menu opened from Lua (run action);
         // poll until dropdown is visible, then add glow and reposition card
@@ -262,7 +292,8 @@
               clearInterval(pollId);
               md.classList.add('tut-menu-glow');
               var mr = md.getBoundingClientRect();
-              card.style.left = Math.max(margin, mr.right - cardWidth) + 'px';
+              // Card sits above the dropdown, left-aligned with it (dropdown is anchored bottom-left).
+              card.style.left = Math.min(window.innerWidth - cardWidth - margin, Math.max(margin, mr.left)) + 'px';
               card.style.top = Math.max(margin, mr.top - cardHeight - margin) + 'px';
               window._tutSched._phase2 = true;
             }
@@ -390,7 +421,7 @@
       };
 
       function clearAll() {
-        document.querySelectorAll('.mcp-build-mode-toggle.tut-active')
+        document.querySelectorAll('.mcp-build-mode-toggle.tut-active, .mcp-menu-toggle.tut-active')
           .forEach(function(t) { t.classList.remove('tut-active'); });
         document.querySelectorAll('.tutorial-description .tut-highlight')
           .forEach(function(s) { s.classList.remove('tut-highlight'); });
@@ -415,11 +446,14 @@
         fill.style.width = Math.min(100, pct * 100) + '%';
       }
 
+      var wasShowing = false;
       function update() {
         var overlay = document.querySelector('.tutorial-overlay');
-        if (!overlay || !overlay.classList.contains('showing')) {
-          // Auto-cleanup when tutorial transitions to hidden
-          if (wasStep !== '0') {
+        var showing = !!(overlay && overlay.classList.contains('showing'));
+        if (!showing) {
+          // Auto-cleanup on hide transition. Run once even if the final step
+          // wasn't a cycling step (so non-cycling spotlights get cleared too).
+          if (wasShowing) {
             var leaving = CYCLING_STEPS[wasStep];
             if (leaving && leaving.onLeave) leaving.onLeave();
             clearAll();
@@ -427,8 +461,10 @@
             wasStep = '0';
             lastIdx = -1;
           }
+          wasShowing = false;
           return;
         }
+        wasShowing = true;
 
         var bridge = document.querySelector('.tut-highlight-bridge');
         if (!bridge) return;

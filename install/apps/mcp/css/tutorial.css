@@ -88,7 +88,8 @@
   font-weight: 600;
 }
 
-.mcp-build-mode-toggle.tut-active {
+.mcp-build-mode-toggle.tut-active,
+.mcp-menu-toggle.tut-active {
   background: rgba(224, 122, 71, 0.3);
   border-radius: 4px;
   box-shadow: 0 0 10px rgba(224, 122, 71, 0.6), 0 0 20px rgba(224, 122, 71, 0.3);
@@ -96,7 +97,8 @@
   animation: tut-btn-pulse 1.2s ease-in-out infinite;
 }
 
-.mcp-build-mode-toggle.tut-active sl-icon {
+.mcp-build-mode-toggle.tut-active sl-icon,
+.mcp-menu-toggle.tut-active sl-icon {
   color: var(--term-accent);
   filter: drop-shadow(0 0 4px var(--term-accent-glow));
 }
@@ -155,11 +157,6 @@
   z-index: 20002;
   box-shadow: 0 0 0 2px var(--term-accent), 0 0 12px rgba(224, 122, 71, 0.5), 0 0 24px rgba(224, 122, 71, 0.3);
   animation: tut-btn-pulse 1.2s ease-in-out infinite;
-}
-
-/* Force tooltip visible during tutorial (no hover needed) */
-.mcp-menu-toggle.tut-wait-glow .mcp-menu-tip:not(:empty) {
-  display: block;
 }
 
 .tutorial-inline-action {
