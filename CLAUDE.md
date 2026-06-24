@@ -51,8 +51,9 @@ Release versions use semantic versioning in `README.md` (the `**Version: X.Y.Z**
 **To create a release:**
 1. Check if [ui-engine](https://github.com/zot/ui-engine) has a newer version and update `go.mod` if needed (`go get github.com/zot/ui-engine@latest`)
 2. Update `**Version: X.Y.Z**` in `README.md`,`install/README.md`, and `.ui/README.md`
-3. Commit: `git commit -am "Release vX.Y.Z"`
-4. Tag: `git tag vX.Y.Z`
-5. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
-6. Push: `git push && git push --tags`
-7. Create GitHub release: `gh release create vX.Y.Z release/* --title "vX.Y.Z" --notes "Release notes here"`
+3. Ask the user to stage changes
+4. Commit: `git commit -m "Release vX.Y.Z"`
+5. Tag: `git tag vX.Y.Z`
+6. Build: `make release` (creates binaries in `release/` for Linux, macOS, Windows)
+7. Push: `git push && git push --tags`
+8. Create GitHub release: `gh release create vX.Y.Z release/* --title "vX.Y.Z" --notes "Release notes here"`
