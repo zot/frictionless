@@ -2,6 +2,12 @@
 
 ## Gaps
 
+### Fast Code
+
+Consolidated from `/ui-fast` checkpoints (2026-10-02); review when touching sorting:
+- `getSortValue()` date column: falls back to `dateAdded` when `dateApplied` is nil or empty, and truncates to `YYYY-MM-DD` so mixed date/timestamp values sort together
+- `JobTracker:applications()` comparator: explicit `if asc` branch (the `asc and a < b or a > b` idiom returned the wrong result when `a < b` was false)
+
 ### Dead Methods (by design)
 
 The following methods are defined but not directly called from viewdefs. They are either:

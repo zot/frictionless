@@ -19,6 +19,11 @@ local DATA_FILE = STORAGE_DIR .. "/data.json"
 local RESUMES_DIR = STORAGE_DIR .. "/resumes"
 local MASTER_RESUME_FILE = STORAGE_DIR .. "/master-resume.md"
 
+-- Absolute HTTP URL for a file under job-tracker-storage (works in system browsers too)
+local function storageUrl(path)
+    return mcp:status().url .. "/job-tracker-storage/" .. path
+end
+
 local INACTIVE_STATUSES = {
     archived = true,
     rejected = true,
@@ -953,13 +958,11 @@ function JobTracker:noUnlinkableApps() return #self:unlinkableApps() == 0 end
 function JobTracker:showResumePreview() return self.selectedResume ~= nil or self.showMasterResume end
 function JobTracker:hideResumePreview() return self.selectedResume == nil and not self.showMasterResume end
 function JobTracker:currentResumePreviewUrl()
-    local status = mcp:status()
-    local base = "http://localhost:" .. status.mcp_port
     local ts = "?" .. os.time()
     if self.showMasterResume then
-        return base .. "/job-tracker-storage/master-resume.md" .. ts
+        return storageUrl("master-resume.md" .. ts)
     elseif self.selectedResume then
-        return base .. "/job-tracker-storage/resumes/" .. self.selectedResume.filename .. ts
+        return storageUrl("resumes/" .. self.selectedResume.filename .. ts)
     end
     return ""
 end
@@ -1177,8 +1180,7 @@ end
 
 function Attachment:viewUrl()
     local idDir = string.format("%04d", self.applicationId)
-    local status = mcp:status()
-    return "http://localhost:" .. status.mcp_port .. "/job-tracker-storage/jobs/" .. idDir .. "/" .. self.filename
+    return storageUrl("jobs/" .. idDir .. "/" .. self.filename)
 end
 
 -- Resume methods
@@ -1245,8 +1247,7 @@ function Resume:moreAppsCount()
 end
 
 function Resume:previewUrl()
-    local status = mcp:status()
-    return "http://localhost:" .. status.mcp_port .. "/job-tracker-storage/resumes/" .. self.filename .. "?" .. os.time()
+    return storageUrl("resumes/" .. self.filename .. "?" .. os.time())
 end
 
 function Resume:filePath()

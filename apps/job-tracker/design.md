@@ -257,7 +257,7 @@ Legend:
 | deleteMe() | Delete this attachment |
 | icon() | Returns icon name based on file extension |
 | downloadUrl() | Returns file:// URL for download |
-| viewUrl() | Returns absolute HTTP URL for viewing attachment in iframe (uses mcp:status().mcp_port) |
+| viewUrl() | Returns absolute HTTP URL for viewing attachment in iframe (uses mcp:status().url) |
 
 ### Resume
 
@@ -270,7 +270,7 @@ Legend:
 | linkedAppsBadges(max) | Returns up to max linked apps for display |
 | hasMoreApps(max) | Returns true if more than max linked apps |
 | moreAppsCount(max) | Returns count of apps beyond max |
-| previewUrl() | Returns absolute HTTP URL for iframe preview (uses mcp:status().mcp_port, with cache-busting timestamp) |
+| previewUrl() | Returns absolute HTTP URL for iframe preview (uses mcp:status().url, with cache-busting timestamp) |
 | filePath() | Returns full path to markdown file |
 | unlinkApp(app) | Remove app from applicationIds |
 | linkApp(app) | Add app to applicationIds |
@@ -386,7 +386,7 @@ Legend:
 | isLinkPickerHidden() | Returns not showLinkPicker |
 | unlinkableApps() | Returns apps not linked to selected resume |
 | linkAppToResume(app) | Link app to selected resume |
-| currentResumePreviewUrl() | Returns absolute HTTP URL for current preview (selected or master, uses mcp:status().mcp_port, with cache-busting timestamp) |
+| currentResumePreviewUrl() | Returns absolute HTTP URL for current preview (selected or master, uses mcp:status().url, with cache-busting timestamp) |
 | hasSelectedResume() | Returns selectedResume ~= nil |
 | noSelectedResume() | Returns selectedResume == nil |
 | loadResumes() | Load resumes from data.json |
@@ -559,10 +559,10 @@ To render markdown as HTML in iframes, a symlink is created on app initializatio
 {base_dir}/html/job-tracker-storage -> {base_dir}/storage/job-tracker/data
 ```
 
-Preview URLs (absolute, using `mcp:status().mcp_port` for system browser compatibility):
-- Master resume: `http://localhost:{port}/job-tracker-storage/master-resume.md`
-- Resume variant: `http://localhost:{port}/job-tracker-storage/resumes/ai-engineer-2026.md`
-- Attachment: `http://localhost:{port}/job-tracker-storage/jobs/{id}/{filename}`
+Preview URLs (absolute, built from `mcp:status().url` for system browser compatibility; `mcp_port` is 0 since ui-engine 0.31 serves everything on one port):
+- Master resume: `{url}/job-tracker-storage/master-resume.md`
+- Resume variant: `{url}/job-tracker-storage/resumes/ai-engineer-2026.md`
+- Attachment: `{url}/job-tracker-storage/jobs/{id}/{filename}`
 
 The ui-engine auto-renders `.md` files as HTML when served.
 

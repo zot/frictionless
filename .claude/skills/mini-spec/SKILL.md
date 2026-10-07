@@ -311,6 +311,36 @@ add(data): Item {
 
 The third `| Rn, Rn` section is optional but recommended — it links specific code locations directly to requirements, enabling implementation coverage validation.
 
+**What counts as an inline `Rn` ref (v2.10.0+).** `minispec validate`
+harvests implementation refs from two comment shapes:
+
+1. **The tail of a `// CRC:` line** — `// CRC: <card> | Seq: <seq> | R5, R12`.
+   The parser is `<comment-prefix>CRC:\s*<card>(\| Seq: <seq>)?<rest>`
+   and pulls every `Rn` from `<rest>`.
+2. **A bare annotation that *leads* with the ref(s)** right after the
+   comment leader: `// R5: desc`, `// R5, R6`, or a trailing
+   `foo() // R7`. The leading comma-separated refs count. This credits
+   the deliberate field/line annotations that sit beside a type's or
+   function's `// CRC:` header.
+
+The `<comment-prefix>` is the file's line-comment leader and is
+**language-dependent**: `//` for Go/JS/TS/C, `--` for Lua, `#` for
+shell/Python, `<!--` for Markdown/HTML, `/*` for CSS. Run `minispec
+query comment-patterns` for the per-extension list (and the
+block-comment closers below). The examples here are Go.
+
+What still does **not** count, because the ref does not lead the
+comment and so reads as prose rather than intent:
+
+- `// computed lazily (R5)` (parenthetical mid-prose)
+- `// see R5 for the rationale` (ref after words)
+- `// Seq: seq-foo.md | R5` (no `CRC:`; a `Seq:`-only line does not trigger)
+
+A requirement annotated only in prose form reads as "missing impl
+coverage." Lead with the ref, or fold it onto the governing `// CRC:`
+header (with the card that owns the `Rn`, per its `**Requirements:**`
+field), to anchor the code location.
+
 **Block-comment languages:** The `minispec query comment-patterns` output lists any `comment_closers`. If a closer exists for the file extension, you MUST append it to every traceability comment. An unclosed block comment silently swallows all subsequent code. See `config-reference.md` (in this skill directory) if you need to configure closers for a new language.
 
 Mark implemented using minispec:
