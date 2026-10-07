@@ -114,7 +114,7 @@ All MCP tools are accessible via HTTP through the `.ui/mcp TOOL_NAME` command. T
 | `.ui/mcp browser`                    | open browser to UI session            |
 | `.ui/mcp display APP`                | display APP in the browser            |
 | `.ui/mcp event`                      | wait for next UI event (120s timeout) |
-| `.ui/mcp linkapp add|remove APP`     | manage app symlinks                   |
+| `.ui/mcp linkapp add|remove APP`     | activate or deactivate an app         |
 | `.ui/mcp progress APP PERCENT STAGE` | report build progress                 |
 | `.ui/mcp run 'lua code'`             | execute Lua code in session           |
 | `.ui/mcp state`                      | get current session state             |
@@ -153,7 +153,7 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 
 | Type / Function | Description |
 |-----------------|-------------|
-| `Config{Dir, Host, Project, Port}` | Configuration: base directory, bind host (default `"127.0.0.1"`), optional project directory, and preferred HTTP port (0 = auto-select) |
+| `Config{Dir, Host, Project, Port, BuiltinApps}` | Configuration: base directory, bind host (default `"127.0.0.1"`), optional project directory, preferred HTTP port (0 = auto-select), and the names of the embedder's built-in apps (order does not matter) |
 | `New(Config) (*Runtime, error)` | Create a runtime (ui-engine + MCP server), not yet started |
 | `Runtime.Configure() error` | Prepare environment (directories, auto-install) |
 | `Runtime.Start() (string, error)` | Start UI HTTP server and create Lua session; returns base URL |
@@ -173,6 +173,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 **Backend socket isolation:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the ui-engine's shared `/tmp/ui.sock` default. Each embedded runtime owns a private control socket keyed to its base directory, so multiple embedded runtimes (e.g. a disposable ark running alongside a live one) no longer collide on the fixed default. The embedder may still override the socket through the ui-engine config if it needs a specific path. (R182)
 
 **Route registration:** `RegisterAPI` delegates to `Server.RegisterAPIRoutes`, which registers the same handlers used by `StartHTTPServer` and `ServeSSE`. This allows an embedding binary to serve Frictionless endpoints on its own listener (e.g. a Unix domain socket) alongside its own routes. The embedding binary is responsible for the static file catch-all (`/`) if desired.
+
+**Built-in apps:** `Config.BuiltinApps` is passed to the ui-engine as its built-in app list, which ranks those apps first when viewdef names collide (see ui-engine's app-discovery spec). ark fills it with the apps its bundle ships. Empty means no app is built-in.
 
 **Project directory:** When `Config.Project` is set, `ui_install` uses it as `{project}` instead of deriving it from `{base_dir}`. This is required when the base directory is not a child of the project (e.g. ark uses `~/.ark/` as base_dir but installs skills to the caller's working project). Affects skill destinations (`{project}/.claude/skills/`), CLAUDE.md patching, and agent file checks. The install manifest stays in `{base_dir}/storage/settings.json` regardless.
 
@@ -444,15 +446,15 @@ A global `mcp` table is created in each Lua session to provide MCP-specific func
 
 #### Extension via `mcp.lua`
 
-Projects can extend the `mcp` object with custom shell functionality (e.g., app menus, global UI chrome) by providing `{base_dir}/lua/mcp.lua`.
+Projects can extend the `mcp` object with custom shell functionality (e.g., app menus, global UI chrome) through the `mcp` app, whose entry file is `{base_dir}/lua/mcp/app.lua` (the app is active when `lua/mcp` resolves to its directory).
 
 **Loading sequence:**
 1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
 2. Go creates the `mcp` global with core methods (`display`, `status`, `pushState`, etc.)
-3. Go loads `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
+3. Go loads `{base_dir}/lua/mcp/app.lua` if it exists, extending the mcp global
 4. Go scans `{base_dir}/apps/*/` and loads `init.lua` from each app directory if it exists
 
-**Note:** Since `main.lua` runs before the `mcp` global is created, `mcp.lua` must be loaded by Go code after creating the mcp table, not by main.lua.
+**Note:** Since `main.lua` runs before the `mcp` global is created, the mcp app's entry must be loaded by Go code after creating the mcp table, not by main.lua.
 
 #### App Initialization (`init.lua`)
 
@@ -508,8 +510,8 @@ end
 | `pushState` | `mcp.pushState(event)` | Push an event table to the state queue. Signals waiting HTTP clients. See Section 8.1. |
 | `pollingEvents` | `mcp:pollingEvents()` | Returns `true` if an agent is connected to `/wait`. See Section 8.2. |
 | `waitTime` | `mcp:waitTime()` | Returns seconds since agent last responded, or 0 if connected. See Section 8.3. |
-| `app` | `mcp:app(appName)` | Load an app without displaying it. Returns the app global, or `nil, errmsg`. |
-| `display` | `mcp:display(appName)` | Load and display an app. Returns `true`, or `nil, errmsg`. |
+| `app` | `mcp:app(appName)` | Load an app without displaying it. Returns the app global, or `nil, errmsg`. The first request loads the app's entry file `{base_dir}/lua/{app}/app.lua`; apps are loaded on request, never at session start. |
+| `display` | `mcp:display(appName)` | Load and display an app. Returns `true`, or `nil, errmsg`. Loads the entry file the same way as `mcp:app`. |
 | `status` | `mcp:status()` | Returns the current MCP server status as a table. See below. |
 
 #### `mcp:status()`

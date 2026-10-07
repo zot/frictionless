@@ -45,7 +45,7 @@ Server configures and auto-starts using `--dir` (defaults to `.ui`).
           │                      │                       │                  │
           │                      │ loadMCPLua()          │                  │
           │                      │─────────────────────────────────────────>│
-          │                      │ [load mcp.lua if exists]                 │
+          │                      │ [load mcp/app.lua if exists]             │
           │                      │                       │                  │
           │                      │ loadAppInitFiles()    │                  │
           │                      │─────────────────────────────────────────>│
@@ -64,7 +64,7 @@ Server configures and auto-starts using `--dir` (defaults to `.ui`).
 **Lua Loading Sequence (during startup):**
 1. ui-engine loads `main.lua` (mcp global does NOT exist yet)
 2. `setupMCPGlobal()` creates the `mcp` global with core methods
-3. `loadMCPLua()` loads `{base_dir}/lua/mcp.lua` if it exists
+3. `loadMCPLua()` loads `{base_dir}/lua/mcp/app.lua` (the mcp app's entry) if it exists
 4. `loadAppInitFiles()` scans `{base_dir}/apps/*/` and loads each `init.lua`
 
 **Notes:**

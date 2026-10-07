@@ -1,1 +1,0 @@
-../apps/prefs/app.lua

@@ -1,0 +1,303 @@
+# Example language definitions for .minispec/config.toml (or a design root's .minispec.toml).
+#
+# mini-spec already reads every language below; these copy its built-in tables so you have
+# a working model to adapt. A definition here overrides the built-in table for the
+# extensions it names, so copy only what you mean to change or add.
+#
+# Each [[languages]] entry is sdom's BracketLang written field for field in snake case:
+#
+#   name, extensions        which files this definition reads
+#   comment                 the form written in this language (required)
+#   [[languages.brackets]]  the bracket groups, in MATCHING ORDER: the first opener that
+#                           matches wins, so a longer marker comes before any marker that
+#                           is its prefix (""" before ", --[[ before --)
+#   tab, transparent,       set any of these and the definition is an indent language
+#   continuation            (sdom's IndentLang), as Python is
+#
+# A group's fields: open, open_regex, separators, close, close_regex, close_is_open,
+# before_open, after_open, before_close, escape, reject_longer_closes, demote_unclosed,
+# blank_line_bound, line_head_unbound, allowed_inner, allowed_parent, kind.
+#
+#   allowed_inner ABSENT   code mode: every group's openers are live inside
+#   allowed_inner = []     raw: nothing inside is recognized (comments, plain strings)
+#   allowed_inner = [..]   restricted: only the listed openers are live inside
+#
+# A comment group must carry the same kind as `comment`, which is how the traceability
+# reader knows which groups are comments. `minispec query comment-patterns` shows what the
+# tool will write and read for each extension once your definitions load.
+
+# ---------------------------------------------------------------------------- C
+
+[[languages]]
+name = "c"
+extensions = [".c", ".h"]
+comment = { prefix = "// ", suffix = "\n", kind = "comment" }
+
+  [[languages.brackets]]
+  open = ["//"]
+  close = "\n"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ["/*"]
+  close = "*/"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ['"']
+  close = '"'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["{"]
+  close = "}"
+
+  [[languages.brackets]]
+  open = ["("]
+  close = ")"
+
+  [[languages.brackets]]
+  open = ["["]
+  close = "]"
+
+# -------------------------------------------------------------------------- C++
+
+# C's groups, with raw strings first: R"delim( ... )delim". The open and close patterns
+# name the same capture group, `delim`, so the string closes only where the delimiter
+# matches the one it opened with. That is how a pattern closer is tied to its opener.
+
+[[languages]]
+name = "cpp"
+extensions = [".cpp", ".hpp", ".cc"]
+comment = { prefix = "// ", suffix = "\n", kind = "comment" }
+
+  [[languages.brackets]]
+  open_regex = '(?:u8|u|U|L)?R"(?P<delim>[^()\\ ]{0,16})\('
+  close_regex = '\)(?P<delim>[^()\\ ]{0,16})"'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["//"]
+  close = "\n"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ["/*"]
+  close = "*/"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ['"']
+  close = '"'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["{"]
+  close = "}"
+
+  [[languages.brackets]]
+  open = ["("]
+  close = ")"
+
+  [[languages.brackets]]
+  open = ["["]
+  close = "]"
+
+# ------------------------------------------------------------------------- Java
+
+# C's groups, with text blocks first so """ is not read as an empty string and another.
+
+[[languages]]
+name = "java"
+extensions = [".java"]
+comment = { prefix = "// ", suffix = "\n", kind = "comment" }
+
+  [[languages.brackets]]
+  open = ['"""']
+  close = '"""'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["//"]
+  close = "\n"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ["/*"]
+  close = "*/"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ['"']
+  close = '"'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["{"]
+  close = "}"
+
+  [[languages.brackets]]
+  open = ["("]
+  close = ")"
+
+  [[languages.brackets]]
+  open = ["["]
+  close = "]"
+
+# --------------------------------------------------------------------------- Go
+
+# C's groups plus the backtick raw string, which has no escape at all.
+
+[[languages]]
+name = "go"
+extensions = [".go"]
+comment = { prefix = "// ", suffix = "\n", kind = "comment" }
+
+  [[languages.brackets]]
+  open = ["//"]
+  close = "\n"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ["/*"]
+  close = "*/"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ['"']
+  close = '"'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["`"]
+  close = "`"
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["{"]
+  close = "}"
+
+  [[languages.brackets]]
+  open = ["("]
+  close = ")"
+
+  [[languages.brackets]]
+  open = ["["]
+  close = "]"
+
+# ----------------------------------------------------------------------- Python
+
+# An indent language: `tab`, `transparent` and `continuation` make it one. f-strings are
+# RESTRICTED rather than raw — `allowed_inner = ["{"]` — because their {...} is code.
+# Longest quote form first, so f""" is matched before f".
+
+[[languages]]
+name = "python"
+extensions = [".py"]
+comment = { prefix = "# ", suffix = "\n", kind = "comment" }
+tab = 8
+transparent = "comment"
+continuation = '\'
+
+  [[languages.brackets]]
+  open = ["#"]
+  close = "\n"
+  allowed_inner = []
+  kind = "comment"
+
+  [[languages.brackets]]
+  open = ['f"""', 'F"""', 'fr"""', 'fR"""', 'Fr"""', 'FR"""', 'rf"""', 'rF"""', 'Rf"""', 'RF"""']
+  close = '"""'
+  escape = '\'
+  allowed_inner = ["{"]
+
+  [[languages.brackets]]
+  open = ["f'''", "F'''", "fr'''", "fR'''", "Fr'''", "FR'''", "rf'''", "rF'''", "Rf'''", "RF'''"]
+  close = "'''"
+  escape = '\'
+  allowed_inner = ["{"]
+
+  [[languages.brackets]]
+  open = ['f"', 'F"', 'fr"', 'fR"', 'Fr"', 'FR"', 'rf"', 'rF"', 'Rf"', 'RF"']
+  close = '"'
+  escape = '\'
+  allowed_inner = ["{"]
+
+  [[languages.brackets]]
+  open = ["f'", "F'", "fr'", "fR'", "Fr'", "FR'", "rf'", "rF'", "Rf'", "RF'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = ["{"]
+
+  [[languages.brackets]]
+  open = ['"""']
+  close = '"""'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'''"]
+  close = "'''"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ['"']
+  close = '"'
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["'"]
+  close = "'"
+  escape = '\'
+  allowed_inner = []
+
+  [[languages.brackets]]
+  open = ["("]
+  close = ")"
+
+  [[languages.brackets]]
+  open = ["["]
+  close = "]"
+
+  [[languages.brackets]]
+  open = ["{"]
+  close = "}"

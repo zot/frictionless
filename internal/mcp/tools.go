@@ -828,9 +828,9 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			// Check if global exists for this app
 			appVal := L.GetGlobal(globalName)
 			if appVal == lua.LNil {
-				// Load the app file via RequireLuaFile
-				luaFile := appName + ".lua"
-				if _, err := session.DirectRequireLuaFile(luaFile); err != nil {
+				// Load the app's entry through its lua/<app> activation link
+				// CRC: crc-MCPServer.md | R189
+				if _, err := session.DirectRequireLuaFile(appEntryFile(appName)); err != nil {
 					L.Push(lua.LNil)
 					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
 					return 2
@@ -865,9 +865,9 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			// Check if global exists for this app
 			appVal := L.GetGlobal(globalName)
 			if appVal == lua.LNil {
-				// Load the app file via RequireLuaFile
-				luaFile := appName + ".lua"
-				if _, err := session.DirectRequireLuaFile(luaFile); err != nil {
+				// Load the app's entry through its lua/<app> activation link
+				// CRC: crc-MCPServer.md | R189
+				if _, err := session.DirectRequireLuaFile(appEntryFile(appName)); err != nil {
 					L.Push(lua.LNil)
 					L.Push(lua.LString(fmt.Sprintf("failed to load app %s: %v", appName, err)))
 					return 2
@@ -957,13 +957,14 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		// CRC: crc-MCPSubscribe.md
 		s.registerSubscribeMethod(vendedID, mcpTable)
 
-		// Load mcp.lua if it exists to extend the mcp global
+		// Load the mcp app's entry if it exists to extend the mcp global
 		// Use DirectRequireLuaFile to register for hot-loading
-		// Spec: mcp.md Section 4.3 "Extension via mcp.lua"
-		if _, err := session.DirectRequireLuaFile("mcp.lua"); err != nil {
-			// Ignore "not found" errors - mcp.lua is optional
+		// Spec: mcp.md Section 4.3 "Extension via the mcp app"
+		// CRC: crc-MCPServer.md | R183
+		if _, err := session.DirectRequireLuaFile(appEntryFile("mcp")); err != nil {
+			// Ignore "not found" errors - the mcp app is optional
 			if !os.IsNotExist(err) && !strings.Contains(err.Error(), "not found") {
-				return nil, fmt.Errorf("failed to load mcp.lua: %w", err)
+				return nil, fmt.Errorf("failed to load the mcp app: %w", err)
 			}
 		}
 
@@ -1945,4 +1946,12 @@ func (s *Server) handleStaticFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.ServeFile(w, r, fullPath)
+}
+
+// appEntryFile is an app's entry file, relative to the lua directory. It is
+// read through the lua/<app> activation link, so no per-app entry link is
+// needed.
+// CRC: crc-MCPServer.md | R183, R189
+func appEntryFile(appName string) string {
+	return appName + "/app.lua"
 }

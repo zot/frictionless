@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R183, R189, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178
 
 ## Responsibilities
 
@@ -46,7 +46,8 @@
 - handleState: Return raw JSON state for the current session (R134)
 - handleAppReadme: Serve app's README.md as HTML (GET /app/{app}/readme); case-insensitive file lookup; renders markdown via goldmark
 - setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status, mcp:reinjectThemes, mcp:renderMarkdown)
-- loadMCPLua: Load `{base_dir}/lua/mcp.lua` if it exists, extending the mcp global
+- loadMCPLua: Load the mcp app's entry `{base_dir}/lua/mcp/app.lua` if it exists, extending the mcp global (R183)
+- appEntryFile(name): `{name}/app.lua`, the entry `mcp:app` and `mcp:display` load (through the `lua/{name}` activation link) the first time an app is asked for (R189)
 - loadAppInitFiles: Scan `{base_dir}/apps/*/` and load `init.lua` from each app directory if it exists
 - tryStartPublisher: Goroutine started from Start(); creates Publisher and calls ListenAndServe on port 25283; silently exits if port already bound
 

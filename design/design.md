@@ -9,7 +9,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 ## Artifacts
 
 ### CRC Cards
-- [x] crc-MCPServer.md → `internal/mcp/server.go`
+- [x] crc-MCPServer.md → `internal/mcp/server.go`, `internal/mcp/tools.go`
 - [x] crc-MCPResource.md → `internal/mcp/resources.go`
 - [x] crc-MCPTool.md → `internal/mcp/tools.go`
 - [x] crc-Auditor.md → `internal/mcp/audit.go`
@@ -41,6 +41,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 ### Test Designs
 - [ ] test-MCP.md → `internal/mcp/tools_test.go`
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
+- [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
 
 ## Systems
 
@@ -174,11 +175,20 @@ Cross-platform binary builds via Makefile:
 
 ## Gaps
 
+- T1: R16 retired by R183 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; mcp app entry is lua/mcp/app.lua)
+- T2: R80 retired by R184 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; activation is one directory link)
+- T3: R81 retired by R185 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; activation is one directory link)
+- T4: R82 retired by R186 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; active apps are lua/ directory links)
+- T5: R83 retired by R187 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; viewdefs/ no longer created)
+- T6: R84 retired by no replacement (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; lua/{app}.lua entry link retired)
+- T7: R86 retired by no replacement (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; per-viewdef links retired; ui-engine reads each app's viewdefs/)
+- T8: R87 retired by R188 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; old-scheme links are cleaned up instead)
+
 ### Spec→Design
 *None*
 
 ### Requirements→Design
-- [x] A1: R148-R154 (rich messages UI-side) are covered by `.ui/apps/mcp/design.md`, not project-level CRC cards
+- A1: R148-R154 (rich messages UI-side) are covered by `.ui/apps/mcp/design.md`, not project-level CRC cards
 
 ### Design→Code
 *None*
@@ -218,3 +228,6 @@ Cross-platform binary builds via Makefile:
 - [ ] O6: Publisher test coverage
   - [ ] Publisher server (publish, subscribe, fan-out, TTL wait, idle shutdown)
   - [ ] MCPSubscribe (poll loop, ensurePublisher, handler dispatch)
+- [ ] O7: R177-R181 are each assigned twice in requirements.md (Library Embedding: flib Project/ProjectDir/WithLua/Port/UIHandleFunc; Pluggable Themes: theme-block injection), predating 2026-10-07. Any CRC or code ref to R177-R181 is ambiguous. Repair is a numbering decision (give one set fresh numbers, re-pointing every ref) and is not taken without Bill.
+- [ ] O8: Five internal/mcp install tests (TestInstallSkillFiles*, TestInstallForceOverwrites) fail at HEAD with "install requires a bundled binary (use 'make build')": they need a bundled test binary or a fake bundle. Found 2026-10-07; predates the app-activation work.
+- [ ] I1: R184-R188 are implemented in install/linkapp (refs in its comments: CRC: crc-LinkappScript.md | R85, R184-R188), but minispec picks a language by file extension only, so this extensionless bash script is never read and the refs never count. Closes if minispec gains filename-based language mapping, or if the script is renamed (it is referenced by name in tools.go's install list and the mcp script).

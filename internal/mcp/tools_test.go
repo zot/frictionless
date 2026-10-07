@@ -30,12 +30,23 @@ func createTestServer(t *testing.T, baseDir string) *Server {
 // This is needed for ui_run tests that execute Lua code
 func createTestServerWithSession(t *testing.T) (*Server, func()) {
 	t.Helper()
+	return createTestServerWithSessionSetup(t, nil)
+}
+
+// createTestServerWithSessionSetup is createTestServerWithSession with a hook
+// that lays out the base directory (apps, lua/ links) before the session
+// starts.
+func createTestServerWithSessionSetup(t *testing.T, setup func(baseDir string)) (*Server, func()) {
+	t.Helper()
 
 	// Create temp directory for base_dir
 	tempDir := t.TempDir()
 	baseDir := filepath.Join(tempDir, ".claude", "ui")
 	os.MkdirAll(filepath.Join(baseDir, "log"), 0755)
 	os.MkdirAll(filepath.Join(baseDir, "lua"), 0755)
+	if setup != nil {
+		setup(baseDir)
+	}
 
 	// Create README.md to skip auto-install (which requires bundled binary)
 	os.WriteFile(filepath.Join(baseDir, "README.md"), []byte("# Test\n**Version: 99.0.0**\n"), 0644)

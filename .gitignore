@@ -31,3 +31,7 @@ node_modules
 *.fossil
 .fslckout
 /.ui/storage/
+/.minispec/backup
+/PENDING.md
+/CURRENT.md
+/DONE.md

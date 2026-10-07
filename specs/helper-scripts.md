@@ -24,7 +24,7 @@ The main CLI interface for all MCP operations. Reads server port from `{base_dir
 | `mcp state` | Get current session state (JSON) |
 | `mcp variables` | Get current variable values |
 | `mcp progress APP PERCENT STAGE` | Report build progress |
-| `mcp linkapp add\|remove APP` | Manage app symlinks |
+| `mcp linkapp add\|remove APP` | Activate or deactivate an app |
 | `mcp checkpoint CMD APP [MSG]` | Manage app checkpoints |
 | `mcp audit APP` | Run code quality audit |
 | `mcp patterns` | List available patterns |
@@ -67,15 +67,18 @@ When `FRICTIONLESS_MCP=1` environment variable is set, the `run` command exits i
 
 ## Script: `linkapp`
 
-Manages symlinks for ui-engine apps. Creates links from `{base_dir}/lua/` and `{base_dir}/viewdefs/` to app source files.
+Activates and deactivates ui-engine apps. An app is active when
+`{base_dir}/lua/{app}` links to its directory; that one link is the whole
+on/off bit. ui-engine reads the app's entry file, modules and viewdefs
+through it (see ui-engine's app-discovery spec).
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `linkapp add APP` | Create symlinks for app |
-| `linkapp remove APP` | Remove symlinks for app |
-| `linkapp list` | List linked apps |
+| `linkapp add APP` | Activate an app |
+| `linkapp remove APP` | Deactivate an app |
+| `linkapp list` | List active apps |
 
 ### Directory Structure
 
@@ -83,28 +86,24 @@ Manages symlinks for ui-engine apps. Creates links from `{base_dir}/lua/` and `{
 {base_dir}/
 ├── apps/
 │   └── {app}/
-│       ├── app.lua
-│       ├── json.lua          # Optional module files
+│       ├── app.lua           # Entry file, loaded as lua/{app}/app.lua
+│       ├── json.lua          # Optional module files: require("{app}.json")
 │       └── viewdefs/*.html
-├── lua/
-│   ├── {app}.lua -> ../apps/{app}/app.lua   # Main app file for ui-engine
-│   └── {app} -> ../apps/{app}               # Directory link for require("{app}.module")
-└── viewdefs/
-    └── {Type}.*.html -> ../apps/{app}/viewdefs/{Type}.*.html
+└── lua/
+    └── {app} -> ../apps/{app}   # Activation link
 ```
 
 ### Link Behavior
 
 **add:**
-- Creates `{base_dir}/lua/` and `{base_dir}/viewdefs/` if missing
-- Links `app.lua` to `lua/{app}.lua` (main app file for ui-engine)
-- Links app directory to `lua/{app}` (enables `require("{app}.module")`)
-- Links all viewdef HTML files individually
+- Creates `{base_dir}/lua/` if missing
+- Links the app directory to `lua/{app}`
+- Removes the app's old-scheme links if present: `lua/{app}.lua`, and any
+  `viewdefs/` symlink pointing into the app's `viewdefs/`
 
 **remove:**
-- Removes `lua/{app}.lua` symlink
-- Removes `lua/{app}` directory symlink
-- Scans viewdefs/ for symlinks pointing to app's viewdefs/ and removes them
+- Removes the `lua/{app}` link
+- Removes the same old-scheme links as `add`
 
 **list:**
-- Scans lua/ for `.lua` symlinks and reports app names
+- Scans `lua/` for directory links and reports app names

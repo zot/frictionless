@@ -18,7 +18,7 @@
 - **R13:** Track wait time: server records timestamp on start, updates when /wait returns
 - **R14:** Provide mcp:waitTime() Lua method returning seconds since agent last responded
 - **R15:** Return 0 from waitTime when agent is currently connected to /wait
-- **R16:** Load mcp.lua extension file if present
+- **~~R16:~~** (Retired T1 — see R183) Load mcp.lua extension file if present
 - **R17:** Load app init.lua files on startup
 - **R18:** Bind root URL to current session (session cookie)
 - **R19:** Hot-reload Lua and viewdef files on change
@@ -114,14 +114,14 @@
 - **R127:** The "updates" and "local" branches survive `checkpoint baseline` resets via fossil bundle export/import
 
 ### linkapp Script
-- **R80:** `linkapp add APP` creates symlinks for app's lua and viewdefs
-- **R81:** `linkapp remove APP` removes symlinks for app
-- **R82:** `linkapp list` lists currently linked apps
-- **R83:** Create `{base_dir}/lua/` and `{base_dir}/viewdefs/` directories if missing
-- **R84:** Link `app.lua` to `lua/{app}.lua` using relative paths
+- **~~R80:~~** (Retired T2 — see R184) `linkapp add APP` creates symlinks for app's lua and viewdefs
+- **~~R81:~~** (Retired T3 — see R185) `linkapp remove APP` removes symlinks for app
+- **~~R82:~~** (Retired T4 — see R186) `linkapp list` lists currently linked apps
+- **~~R83:~~** (Retired T5 — see R187) Create `{base_dir}/lua/` and `{base_dir}/viewdefs/` directories if missing
+- **~~R84:~~** (Retired T6 — no replacement) Link `app.lua` to `lua/{app}.lua` using relative paths
 - **R85:** Link app directory to `lua/{app}` using relative paths (enables `require("{app}.module")`)
-- **R86:** Link all viewdef HTML files individually to `viewdefs/`
-- **R87:** Remove command scans viewdefs/ for symlinks pointing to app and removes them
+- **~~R86:~~** (Retired T7 — no replacement) Link all viewdef HTML files individually to `viewdefs/`
+- **~~R87:~~** (Retired T8 — see R188) Remove command scans viewdefs/ for symlinks pointing to app and removes them
 
 ## Feature: Publisher Server
 **Source:** specs/publisher.md
@@ -255,3 +255,15 @@
 - **R179:** Theme CSS watcher calls `InjectAllThemeBlocks` instead of `InjectThemeBlock` to update all HTML files on CSS changes
 - **R180:** `flib.ThemeBlock(baseDir)` returns the generated theme HTML block string for in-memory injection by embedders
 - **R181:** `flib.InjectAllThemeBlocks(baseDir)` exposes disk-patching for embedders to call at startup
+
+## Feature: App Activation and Loading
+**Source:** specs/mcp.md, specs/helper-scripts.md
+
+- **R183:** After creating the `mcp` global, Go loads the mcp app's entry `{base_dir}/lua/mcp/app.lua` if it exists
+- **R184:** `linkapp add APP` activates an app by linking its directory to `lua/{app}`
+- **R185:** `linkapp remove APP` deactivates an app by removing its `lua/{app}` link
+- **R186:** `linkapp list` reports the directory links in `lua/` as the active apps
+- **R187:** `linkapp add` creates `{base_dir}/lua/` if missing
+- **R188:** `linkapp add` and `remove` delete the app's old-scheme links if present: `lua/{app}.lua`, and any `viewdefs/` symlink pointing into the app's `viewdefs/`
+- **R189:** `mcp:app(name)` and `mcp:display(name)` load an app's entry file `{base_dir}/lua/{app}/app.lua` the first time the app is asked for; apps load on request, never at session start
+- **R190:** `flib.Config.BuiltinApps` is passed to the ui-engine as its built-in app list; empty means no app is built-in

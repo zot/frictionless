@@ -111,11 +111,21 @@ spec item ──> requirement (Rn) ──> design artifact (CRC card / sequence)
 
 **Following a thread (both directions):**
 
-- Requirement → everywhere it lands: `grep -rn "R5" design/ src/`
+- Requirement → its design: `minispec query coverage R5` — the design files whose
+  `**Requirements:**` line covers it (ranges and comma lists work: `R5-8,R12`).
+- Requirement → its code: `minispec query implementation R5` — every `file:line`
+  and traceability comment that implements it. Knowing the concern but not the
+  number, pass a pattern instead: `minispec query implementation '@status'`.
 - Sequence step → its implementations: `grep -rn "seq-crud.md#1.4" src/`
 - Code → its justification: read the `// CRC:/Seq:/Rn` comment, open that
   artifact, follow its `**Requirements:**` line back to the spec.
-- Spec → its code: spec → find the `Rn` in `requirements.md` → grep that `Rn`.
+- Spec → its code: spec → find the `Rn` in `requirements.md` → `query implementation` that `Rn`.
+
+**Ask the tool for a requirement, not grep.** Requirement lists may write a range —
+a card's `**Requirements:** R5-8` or a comment's `// R5-8: …` covers R6 — so a grep
+for `R6` misses exactly those, and also catches prose that merely mentions it. The
+two queries read through the same grammar `validate` does. A step ID is never a
+range, which is why the sequence-step grep above still finds every one.
 
 The links are bidirectional by design: every artifact points down toward code
 and the comments point back up toward intent, so a clue in one layer reaches
@@ -126,3 +136,9 @@ change is rewritten in place as `**~~R5:~~** (Retired Tn — see R10) <original
 text>`, so an old reference in design or code still leads somewhere — to the
 replacement (or to "no replacement"). Don't read a struck-through `Rn` as a
 dead end; it's a forwarding address.
+
+**`specs/deleted.md`**, where a project has one, is a **tombstone registry**
+rather than a spec: it names specs that were deleted outright, what each
+covered, and the requirement numbers it owned. Requirements sourced from it are
+all retired. Read it when a struck-through `Rn` forwards nowhere and you need to
+know what the behavior was.

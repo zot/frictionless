@@ -22,6 +22,9 @@ type Config struct {
 	Host    string // bind host (default "127.0.0.1")
 	Project string // project directory for skill installation (optional; derived from Dir if empty)
 	Port    int    // preferred HTTP port (0 = auto-select)
+	// BuiltinApps names the embedder's built-in apps; ui-engine ranks them
+	// first when viewdef names collide. Order does not matter.
+	BuiltinApps []string
 }
 
 // Runtime is an embedded Frictionless server. Create with New,
@@ -44,6 +47,8 @@ func New(cfg Config) (*Runtime, error) {
 	uiCfg.Server.Dir = cfg.Dir
 	uiCfg.Server.Port = cfg.Port // 0 = auto-select
 	uiCfg.Server.Host = host
+	// CRC: crc-FlibRuntime.md | R190
+	uiCfg.Server.BuiltinApps = cfg.BuiltinApps
 	// CRC: crc-FlibRuntime.md | R182 — site the ui-engine backend control
 	// socket per-Dir so multiple embedded runtimes don't collide on the
 	// shared /tmp/ui.sock default. Empty Dir keeps the ui-engine default.
