@@ -719,7 +719,7 @@ Unknown labels get auto-calculated percentages based on position.
 
 ### CSS Files
 
-CSS is extracted from viewdefs into separate files in `css/`, served via the `html/mcp` symlink (auto-created on app load):
+CSS is extracted from viewdefs into separate files in `css/`, served at `/mcp/css/` straight from the app directory (the runtime serves `/<app>/` through the app's activation link):
 
 | File | Purpose |
 |------|---------|
@@ -729,12 +729,6 @@ CSS is extracted from viewdefs into separate files in `css/`, served via the `ht
 | css/updates.css | Update star, notification banner, progress indicator |
 | css/dialog.css | Dialog overrides |
 | css/variables.css | Variable browser panel and iframe styling |
-
-### Symlink Auto-Creation
-
-On app load, `app.lua` ensures these symlinks exist:
-- `{base_dir}/html/mcp` → `../apps/mcp` (serves CSS and static files at `/mcp/`)
-- `{base_dir}/viewdefs/MCP.VariableBrowser.DEFAULT.html` → `../apps/mcp/viewdefs/MCP.VariableBrowser.DEFAULT.html`
 
 ## Events
 

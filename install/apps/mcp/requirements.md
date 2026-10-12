@@ -373,7 +373,7 @@ CSS is organized into separate files in `css/` directory, loaded via `<link>` ta
 - `dialog.css` — Dialog overrides
 - `variables.css` — Variable browser panel and iframe styling
 
-The `html/mcp` symlink (auto-created on app load) serves these CSS files at `/mcp/css/`.
+The runtime serves the app's own directory at `/mcp/`, so these CSS files load from `/mcp/css/`.
 
 ### Terminal Aesthetic
 

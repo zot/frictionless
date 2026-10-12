@@ -34,24 +34,6 @@ end
 
 -- Filesystem helpers
 
--- Create html/mcp symlink for serving CSS files and viewdef symlinks
-do
-    local status = mcp:status()
-    if status and status.base_dir then
-        local function ensureSymlink(link, target)
-            local handle = io.popen('readlink "' .. link .. '" 2>/dev/null')
-            local existing = handle and handle:read("*a"):match("^%s*(.-)%s*$") or ""
-            if handle then handle:close() end
-            if existing ~= target then
-                os.execute('ln -sfn "' .. target .. '" "' .. link .. '"')
-            end
-        end
-        ensureSymlink(status.base_dir .. "/html/mcp", "../apps/mcp")
-        ensureSymlink(status.base_dir .. "/viewdefs/MCP.VariableBrowser.DEFAULT.html",
-            "../apps/mcp/viewdefs/MCP.VariableBrowser.DEFAULT.html")
-    end
-end
-
 local function fileExists(path)
     local handle = io.open(path, "r")
     if not handle then return false end
