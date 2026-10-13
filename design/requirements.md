@@ -267,3 +267,4 @@
 - **R188:** `linkapp add` and `remove` delete the app's old-scheme links if present: `lua/{app}.lua`, and any `viewdefs/` symlink pointing into the app's `viewdefs/`
 - **R189:** `mcp:app(name)` and `mcp:display(name)` load an app's entry file `{base_dir}/lua/{app}/app.lua` the first time the app is asked for; apps load on request, never at session start
 - **R190:** `flib.Config.BuiltinApps` is passed to the ui-engine as its built-in app list; empty means no app is built-in
+- **R191:** `flib.Runtime.ViewdefCollisions()` returns the running ui-engine's live viewdef-name collisions, unchanged

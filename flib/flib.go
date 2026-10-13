@@ -161,6 +161,13 @@ func (r *Runtime) UIHandleFunc(pattern string, handler http.HandlerFunc) {
 	r.uiServer.HttpEndpoint.HandleFunc(pattern, handler)
 }
 
+// ViewdefCollisions returns the running ui-engine's live viewdef-name
+// collisions, unchanged.
+// CRC: crc-FlibRuntime.md | R191
+func (r *Runtime) ViewdefCollisions() []cli.ViewdefCollision {
+	return r.uiServer.ViewdefCollisions()
+}
+
 // ThemeBlock returns the frictionless theme HTML block (script + CSS links)
 // for the given base directory. Suitable for injecting into HTML templates
 // between <!-- #frictionless --> markers.

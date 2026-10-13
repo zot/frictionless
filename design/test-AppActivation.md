@@ -14,6 +14,13 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Inject:** flib/flib.go:New
 **Pulled:** 2026-10-07 — rang: `ui-engine BuiltinApps = [], want [ark mcp]`
 
+## Test: ViewdefCollisions passes the ui-engine's live list through
+**Purpose:** an embedder can read the running server's collisions (R191)
+**Input:** `flib.New(Config{Dir})` over a site whose apps `aa` and `zz` both ship `T.DEFAULT.html`
+**Expected:** one collision, `T.DEFAULT`, `aa` over `zz`
+**Refs:** crc-FlibRuntime.md
+**Code:** flib/flib_test.go
+
 ## Test: the mcp app's entry extends the mcp global
 **Purpose:** the mcp app loads from `lua/mcp/app.lua` at session start (R183)
 **Input:** `apps/mcp/app.lua` sets `mcp.extended`; only `lua/mcp` is linked
