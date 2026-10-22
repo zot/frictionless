@@ -61,6 +61,21 @@ Checkpoints use fossil SCM. The script:
 3. Downloads appropriate binary from fossil-scm.org
 4. Initializes per-app repository in `{app_dir}/checkpoint.fossil`
 
+### Baseline Safety
+
+`checkpoint baseline` replaces the repository, so it must never lose
+history. It sets the old repository aside instead of deleting it, builds
+the new baseline, and restores the preserved "updates" and "local"
+branches into it. Only when every step has succeeded, and each preserved
+branch is present in the new repository, is the old one discarded.
+
+If any step fails, the old repository and its checkout are put back
+exactly as they were, byte for byte. The command says so on stderr and
+exits non-zero; it never reports success for a baseline it did not set.
+
+Preserved branches are recognized by their exact names, so a branch such
+as `local-experiment` is not mistaken for `local`.
+
 ### MCP Guard
 
 When `FRICTIONLESS_MCP=1` environment variable is set, the `run` command exits immediately. This prevents infinite recursion when Lua code calls shell commands.

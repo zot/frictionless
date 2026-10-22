@@ -73,6 +73,7 @@ func New(cfg Config) (*Runtime, error) {
 		},
 	)
 
+	// R177, R178: Config.Project becomes the install target
 	if cfg.Project != "" {
 		mcpSrv.ProjectDir = cfg.Project
 	}
@@ -139,7 +140,7 @@ func (r *Runtime) RunLua(code string) (string, error) {
 // without triggering afterBatch (no UI update push). This is the passive
 // execution path — use it to register Go functions on the Lua mcp table
 // or perform other Lua-side setup after Start returns.
-// CRC: crc-FlibRuntime.md
+// CRC: crc-FlibRuntime.md | R179
 func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 	vendedID := r.mcpServer.GetCurrentVendedID()
 	if vendedID == "" {
@@ -156,7 +157,7 @@ func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 }
 
 // UIHandleFunc registers a custom HTTP handler on the UI server's mux.
-// CRC: crc-FlibRuntime.md
+// CRC: crc-FlibRuntime.md | R181
 func (r *Runtime) UIHandleFunc(pattern string, handler http.HandlerFunc) {
 	r.uiServer.HttpEndpoint.HandleFunc(pattern, handler)
 }
@@ -168,6 +169,7 @@ func (r *Runtime) ViewdefCollisions() []cli.ViewdefCollision {
 	return r.uiServer.ViewdefCollisions()
 }
 
+// CRC: crc-FlibRuntime.md | R198
 // ThemeBlock returns the frictionless theme HTML block (script + CSS links)
 // for the given base directory. Suitable for injecting into HTML templates
 // between <!-- #frictionless --> markers.
@@ -180,6 +182,7 @@ func ThemeBlock(baseDir string) (string, error) {
 	return mcp.GenerateThemeBlock(baseDir, themes, defaultTheme, "  "), nil
 }
 
+// CRC: crc-FlibRuntime.md | R199
 // InjectAllThemeBlocks patches all HTML files in html/ that contain
 // frictionless markers with the current theme block (script + CSS links
 // with cache-busting). Called at startup and when themes change.

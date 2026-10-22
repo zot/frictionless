@@ -286,7 +286,7 @@ func InjectThemeBlock(baseDir string) error {
 // InjectThemeBlockInFile patches a single HTML file with the frictionless theme block.
 // If the file has <!-- #frictionless -->...<!-- /frictionless --> markers, the content
 // between them is replaced. Otherwise the block is inserted after <head>.
-// CRC: crc-ThemeManager.md | R177
+// CRC: crc-ThemeManager.md | R195
 func InjectThemeBlockInFile(baseDir, filePath string) error {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -343,7 +343,7 @@ func InjectThemeBlockInFile(baseDir, filePath string) error {
 
 // InjectAllThemeBlocks patches all HTML files in html/ that contain
 // frictionless markers with the current theme block.
-// CRC: crc-ThemeManager.md | R178
+// CRC: crc-ThemeManager.md | R196
 func InjectAllThemeBlocks(baseDir string) error {
 	htmlDir := filepath.Join(baseDir, "html")
 	entries, err := os.ReadDir(htmlDir)
@@ -380,7 +380,7 @@ func HasThemeBlock(baseDir string) bool {
 }
 
 // WatchIndexHTML watches index.html for external writes and re-injects the theme block if missing.
-// Seq: seq-theme-inject.md
+// Seq: seq-theme-inject.md | R197
 func WatchIndexHTML(baseDir string, logFn func(level int, format string, args ...interface{})) (func(), error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

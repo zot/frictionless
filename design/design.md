@@ -42,6 +42,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [ ] test-MCP.md → `internal/mcp/tools_test.go`
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
 - [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
+- [x] test-CheckpointManager.md → `internal/mcp/checkpoint_test.go`
 
 ## Systems
 
@@ -228,6 +229,7 @@ Cross-platform binary builds via Makefile:
 - [ ] O6: Publisher test coverage
   - [ ] Publisher server (publish, subscribe, fan-out, TTL wait, idle shutdown)
   - [ ] MCPSubscribe (poll loop, ensurePublisher, handler dispatch)
-- [ ] O7: R177-R181 are each assigned twice in requirements.md (Library Embedding: flib Project/ProjectDir/WithLua/Port/UIHandleFunc; Pluggable Themes: theme-block injection), predating 2026-10-07. Any CRC or code ref to R177-R181 is ambiguous. Repair is a numbering decision (give one set fresh numbers, re-pointing every ref) and is not taken without Bill.
+- [x] O7: R177-R181 are each assigned twice in requirements.md (Library Embedding: flib Project/ProjectDir/WithLua/Port/UIHandleFunc; Pluggable Themes: theme-block injection), predating 2026-10-07. Any CRC or code ref to R177-R181 is ambiguous. Repair is a numbering decision (give one set fresh numbers, re-pointing every ref) and is not taken without Bill.
 - [ ] O8: Five internal/mcp install tests (TestInstallSkillFiles*, TestInstallForceOverwrites) fail at HEAD with "install requires a bundled binary (use 'make build')": they need a bundled test binary or a fake bundle. Found 2026-10-07; predates the app-activation work.
+- [ ] O9: checkpoint commands exit with the UI notify's status: when no server is running, a successful baseline/save exits 7 (curl), so callers cannot tell success from failure by exit code
 - [ ] I1: R184-R188 are implemented in install/linkapp (refs in its comments: CRC: crc-LinkappScript.md | R85, R184-R188), but minispec picks a language by file extension only, so this extensionless bash script is never read and the refs never count. Closes if minispec gains filename-based language mapping, or if the script is renamed (it is referenced by name in tools.go's install list and the mcp script).

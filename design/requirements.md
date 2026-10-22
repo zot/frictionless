@@ -112,6 +112,9 @@
 - **R125:** `checkpoint update APP [MSG]` saves current file state on a separate "updates" branch
 - **R126:** `checkpoint local APP [MSG]` saves current file state on a separate "local" branch
 - **R127:** The "updates" and "local" branches survive `checkpoint baseline` resets via fossil bundle export/import
+- **R192:** `checkpoint baseline` sets the old repository aside rather than deleting it, and discards it only after the new baseline is committed and every preserved branch is imported and present
+- **R193:** If any baseline step fails, the old repository and checkout are restored byte-identical, the failure is reported on stderr, and the command exits non-zero
+- **R194:** Preserved branches are detected by exact branch name, not substring
 
 ### linkapp Script
 - **~~R80:~~** (Retired T2 — see R184) `linkapp add APP` creates symlinks for app's lua and viewdefs
@@ -250,11 +253,11 @@
 - **R176:** The install result includes `user_modified` and `backed_up` arrays alongside existing `installed` and `skipped` arrays
 
 ### Multi-File Theme Injection
-- **R177:** `InjectThemeBlockInFile(baseDir, filePath)` patches any HTML file with the theme block, replacing content between markers if present
-- **R178:** `InjectAllThemeBlocks(baseDir)` scans `html/*.html` for files containing frictionless markers and patches them all
-- **R179:** Theme CSS watcher calls `InjectAllThemeBlocks` instead of `InjectThemeBlock` to update all HTML files on CSS changes
-- **R180:** `flib.ThemeBlock(baseDir)` returns the generated theme HTML block string for in-memory injection by embedders
-- **R181:** `flib.InjectAllThemeBlocks(baseDir)` exposes disk-patching for embedders to call at startup
+- **R195:** `InjectThemeBlockInFile(baseDir, filePath)` patches any HTML file with the theme block, replacing content between markers if present
+- **R196:** `InjectAllThemeBlocks(baseDir)` scans `html/*.html` for files containing frictionless markers and patches them all
+- **R197:** Theme CSS watcher calls `InjectAllThemeBlocks` instead of `InjectThemeBlock` to update all HTML files on CSS changes
+- **R198:** `flib.ThemeBlock(baseDir)` returns the generated theme HTML block string for in-memory injection by embedders
+- **R199:** `flib.InjectAllThemeBlocks(baseDir)` exposes disk-patching for embedders to call at startup
 
 ## Feature: App Activation and Loading
 **Source:** specs/mcp.md, specs/helper-scripts.md

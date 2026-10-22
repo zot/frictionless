@@ -1,7 +1,7 @@
 # FlibRuntime
 
 **Source Spec:** specs/mcp.md (Section 2.6)
-**Requirements:** R161-167, R177, R179-182, R190, R191
+**Requirements:** R161-167, R177, R179-182, R190, R191, R198, R199
 
 ## Responsibilities
 
@@ -19,8 +19,8 @@
 - WithLua: Execute closure in Lua executor (passive path, no afterBatch); resolves vendedID internally (R179)
 - UIHandleFunc: Register custom HTTP handler on the UI server's mux; delegates to uiServer.HttpEndpoint.HandleFunc (R181)
 - ViewdefCollisions: Return uiServer.ViewdefCollisions() unchanged (R191)
-- ThemeBlock: Return generated theme HTML block string for in-memory injection (R180)
-- InjectAllThemeBlocks: Patch all HTML files on disk with theme block (R178, via mcp.InjectAllThemeBlocks)
+- ThemeBlock: Return generated theme HTML block string for in-memory injection (R198)
+- InjectAllThemeBlocks: Patch all HTML files on disk with theme block (R199, via mcp.InjectAllThemeBlocks, R196)
 - Shutdown: Graceful shutdown of UI and API servers, remove port files (R167)
 
 ## Collaborators

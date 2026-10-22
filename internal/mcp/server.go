@@ -455,7 +455,7 @@ func (s *Server) Start() (string, error) {
 	}
 	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
-	// Use configured port (0 = auto-select) (R180)
+	// R180: use configured port (0 = auto-select)
 	url, err := s.startFunc(s.cfg.Server.Port)
 	if err != nil {
 		return "", err
