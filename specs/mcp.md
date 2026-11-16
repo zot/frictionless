@@ -160,6 +160,7 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 | `Runtime.RegisterAPI(mux *http.ServeMux)` | Mount `/api/*`, `/wait`, `/state`, `/variables` on an external mux |
 | `Runtime.StartAPI() (int, error)` | Start a standalone HTTP API server; returns port |
 | `Runtime.WithLua(fn func(rt *cli.LuaRuntime) error) error` | Execute a closure in the Lua executor goroutine (thread-safe) without triggering afterBatch (no UI update push). Used by downstream binaries to register Go functions on the Lua `mcp` table after `Start()` returns. |
+| `Runtime.WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error` | The active twin of `WithLua`: execute the closure in the Lua executor goroutine (thread-safe) through the ui-engine server's session execute path, which runs afterBatch when a browser is connected, so the Lua state changes the closure makes reach the browser at once. Same session resolution and errors as `WithLua`. Used by downstream binaries to deliver Go-side events (e.g. pubsub callbacks) into Lua. |
 | `Runtime.ViewdefCollisions() []cli.ViewdefCollision` | The running ui-engine's live viewdef-name collisions (see ui-engine's app-discovery spec), so an embedder can show them; computing them without a server is ui-engine's `cli.ResolveViewdefCollisions` |
 | `Runtime.UIHandleFunc(pattern string, handler http.HandlerFunc)` | Register a custom HTTP handler on the UI server's mux. Delegates to the ui-engine `HTTPEndpoint.HandleFunc`. |
 | `Runtime.Shutdown(ctx) error` | Graceful shutdown of UI and API servers |
@@ -172,6 +173,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 5. `Shutdown(ctx)` — tears down both servers
 
 **Backend socket isolation:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the ui-engine's shared `/tmp/ui.sock` default. Each embedded runtime owns a private control socket keyed to its base directory, so multiple embedded runtimes (e.g. a disposable ark running alongside a live one) no longer collide on the fixed default. The embedder may still override the socket through the ui-engine config if it needs a specific path. (R182)
+
+**Passive vs. active Lua execution:** `WithLua` is the passive path: it runs the closure but never triggers afterBatch, so nothing is pushed to the browser; changes surface only on the browser's next message. That is what registering Go functions needs, since setup must not push. `WithLuaUpdate` is the active path: it runs the closure the same way, then runs afterBatch when a browser is connected, so changes reach the browser immediately. An embedder delivering an event that changes visible state (a dialog opening, a status line moving on) uses `WithLuaUpdate`.
 
 **Route registration:** `RegisterAPI` delegates to `Server.RegisterAPIRoutes`, which registers the same handlers used by `StartHTTPServer` and `ServeSSE`. This allows an embedding binary to serve Frictionless endpoints on its own listener (e.g. a Unix domain socket) alongside its own routes. The embedding binary is responsible for the static file catch-all (`/`) if desired.
 

@@ -6,6 +6,7 @@ package flib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +16,10 @@ import (
 	"github.com/zot/frictionless/internal/mcp"
 	"github.com/zot/ui-engine/cli"
 )
+
+// errNoActiveSession is what WithLua and WithLuaUpdate report before Start
+// has created the session.
+const errNoActiveSession = "no active session"
 
 // Config holds configuration for an embedded Frictionless runtime.
 type Config struct {
@@ -144,13 +149,34 @@ func (r *Runtime) RunLua(code string) (string, error) {
 func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 	vendedID := r.mcpServer.GetCurrentVendedID()
 	if vendedID == "" {
-		return fmt.Errorf("no active session")
+		return errors.New(errNoActiveSession)
 	}
 	luaSession := r.uiServer.GetLuaSession(vendedID)
 	if luaSession == nil {
 		return fmt.Errorf("session %s not found", vendedID)
 	}
 	_, err := luaSession.ExecuteInSession(vendedID, func() (interface{}, error) {
+		return nil, fn(luaSession)
+	})
+	return err
+}
+
+// WithLuaUpdate is the active twin of WithLua: it executes a closure in
+// the Lua executor goroutine (thread-safe) through the ui-engine server's
+// ExecuteInSession, which runs afterBatch when a browser is connected, so
+// the Lua state changes the closure makes reach the browser at once. Use it
+// to deliver Go-side events into Lua; use WithLua for setup that must not push.
+// CRC: crc-FlibRuntime.md | R200
+func (r *Runtime) WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error {
+	vendedID := r.mcpServer.GetCurrentVendedID()
+	if vendedID == "" {
+		return errors.New(errNoActiveSession)
+	}
+	luaSession := r.uiServer.GetLuaSession(vendedID)
+	if luaSession == nil {
+		return fmt.Errorf("session %s not found", vendedID)
+	}
+	_, err := r.uiServer.ExecuteInSession(vendedID, func() (interface{}, error) {
 		return nil, fn(luaSession)
 	})
 	return err

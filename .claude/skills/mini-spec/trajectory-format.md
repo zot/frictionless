@@ -152,7 +152,7 @@ again, the state of things>
 
 *The heading was added 2026-08-18, after a reset verb deleted 320 lines of standing
 context from a live current file.* Before it the active item was defined as **everything
-after the `---` rule**, so a verb honouring that definition deletes whatever else is down
+after the `---` rule**, so a verb honoring that definition deletes whatever else is down
 there — correctly targeted against a wrong model of the document. A named region can be
 found; a region defined as *the rest of the file* can only be assumed. A file with no
 `## Active` is legacy: add the heading beneath the rule, above the placeholder.
@@ -226,7 +226,9 @@ so "what is still open?" has to be answerable from the first screen.
 ```
 
 - **Ordered by intent**, like the queue: position is the priority, the number is only the
-  identifier.
+  identifier. **Work the top open part unless the user names another.** A line's position
+  states its rank — a `MOVED` line included, left where its work now ranks — so the order is
+  never restated in Decisions, where a second copy would drift from the first.
 - **The block owns the title and the status; the body owns the detail.** Further down,
   each part's elaboration is keyed by **bare number, with no title and no description** —
   `**Item 1** (…)`. Neither repeats the other, so there is no second copy to drift. A
@@ -363,6 +365,7 @@ marker visible to the writer instead of accumulating a second queue state beside
 | `DISCHARGED (commit, date)` | satisfied without being the work it described — a blocker cleared, a precondition met |
 | `SENT (name, date)` | discharged by a cross-project message; owns no commit |
 | `DEFERRED (name, date)` | parked on purpose, as distinct from merely unstarted |
+| `DROPPED (name, date)` | decided against: it will not be done, and the reason is a `DECIDED` entry in Decisions. Unlike `DEFERRED` it is not coming back, so the line is checked and struck — nothing remains of it, which is what lets the carve finish |
 | `NOT VERIFIED` | the work happened; nobody has confirmed it does what was asked |
 | `ASSESSED (name, date)` | examined and judged, with no change made |
 
@@ -376,7 +379,12 @@ the format ever naming it — which is how a reader built from this table came t
 record.*
 
 **Coin a verb where it carries information.** Forcing `LANDED` onto a part that was sent,
-deferred or moved makes the marker a worse record than the prose it replaced.
+deferred or moved makes the marker a worse record than the prose it replaced. **The table is the
+shared vocabulary, not a closed set:** the tool reads any word in capitals as a verb — only a
+lowercase verb is a deviation — so when no row fits, write a new capitalized word, give it the
+`(name, date)` attribution, and let a `DECIDED` entry or the elaboration say what it means. Look
+here first; there is no need to search other carves for precedent. Whether the line is checked
+is what the tool counts as finished, not which verb it carries.
 
 **State the negative.** A part with no marker is indistinguishable from one nobody has
 thought about. `NOT VERIFIED` earns its own words in particular: a repaired *symptom*
@@ -449,6 +457,25 @@ instruction to go and decide.
   effort closes the item and only an answer does.
 
 ---
+
+### The carve of carves
+
+A project with several live carves keeps **one carve whose parts are the carves themselves**,
+ranked: it answers *which problem comes next*, as each carve answers *which part of this problem
+comes next*, and the queue stays the layer below both. **It is `.carves/priorities.md`.** Proven
+in ark from 2026-10-22, adopted in mini-spec 2026-10-30.
+
+- **It lives in `.carves/`**, so private carves are ranked beside public ones. A public carve
+  never links to it; it links to them.
+- **Every live carve is one item, linked.** A carve that opens is added at once — ranked, or in
+  an unranked tail below the ranked items. A carve that finishes is checked and struck through,
+  never deleted.
+- **Its items are carves, not work.** Work found while ranking goes into a carve, and that carve
+  is the item. A carve another depends on as a whole sits under it as a sub-item; a dependency
+  between parts is noted on the item.
+- **Its order is the user's**, and position is the priority, as in any status block. A session
+  starts here — the project's local instructions point at it — and takes the top open item's
+  carve, unless the user names another.
 
 ## The tool/agent contract
 

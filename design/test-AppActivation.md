@@ -10,6 +10,7 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Expected:** the runtime's ui-engine config carries `[ark mcp]`
 **Refs:** crc-FlibRuntime.md
 **Code:** flib/flib_test.go
+**Alarm:** 1
 **Fire alarm:** drop the passthrough line. Red: `ui-engine BuiltinApps = []`.
 **Inject:** flib/flib.go:New
 **Pulled:** 2026-10-07 — rang: `ui-engine BuiltinApps = [], want [ark mcp]`
@@ -21,12 +22,37 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Refs:** crc-FlibRuntime.md
 **Code:** flib/flib_test.go
 
+## Test: WithLuaUpdate reports a missing session the way WithLua does
+**Purpose:** before Start there is no session; the active path fails with WithLua's error and never runs the closure (R200)
+**Input:** `flib.New(Config{Dir})`, no Start; `WithLuaUpdate` with a closure that records being called
+**Expected:** error `no active session`; closure not called
+**Refs:** crc-FlibRuntime.md
+**Code:** flib/flib_test.go
+**Alarm:** 2
+**Fire alarm:** drop the empty-vendedID check. Red: the error becomes `session  not found` instead of `no active session`.
+**Inject:** flib/flib.go:WithLuaUpdate
+@alarm-hash: 089112a39e4f1891
+**Pulled:** 2026-11-16 — rang: `WithLuaUpdate() error = session  not found, want "no active session"`
+
+## Test: WithLuaUpdate pushes the closure's changes to a connected browser
+**Purpose:** the active path runs afterBatch, so a change made in the closure reaches the browser with no further browser message (R200)
+**Input:** a started runtime; a websocket client on `/ws/{session}` that creates variable 2 watching `mcp.probe` (path `probe` under variable 1); then `WithLuaUpdate` sets `mcp.probe`
+**Expected:** within 2s the client receives an update carrying the new value
+**Refs:** crc-FlibRuntime.md
+**Code:** flib/flib_test.go
+**Alarm:** 3
+**Fire alarm:** run the closure through the Lua session's own ExecuteInSession (WithLua's passive path) instead of the ui-engine server's. Red: `browser received "" after WithLuaUpdate`.
+**Inject:** flib/flib.go:WithLuaUpdate
+@alarm-hash: 089112a39e4f1891
+**Pulled:** 2026-11-16 — rang: `browser received "" after WithLuaUpdate, want an update carrying "pushed-by-update"`
+
 ## Test: the mcp app's entry extends the mcp global
 **Purpose:** the mcp app loads from `lua/mcp/app.lua` at session start (R183)
 **Input:** `apps/mcp/app.lua` sets `mcp.extended`; only `lua/mcp` is linked
 **Expected:** `mcp.extended` is `"yes"` in the session
 **Refs:** crc-MCPServer.md, seq-mcp-lifecycle.md
 **Code:** internal/mcp/activation_test.go
+**Alarm:** 4
 **Fire alarm:** load `"mcp.lua"` again instead of the entry file. Red: `mcp.extended = "null"`.
 **Inject:** internal/mcp/tools.go:setupMCPGlobal
 **Pulled:** 2026-10-07 — rang: `mcp.extended = "null"`
@@ -37,6 +63,7 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Expected:** `mcp:app('demo').loaded` is `"yes"`
 **Refs:** crc-MCPServer.md
 **Code:** internal/mcp/activation_test.go
+**Alarm:** 5
 **Fire alarm:** make appEntryFile return the old `<app>.lua`. Red: `mcp:app('demo')` is nil (indexing it fails).
 **Inject:** internal/mcp/tools.go:appEntryFile
 **Pulled:** 2026-10-07 — rang: `attempt to index a non-table object(nil) with key 'loaded'`
@@ -47,6 +74,7 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Expected:** `lua/demo -> ../apps/demo`; old links gone; `list` prints `demo`; `remove` deletes `lua/demo`
 **Refs:** crc-LinkappScript.md
 **Code:** internal/mcp/activation_test.go
+**Alarm:** 6
 **Fire alarm:** (a) skip remove_old_links in add_app, red: old links survive; (b) list `*.lua` links as before, red: list reports nothing.
 **Inject:** install/linkapp:add_app, install/linkapp:list_apps
 **Pulled:** 2026-10-07 — rang: (a) `old-scheme link lua/demo.lua survived add`, (b) `list output "Active apps:\n" does not report demo`

@@ -138,10 +138,15 @@ track = "private-trajectory"        # repository config only: none, private-traj
 
 ## Comments in code files
 
-Code files are read through a **language table** chosen by extension: Go, JavaScript,
-TypeScript, Lua, shell, Python, Pascal, C, C++, Java, Emacs Lisp, HTML (with the script and
-style inside it), Markdown and CSS are built in. A file whose extension has no table is
-reported as not read. `comment_patterns` and `comment_closers` are **retired**; a
+Code files are read through a **language table**, chosen in this order: a configured
+`files` pattern the file's path matches (see *Languages*), then its extension, then — for a
+script with no extension — its `#!` interpreter line. Go, JavaScript, TypeScript, Lua,
+shell, Python, Pascal, C, C++, Java, Emacs Lisp, HTML (with the script and style inside it),
+Markdown and CSS are built in. An interpreter line is read strictly: `sh`, `bash`, `zsh`,
+`dash` and `ksh` read as shell, `python` as Python, `lua`/`luajit` as Lua, `node`/`nodejs` as
+JavaScript, `env` and its options skipped and a version like `python3.11` stripped; any other
+interpreter is not guessed at. A file no rule gives a table is reported as not read, named by
+its path when it has no extension. `comment_patterns` and `comment_closers` are **retired**; a
 configuration that still sets either is refused, naming the key as retired. How a
 traceability comment is written in each extension is what the tool reports:
 
@@ -156,9 +161,26 @@ until the next accidental closer, which is catastrophic and very hard to diagnos
 
 ## Languages
 
+**A script with no extension and no interpreter line** — or one whose interpreter the tool
+does not map — is read by naming it. Give a built-in's name and `files`, and nothing else, to
+attach files to that built-in table:
+
+```toml
+[[languages]]
+name = "shell"                          # go, javascript, typescript, lua, shell, python,
+files = ["install/linkapp", "bin/*"]    # pascal, c, cpp, java, elisp, html, markdown, css
+```
+
+`files` patterns match the file's path relative to the repository with Go's `path.Match`:
+`*` and `?` within one path segment, `[…]` a class, no `**`; an exact path is a pattern with
+no special characters. The first matching definition wins, in configuration order, and a
+pattern match beats the file's extension. A script whose first line is `#!/bin/bash` needs no
+entry at all.
+
 To read an extension no table covers, or to change how one is read, define the language in
 either configuration file. A definition is sdom's bracket table written field for field in
-snake case, and overrides the built-in table for the extensions it names:
+snake case, and overrides the built-in table for the extensions it names — and reads the
+files it names, when it gives `files` as well:
 
 ```toml
 [[languages]]
