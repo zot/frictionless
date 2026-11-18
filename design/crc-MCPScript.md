@@ -1,6 +1,6 @@
 # MCPScript
 
-**Requirements:** R54, R55, R56, R57, R58, R59, R60, R61, R62, R63, R64, R65, R66, R67, R68
+**Requirements:** R54, R55, R56, R57, R58, R59, R60, R61, R62, R63, R64, R65, R66, R67, R68, R76, R77, R201
 
 ## Knows
 
@@ -22,12 +22,13 @@
 - **audit**: POST `/api/ui_audit` with app name
 - **patterns**: Scan `patterns/*.md`, extract frontmatter description
 - **theme**: Delegate to frictionless binary with `--dir`
+- **checkpoint**: ensure fossil (download to `~/.claude/bin/fossil` for this platform when missing), then `exec` the frictionless binary's `checkpoint` with `--dir`, adding nothing to its output or exit status
 - **linkapp**: Delegate to `linkapp` script
 
 ## Collaborators
 
-- **CheckpointManager**: Handles all checkpoint subcommands
+- **Checkpoint**: the Go package behind `frictionless checkpoint`
 - **LinkappScript**: Handles app symlink management
-- **FrictionlessBinary**: For theme commands
+- **FrictionlessBinary**: For theme and checkpoint commands
 - **curl**: HTTP client for all API calls
 - **jq**: JSON construction for POST bodies

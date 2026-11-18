@@ -98,23 +98,9 @@
 - **R68:** Guard against recursion: `run` exits if `FRICTIONLESS_MCP=1` is set
 
 ### Checkpoint Commands
-- **R69:** `checkpoint save APP [MSG]` saves current state (no-op if unchanged)
-- **R70:** `checkpoint list APP` shows checkpoint history
-- **R71:** `checkpoint rollback APP [N]` restores Nth checkpoint
-- **R72:** `checkpoint diff APP [N]` shows diff from checkpoint N to current
-- **R73:** `checkpoint clear APP` resets to baseline (alias for baseline)
-- **R74:** `checkpoint baseline APP` sets current state as new baseline
-- **R75:** `checkpoint count APP` returns number of checkpoints
 - **R76:** Auto-download fossil SCM to `~/.claude/bin/fossil` if missing
 - **R77:** Detect platform (Linux x86_64, macOS arm64/x86_64) for fossil download
-- **R78:** Initialize per-app fossil repository in `{app_dir}/checkpoint.fossil`
-- **R79:** Notify appConsole of checkpoint changes by resetting `_checkpointsTime`
-- **R125:** `checkpoint update APP [MSG]` saves current file state on a separate "updates" branch
-- **R126:** `checkpoint local APP [MSG]` saves current file state on a separate "local" branch
-- **R127:** The "updates" and "local" branches survive `checkpoint baseline` resets via fossil bundle export/import
-- **R192:** `checkpoint baseline` sets the old repository aside rather than deleting it, and discards it only after the new baseline is committed and every preserved branch is imported and present
-- **R193:** If any baseline step fails, the old repository and checkout are restored byte-identical, the failure is reported on stderr, and the command exits non-zero
-- **R194:** Preserved branches are detected by exact branch name, not substring
+- **R201:** `mcp checkpoint CMD APP [ARG]` ensures fossil is installed, then hands off to `frictionless checkpoint CMD APP [ARG]`, adding nothing to its output or exit status
 
 ### linkapp Script
 - **~~R80:~~** (Retired T2 — see R184) `linkapp add APP` creates symlinks for app's lua and viewdefs
@@ -272,3 +258,38 @@
 - **R189:** `mcp:app(name)` and `mcp:display(name)` load an app's entry file `{base_dir}/lua/{app}/app.lua` the first time the app is asked for; apps load on request, never at session start
 - **R190:** `flib.Config.BuiltinApps` is passed to the ui-engine as its built-in app list; empty means no app is built-in
 - **R191:** `flib.Runtime.ViewdefCollisions()` returns the running ui-engine's live viewdef-name collisions, unchanged
+
+## Feature: Checkpoints
+**Source:** specs/checkpoint.md
+
+- **R69:** `checkpoint save APP [MSG]` saves current state (no-op if unchanged)
+- **R70:** `checkpoint list APP` shows checkpoint history
+- **R71:** `checkpoint rollback APP [N]` restores Nth checkpoint
+- **R72:** `checkpoint diff APP [N]` shows diff from checkpoint N to current
+- **R73:** `checkpoint clear APP` resets to baseline (alias for baseline)
+- **R74:** `checkpoint baseline APP` sets current state as new baseline
+- **R75:** `checkpoint count APP` returns number of checkpoints
+- **R78:** Initialize per-app fossil repository in `{app_dir}/checkpoint.fossil`
+- **R79:** Notify appConsole of checkpoint changes by resetting `_checkpointsTime`
+- **R125:** `checkpoint update APP [MSG]` saves current file state on a separate "updates" branch
+- **R126:** `checkpoint local APP [MSG]` saves current file state on a separate "local" branch
+- **R127:** The "updates" and "local" branches survive `checkpoint baseline` resets via fossil bundle export/import
+- **R192:** `checkpoint baseline` sets the old repository aside rather than deleting it, and discards it only after the new baseline is committed and every preserved branch is imported and present
+- **R193:** If any baseline step fails, the old repository and checkout are restored byte-identical, the failure is reported on stderr, and the command exits non-zero
+- **R194:** Preserved branches are detected by exact branch name, not substring
+- **R202:** The `checkpoint` package (`github.com/zot/frictionless/checkpoint`) is importable outside Frictionless, so ark can use it
+- **R203:** The frictionless binary takes `frictionless checkpoint CMD APP [ARG]`, with APP a directory under `{base_dir}/apps/`
+- **R204:** A failing checkpoint command prints the reason on stderr and exits non-zero; success and failure are told apart by exit status alone
+- **R205:** The app-console notify after a changing command (save, rollback, clear, baseline, update, local) is best effort and never changes the exit status
+- **R206:** `Find` returns `~/.claude/bin/fossil` when present, then fossil on PATH (`fossil.exe` on Windows), and `ErrNoFossil` otherwise
+- **R207:** When fossil is missing, the error says how to install it, with the download for each platform
+- **R208:** The `App` methods return values and print nothing; `Command` does the printing
+- **R209:** `Command(args, appsDir, out, onChange)` runs one checkpoint command and calls `onChange`, when non-nil, after a command that changes checkpoints
+- **R210:** Every fossil step is checked; a failure stops the command with an error naming the fossil command and carrying fossil's output
+- **R211:** Before acting, the package verifies that fossil's repository and checkout root for the app directory are the app's own, and stops otherwise
+- **R212:** A checkout is opened with `--nested` and `--keep`; a checkout bound to the wrong repository is reported, never replaced
+- **R213:** Switching to the "updates" or "local" branch and back to trunk never changes the working tree
+- **R214:** Fossil's `mtime-changes` setting is off on every opened checkout
+- **R215:** `Changed` reports whether the app's files differ from the tip of trunk in `{app_dir}/original.fossil`: a file changed, added or removed
+- **R216:** `Changed` ignores fossil's own files (`checkpoint.fossil`, `original.fossil`, the checkout database) and the files the checkpoint repository ignores
+- **R217:** `Changed` is false for an app without `original.fossil`

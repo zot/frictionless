@@ -30,19 +30,12 @@ The main CLI interface for all MCP operations. Reads server port from `{base_dir
 | `mcp patterns` | List available patterns |
 | `mcp theme list\|classes\|audit` | Theme management |
 
-### Checkpoint Subcommands
+### Checkpoint Command
 
-| Command | Description |
-|---------|-------------|
-| `checkpoint save APP [MSG]` | Save current state (no-op if unchanged) |
-| `checkpoint list APP` | List checkpoint history |
-| `checkpoint rollback APP [N]` | Rollback to Nth checkpoint |
-| `checkpoint diff APP [N]` | Show diff from checkpoint N |
-| `checkpoint clear APP` | Clear checkpoints (reset to baseline) |
-| `checkpoint baseline APP` | Set current state as baseline |
-| `checkpoint count APP` | Return checkpoint count |
-| `checkpoint update APP [MSG]` | Save update checkpoint (survives baseline) |
-| `checkpoint local APP [MSG]` | Save local checkpoint (survives baseline) |
+`mcp checkpoint CMD APP [ARG]` makes sure fossil is installed (see Fossil Integration),
+then hands off to `frictionless checkpoint CMD APP [ARG]`, which does the work; the
+commands and their behaviour are in `specs/checkpoint.md`. The script adds nothing to
+the binary's output or exit status.
 
 ### Event Command Behavior
 
@@ -55,26 +48,11 @@ The `event` command:
 
 ### Fossil Integration
 
-Checkpoints use fossil SCM. The script:
+Checkpoints use fossil SCM. Before handing a checkpoint command to the binary, the
+script:
 1. Auto-downloads fossil to `~/.claude/bin/fossil` if missing
 2. Detects platform (Linux x86_64, macOS arm64/x86_64)
 3. Downloads appropriate binary from fossil-scm.org
-4. Initializes per-app repository in `{app_dir}/checkpoint.fossil`
-
-### Baseline Safety
-
-`checkpoint baseline` replaces the repository, so it must never lose
-history. It sets the old repository aside instead of deleting it, builds
-the new baseline, and restores the preserved "updates" and "local"
-branches into it. Only when every step has succeeded, and each preserved
-branch is present in the new repository, is the old one discarded.
-
-If any step fails, the old repository and its checkout are put back
-exactly as they were, byte for byte. The command says so on stderr and
-exits non-zero; it never reports success for a baseline it did not set.
-
-Preserved branches are recognized by their exact names, so a branch such
-as `local-experiment` is not mistaken for `local`.
 
 ### MCP Guard
 

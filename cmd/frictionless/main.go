@@ -44,6 +44,10 @@ func main() {
 			if command == "theme" {
 				return true, runTheme(args)
 			}
+			// Handle checkpoint command (file-based; notifies a running server)
+			if command == "checkpoint" {
+				return true, runCheckpoint(args)
+			}
 			return false, 0
 		},
 		CustomHelp: func() string {
@@ -53,6 +57,7 @@ Commands:
   serve           Start standalone server with HTTP UI and MCP endpoints
   install         Install skills and resources (without starting server)
   theme           Theme management (list, classes, audit)
+  checkpoint      App checkpoints (save, list, rollback, diff, clear, baseline, count, update, local)
 
 Examples:
   frictionless mcp                                        Start MCP server (default: --dir .ui)
@@ -334,21 +339,7 @@ func printThemeClasses(classes []mcp.ThemeClass) {
 
 // runTheme handles theme management commands (file-based, no server needed).
 func runTheme(args []string) int {
-	// Default dir to .ui
-	baseDir := ".ui"
-
-	// Parse --dir flag
-	var filteredArgs []string
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--dir" && i+1 < len(args) {
-			baseDir = args[i+1]
-			i++ // skip the value
-		} else if strings.HasPrefix(args[i], "--dir=") {
-			baseDir = strings.TrimPrefix(args[i], "--dir=")
-		} else {
-			filteredArgs = append(filteredArgs, args[i])
-		}
-	}
+	baseDir, filteredArgs := splitDirFlag(args)
 
 	if len(filteredArgs) == 0 {
 		fmt.Fprintln(os.Stderr, "Usage: frictionless theme <list|classes|audit> [options]")
