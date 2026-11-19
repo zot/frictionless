@@ -38,7 +38,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 3 — the Lua shape of a host operation.**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Host operations: asynchronous `ui.*` bindings".)**
 - [x] ~~**Item 4 — a shared checkpoint package.**~~ **LANDED (2026-11-18 — not queued: "checkpoint package: one hardened checkpoint for Frictionless and ark".)**
 - [x] ~~**Item 5 — app-console's checkpoint refresh on Tailor.**~~ **LANDED (2026-11-19 — not queued: "Async checkpoint status and install for app-console".)**
-- [ ] **Item 6 — tell ark.** **OPEN (not queued.)**
+- [x] ~~**Item 6 — tell ark.**~~ **LANDED (2026-11-19 — not queued: request `ark-coherency-checkpoint` sent to ark.)**
 - [ ] **Item 7 — the executor moves into the session (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 8 — the Lua session moves into the session (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **OPEN (not queued.)**
@@ -259,6 +259,12 @@ One message to ark once Items 1–5 have settled the shape, not before. It cover
 checkpoint package lifted out of `package main` (Item 4), ark's app-console needing the
 same in-process binding, and ark's own app (`apps/ark/app.lua`, the `arkCmd` helper),
 which spawns the ark binary through synchronous `ui.exec` at about two dozen call sites.
+
+- **LANDED (2026-11-19):** `requests/ark-coherency-checkpoint.md`, sent. It covers the
+  checkpoint package and the four defects ark's copy still carries, the in-process
+  checkpoint operations ark gets through flib (answering part of `windows-defects-frictionless`),
+  ark's 23 synchronous `ui.exec` spawns and `DefineHostOp`, and the bundler fix. It states
+  that nothing is released yet.
 
 ## Item 7
 
