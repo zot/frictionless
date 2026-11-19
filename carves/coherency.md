@@ -43,7 +43,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 5 — app-console's checkpoint refresh on Tailor.**~~ **LANDED (2026-11-19 — not queued: "Async checkpoint status and install for app-console".)**
 - [x] ~~**Item 6 — tell ark.**~~ **LANDED (2026-11-19 — not queued: request `ark-coherency-checkpoint` sent to ark.)**
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
-- [ ] **Item 8 — the Lua session moves into the session (ui-engine).** **OPEN (not queued.)**
+- [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 10 — app-console stops spawning the host.** **OPEN (not queued.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
@@ -288,6 +288,13 @@ after a session is destroyed.
 
 Move the Lua session out of `Server.luaSessions` and the store adapter's copy into
 `*Session`. `Server.ExecuteInSession` becomes a thin wrapper over the rigs.
+
+- **LANDED (2026-11-19):** ui-engine 6993984. The store adapter's copy turned out to be
+  write-only, so it was deleted rather than moved. `Server.luaSessionFor` is now the one
+  lookup by vended ID. `ExecuteInSessionAsync` became `ExecRig.PostUpdate`; the
+  synchronous `ExecuteInSession` finds the session the same way but stays off the rigs,
+  since no rig may wait (R237). Found in passing: a `main.lua` that fails during creation
+  leaks its Lua session, recorded as ui-engine gap O8.
 
 ## Item 9
 
