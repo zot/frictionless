@@ -85,7 +85,12 @@ func NewServer(cfg *cli.Config, uiServer *cli.Server, viewdefs *cli.ViewdefManag
 	return srv
 }
 
-// SafeExecuteInSession wraps ExecuteInSession with panic recovery to prevent crashes.
+// SafeExecuteInSession runs fn on the session's executor, with panic recovery to
+// prevent crashes. It waits, which ui-engine treats as dangerous; every caller was
+// reviewed as running off the executor (HTTP and MCP tool handlers, startup, the
+// subscription poll goroutine), so it uses the primitive with dangerous false. A new
+// caller must also run off the executor.
+// CRC: crc-MCPServer.md | R252
 func (s *Server) SafeExecuteInSession(sessionID string, fn func() (interface{}, error)) (result interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -93,7 +98,7 @@ func (s *Server) SafeExecuteInSession(sessionID string, fn func() (interface{}, 
 			err = fmt.Errorf("panic during execution: %v", r)
 		}
 	}()
-	return s.UiServer.ExecuteInSession(sessionID, fn)
+	return s.UiServer.PrimitiveExecuteInSession(sessionID, fn, false)
 }
 
 // ServeStdio starts the MCP server on Stdin/Stdout.

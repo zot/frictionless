@@ -159,8 +159,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 | `Runtime.Start() (string, error)` | Start UI HTTP server and create Lua session; returns base URL |
 | `Runtime.RegisterAPI(mux *http.ServeMux)` | Mount `/api/*`, `/wait`, `/state`, `/variables` on an external mux |
 | `Runtime.StartAPI() (int, error)` | Start a standalone HTTP API server; returns port |
-| `Runtime.WithLua(fn func(rt *cli.LuaRuntime) error) error` | Execute a closure in the Lua executor goroutine (thread-safe) without triggering afterBatch (no UI update push). Used by downstream binaries to register Go functions on the Lua `mcp` table after `Start()` returns. |
-| `Runtime.WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error` | The active twin of `WithLua`: execute the closure in the Lua executor goroutine (thread-safe) through the ui-engine server's session execute path, which runs afterBatch when a browser is connected, so the Lua state changes the closure makes reach the browser at once. Same session resolution and errors as `WithLua`. Used by downstream binaries to deliver Go-side events (e.g. pubsub callbacks) into Lua. |
+| `Runtime.WithLua(fn func(rt *cli.LuaRuntime) error) error` | Execute a closure on the session's executor (thread-safe; ui-engine runs a session's Lua only there) without triggering afterBatch (no UI update push). Used by downstream binaries to register Go functions on the Lua `mcp` table after `Start()` returns. |
+| `Runtime.WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error` | The active twin of `WithLua`: execute the closure on the session's executor (thread-safe) through the ui-engine server's session execute path, which runs afterBatch when a browser is connected, so the Lua state changes the closure makes reach the browser at once. Same session resolution and errors as `WithLua`. Used by downstream binaries to deliver Go-side events (e.g. pubsub callbacks) into Lua. |
 | `Runtime.ViewdefCollisions() []cli.ViewdefCollision` | The running ui-engine's live viewdef-name collisions (see ui-engine's app-discovery spec), so an embedder can show them; computing them without a server is ui-engine's `cli.ResolveViewdefCollisions` |
 | `Runtime.UIHandleFunc(pattern string, handler http.HandlerFunc)` | Register a custom HTTP handler on the UI server's mux. Delegates to the ui-engine `HTTPEndpoint.HandleFunc`. |
 | `Runtime.Shutdown(ctx) error` | Graceful shutdown of UI and API servers |
@@ -173,6 +173,8 @@ Frictionless can be embedded as a Go library by downstream binaries (e.g. ark). 
 5. `Shutdown(ctx)` — tears down both servers
 
 **Backend socket isolation:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the ui-engine's shared `/tmp/ui.sock` default. Each embedded runtime owns a private control socket keyed to its base directory, so multiple embedded runtimes (e.g. a disposable ark running alongside a live one) no longer collide on the fixed default. The embedder may still override the socket through the ui-engine config if it needs a specific path. (R182)
+
+**Calling WithLua and WithLuaUpdate:** both wait for the session's executor, which also serves the session's browser messages, timers and change detection. A caller does its I/O before the call and keeps only Lua access in the closure, and never calls either from code already running on the session's executor (such as a Go function bound into Lua and called from Lua), which would wait for itself.
 
 **Passive vs. active Lua execution:** `WithLua` is the passive path: it runs the closure but never triggers afterBatch, so nothing is pushed to the browser; changes surface only on the browser's next message. That is what registering Go functions needs, since setup must not push. `WithLuaUpdate` is the active path: it runs the closure the same way, then runs afterBatch when a browser is connected, so changes reach the browser immediately. An embedder delivering an event that changes visible state (a dialog opening, a status line moving on) uses `WithLuaUpdate`.
 
@@ -443,6 +445,8 @@ The MCP server delegates to the ui-server's `Server.ExecuteInSession` method for
 **Implication:** Any operation that needs to trigger a browser update can call `ExecuteInSession` with an empty function.
 
 **Panic Recovery Requirement:** The MCP server MUST wrap `ExecuteInSession` with panic recovery (e.g., `SafeExecuteInSession`) to prevent Lua errors or panics from crashing the MCP process. Panics should be caught and returned as errors.
+
+**Reviewed synchronous execution:** `SafeExecuteInSession` and flib's `WithLuaUpdate` wait for the session's executor, which ui-engine treats as dangerous because a wait from inside an executor deadlocks. Every caller of both runs off the executor: HTTP and MCP tool handlers, startup and configuration, and the subscription poll goroutine. So both use ui-engine's `PrimitiveExecuteInSession` with `dangerous` false, and neither warns nor panics when ui-engine's dangerous-execution default flips. A new caller of either must also run off the executor.
 
 ### 4.3 The `mcp` Global Object
 

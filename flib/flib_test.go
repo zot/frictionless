@@ -178,3 +178,45 @@ func waitFor(ch <-chan string, want string, wait time.Duration) (string, bool) {
 		}
 	}
 }
+
+// Test: WithLuaUpdate works with dangerous execution disallowed (R250)
+func TestWithLuaUpdateMakesNoDangerousCall(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "lua"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "log"), 0o755)
+	// A README.md skips auto-install, which needs the bundled binary.
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\n**Version: 99.0.0**\n"), 0o644)
+	rt, err := New(Config{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Configure(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer rt.Shutdown(context.Background())
+	rt.Cfg.Session.AllowDangerousExecution = false // ui-engine's coming default: a dangerous call panics
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("WithLuaUpdate made a dangerous call: %v (R250)", r)
+			}
+		}()
+		if err := rt.WithLuaUpdate(func(L *cli.LuaRuntime) error {
+			return L.State.DoString("reviewedProbe = true")
+		}); err != nil {
+			t.Fatalf("WithLuaUpdate: %v", err)
+		}
+	}()
+	var got string
+	rt.WithLua(func(L *cli.LuaRuntime) error {
+		got = L.State.GetGlobal("reviewedProbe").String()
+		return nil
+	})
+	if got != "true" {
+		t.Errorf("reviewedProbe = %s after WithLuaUpdate, want true", got)
+	}
+}

@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R183, R189, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R183, R189, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178, R252
 
 ## Responsibilities
 
@@ -36,7 +36,7 @@
 - handleWait: HTTP long-poll endpoint for state changes (GET /wait, uses currentVendedID); updates waitStartTime on return; after draining queue, calls SafeExecuteInSession with empty function to trigger browser update
 - notifyStateChange: Signal waiting HTTP clients when mcp.pushState() called
 - atomicSwapQueue: Atomically swap mcp.state with empty table, return accumulated events
-- SafeExecuteInSession: Wraps ui-server's ExecuteInSession with panic recovery; converts Lua errors/panics to errors
+- SafeExecuteInSession: Wraps ui-server's PrimitiveExecuteInSession with dangerous false, with panic recovery; converts Lua errors/panics to errors. Not dangerous because every caller runs off the session's executor: HTTP and MCP tool handlers (handleState, handleWait, handleRun, handleDisplay, handleConfigure via Stop), startup (StartAndCreateSession via setupMCPGlobal) and the subscription poll goroutine (pollLoop via callHandler). A new caller must also run off the executor (R252)
 - triggerBrowserUpdate: Call SafeExecuteInSession with empty function to push state changes to browsers
 - getStatus: Return current URL and session count
 - shutdown: Clean up MCP connection

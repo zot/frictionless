@@ -29,6 +29,7 @@
 - **R129:** Install bundled pattern files to `{base_dir}/patterns/` during `ui_install`
 - **R144:** MCP HTTP server serves static files from `{base_dir}/html/` as a catch-all for unmatched paths
 - **R145:** `.md` files served via MCP HTTP port are rendered as HTML (via goldmark) for browser User-Agents, raw for curl
+- **R252:** `SafeExecuteInSession` runs its work through ui-engine's `PrimitiveExecuteInSession` with `dangerous` false, keeping its panic recovery; every caller runs off the session's executor (HTTP and MCP tool handlers, startup and configuration, the subscription poll goroutine), so it never warns or panics when ui-engine's dangerous-execution default flips
 
 ## Feature: UI Audit
 **Source:** specs/ui-audit.md
@@ -221,11 +222,14 @@
 - **R168:** `Server.RegisterAPIRoutes(mux)` extracts route registration from `StartHTTPServer` so both standalone and embedded modes share the same handler set
 - **R177:** `flib.Config.Project` sets an explicit project directory for skill installation; when empty, `{project}` is derived from `{base_dir}` as before
 - **R178:** `Server.ProjectDir` is the internal field that `Install()` uses; `flib` sets it from `Config.Project`
-- **R179:** `Runtime.WithLua(fn)` executes a closure in the Lua executor goroutine (thread-safe, passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
+- **~~R179:~~** (Retired T10 — see R249) `Runtime.WithLua(fn)` executes a closure in the Lua executor goroutine (thread-safe, passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
 - **R180:** `flib.Config.Port` sets a preferred HTTP port for the ui-engine server (0 = auto-select, default); enables downstream binaries to persist the port across restarts so browsers reconnect automatically
 - **R181:** `Runtime.UIHandleFunc(pattern, handler)` registers a custom HTTP handler on the UI server's mux by delegating to `ui-engine HTTPEndpoint.HandleFunc`; enables downstream binaries to add routes to the UI port
 - **R182:** When `Config.Dir` is non-empty, `New` derives the ui-engine backend control socket as `{Dir}/ui.sock` instead of the shared `/tmp/ui.sock` default, so each embedded runtime owns a private control socket and multiple embedded runtimes no longer collide on the fixed default
-- **R200:** `Runtime.WithLuaUpdate(fn)` is the active twin of `WithLua`: it executes the closure in the Lua executor goroutine through the ui-engine server's `ExecuteInSession`, which runs afterBatch when a browser is connected, so the closure's Lua state changes reach the browser at once; flib resolves the vendedID and reports the same errors as `WithLua`
+- **~~R200:~~** (Retired T11 — see R250) `Runtime.WithLuaUpdate(fn)` is the active twin of `WithLua`: it executes the closure in the Lua executor goroutine through the ui-engine server's `ExecuteInSession`, which runs afterBatch when a browser is connected, so the closure's Lua state changes reach the browser at once; flib resolves the vendedID and reports the same errors as `WithLua`
+- **R249:** `Runtime.WithLua(fn)` executes a closure on the session's executor (thread-safe: ui-engine runs a session's Lua only there; passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
+- **R250:** `Runtime.WithLuaUpdate(fn)` is the active twin of `WithLua`: it executes the closure on the session's executor through ui-engine's `PrimitiveExecuteInSession` with `dangerous` false, which runs afterBatch when a browser is connected, so the closure's Lua state changes reach the browser at once; flib resolves the vendedID and reports the same errors as `WithLua`
+- **R251:** A caller of `WithLua` or `WithLuaUpdate` does its I/O before the call and never calls either from code already running on the session's executor, which would wait for itself
 
 ## Feature: Install Manifest
 **Source:** specs/mcp.md

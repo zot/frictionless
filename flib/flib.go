@@ -141,11 +141,13 @@ func (r *Runtime) RunLua(code string) (string, error) {
 	return fmt.Sprintf("%v", result), nil
 }
 
-// WithLua executes a closure in the Lua executor goroutine (thread-safe)
-// without triggering afterBatch (no UI update push). This is the passive
-// execution path — use it to register Go functions on the Lua mcp table
-// or perform other Lua-side setup after Start returns.
-// CRC: crc-FlibRuntime.md | R179
+// WithLua executes a closure on the session's executor (thread-safe: ui-engine
+// runs a session's Lua only there) without triggering afterBatch (no UI update
+// push). This is the passive execution path — use it to register Go functions on
+// the Lua mcp table or perform other Lua-side setup after Start returns. It waits
+// for the executor: do I/O before the call, and never call it from code already
+// running on the executor, which would wait for itself.
+// CRC: crc-FlibRuntime.md | R249
 func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 	vendedID := r.mcpServer.GetCurrentVendedID()
 	if vendedID == "" {
@@ -161,12 +163,13 @@ func (r *Runtime) WithLua(fn func(rt *cli.LuaRuntime) error) error {
 	return err
 }
 
-// WithLuaUpdate is the active twin of WithLua: it executes a closure in
-// the Lua executor goroutine (thread-safe) through the ui-engine server's
-// ExecuteInSession, which runs afterBatch when a browser is connected, so
-// the Lua state changes the closure makes reach the browser at once. Use it
-// to deliver Go-side events into Lua; use WithLua for setup that must not push.
-// CRC: crc-FlibRuntime.md | R200
+// WithLuaUpdate is the active twin of WithLua: it executes a closure on the
+// session's executor through the ui-engine server's PrimitiveExecuteInSession
+// (dangerous false), which runs afterBatch when a browser is connected, so the
+// Lua state changes the closure makes reach the browser at once. Use it to
+// deliver Go-side events into Lua; use WithLua for setup that must not push. The
+// same calling rule as WithLua applies.
+// CRC: crc-FlibRuntime.md | R250, R251
 func (r *Runtime) WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error {
 	vendedID := r.mcpServer.GetCurrentVendedID()
 	if vendedID == "" {
@@ -176,9 +179,10 @@ func (r *Runtime) WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error {
 	if luaSession == nil {
 		return fmt.Errorf("session %s not found", vendedID)
 	}
-	_, err := r.uiServer.ExecuteInSession(vendedID, func() (interface{}, error) {
+	// Not dangerous: every caller runs off the session's executor (R250, R251).
+	_, err := r.uiServer.PrimitiveExecuteInSession(vendedID, func() (interface{}, error) {
 		return nil, fn(luaSession)
-	})
+	}, false)
 	return err
 }
 

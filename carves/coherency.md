@@ -47,7 +47,8 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
 - [x] ~~**Item 10 — app-console stops spawning the host.**~~ **LANDED (2026-11-19 — not queued: 10a, 10b and 10c.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **IN PROGRESS (not queued): 11a and 11b landed; 11c open.**
-- [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
+- [x] ~~**Item 14 — one executor per session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "One executor per session: Lua runs only on the session's ChanSvc (R254-R263)"; ark told in `ark-one-executor`.)**
+- [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **IN PROGRESS (not queued): 12a and 12b landed; 12c open.**
 
 ## Decisions
 
@@ -406,6 +407,23 @@ from Item 1 are the list of remaining callers.
   callers are reviewed) clears them all at once; the same holds for flib's `WithLua` and
   `WithLuaUpdate`.
 - **Done when** no site warns in normal use, and the default is flipped.
+- **Split 2026-11-19 (Bill).** Recounted that day: the same two ui-engine sites, and
+  Frictionless's `SafeExecuteInSession` (11 callers) and flib's `WithLuaUpdate`. Item 14's
+  single executor means each wait now has one queue to wait on, not two.
+  - **12a — ui-engine's own sites. LANDED (2026-11-19):** ui-engine "ui-engine makes no
+    dangerous call: PushViewdefs and refresh post (R264)". `PushViewdefs` and
+    `triggerSessionRefresh` post with `ExecRig.PostUpdate` and do not wait.
+  - **12b — Frictionless. LANDED (2026-11-19):** Frictionless "Reviewed synchronous
+    execution: SafeExecuteInSession and WithLuaUpdate use the primitive (Item 12b)". All 11
+    `SafeExecuteInSession` callers run off the executor (HTTP and MCP tool handlers,
+    startup, the subscription poll goroutine), recorded in `crc-MCPServer.md`; so does
+    ark's one `WithLuaUpdate` caller. Both now use the primitive with `dangerous` false.
+    flib is a library, so its rule for future embedders lives in `specs/mcp.md`. The stale
+    "Lua executor goroutine" wording for `WithLua` was corrected on the way.
+  - **12c — the flip (ui-engine).** Move the test callers (Item 14's `one_executor_test.go`
+    among them; `dangerous_test.go` keeps allowing it on purpose), then default
+    `AllowDangerousExecution` to unset. ark gets the new default through flib, so it is
+    told before the flip is released.
 
 ## Item 13
 
@@ -432,3 +450,51 @@ R3607 there.
   atomic two-list design discussed first (queue plus free list, compare-and-swap heads)
   was set aside: ark's approach is already proven and needs no free list, whose
   concurrent pops would have had an ABA problem.
+
+## Item 14
+
+One executor per session (ui-engine). Ranked ahead of Item 12, because it is a crash and
+Item 12 is a cleanup; with one executor, Item 12 also has one place to wait instead of two.
+
+Each session runs two executor goroutines: the session's own (Item 7) and the
+`LuaSession`'s, fed by `executorChan` (`internal/lua/runtime.go`, `startExecutor`). Rig
+work, host-op delivery and `Server.ExecuteInSession` nest the second inside the first, so
+they take turns. Two paths do not:
+
+- **Change detection** runs on the session executor: `LuaSession.AfterBatch` calls
+  `DetectChanges` directly, not through `execute`, and evaluating a method path runs Lua.
+  It runs only while a browser is connected, which is the normal case.
+- **flib's `WithLua`** posts straight to the `LuaSession` executor, bypassing the session
+  executor. The dangerous-execution warning cannot see it.
+
+**Measured 2026-11-19** with a throwaway probe in `internal/server` (no race detector on
+this machine: no cgo): a connection attached, `PostUpdate` no-ops on one goroutine, direct
+`LuaSession.ExecuteInSession` writes on another. A method-bound variable's `App:probe()`
+ran on the session executor while the Lua executor was inside a closure 46 and 51 times
+out of 101, and two of seven runs ended in gopher-lua's `fatal error: concurrent map read
+and map write` (`LTable.RawGetString`), which `recover` cannot catch: the whole process
+dies. ark calls `WithLua` at three sites (`server.go` 2743, 2779 and 6048), so ark is
+exposed now. Frictionless does not call `WithLua`.
+
+- **Not yet classified:** the 17 `r.execute` call sites inside `internal/lua`. Some are
+  only reached nested; the hot-loader's reload and timer firings are the likely direct
+  entries.
+- **Likely shape (not decided):** `LuaSession.execute` runs on the session executor
+  instead of a goroutine of its own, so every path into the Lua state is one queue.
+- **Done when** every entry into a session's Lua state goes through one executor, a
+  regression test that counts overlaps (the probe's method, not a crash, which would kill
+  the test binary) stays at zero, and ark has been told.
+- **Fix LANDED (2026-11-19):** ui-engine "One executor per session: Lua runs only on the
+  session's ChanSvc (R254-R263)". Fix A, decided by Bill: `LuaSession` lost its own
+  goroutine and runs on the session's ChanSvc; work already on it calls `RunInSession`,
+  work from outside posts and waits. ChanSvc gained `Drained()`, because `done` closes at
+  the stop sentinel while a closure may still be running, so shutdown closes the VM only
+  after the drain and never waits itself. Sewing, per Bill: hot reload and `main.lua`
+  compile off the executor, so a file that does not compile touches no session. Eleven
+  unused `LuaSession` methods were deleted. All 17 entry points were classified first:
+  `WithLua` and the hot-loader were the everyday direct entries. Checked live in
+  Frictionless with a browser connected, including a hot reload of a broken file.
+- **Ark told (2026-11-19):** request `ark-one-executor`. Its four callers (three `WithLua`, one `WithLuaUpdate`) run
+  off the executor (HTTP handlers, startup, its listen loop), so they keep working; the message is that the
+  crash is fixed once ark takes this ui-engine, and that a `WithLua` closure now runs on
+  the session executor, so it should do its I/O before the call.

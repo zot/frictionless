@@ -816,3 +816,18 @@ func TestComputeContentHash(t *testing.T) {
 		t.Error("different content produced same hash")
 	}
 }
+
+// Test: SafeExecuteInSession works with dangerous execution disallowed (R252)
+func TestSafeExecuteMakesNoDangerousCall(t *testing.T) {
+	s, cleanup := createTestServerWithSession(t)
+	defer cleanup()
+	s.cfg.Session.AllowDangerousExecution = false // ui-engine's coming default: a dangerous call panics
+
+	result, err := callHandleRun(s, "return 6 * 7")
+	if err != nil {
+		t.Fatalf("ui_run: %v", err)
+	}
+	if result.IsError || !strings.Contains(getTextContent(result), "42") {
+		t.Fatalf("ui_run = %v, want 42 with dangerous execution disallowed (R252)", getTextContent(result))
+	}
+}

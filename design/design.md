@@ -49,6 +49,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [ ] test-MCP.md → `internal/mcp/tools_test.go`
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
 - [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
+- [x] test-ReviewedExecution.md → `internal/mcp/tools_test.go`, `flib/flib_test.go`
 - [x] test-Checkpoint.md → `checkpoint/checkpoint_test.go`, `checkpoint/baseline_test.go`, `checkpoint/fossil_test.go`, `checkpoint/changed_test.go`, `checkpoint/command_test.go`, `cmd/frictionless/checkpoint_test.go`, `internal/mcp/checkpoint_test.go`, `checkpoint/status_test.go`, `internal/mcp/checkpoint_ops_test.go`
 - [x] test-AppLink.md → `applink/applink_test.go`, `internal/mcp/applink_ops_test.go`
 - [x] test-GitHubInstall.md → `githubinstall/githubinstall_test.go`, `internal/mcp/github_ops_test.go`
@@ -194,6 +195,8 @@ Cross-platform binary builds via Makefile:
 - T7: R86 retired by no replacement (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; per-viewdef links retired; ui-engine reads each app's viewdefs/)
 - T8: R87 retired by R188 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; old-scheme links are cleaned up instead)
 - T9: R85 retired by R226 (relative links hold on Unix only; Windows junctions are absolute (applink.md))
+- T10: R179 retired by R249 (Item 12b: WithLua runs on the session executor (Item 14); there is no Lua executor goroutine)
+- T11: R200 retired by R250 (Item 12b: WithLuaUpdate runs on the session executor through the non-dangerous primitive, not ExecuteInSession)
 
 ### Spec→Design
 *None*

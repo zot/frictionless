@@ -31,9 +31,8 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Alarm:** 2
 **Fire alarm:** drop the empty-vendedID check. Red: the error becomes `session  not found` instead of `no active session`.
 **Inject:** flib/flib.go:WithLuaUpdate
-@alarm-hash: 089112a39e4f1891
-**Pulled:** 2026-11-16 — rang: `WithLuaUpdate() error = session  not found, want "no active session"`
-
+@alarm-hash: a1d8f4f6fc661ae0
+**Pulled:** 2026-11-19 — re-pulled after Item 12b moved WithLuaUpdate to the primitive: rang `WithLuaUpdate() error = session  not found, want "no active session"` *Earlier —* 2026-11-16 — rang: `WithLuaUpdate() error = session  not found, want "no active session"`
 ## Test: WithLuaUpdate pushes the closure's changes to a connected browser
 **Purpose:** the active path runs afterBatch, so a change made in the closure reaches the browser with no further browser message (R200)
 **Input:** a started runtime; a websocket client on `/ws/{session}` that creates variable 2 watching `mcp.probe` (path `probe` under variable 1); then `WithLuaUpdate` sets `mcp.probe`
@@ -43,9 +42,8 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Alarm:** 3
 **Fire alarm:** run the closure through the Lua session's own ExecuteInSession (WithLua's passive path) instead of the ui-engine server's. Red: `browser received "" after WithLuaUpdate`.
 **Inject:** flib/flib.go:WithLuaUpdate
-@alarm-hash: 089112a39e4f1891
-**Pulled:** 2026-11-16 — rang: `browser received "" after WithLuaUpdate, want an update carrying "pushed-by-update"`
-
+@alarm-hash: a1d8f4f6fc661ae0
+**Pulled:** 2026-11-19 — re-pulled after Item 12b moved WithLuaUpdate to the primitive: rang `browser received "" after WithLuaUpdate` *Earlier —* 2026-11-16 — rang: `browser received "" after WithLuaUpdate, want an update carrying "pushed-by-update"`
 ## Test: the mcp app's entry extends the mcp global
 **Purpose:** the mcp app loads from `lua/mcp/app.lua` at session start (R183)
 **Input:** `apps/mcp/app.lua` sets `mcp.extended`; only `lua/mcp` is linked
