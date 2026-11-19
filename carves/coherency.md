@@ -45,7 +45,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
-- [ ] **Item 10 — app-console stops spawning the host.** **OPEN (not queued.)**
+- [ ] **Item 10 — app-console stops spawning the host.** **IN PROGRESS (not queued): 10a landed; 10b and 10c open.**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
 
@@ -332,8 +332,21 @@ also where the bash `.ui/mcp` stops mattering on Windows.
 
 ### Item 10's decisions
 
-- `@undecided:` how linkapp behaves on Windows, where creating a symlink needs privilege
-  or developer mode. (resolution: ask ark how its linkapp handles it.)
+- **DECIDED (Bill, 2026-11-19): a junction on Windows, as ark does.** ark's `MakeDirLink`
+  writes a directory junction (no privilege, no Developer Mode, no `mklink`) and repairs
+  stale ones at start, since a junction's target is absolute. Unix keeps its relative
+  symlink, so R85 now holds on Unix only.
+- **Split 2026-11-19 (Bill).** The carve counted only `linkapp`; app-console had twelve
+  other bash spawns. One piece at a time:
+  - **10a — activation. LANDED (2026-11-19):** Frictionless 4f380ca. The `applink`
+    package (lifted from ark's dirlink, which ark can later import back),
+    `frictionless linkapp`, and synchronous `ui.linkApp` / `ui.unlinkApp` /
+    `ui.deleteApp`; the bash `install/linkapp` is gone, closing gap I1.
+  - **10b — the GitHub install.** The `mkdir`/`curl`/`unzip`/`mv`/`rm` pipeline and
+    the two `curl` fetches, as asynchronous host operations with Go's HTTP client and
+    `archive/zip`.
+  - **10c — local file checks and desktop open.** `test -d`, two `ls`, `mkdir -p`, and
+    two `xdg-open`.
 
 ## Item 11
 
