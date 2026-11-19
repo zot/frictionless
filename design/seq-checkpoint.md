@@ -58,7 +58,7 @@ command when fossil would act on any checkout but the app's own (R211).
 ## Sequence: status for app-console
 
 ```
-5.1. MCPServer.setupMCPGlobal (on the executor) -> CheckpointOps.define -> LuaView.DefineHostOp x2
+5.1. MCPServer.setupMCPGlobal (on the executor) -> CheckpointOps.define -> LuaRig.DefineHostOp x2
 5.2. app-console: stale cache and no call running -> ui.checkpointStatus(appConsole, "_checkpoints", names, cb)
 5.3. op (on the executor): read names -> work
 5.4. work (off the executor): Find; each name -> App.Status (timeline -R; original.fossil; Changed)

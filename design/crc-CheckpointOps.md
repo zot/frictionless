@@ -3,7 +3,7 @@
 
 The checkpoint host operations each session's Lua gets: `ui.checkpointStatus` and
 `ui.checkpointInstall`. Defined by the MCP server where it builds the `mcp` global, on
-ui-engine's host operations (`LuaView.DefineHostOp`), so the fossil work runs off the
+ui-engine's host operations (`LuaRig.DefineHostOp`), so the fossil work runs off the
 session's executor and the result lands in a field the caller names.
 
 ## Knows
@@ -12,7 +12,7 @@ session's executor and the result lands in a field the caller names.
 
 ## Does
 - define: on the executor, inside setupMCPGlobal, define both operations on the session's
-  LuaView (R223).
+  LuaRig (R223).
 - checkpointStatus op: read `names` (a Lua list of strings) on the executor; work: Find
   fossil, then for each name `App.Status()`; deliver a map from name to
   `{count, downloaded, changed}`, or `{error}` for an app whose status failed, so one
@@ -22,7 +22,7 @@ session's executor and the result lands in a field the caller names.
 
 ## Collaborators
 - MCPServer: setupMCPGlobal calls define
-- LuaView (ui-engine): DefineHostOp
+- LuaRig (ui-engine): DefineHostOp
 - Checkpoint: Find, App.Status, App.Install
 
 ## Sequences

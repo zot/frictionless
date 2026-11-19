@@ -17,8 +17,11 @@ will come into focus as pieces move; parts below the top few are expected to cha
 **The target shape, as far as it is in focus:**
 
 - **Central Station for sessions.** A `*Session` root that owns its parts, reached
-  through a `SessionRef` whose views (Lua, Browser, Exec) carry the behaviour, and a
-  `Station` any view can produce. IDs stay at the edges.
+  through a `SessionRef` whose rigs (Lua, Browser, Exec) carry the behaviour, and a
+  `Station` any rig can produce. IDs stay at the edges.
+  **DECIDED (Bill, 2026-11-19): these are rigs, not views.** "View" read as restricted
+  access and collided with ui-engine's on-screen views; a rig is the gear for working one
+  part of the session. Renamed in ui-engine's code and docs and in the Central Station pattern.
 - **Sewing for host work.** Host operations post continuations instead of blocking the
   executor, through a per-operation wrapper, Tailor.
 - **Lua never spawns its host.** Host features are `ui.*` bindings. Lua learns of
@@ -32,7 +35,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 
 ## Status
 
-- [x] ~~**Item 1 — session views over today's maps (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Session references and dangerous execution".)**
+- [x] ~~**Item 1 — session rigs over today's maps (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Session references and dangerous execution".)**
 - [x] ~~**Item 13 — a working closure actor (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Working closure actor and Tailor".)**
 - [x] ~~**Item 2 — Tailor (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Working closure actor and Tailor".)**
 - [x] ~~**Item 3 — the Lua shape of a host operation.**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Host operations: asynchronous `ui.*` bindings".)**
@@ -69,7 +72,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 
 ## Item 1
 
-Add `SessionRef`, its views and `Station` in ui-engine's `internal/server`, re-exported
+Add `SessionRef`, its rigs and `Station` in ui-engine's `internal/server`, re-exported
 through `cli`. The first implementation sits entirely on today's maps (`SessionManager`'s
 ID maps, `WebSocketEndpoint.sessionSvc`, `Server.luaSessions`). That is Central Station's
 "registry plus ID" route for recovering the root, so it is correct from the start. Nothing
@@ -79,10 +82,10 @@ existing changes; this is the seam every later part moves behind.
 type SessionRef struct{ /* registry plus vended ID today; weak.Pointer[Session] later */ }
 
 func (r SessionRef) Valid() bool
-func (r SessionRef) Lua() LuaView         // run code, read state
-func (r SessionRef) Browser() BrowserView // afterBatch, connected?
-func (r SessionRef) Exec() ExecView       // post passive, post active, Tailor
-func (r SessionRef) Station() Station     // every view; any view can produce it
+func (r SessionRef) Lua() LuaRig         // run code, read state
+func (r SessionRef) Browser() BrowserRig // afterBatch, connected?
+func (r SessionRef) Exec() ExecRig       // post passive, post active, Tailor
+func (r SessionRef) Station() Station     // every rig; any rig can produce it
 ```
 
 `Valid()` is true while the Lua session's `done` channel is open. `LuaSession` needs an
@@ -103,7 +106,7 @@ exported accessor for it, since `done` is unexported.
 - `@undecided:` whether a call made from inside an executor, which is a guaranteed
   deadlock, panics regardless of the config. Detecting it needs the goroutine ID, read
   from `runtime.Stack`, which Go does not support directly. (resolution: Bill's call.)
-- `@undecided:` whether `LuaView.Session()` (R164) is narrowed. It hands out the
+- `@undecided:` whether `LuaRig.Session()` (R164) is narrowed. It hands out the
   `LuaSession`, whose own `ExecuteInSession` goes around the dangerous gate. (resolution:
   settle in Item 1's design phase.)
 
@@ -137,7 +140,7 @@ and then disappears.
 
 ### Item 2's decisions
 
-- **DECIDED (Bill, 2026-11-18): no debug page in Item 2.** `ExecView.PendingTailors()` is
+- **DECIDED (Bill, 2026-11-18): no debug page in Item 2.** `ExecRig.PendingTailors()` is
   the data source; a page can be added later.
 - **DECIDED (Bill, 2026-11-18): an error ends the sewing.** A stitch that errors or panics
   closes the Tailor as failed.
@@ -174,7 +177,7 @@ How a host operation looks from Lua, under the `ui.*` namespace.
   called after the fields are written.
 - **DECIDED (Bill, 2026-11-18): no pending marker for now.** Add one when a caller wants
   it.
-- **DECIDED (Bill, 2026-11-18): ui-engine provides the helper,** `LuaView.DefineHostOp`;
+- **DECIDED (Bill, 2026-11-18): ui-engine provides the helper,** `LuaRig.DefineHostOp`;
   a host supplies only the operation's argument reading and its `work` function.
 - **LANDED (2026-11-18, ui-engine 994a0ce):** `specs/host-ops.md`, R205-R216,
   `internal/server/hostop.go`. The deadline is applied to `work`'s context; the Tailor
@@ -268,7 +271,7 @@ which spawns the ark binary through synchronous `ui.exec` at about two dozen cal
 
 ## Item 7
 
-Move the executor out of `WebSocketEndpoint.sessionSvc` into `*Session`. The view
+Move the executor out of `WebSocketEndpoint.sessionSvc` into `*Session`. The rig
 implementation changes; callers do not. The payoff is concrete:
 `cleanupSessionSvc` has no callers today, so every destroyed session leaks its executor
 goroutine. Owned by the session, the executor ends with it. Test: the goroutine count
@@ -284,7 +287,7 @@ after a session is destroyed.
 ## Item 8
 
 Move the Lua session out of `Server.luaSessions` and the store adapter's copy into
-`*Session`. `Server.ExecuteInSession` becomes a thin wrapper over the views.
+`*Session`. `Server.ExecuteInSession` becomes a thin wrapper over the rigs.
 
 ## Item 9
 
@@ -323,7 +326,7 @@ from Item 1 are the list of remaining callers.
 
 - **Free first retrofits:** ui-engine's `PushViewdefs` and `triggerSessionRefresh` run a
   no-op only to trigger change detection, and nothing waits for their result. They become
-  `ExecView.PostUpdate`.
+  `ExecRig.PostUpdate`.
 - **Callers known on 2026-11-18,** all running off the executor and therefore safe:
   Frictionless's `SafeExecuteInSession` (about a dozen MCP tool and `Stop` sites), and
   flib's `WithLua` and `WithLuaUpdate`. Request-and-response callers that need a result
