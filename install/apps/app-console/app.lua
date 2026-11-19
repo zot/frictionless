@@ -250,8 +250,6 @@ AppConsole.GitHubDownloader = session:prototype("AppConsole.GitHubDownloader", {
     tabs = EMPTY,       -- GitHubTab instances
     viewedTabs = EMPTY, -- Tracks which tabs user has clicked
     markerRefresh = "", -- JS code to trigger trough marker positioning
-    _conflict = false,  -- Whether app name conflicts with existing app
-    _conflictCheckTime = 0, -- Last time conflict was checked
     _markerCounter = 0, -- Counter for markerRefresh changes
     _investigating = false, -- A ui.githubInvestigate call is running
     _investigation = EMPTY, -- Its delivered result: {files, viewdefs, contents}
@@ -309,35 +307,11 @@ function GitHubDownloader:getAppName()
 end
 
 function GitHubDownloader:checkConflict()
-    local now = os.time()
-    if (now - self._conflictCheckTime) < 1 then
-        return self._conflict
-    end
-    self._conflictCheckTime = now
-
     local appName = self:getAppName()
-    if not appName then
-        self._conflict = false
-        return false
-    end
-
+    if not appName then return false end
     local status = mcp:status()
-    local baseDir = status and status.base_dir
-    if not baseDir then
-        self._conflict = false
-        return false
-    end
-
-    local targetDir = baseDir .. "/apps/" .. appName
-    local handle = io.popen('test -d "' .. targetDir .. '" && echo "exists"')
-    if handle then
-        local result = handle:read("*a")
-        handle:close()
-        self._conflict = result:match("exists") ~= nil
-    else
-        self._conflict = false
-    end
-    return self._conflict
+    if not status or not status.base_dir then return false end
+    return ui.isDir(status.base_dir .. "/apps/" .. appName)
 end
 
 function GitHubDownloader:hasConflict()
@@ -841,18 +815,6 @@ function AppInfo:readmeLinkHtml()
     return string.format('<a href="http://localhost:%d/app/%s/readme" target="_blank" title="View readme"><sl-icon name="file-text"></sl-icon></a>', port, self.name)
 end
 
-function AppInfo:openReadme()
-    if self:hasReadme() then
-        os.execute('xdg-open "' .. self.readmePath .. '" 2>/dev/null &')
-    end
-end
-
-function AppInfo:openSourceUrl()
-    if self:hasSourceUrl() then
-        os.execute('xdg-open "' .. self.sourceUrl .. '" 2>/dev/null &')
-    end
-end
-
 function AppInfo:noLocalChanges()
     return not self:hasLocalChanges()
 end
@@ -1022,13 +984,10 @@ local function readFile(path)
     return content
 end
 
--- Check if directory exists and has files
+-- Check if directory exists and has files (dot-entries do not count, as with ls)
 local function dirHasFiles(path)
-    local handle = io.popen('ls -1 "' .. path .. '" 2>/dev/null | head -1')
-    if handle then
-        local result = handle:read("*l")
-        handle:close()
-        return result ~= nil and result ~= ""
+    for _, e in ipairs(ui.listDir(path) or {}) do
+        if e.name:sub(1, 1) ~= "." then return true end
     end
     return false
 end
@@ -1047,15 +1006,10 @@ end
 -- List directories in a path
 local function listDirs(path)
     local dirs = {}
-    local handle = io.popen('ls -1d "' .. path .. '"/*/ 2>/dev/null')
-    if handle then
-        for line in handle:lines() do
-            local name = line:match("([^/]+)/$")
-            if name and name ~= "" then
-                table.insert(dirs, name)
-            end
+    for _, e in ipairs(ui.listDir(path) or {}) do
+        if e.isDir and e.name:sub(1, 1) ~= "." then
+            table.insert(dirs, e.name)
         end
-        handle:close()
     end
     return dirs
 end
@@ -1345,8 +1299,8 @@ function AppConsole:createApp()
     local desc = self.newAppDesc
     local appPath = self._baseDir .. "/apps/" .. name
 
-    -- 1. Create app directory
-    os.execute('mkdir -p "' .. appPath .. '"')
+    -- 1. Create app directory; a failure stops here and leaves the form open
+    if not ui.mkdir(appPath) then return end
 
     -- 2. Write requirements.md with title and description
     -- Convert kebab-case to Title Case for the heading

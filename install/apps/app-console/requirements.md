@@ -8,6 +8,8 @@ Dashboard for discovering, launching, and tracking quality of frictionless apps.
 
 **App discovery:** Lua uses `mcp:status()` to get `base_dir`, then scans `{base_dir}/apps/*/requirements.md` to find all apps.
 
+**No shell:** app-console runs no shell command. Its file checks use ui-engine's portable `ui.isDir`, `ui.listDir` and `ui.mkdir`, so they work on Windows. Links to an app's source and readme are ordinary links that open in a new browser tab.
+
 ## App List
 
 Display all apps found in the apps directory. For each app show:
@@ -68,7 +70,7 @@ A GitHub icon button in the header opens the download form (replaces the detail 
 ### Name Conflict Detection
 When the user enters a URL, check if an app with the same name already exists:
 - Parse app name from the URL path (last segment)
-- Check if `{base_dir}/apps/{name}` directory exists
+- Check if `{base_dir}/apps/{name}` directory exists (`ui.isDir`), every time the conflict is read; the check is cheap, so it is not cached
 - If conflict exists, show a danger alert: "App 'name' already exists in .ui/apps/. Delete or rename it before downloading."
 - Disable the Investigate button when there's a conflict
 
@@ -164,7 +166,7 @@ When "+" is clicked, show a form instead of details:
 - Cancel button (returns to app details or empty state)
 
 **On Create (Lua):**
-1. Create directory `{base_dir}/apps/{name}/`
+1. Create directory `{base_dir}/apps/{name}/` with `ui.mkdir`; if that fails, stop and leave the form open
 2. Write `requirements.md` with title and description
 3. Rescan to add app to list
 4. Select the new app (shows Build button since no viewdefs)
@@ -329,14 +331,14 @@ After processing, the `## Gaps` section should be **empty** (no placeholder text
 
 **On load and refresh:**
 1. Call `mcp:status()` to get `base_dir`
-2. Scan `{base_dir}/apps/` for directories with `requirements.md`
+2. Scan `{base_dir}/apps/` (`ui.listDir`) for directories with `requirements.md`
 3. For each app, parse:
    - `requirements.md` → name, description
-   - `viewdefs/` presence → built status (has viewdefs = can be opened)
+   - a non-empty `viewdefs/` (`ui.listDir`) → built status (has viewdefs = can be opened)
    - `TESTING.md` → test counts, checklist, issues
 
 **On app creation:**
-1. Create `{base_dir}/apps/{name}/` directory
+1. Create `{base_dir}/apps/{name}/` directory with `ui.mkdir`
 2. Write `requirements.md` with `# {Name}` title and description
 3. Rescan to add app to list
 4. Select the new app (user can click Build to trigger build_request)

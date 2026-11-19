@@ -195,8 +195,6 @@ The trough (▓/░ on right side) shows warning positions:
 | tabs | GitHubTab[] | File tabs for inspection |
 | viewedTabs | table | Tracks which tabs user has clicked (filename → true) |
 | markerRefresh | string | JS code to trigger trough marker positioning (changes on tab select) |
-| _conflict | boolean | Cached: whether app name conflicts with existing app |
-| _conflictCheckTime | number | Last time conflict was checked |
 | _markerCounter | number | Counter for markerRefresh changes (ensures value updates) |
 | _investigating | boolean | A `ui.githubInvestigate` call is running |
 | _investigation | table | Its delivered result: `{files, viewdefs, contents}` |
@@ -222,7 +220,7 @@ The trough (▓/░ on right side) shows warning positions:
 | description | string | First paragraph from requirements.md |
 | requirementsContent | string | Full requirements.md content |
 | showRequirements | boolean | Expand requirements section (default false) |
-| hasViewdefs | boolean | Has viewdefs/ directory |
+| hasViewdefs | boolean | viewdefs/ exists and is non-empty (`ui.listDir`) |
 | tests | TestItem[] | Test checklist from TESTING.md |
 | testsPassing | number | Count of passing tests |
 | testsTotal | number | Total test count |
@@ -270,7 +268,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | mutate() | Hot-load migration: initialize github if missing |
 | apps() | Returns _apps (for binding) |
 | findApp(name) | Find app by name in _apps |
-| scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/, parse each |
+| scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/ (`ui.listDir`), parse each |
 | rescanApp(name) | Rescan single app from disk |
 | refresh() | Calls mcp:scanAvailableApps() then scanAppsFromDisk() |
 | refreshCheckpoints() | Unless a call is running: set _checkpointsPending and _checkpointsTime, then call ui.checkpointStatus(self, "_checkpoints", app names, cb); cb clears _checkpointsPending |
@@ -278,7 +276,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
-| createApp() | Create app dir, write requirements.md, rescan, select new app, start progress at "pondering, 0%", send app_created event |
+| createApp() | Create app dir with `ui.mkdir` (a failure stops here, form stays open), write requirements.md, rescan, select new app, start progress at "pondering, 0%", send app_created event |
 | onAppProgress(name, progress, stage) | Update app build progress |
 | onAppUpdated(name) | Calls rescanApp(name) |
 | openEmbedded(name) | Call mcp:app(name), if not nil set embeddedValue and embeddedApp |
@@ -313,8 +311,8 @@ These methods are documented below but created at runtime, so they don't appear 
 | hasUrl() | Returns true if url is non-empty |
 | parseUrl() | Parse GitHub URL, return {user, repo, branch, path} or nil |
 | getAppName() | Extract app name from URL path (last segment) |
-| checkConflict() | Check if app name conflicts with existing app (cached 1 second) |
-| hasConflict() | Returns cached conflict status (triggers refresh if stale) |
+| checkConflict() | True if `{base_dir}/apps/{name}` is a directory (`ui.isDir`); not cached |
+| hasConflict() | Returns checkConflict() |
 | investigateDisabled() | Returns true if a conflict exists or an investigate is running |
 | investigateLabel() | "Investigating..." while running, else "Investigate" |
 | conflictMessage() | Returns conflict warning message |
@@ -411,8 +409,6 @@ These methods are documented below but created at runtime, so they don't appear 
 | hasReadme() | Returns readmePath is not empty |
 | noReadme() | Returns not hasReadme |
 | readmeLinkHtml() | Returns cached HTML anchor for MCP readme endpoint (/app/NAME/readme) |
-| openReadme() | Opens readmePath in browser (legacy) |
-| openSourceUrl() | Opens sourceUrl in browser |
 | shouldPulsate() | Returns true if _consolidatePending and mcp has todos (pulsates consolidate button) |
 | requestConsolidate() | Set _consolidatePending, call pushEvent("consolidate_request", {target = self.name}) |
 | requestReviewGaps() | Call pushEvent("review_gaps_request", {target = self.name}) |
