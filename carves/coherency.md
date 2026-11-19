@@ -45,7 +45,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
-- [ ] **Item 10 — app-console stops spawning the host.** **IN PROGRESS (not queued): 10a and 10b landed; 10c open.**
+- [x] ~~**Item 10 — app-console stops spawning the host.**~~ **LANDED (2026-11-19 — not queued: 10a, 10b and 10c.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
 
@@ -349,8 +349,12 @@ also where the bash `.ui/mcp` stops mattering on Windows.
     callbacks, so the session no longer stalls on the network. The live install found
     `install/apps/prefs/.fslckout` still on GitHub (removed locally in 7d608fd,
     unpushed); a push clears it.
-  - **10c — local file checks and desktop open.** `test -d`, two `ls`, `mkdir -p`, and
-    two `xdg-open`.
+  - **10c — local file checks and desktop open. LANDED (2026-11-19):** Frictionless
+    17dbe6e. No new Go: ui-engine's portable `ui.isDir`, `ui.listDir` and `ui.mkdir`
+    (its R146-R148) replace `test -d`, both `ls` and `mkdir -p`, with dot-entries
+    skipped as `ls` did. The conflict check lost its one-second throttle, since a stat
+    is cheap. Both `xdg-open` methods had no callers (the viewdef's links already open
+    source and readme in a new tab) and were deleted. app-console now runs no shell.
 
 ## Item 11
 
