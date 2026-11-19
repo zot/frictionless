@@ -422,7 +422,9 @@ func (s *Server) Install(force bool) (*InstallResult, error) {
 	}
 
 	// 6. Install scripts to {base_dir}/ (executable)
-	for _, file := range []string{"mcp", "linkapp"} {
+	// The linkapp script is gone: mcp hands linkapp to the binary.
+	// CRC: crc-AppLink.md | R235
+	for _, file := range []string{"mcp"} {
 		destPath := filepath.Join(s.baseDir, file)
 		result, err := s.installFile(file, destPath, file, "scripts", 0755, force, manifest, fileInfoMap)
 		if err != nil {
@@ -770,6 +772,8 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 
 		// ui.checkpointStatus and ui.checkpointInstall (R223)
 		s.defineCheckpointOps(vendedID)
+		// ui.linkApp, ui.unlinkApp and ui.deleteApp (R234)
+		s.defineAppLinkOps(vendedID)
 
 		// Set type for viewdef resolution
 		L.SetField(mcpTable, "type", lua.LString("MCP"))

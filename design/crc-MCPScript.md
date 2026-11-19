@@ -23,7 +23,7 @@
 - **patterns**: Scan `patterns/*.md`, extract frontmatter description
 - **theme**: Delegate to frictionless binary with `--dir`
 - **checkpoint**: ensure fossil (download to `~/.claude/bin/fossil` for this platform when missing), then `exec` the frictionless binary's `checkpoint` with `--dir`, adding nothing to its output or exit status
-- **linkapp**: Delegate to `linkapp` script
+- **linkapp**: Hand off to `frictionless linkapp`, as checkpoint does (see crc-AppLink.md)
 
 ## Collaborators
 

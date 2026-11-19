@@ -19,6 +19,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 	lua "github.com/yuin/gopher-lua"
+	"github.com/zot/frictionless/applink"
 	"github.com/zot/frictionless/internal/publisher"
 	"github.com/zot/ui-engine/cli"
 )
@@ -42,18 +43,18 @@ type Server struct {
 	getSessionCount func() int                     // Callback to get active session count
 	onClearLogs     func()                         // Callback to reopen Go log file after clearing logs
 
-	mu              sync.RWMutex
-	state           State
-	baseDir         string
-	ProjectDir      string // Explicit project root for skill/CLAUDE.md installation (optional; derived from baseDir if empty)
-	url             string
-	httpServer      *http.Server // HTTP server for debug endpoints (in stdio mode)
-	mcpPort         int          // Port for MCP HTTP server (written to baseDir/mcp-port)
-	uiPort          int          // Port for UI HTTP server (written to baseDir/ui-port)
-	currentVendedID string       // Current session's vended ID (e.g., "1")
-	logPath              string // Path for Lua log file (set at configure time)
-	errPath              string // Path for Lua error log file (set at configure time)
-	variablesRegistered  bool   // Whether /variables route has been registered on the mux
+	mu                  sync.RWMutex
+	state               State
+	baseDir             string
+	ProjectDir          string // Explicit project root for skill/CLAUDE.md installation (optional; derived from baseDir if empty)
+	url                 string
+	httpServer          *http.Server // HTTP server for debug endpoints (in stdio mode)
+	mcpPort             int          // Port for MCP HTTP server (written to baseDir/mcp-port)
+	uiPort              int          // Port for UI HTTP server (written to baseDir/ui-port)
+	currentVendedID     string       // Current session's vended ID (e.g., "1")
+	logPath             string       // Path for Lua log file (set at configure time)
+	errPath             string       // Path for Lua error log file (set at configure time)
+	variablesRegistered bool         // Whether /variables route has been registered on the mux
 
 	// State change waiting (mcp.state queue)
 	stateWaiters   map[string][]chan struct{} // sessionID -> list of waiting channels
@@ -455,6 +456,11 @@ func (s *Server) Start() (string, error) {
 	}
 	s.mu.Unlock() // Release before calling startFunc to avoid deadlock
 
+	// Remake activation links that no longer resolve (a moved base directory on
+	// Windows, where junctions are absolute) before any session loads an app.
+	// CRC: crc-AppLink.md | Seq: seq-applink.md#3.1 | R228
+	applink.Repair(s.baseDir, func(format string, args ...any) { s.cfg.Log(0, format, args...) })
+
 	// R180: use configured port (0 = auto-select)
 	url, err := s.startFunc(s.cfg.Server.Port)
 	if err != nil {
@@ -620,7 +626,6 @@ func parsePortFromURL(urlStr string) (int, error) {
 	}
 	return port, nil
 }
-
 
 // pushStateEvent adds an event to the queue and signals waiting clients.
 // Called from Lua via mcp.pushState().

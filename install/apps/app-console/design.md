@@ -335,7 +335,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | contentHtml() | Returns active tab's HTML content |
 | troughMarkersHtml() | Returns empty string; trough markers are positioned by JS via DOM measurement |
 | noTroughMarkers() | Returns true if active tab has no warning lines |
-| approve() | Download app zip, extract, link, write source.txt, then ui.checkpointInstall(self, "_installed", name, cb); cb closes the form, refreshes the app list and selects the new app, or sets error |
+| approve() | Download app zip, extract, activate with `ui.linkApp(name)` (a failure sets error and stops), write source.txt, then ui.checkpointInstall(self, "_installed", name, cb); cb closes the form, refreshes the app list and selects the new app, or sets error |
 
 ### GitHubTab
 
@@ -419,7 +419,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | requestDelete() | Set confirmDelete to true |
 | cancelDelete() | Set confirmDelete to false |
 | hideDeleteConfirm() | Returns confirmDelete == false |
-| confirmDeleteApp() | Delete the app: set globals to nil, remove prototype and nested prototypes from registry, unlink app, delete directory, remove from list |
+| confirmDeleteApp() | Delete the app: set globals to nil, remove prototype and nested prototypes from registry, then `ui.deleteApp(name)` (deactivates and removes the directory; refuses anything that is not a real app directory). If it raises, notify the error and keep the app in the list; otherwise remove it from the list |
 | populateFromTestData(testData) | DRY helper: populate tests, knownIssues, fixedIssues, gapsContent from parsed TESTING.md data |
 
 ### TestItem

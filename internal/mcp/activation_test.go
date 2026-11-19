@@ -3,10 +3,7 @@ package mcp
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 )
 
@@ -57,51 +54,5 @@ func TestAppEntryLoadsThroughActivationLink(t *testing.T) {
 	defer cleanup()
 	if got := runLua(t, s, "return mcp:app('demo').loaded"); got != `"yes"` {
 		t.Errorf("mcp:app('demo').loaded = %q, want yes", got)
-	}
-}
-
-// Test: linkapp makes exactly one link and cleans up the old scheme (R184-R188)
-func TestLinkappOneLink(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("linkapp is a bash script")
-	}
-	base := t.TempDir()
-	script, err := os.ReadFile(filepath.Join("..", "..", "install", "linkapp"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.WriteFile(filepath.Join(base, "linkapp"), script, 0o755)
-	os.MkdirAll(filepath.Join(base, "apps", "demo", "viewdefs"), 0o755)
-	os.WriteFile(filepath.Join(base, "apps", "demo", "app.lua"), []byte("--"), 0o644)
-	// Old-scheme links left by an earlier linkapp.
-	os.MkdirAll(filepath.Join(base, "lua"), 0o755)
-	os.MkdirAll(filepath.Join(base, "viewdefs"), 0o755)
-	os.Symlink("../apps/demo/app.lua", filepath.Join(base, "lua", "demo.lua"))
-	os.Symlink("../apps/demo/viewdefs/D.DEFAULT.html", filepath.Join(base, "viewdefs", "D.DEFAULT.html"))
-
-	run := func(args ...string) string {
-		out, err := exec.Command(filepath.Join(base, "linkapp"), args...).CombinedOutput()
-		if err != nil {
-			t.Fatalf("linkapp %v: %v\n%s", args, err, out)
-		}
-		return string(out)
-	}
-
-	run("add", "demo")
-	if target, err := os.Readlink(filepath.Join(base, "lua", "demo")); err != nil || target != "../apps/demo" {
-		t.Errorf("lua/demo -> %q (%v), want ../apps/demo", target, err)
-	}
-	for _, old := range []string{"lua/demo.lua", "viewdefs/D.DEFAULT.html"} {
-		if _, err := os.Lstat(filepath.Join(base, old)); err == nil {
-			t.Errorf("old-scheme link %s survived add", old)
-		}
-	}
-	if out := run("list"); !strings.Contains(out, "  demo\n") {
-		t.Errorf("list output %q does not report demo", out)
-	}
-
-	run("remove", "demo")
-	if _, err := os.Lstat(filepath.Join(base, "lua", "demo")); err == nil {
-		t.Error("lua/demo survived remove")
 	}
 }

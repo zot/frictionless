@@ -732,7 +732,6 @@ viewdefs/ClaudePanel.*.html (4 files)
 Scripts installed to `{base_dir}/` (executable):
 ```
 mcp
-linkapp
 ```
 
 Lua files installed to `{base_dir}/lua/` (symlinks to app lua files):

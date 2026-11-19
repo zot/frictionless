@@ -17,7 +17,7 @@ mcp checkpoint CMD APP [MSG]    manage app checkpoints (save/list/rollback/diff/
 mcp browser                     open browser to UI session
 mcp display APP                 display APP in the browser
 mcp event                       wait for next UI event (120s timeout)
-mcp linkapp add|remove APP      manage app symlinks
+mcp linkapp add|remove|list [APP] activate, deactivate or list apps
 mcp progress APP PERCENT STAGE  report build progress
 mcp run 'lua code'              execute Lua code in session
 mcp state                       get current session state
@@ -150,7 +150,8 @@ case "$prog" in
         done
         ;;
     linkapp)
-        exec "$dir/linkapp" "$@"
+        # Activation is the applink package (specs/applink.md); no separate script.
+        exec "$HOME/.claude/bin/frictionless" linkapp "$@" --dir "$dir"
         ;;
     progress)
         app="${1:?Usage: progress <app> <percent> <stage>}"

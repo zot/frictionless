@@ -17,7 +17,9 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-MCPScript.md → `install/mcp`
 - [x] crc-Checkpoint.md → `checkpoint/fossil.go`, `checkpoint/checkpoint.go`, `checkpoint/baseline.go`, `checkpoint/changed.go`, `checkpoint/command.go`, `checkpoint/status.go`, `cmd/frictionless/checkpoint.go`
 - [x] crc-CheckpointOps.md → `internal/mcp/checkpoint_ops.go`, `internal/mcp/tools.go`
-- [x] crc-LinkappScript.md → `install/linkapp`
+- [x] crc-AppLink.md → `applink/applink.go`, `applink/link_unix.go`, `applink/link_windows.go`, `cmd/frictionless/linkapp.go`
+- [x] crc-AppLinkOps.md → `internal/mcp/applink_ops.go`, `internal/mcp/tools.go`
+- [x] seq-applink.md → `applink/applink.go`, `internal/mcp/applink_ops.go`, `internal/mcp/server.go`
 - [x] crc-Publisher.md → `internal/publisher/publisher.go`
 - [x] crc-MCPSubscribe.md → `internal/mcp/subscribe.go`
 - [x] crc-FlibRuntime.md → `flib/flib.go`
@@ -45,6 +47,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
 - [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
 - [x] test-Checkpoint.md → `checkpoint/checkpoint_test.go`, `checkpoint/baseline_test.go`, `checkpoint/fossil_test.go`, `checkpoint/changed_test.go`, `checkpoint/command_test.go`, `cmd/frictionless/checkpoint_test.go`, `internal/mcp/checkpoint_test.go`, `checkpoint/status_test.go`, `internal/mcp/checkpoint_ops_test.go`
+- [x] test-AppLink.md → `applink/applink_test.go`, `internal/mcp/applink_ops_test.go`
 
 ## Systems
 
@@ -186,6 +189,7 @@ Cross-platform binary builds via Makefile:
 - T6: R84 retired by no replacement (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; lua/{app}.lua entry link retired)
 - T7: R86 retired by no replacement (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; per-viewdef links retired; ui-engine reads each app's viewdefs/)
 - T8: R87 retired by R188 (2026-10-07 app activation: an app is active through its lua/{app} directory link alone; old-scheme links are cleaned up instead)
+- T9: R85 retired by R226 (relative links hold on Unix only; Windows junctions are absolute (applink.md))
 
 ### Spec→Design
 *None*
@@ -235,4 +239,4 @@ Cross-platform binary builds via Makefile:
 - [ ] O8: Five internal/mcp install tests (TestInstallSkillFiles*, TestInstallForceOverwrites) fail at HEAD with "install requires a bundled binary (use 'make build')": they need a bundled test binary or a fake bundle. Found 2026-10-07; predates the app-activation work.
 - [x] O9: checkpoint commands exit with the UI notify's status: when no server is running, a successful baseline/save exits 7 (curl), so callers cannot tell success from failure by exit code
 - [x] O10: checkpoint ignore-glob omits `original.fossil` (in both Frictionless and ark): after app-console installs a downloaded app, the next `save` commits `original.fossil` into its checkpoints. `Changed` ignores it (R216); the glob itself does not. Found 2026-11-18 while designing the checkpoint package.
-- [ ] I1: R184-R188 are implemented in install/linkapp (refs in its comments: CRC: crc-LinkappScript.md | R85, R184-R188), but minispec picks a language by file extension only, so this extensionless bash script is never read and the refs never count. Closes if minispec gains filename-based language mapping, or if the script is renamed (it is referenced by name in tools.go's install list and the mcp script).
+- [x] I1: R184-R188 are implemented in install/linkapp (refs in its comments: CRC: crc-LinkappScript.md | R85, R184-R188), but minispec picks a language by file extension only, so this extensionless bash script is never read and the refs never count. Closes if minispec gains filename-based language mapping, or if the script is renamed (it is referenced by name in tools.go's install list and the mcp script).

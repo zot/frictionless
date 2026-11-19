@@ -48,6 +48,10 @@ func main() {
 			if command == "checkpoint" {
 				return true, runCheckpoint(args)
 			}
+			// Handle linkapp command (file-based, no server needed)
+			if command == "linkapp" {
+				return true, runLinkapp(args)
+			}
 			return false, 0
 		},
 		CustomHelp: func() string {
@@ -58,6 +62,7 @@ Commands:
   install         Install skills and resources (without starting server)
   theme           Theme management (list, classes, audit)
   checkpoint      App checkpoints (save, list, rollback, diff, clear, baseline, count, update, local)
+  linkapp         Activate, deactivate or list apps (add, remove, list)
 
 Examples:
   frictionless mcp                                        Start MCP server (default: --dir .ui)

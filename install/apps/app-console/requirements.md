@@ -140,7 +140,7 @@ Before any tab is clicked, show a warning alert:
   2. Extract the app directory to `{base_dir}/apps/{name}/`
   3. Save the source URL to `{base_dir}/apps/{name}/source.txt`
   4. Create the `original.fossil` baseline for local changes tracking with `ui.checkpointInstall`, which runs off the session; the steps after it continue in its callback
-  5. Link the app using `.ui/mcp linkapp add {name}`
+  5. Activate the app with `ui.linkApp(name)`
   6. Refresh the app list and select the new app
 
 ### Downloaded App Tracking
@@ -196,8 +196,8 @@ Allow users to delete apps that are not protected. Protected apps include: `app-
 
 **On Delete (Lua):**
 1. Set the app's global variables to nil (e.g., `contacts = nil`, `Contacts = nil`)
-2. Unlink the app from lua/ and viewdefs/ directories
-3. Delete the app directory recursively
+2. Deactivate the app and delete its directory with `ui.deleteApp(name)`, which refuses anything that is not a real app directory under `apps/`
+3. If it raises, show the error and stop; the app stays in the list
 4. Remove the app from the apps list
 5. Clear selection
 

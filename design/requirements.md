@@ -108,7 +108,7 @@
 - **~~R82:~~** (Retired T4 — see R186) `linkapp list` lists currently linked apps
 - **~~R83:~~** (Retired T5 — see R187) Create `{base_dir}/lua/` and `{base_dir}/viewdefs/` directories if missing
 - **~~R84:~~** (Retired T6 — no replacement) Link `app.lua` to `lua/{app}.lua` using relative paths
-- **R85:** Link app directory to `lua/{app}` using relative paths (enables `require("{app}.module")`)
+- **~~R85:~~** (Retired T9 — see R226) Link app directory to `lua/{app}` using relative paths (enables `require("{app}.module")`)
 - **~~R86:~~** (Retired T7 — no replacement) Link all viewdef HTML files individually to `viewdefs/`
 - **~~R87:~~** (Retired T8 — see R188) Remove command scans viewdefs/ for symlinks pointing to app and removes them
 
@@ -247,7 +247,7 @@
 - **R199:** `flib.InjectAllThemeBlocks(baseDir)` exposes disk-patching for embedders to call at startup
 
 ## Feature: App Activation and Loading
-**Source:** specs/mcp.md, specs/helper-scripts.md
+**Source:** specs/mcp.md, specs/helper-scripts.md, specs/applink.md
 
 - **R183:** After creating the `mcp` global, Go loads the mcp app's entry `{base_dir}/lua/mcp/app.lua` if it exists
 - **R184:** `linkapp add APP` activates an app by linking its directory to `lua/{app}`
@@ -258,6 +258,16 @@
 - **R189:** `mcp:app(name)` and `mcp:display(name)` load an app's entry file `{base_dir}/lua/{app}/app.lua` the first time the app is asked for; apps load on request, never at session start
 - **R190:** `flib.Config.BuiltinApps` is passed to the ui-engine as its built-in app list; empty means no app is built-in
 - **R191:** `flib.Runtime.ViewdefCollisions()` returns the running ui-engine's live viewdef-name collisions, unchanged
+- **R226:** On Unix an activation link is a symbolic link with the relative target `../apps/{app}`, so a moved `{base_dir}` keeps every link resolving
+- **R227:** On Windows an activation link is a directory junction, made with no administrator privilege, no Developer Mode, and no other program run
+- **R228:** At server start, an activation link that no longer resolves and whose app directory exists under `apps/` is made again; one whose app is gone is reported and left alone; repair never creates a link that was not there
+- **R229:** Telling an activation link from a real directory treats both a symbolic link and a junction as a link
+- **R230:** Activating an app whose directory does not exist under `apps/` is an error naming the path; activating an app already linked to its own directory does nothing; a link there pointing elsewhere is replaced
+- **R231:** Deactivating refuses a real directory at `lua/{app}`: it is an error and nothing is removed; deactivating an app that is not active does nothing
+- **R232:** Deleting an app deactivates it, then removes `apps/{app}`; an empty name or one containing a path separator or `..` is an error and nothing is touched; anything at `apps/{app}` but a real directory is an error and nothing is removed
+- **R233:** `frictionless linkapp add|remove|list [APP]` activates, deactivates or lists apps; `mcp linkapp` hands off to it
+- **R234:** `ui.linkApp(name)`, `ui.unlinkApp(name)` and `ui.deleteApp(name)` run synchronously, return nothing on success, and raise an error naming what went wrong otherwise
+- **R235:** No separate `linkapp` script is installed
 
 ## Feature: Checkpoints
 **Source:** specs/checkpoint.md

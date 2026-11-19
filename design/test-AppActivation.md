@@ -1,5 +1,5 @@
 # Test Design: App Activation and Loading
-**Source:** crc-MCPServer.md, crc-FlibRuntime.md, crc-LinkappScript.md
+**Source:** crc-MCPServer.md, crc-FlibRuntime.md
 
 Apps are activated by a `lua/{app}` directory link alone; the session tests
 lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
@@ -55,8 +55,8 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Alarm:** 4
 **Fire alarm:** load `"mcp.lua"` again instead of the entry file. Red: `mcp.extended = "null"`.
 **Inject:** internal/mcp/tools.go:setupMCPGlobal
-@alarm-hash: ca11f8f78e8de264
-**Pulled:** 2026-11-19 — rang: setupMCPGlobal loaded "mcp.lua" instead of the entry file; `mcp.extended = "null"` (re-pulled after the checkpoint host-op hook landed in setupMCPGlobal) *Earlier —* 2026-10-07 — rang: `mcp.extended = "null"`
+@alarm-hash: 635bba224462911a
+**Pulled:** 2026-11-19 — re-pulled after setupMCPGlobal gained defineAppLinkOps: the old mcp.lua load restored; `mcp.extended = "null"` *Earlier —* 2026-11-19 — rang: setupMCPGlobal loaded "mcp.lua" instead of the entry file; `mcp.extended = "null"` (re-pulled after the checkpoint host-op hook landed in setupMCPGlobal) *Earlier —* 2026-10-07 — rang: `mcp.extended = "null"`
 ## Test: mcp:app loads an app's entry through its activation link
 **Purpose:** on first request an app's entry is `lua/{app}/app.lua` (R189)
 **Input:** `apps/demo/app.lua` defines global `demo`; only `lua/demo` is linked
@@ -67,14 +67,3 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Fire alarm:** make appEntryFile return the old `<app>.lua`. Red: `mcp:app('demo')` is nil (indexing it fails).
 **Inject:** internal/mcp/tools.go:appEntryFile
 **Pulled:** 2026-10-07 — rang: `attempt to index a non-table object(nil) with key 'loaded'`
-
-## Test: linkapp makes exactly one link and cleans up the old scheme
-**Purpose:** add links `lua/{app}` and removes `lua/{app}.lua` and viewdef links into the app; list reports directory links; remove deletes the link (R184-R188)
-**Input:** a temp base with the script, `apps/demo`, and old-scheme links
-**Expected:** `lua/demo -> ../apps/demo`; old links gone; `list` prints `demo`; `remove` deletes `lua/demo`
-**Refs:** crc-LinkappScript.md
-**Code:** internal/mcp/activation_test.go
-**Alarm:** 6
-**Fire alarm:** (a) skip remove_old_links in add_app, red: old links survive; (b) list `*.lua` links as before, red: list reports nothing.
-**Inject:** install/linkapp:add_app, install/linkapp:list_apps
-**Pulled:** 2026-10-07 — rang: (a) `old-scheme link lua/demo.lua survived add`, (b) `list output "Active apps:\n" does not report demo`

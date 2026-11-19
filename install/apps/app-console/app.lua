@@ -627,8 +627,12 @@ function GitHubDownloader:approve()
 
         local exitCode = output:match("EXIT:(%d+)")
         if exitCode == "0" then
-            -- Link the app to make it available
-            os.execute('.ui/mcp linkapp add ' .. appName)
+            -- Activate the app (applink; no shell, works on Windows)
+            local linked, linkErr = pcall(ui.linkApp, appName)
+            if not linked then
+                self.error = "Downloaded, but could not activate the app: " .. tostring(linkErr)
+                return
+            end
 
             -- Save the source URL for reference
             local sourceFile = io.open(targetDir .. "/source.txt", "w")
@@ -1009,7 +1013,6 @@ function AppInfo:confirmDeleteApp()
     if self:isProtected() then return end
 
     local name = self.name
-    local baseDir = mcp:status().base_dir
     local protoName = toPascalCase(name)
 
     -- Clear global variables for this app
@@ -1019,9 +1022,13 @@ function AppInfo:confirmDeleteApp()
     -- Remove prototype and all nested prototypes (e.g., Contacts.Contact, Contacts.ChatMessage)
     session:removePrototype(protoName, true)
 
-    -- Unlink and delete the app
-    os.execute('.ui/mcp linkapp remove "' .. name .. '"')
-    os.execute('rm -rf "' .. baseDir .. '/apps/' .. name .. '"')
+    -- Deactivate and delete the app. ui.deleteApp refuses anything that is not a
+    -- real app directory; on failure the app stays in the list.
+    local deleted, deleteErr = pcall(ui.deleteApp, name)
+    if not deleted then
+        mcp:notify("Could not delete " .. name .. ": " .. tostring(deleteErr), "danger")
+        return
+    end
 
     -- Remove from app list and clear selection
     for i, app in ipairs(appConsole._apps) do
