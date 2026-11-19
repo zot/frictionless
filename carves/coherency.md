@@ -48,7 +48,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 10 — app-console stops spawning the host.**~~ **LANDED (2026-11-19 — not queued: 10a, 10b and 10c.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **IN PROGRESS (not queued): 11a and 11b landed; 11c open.**
 - [x] ~~**Item 14 — one executor per session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "One executor per session: Lua runs only on the session's ChanSvc (R254-R263)"; ark told in `ark-one-executor`.)**
-- [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **IN PROGRESS (not queued): 12a and 12b landed; 12c open.**
+- [x] ~~**Item 12 — retire dangerous synchronous execution (ui-engine).**~~ **LANDED (2026-11-19 — not queued: 12a, 12b and 12c; ark told in `ark-dangerous-default`.)**
 
 ## Decisions
 
@@ -420,10 +420,13 @@ from Item 1 are the list of remaining callers.
     ark's one `WithLuaUpdate` caller. Both now use the primitive with `dangerous` false.
     flib is a library, so its rule for future embedders lives in `specs/mcp.md`. The stale
     "Lua executor goroutine" wording for `WithLua` was corrected on the way.
-  - **12c — the flip (ui-engine).** Move the test callers (Item 14's `one_executor_test.go`
-    among them; `dangerous_test.go` keeps allowing it on purpose), then default
-    `AllowDangerousExecution` to unset. ark gets the new default through flib, so it is
-    told before the flip is released.
+  - **12c — the flip (ui-engine). LANDED (2026-11-19):** ui-engine "Dangerous execution
+    panics by default (R265)". Measured first with a trial flip across ui-engine,
+    Frictionless and ark: only two ui-engine test call sites tripped it (the warn test,
+    which now sets the property itself, and Item 14's test, which now uses the primitive),
+    and ark passed in full. The trial also found gap O12 in ui-engine: a dangerous call made
+    straight from a `go` statement is reported at `runtime/asm_amd64.s`. ark gets the new
+    default through flib and was told in `ark-dangerous-default`.
 
 ## Item 13
 
