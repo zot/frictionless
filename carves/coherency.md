@@ -37,7 +37,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 2 — Tailor (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Working closure actor and Tailor".)**
 - [x] ~~**Item 3 — the Lua shape of a host operation.**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Host operations: asynchronous `ui.*` bindings".)**
 - [x] ~~**Item 4 — a shared checkpoint package.**~~ **LANDED (2026-11-18 — not queued: "checkpoint package: one hardened checkpoint for Frictionless and ark".)**
-- [ ] **Item 5 — app-console's checkpoint refresh on Tailor.** **OPEN (not queued.)**
+- [x] ~~**Item 5 — app-console's checkpoint refresh on Tailor.**~~ **LANDED (2026-11-19 — not queued: "Async checkpoint status and install for app-console".)**
 - [ ] **Item 6 — tell ark.** **OPEN (not queued.)**
 - [ ] **Item 7 — the executor moves into the session (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 8 — the Lua session moves into the session (ui-engine).** **OPEN (not queued.)**
@@ -246,6 +246,12 @@ This part removes app-console's `.ui/mcp checkpoint` calls and its direct `fossi
   `original.fossil`.
 - **DECIDED (Bill, 2026-11-19):** app-console loses every `.ui/mcp checkpoint` and direct
   `fossil` call; its own requirements gain the asynchronous refresh.
+- **LANDED (2026-11-19, 7d608fd):** R218-R225; checked live on a scratch server built from
+  the tree: the rocket arrived asynchronously and the changed-since-install pencil showed for
+  the first time. O10 resolved.
+- **Found 2026-11-19 (live check):** `install/apps/prefs/.fslckout` was tracked and bundled,
+  binding every fresh install's prefs app to a developer repository. Removed in 7d608fd;
+  the bundler does not yet refuse fossil files.
 
 ## Item 6
 

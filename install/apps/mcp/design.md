@@ -87,12 +87,14 @@ On load, idempotently override the global `pushState` function to:
 
 ### Disconnect Check (checkDisconnectNotify)
 
-Called on UI refresh via hidden span binding. Warns if:
-- `waitTime() > 5` seconds AND
-- `pendingEventCount() > 0` (events are waiting) AND
-- Not already notified this disconnect period
+Called on UI refresh via hidden span binding, as `warnIfDisconnected(true)`. The
+requirePending form used to warn only when events were waiting (`pendingEventCount()`),
+but the server no longer provides a pending count, so this check does not warn.
 
-This catches the case where user interacts with UI but Claude isn't listening.
+The warning that remains is `pushState`'s `warnIfDisconnected(false)`: when an event is
+pushed while `waitTime() > 5` seconds and the warning has not already shown this
+disconnect period. That catches the case where the user interacts with the UI but Claude
+isn't listening.
 
 ### Menu Open State (Icon Grid)
 
@@ -292,7 +294,6 @@ The global `mcp` object is provided by the server. This app adds:
 | pollingEvents() | Server-provided: true if agent is connected to /wait endpoint |
 | waitTime() | Server-provided: seconds since last agent connection to /wait |
 | isWaiting() | Returns true if waitTime() > 0 (for ui-class-waiting binding) |
-| pendingEventCount() | Server-provided: number of events waiting to be processed |
 | waitStartOffset() | Returns UNIX timestamp when wait started, or 0 if connected (for client-side counter) |
 | checkDisconnectNotify() | Check if Claude appears disconnected and show warning notification if needed |
 | notify(message, variant) | Show a notification toast (variant: danger, warning, success, primary, neutral) |
