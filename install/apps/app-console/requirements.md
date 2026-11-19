@@ -139,7 +139,7 @@ Before any tab is clicked, show a warning alert:
   1. Fetch repository zip from GitHub
   2. Extract the app directory to `{base_dir}/apps/{name}/`
   3. Save the source URL to `{base_dir}/apps/{name}/source.txt`
-  4. Create `original.fossil` baseline for local changes tracking
+  4. Create the `original.fossil` baseline for local changes tracking with `ui.checkpointInstall`, which runs off the session; the steps after it continue in its callback
   5. Link the app using `.ui/mcp linkapp add {name}`
   6. Refresh the app list and select the new app
 
@@ -388,6 +388,8 @@ Apps can have checkpoints from `/ui-fast` prototyping sessions. Show checkpoint 
 - Gem icon (💎) next to apps WITHOUT checkpoints (stable/thorough)
 
 The icon is shown in the app list item, before the app name.
+
+Checkpoint status (count, downloaded, changed since download) for every app comes from one asynchronous `ui.checkpointStatus` call, which never blocks the UI. It is started when the cached status is more than 10 seconds old, or when a checkpoint command asks for a refresh, and only while no call is already running. The icons show the last status delivered.
 
 ## Local Changes Indicator
 

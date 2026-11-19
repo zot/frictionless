@@ -376,7 +376,7 @@ The global `mcp` object is provided by the server. This app adds:
 | confirmUpdate() | Emit pushState event with platform detection and update instructions, set _isUpdating |
 | isUpdating() | Returns _isUpdating |
 | notUpdating() | Returns not _isUpdating |
-| hasDownloadedApps() | Check if any app in app-console has _isDownloaded |
+| hasDownloadedApps() | Check if any app in app-console isDownloaded() |
 | readUserSettings() | Read ~/.claude/frictionless.json, return table (or {} if missing) |
 | writeUserSettings(data) | Write table as JSON to ~/.claude/frictionless.json |
 

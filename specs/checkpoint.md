@@ -61,6 +61,15 @@ func (a App) Count() (int, error)              // 0 when there is no repository
 func (a App) Update(msg string) error
 func (a App) Local(msg string) error
 func (a App) Changed() (bool, error)           // see "Changed since install"
+func (a App) Status() (Status, error)          // see "Status"
+func (a App) Install() error                   // see "Install"
+
+// Status is one app's checkpoint state.
+type Status struct {
+    Count      int  // trunk checkpoints, not counting the baseline
+    Downloaded bool // the app has original.fossil
+    Changed    bool // see "Changed since install"
+}
 
 // Command runs one checkpoint command for an app under appsDir, as the binaries do,
 // writing what it prints to out. onChange is called after a command that changes
@@ -108,8 +117,8 @@ Preserved branches are recognized by their exact names, so a branch such as
 
 ## Changed since install
 
-When app-console installs a downloaded app, it sets a baseline and copies the repository
-to `{app_dir}/original.fossil`. `Changed` reports whether the app's files now differ from
+When app-console installs a downloaded app, `Install` sets a baseline and copies the
+repository to `{app_dir}/original.fossil`. `Changed` reports whether the app's files now differ from
 the tip of trunk in `original.fossil`: a file changed, added or removed. Fossil's own
 files (`checkpoint.fossil`, `original.fossil`, the checkout database) and the files the
 checkpoint repository ignores do not count. An app without `original.fossil` was not
@@ -118,3 +127,42 @@ downloaded, and is never changed.
 App-console's check before this (`fossil diff --from original`) never worked: fossil
 cannot resolve the name `original`, and the error was discarded, so every downloaded app
 read as unchanged.
+
+## Status
+
+`Status` reports an app's count, whether it was downloaded, and whether it has changed
+since install. It is what a display polls, so it must be cheap and harmless:
+
+- It reads the repositories directly, naming each one (`-R`), so fossil cannot walk up
+  into an enclosing checkout.
+- It never opens, verifies or configures a checkout, and writes nothing. (`Count` goes
+  through the checkout and reapplies its settings, a write, on every call.)
+- An app without a repository has a count of 0.
+
+## Install
+
+`Install` marks an app as installed from a download: it sets a baseline (as `checkpoint
+baseline` does), then copies `checkpoint.fossil` to `original.fossil`. If the baseline
+fails, nothing is copied; if the copy fails, no partial `original.fossil` is left behind.
+
+`original.fossil` is in the checkpoint ignore-glob, so a later save never commits it into
+the app's checkpoints. (Before, it was not, and the first save after an install committed
+it.)
+
+## Lua
+
+The host gives each session's Lua two asynchronous operations, built as host operations
+(ui-engine's `specs/host-ops.md`): each returns at once, the fossil work runs off the
+session's executor, and the result lands in a field the caller names. Both are defined
+where the host builds the session's `mcp` global, so ark gets them through flib.
+
+```lua
+ui.checkpointStatus(target, field, names)       -- target[field] = {name = {count, downloaded, changed}}
+ui.checkpointInstall(target, field, name, cb)   -- target[field] = true once installed
+```
+
+- `names` is a list of app names under the host's apps directory. The result has one
+  entry per name: `count`, `downloaded` and `changed`, or `error` with the message when
+  that app's status could not be read. One unreadable app does not hide the others.
+- `checkpointInstall` runs `Install` for one app; its callback is how the install flow
+  continues.

@@ -36,7 +36,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 13 — a working closure actor (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Working closure actor and Tailor".)**
 - [x] ~~**Item 2 — Tailor (ui-engine).**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Working closure actor and Tailor".)**
 - [x] ~~**Item 3 — the Lua shape of a host operation.**~~ **LANDED (2026-11-18 — ui-engine, not queued: "Host operations: asynchronous `ui.*` bindings".)**
-- [ ] **Item 4 — a shared checkpoint package.** **OPEN (not queued.)**
+- [x] ~~**Item 4 — a shared checkpoint package.**~~ **LANDED (2026-11-18 — not queued: "checkpoint package: one hardened checkpoint for Frictionless and ark".)**
 - [ ] **Item 5 — app-console's checkpoint refresh on Tailor.** **OPEN (not queued.)**
 - [ ] **Item 6 — tell ark.** **OPEN (not queued.)**
 - [ ] **Item 7 — the executor moves into the session (ui-engine).** **OPEN (not queued.)**
@@ -215,6 +215,9 @@ bindings; ark gets the bindings through flib and its subcommands from the same p
   `fossil diff --from original` fails with "cannot resolve name: original" and app-console
   discards stderr, so every downloaded app reads as unchanged. `Changed` is specified anew:
   the working files against the tip of trunk in `original.fossil` (R215-R217).
+- **LANDED (2026-11-18, fb6126c):** `specs/checkpoint.md`, R201-R217, package
+  `checkpoint/`, `frictionless checkpoint`, and the `install/mcp` hand-off. O9 resolved;
+  O10 (ignore-glob omits `original.fossil`) recorded. ark keeps its own copy until Item 6.
 
 ## Item 5
 
@@ -225,6 +228,24 @@ runs on the Go side (in parallel if worthwhile), and a single terminal stitch ba
 writes every app's count and changed flag into app-console's state.
 
 This part removes app-console's `.ui/mcp checkpoint` calls and its direct `fossil` calls.
+
+### Item 5's decisions
+
+- **DECIDED (Bill, 2026-11-19):** one host operation, `ui.checkpointStatus(target, field,
+  names)`, defined in `setupMCPGlobal` so ark gets it through flib. It returns every
+  named app's count, downloaded flag and changed flag in one table; app-console's
+  accessors read from it. Sequential first; parallel only if a measurement asks for it.
+  The 10-second cache and the CLI's refresh nudge stay.
+- **DECIDED (Bill, 2026-11-19):** a read-only `App.Status()` in the package. A status
+  poll verifies an open checkout but never writes settings: `Count` reapplies them on
+  every call, a database write per app every ten seconds, contending with an agent's
+  save.
+- **DECIDED (Bill, 2026-11-19):** install moves into the package as `App.Install()`
+  (baseline, then copy to `original.fossil`), exposed as `ui.checkpointInstall`; the
+  install flow continues in its callback. O10 closes here: the ignore-glob gains
+  `original.fossil`.
+- **DECIDED (Bill, 2026-11-19):** app-console loses every `.ui/mcp checkpoint` and direct
+  `fossil` call; its own requirements gain the asynchronous refresh.
 
 ## Item 6
 

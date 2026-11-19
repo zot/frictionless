@@ -768,6 +768,9 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		mcpNamespace := L.NewTable()
 		L.SetGlobal("MCP", mcpNamespace)
 
+		// ui.checkpointStatus and ui.checkpointInstall (R223)
+		s.defineCheckpointOps(vendedID)
+
 		// Set type for viewdef resolution
 		L.SetField(mcpTable, "type", lua.LString("MCP"))
 

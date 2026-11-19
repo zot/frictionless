@@ -283,7 +283,7 @@ local STEPS = {
                 local example, downloaded, fallback = nil, nil, nil
                 for _, app in ipairs(appConsole._apps or {}) do
                     if app.name == "example" then example = app end
-                    if app._isDownloaded and not downloaded then downloaded = app end
+                    if app:isDownloaded() and not downloaded then downloaded = app end
                     if not fallback and not app:isProtected() then fallback = app end
                 end
                 local target = example or downloaded or fallback

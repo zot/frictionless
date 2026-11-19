@@ -17,9 +17,10 @@ import (
 
 const (
 	baselineMsg = "=== BASELINE ==="
-	// ignoreGlob is set on every opened checkout; the aside directory (.#*)
-	// and fossil's own files never enter a checkpoint.
-	ignoreGlob = ".#*,.*~,*~,checkpoint.fossil,.fslckout"
+	// ignoreGlob is set on every opened checkout; the aside directory (.#*),
+	// fossil's own files and original.fossil never enter a checkpoint.
+	// CRC: crc-Checkpoint.md | R222
+	ignoreGlob = ".#*,.*~,*~,checkpoint.fossil,original.fossil,.fslckout"
 )
 
 // preservedBranches survive a baseline (R127).

@@ -293,3 +293,11 @@
 - **R215:** `Changed` reports whether the app's files differ from the tip of trunk in `{app_dir}/original.fossil`: a file changed, added or removed
 - **R216:** `Changed` ignores fossil's own files (`checkpoint.fossil`, `original.fossil`, the checkout database) and the files the checkpoint repository ignores
 - **R217:** `Changed` is false for an app without `original.fossil`
+- **R218:** `App.Status` reports an app's trunk checkpoint count, whether it has `original.fossil`, and whether it has changed since install
+- **R219:** `Status` names each repository it reads (`-R`), and never opens, verifies or configures a checkout or writes anything
+- **R220:** `Status` reports a count of 0 for an app without a repository
+- **R221:** `App.Install` sets a baseline, then copies `checkpoint.fossil` to `original.fossil`; a failed baseline copies nothing, and a failed copy leaves no partial `original.fossil`
+- **R222:** The checkpoint ignore-glob includes `original.fossil`
+- **R223:** The host defines `ui.checkpointStatus` and `ui.checkpointInstall` as host operations where it builds each session's `mcp` global, so flib embedders get them too
+- **R224:** `ui.checkpointStatus(target, field, names)` delivers one entry per name, holding `count`, `downloaded` and `changed`, or `error` when that app's status could not be read; one unreadable app does not hide the others
+- **R225:** `ui.checkpointInstall(target, field, name, cb)` runs `Install` for the named app and delivers true

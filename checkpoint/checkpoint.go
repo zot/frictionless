@@ -135,8 +135,10 @@ func (a App) Count() (int, error) {
 	return a.trunkCount()
 }
 
-func (a App) trunkCount() (int, error) {
-	out, err := a.step("timeline", "-n", "0", "-t", "ci", "--oneline", "-b", "trunk")
+// trunkCount counts trunk check-ins that are real checkpoints. extra is passed to
+// fossil, so Status can name the repository instead of going through the checkout.
+func (a App) trunkCount(extra ...string) (int, error) {
+	out, err := a.step(append([]string{"timeline", "-n", "0", "-t", "ci", "--oneline", "-b", "trunk"}, extra...)...)
 	if err != nil {
 		return 0, err
 	}

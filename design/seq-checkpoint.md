@@ -1,7 +1,7 @@
 # Sequence: Checkpoint
 
 **Source Spec:** checkpoint.md
-**Requirements:** R79, R192, R193, R194, R203, R204, R205, R209, R210, R211, R212, R213, R214, R215, R216
+**Requirements:** R79, R192, R193, R194, R203, R204, R205, R209, R210, R211, R212, R213, R214, R215, R216, R218, R219, R221, R223, R224, R225
 
 Every step that runs fossil is checked (R210). "verify" is the binding check that stops the
 command when fossil would act on any checkout but the app's own (R211).
@@ -53,4 +53,25 @@ command when fossil would act on any checkout but the app's own (R211).
 4.3. read the tarball: path -> content, its top directory stripped
 4.4. walk Dir: skip fossil's own files and ignoreGlob matches
 4.5. any file differing, present on one side only -> true
+```
+
+## Sequence: status for app-console
+
+```
+5.1. MCPServer.setupMCPGlobal (on the executor) -> CheckpointOps.define -> LuaView.DefineHostOp x2
+5.2. app-console: stale cache and no call running -> ui.checkpointStatus(appConsole, "_checkpoints", names, cb)
+5.3. op (on the executor): read names -> work
+5.4. work (off the executor): Find; each name -> App.Status (timeline -R; original.fossil; Changed)
+  5.4.1. an app's error -> its entry is {error}; the others continue
+5.5. delivery stitch: appConsole._checkpoints = result; cb clears app-console's in-flight flag; change detection pushes the icons
+```
+
+## Sequence: install for app-console
+
+```
+6.1. app-console approve: download, link, source.txt -> ui.checkpointInstall(self, "_installed", name, cb)
+6.2. work (off the executor): Find; App.Install
+  6.2.1. Baseline (sequence 2)
+  6.2.2. copy checkpoint.fossil to Dir/.#original.XXXX; rename to original.fossil; on failure remove the temporary
+6.3. delivery stitch: cb continues the install: close the dialog, refresh, select the new app (or show the error)
 ```

@@ -11,6 +11,8 @@ AppConsole = session:prototype("AppConsole", {
     newAppDesc = "",
     embeddedApp = EMPTY,  -- Name of embedded app, or nil
     embeddedValue = EMPTY, -- App global loaded via mcp:app, or nil
+    _checkpoints = EMPTY,  -- Last ui.checkpointStatus delivery: name -> {count, downloaded, changed} or {error}
+    _checkpointsPending = false,  -- A ui.checkpointStatus call is running
     github = EMPTY  -- GitHubDownloader instance
 })
 
@@ -635,21 +637,20 @@ function GitHubDownloader:approve()
                 sourceFile:close()
             end
 
-            -- Create original.fossil to track that this was downloaded
-            -- and to enable local changes detection
-            os.execute('.ui/mcp checkpoint baseline ' .. appName)
-            local originalCmd = string.format(
-                'cp "%s/checkpoint.fossil" "%s/original.fossil"',
-                targetDir, targetDir
-            )
-            os.execute(originalCmd)
-
-            self:cancel()
-            appConsole:refresh()
-            local newApp = appConsole:findApp(appName)
-            if newApp then
-                appConsole:select(newApp)
-            end
+            -- Baseline and original.fossil (local changes tracking) run off the
+            -- session; the install finishes in the callback
+            ui.checkpointInstall(self, "_installed", appName, function(_, err)
+                if err then
+                    self.error = "Downloaded, but recording the original failed: " .. err
+                    return
+                end
+                self:cancel()
+                appConsole:refresh()
+                local newApp = appConsole:findApp(appName)
+                if newApp then
+                    appConsole:select(newApp)
+                end
+            end)
         else
             self.error = "Failed to download app. Check the URL and try again."
         end
@@ -713,8 +714,6 @@ AppConsole.AppInfo = session:prototype("AppConsole.AppInfo", {
     buildProgress = EMPTY,
     buildStage = EMPTY,
     confirmDelete = false,
-    _isDownloaded = false,  -- Has original.fossil (downloaded from GitHub)
-    _hasLocalChanges = false,  -- Has local modifications vs original
     sourceUrl = "",  -- GitHub URL from source.txt
     readmePath = ""  -- Path to readme file (case insensitive)
 })
@@ -816,12 +815,7 @@ function AppInfo:noGaps()
 end
 
 function AppInfo:hasCheckpoints()
-    -- Trigger batch refresh if cache is stale (10s cache to avoid excessive io.popen calls)
-    local now = os.time()
-    if not appConsole._checkpointsTime or (now - appConsole._checkpointsTime) >= 10 then
-        appConsole:refreshCheckpoints()
-    end
-    return self._hasCheckpoints or false
+    return self:checkpointCount() > 0
 end
 
 function AppInfo:checkpointIcon()
@@ -841,8 +835,8 @@ function AppInfo:hideLocalChangesIcon()
 end
 
 function AppInfo:checkpointCount()
-    self:hasCheckpoints()  -- triggers refresh if needed
-    return self._checkpointCount or 0
+    local st = appConsole:checkpointStatus(self.name)
+    return st and st.count or 0
 end
 
 function AppInfo:checkpointTooltip()
@@ -864,11 +858,13 @@ function AppInfo:consolidateButtonText()
 end
 
 function AppInfo:isDownloaded()
-    return self._isDownloaded or false
+    local st = appConsole:checkpointStatus(self.name)
+    return st and st.downloaded or false
 end
 
 function AppInfo:hasLocalChanges()
-    return self._hasLocalChanges or false
+    local st = appConsole:checkpointStatus(self.name)
+    return st and st.changed or false
 end
 
 function AppInfo:hasSourceUrl()
@@ -1336,58 +1332,28 @@ function AppConsole:refresh()
     self:scanAppsFromDisk()
 end
 
--- Batch refresh checkpoint status for all apps (cached for 1 second)
+-- One app's checkpoint status from the last ui.checkpointStatus delivery. A status
+-- 10 or more seconds old (or reset by a checkpoint command) starts a refresh.
+function AppConsole:checkpointStatus(name)
+    if os.time() - (self._checkpointsTime or 0) >= 10 then
+        self:refreshCheckpoints()
+    end
+    return self._checkpoints and self._checkpoints[name]
+end
+
+-- Ask the host for every app's checkpoint status. The call returns at once; the
+-- result lands in _checkpoints and change detection redraws the icons.
 function AppConsole:refreshCheckpoints()
-    local status = mcp:status()
-    local baseDir = status and status.base_dir
-    if not baseDir then
-        for _, app in ipairs(self._apps) do
-            app._hasCheckpoints = false
-            app._checkpointCount = 0
-            app._isDownloaded = false
-            app._hasLocalChanges = false
-        end
-        self._checkpointsTime = os.time()
-        return
-    end
-
-    local fossilBin = os.getenv("HOME") .. "/.claude/bin/fossil"
-    for _, app in ipairs(self._apps) do
-        local appDir = baseDir .. "/apps/" .. app.name
-
-        local cmd = baseDir .. "/mcp checkpoint count " .. app.name .. " 2>/dev/null"
-        local countHandle = io.popen(cmd)
-        local count = 0
-        if countHandle then
-            count = tonumber(countHandle:read("*a")) or 0
-            countHandle:close()
-        end
-        app._hasCheckpoints = count > 0
-        app._checkpointCount = count
-
-        -- Check if this is a downloaded app (has original.fossil)
-        local originalCheck = io.open(appDir .. "/original.fossil", "r")
-        if originalCheck then
-            originalCheck:close()
-            app._isDownloaded = true
-
-            -- Check for local changes vs original
-            local diffCmd = string.format(
-                'cd "%s" && "%s" diff --from original --brief 2>/dev/null | head -1',
-                appDir, fossilBin
-            )
-            local diffHandle = io.popen(diffCmd)
-            if diffHandle then
-                local diffOutput = diffHandle:read("*a")
-                diffHandle:close()
-                app._hasLocalChanges = diffOutput and diffOutput:match("%S") ~= nil
-            end
-        else
-            app._isDownloaded = false
-            app._hasLocalChanges = false
-        end
-    end
+    if self._checkpointsPending then return end
+    self._checkpointsPending = true
     self._checkpointsTime = os.time()
+    local names = {}
+    for _, app in ipairs(self._apps or {}) do
+        names[#names + 1] = app.name
+    end
+    ui.checkpointStatus(self, "_checkpoints", names, function()
+        self._checkpointsPending = false
+    end)
 end
 
 -- Select an app

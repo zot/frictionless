@@ -212,3 +212,69 @@ pulled again.
 **Fire alarm:** run the binary without `exec` and exit 0 after it; the exit is 0
 **Inject:** install/mcp:checkpoint_cmd
 **Pulled:** 2026-11-18 — rang: binary run without exec, then exit 0; "script exit = <nil>, want the binary's exit status 3"
+
+## Test: Status writes nothing
+**Purpose:** a status poll reads without opening, verifying or configuring a checkout (R218, R219, R220)
+**Input:** an app with no repository; then an app with checkpoints whose checkout is closed; then the same app with its checkout open, hashing `checkpoint.fossil` and `.fslckout` before and after `Status`
+**Expected:** count 0 for the first; the right count for the second with no `.fslckout` created; for the third, both files hash identically after
+**Refs:** crc-Checkpoint.md, seq-checkpoint.md
+**Code:** checkpoint/status_test.go
+**Alarm:** 16
+**Fire alarm:** compute the count with Count, which goes through the checkout; Status reopens the closed checkout
+**Inject:** checkpoint/status.go:App.Status
+@alarm-hash: f2aab3d1d5ecfd01
+**Pulled:** 2026-11-19 — rang: Status counted through Count; "Status opened a checkout"
+
+## Test: Status reports downloaded and changed
+**Purpose:** (R218)
+**Input:** an app installed with Install; Status; then edit a file; Status
+**Expected:** Downloaded true and Changed false; then Changed true
+**Refs:** crc-Checkpoint.md
+**Code:** checkpoint/status_test.go
+**Alarm:** 17
+**Fire alarm:** leave Changed false in Status; the second Status reports unchanged
+**Inject:** checkpoint/status.go:App.Status
+@alarm-hash: f2aab3d1d5ecfd01
+**Pulled:** 2026-11-19 — rang: Changed left false in Status; "after an edit: {Count:0 Downloaded:true Changed:false}, want changed"
+
+## Test: Install creates original.fossil, and saves leave it out
+**Purpose:** (R221, R222)
+**Input:** an app; Install; then edit a file and Save
+**Expected:** `original.fossil` exists and Changed was false after Install; after the save, `fossil ls` lists no `original.fossil`
+**Refs:** crc-Checkpoint.md, seq-checkpoint.md
+**Code:** checkpoint/status_test.go
+**Alarm:** 18
+**Fire alarm:** apply the ignore-glob without `original.fossil` in settings; the save commits it
+**Inject:** checkpoint/fossil.go:App.settings
+@alarm-hash: 1e2e22626e9fbdac
+**Pulled:** 2026-11-19 — rang: settings applied the ignore-glob without original.fossil; "a save committed original.fossil" *Earlier —* 2026-11-19 — rang: original.fossil dropped from the ignore-glob; "a save committed original.fossil"
+## Test: a failed Install copy leaves nothing behind
+**Purpose:** (R221)
+**Input:** an app whose `original.fossil` path is a non-empty directory, so the rename fails; Install
+**Expected:** an error; no `.#original.*` temporary left in the app directory
+**Refs:** crc-Checkpoint.md
+**Code:** checkpoint/status_test.go
+**Alarm:** 19
+**Fire alarm:** skip removing the temporary when the rename fails; it is left behind
+**Inject:** checkpoint/status.go:App.Install
+@alarm-hash: 6c48534335b94872
+**Pulled:** 2026-11-19 — rang: Install kept its temporary on failure; "Install left its temporary behind"
+
+## Test: checkpointStatus reports every app, isolating failures
+**Purpose:** the host operation exists in a new session and one unreadable app does not hide the others (R223, R224)
+**Input:** an MCP server session whose apps directory holds a good app with one checkpoint and an app whose `checkpoint.fossil` is not a repository; from Lua, `ui.checkpointStatus(t, "s", {"good", "bad"}, cb)`
+**Expected:** `t.s.good.count` is 1; `t.s.bad.error` is set; `t.sError` is nil
+**Refs:** crc-CheckpointOps.md, seq-checkpoint.md
+**Code:** internal/mcp/checkpoint_ops_test.go
+**Alarm:** 20
+**Fire alarm:** fail the whole operation on the first app's error; `t.s` is nil and `t.sError` is set
+**Inject:** internal/mcp/checkpoint_ops.go:statusWork
+@alarm-hash: fc7724f03aaccd51
+**Pulled:** 2026-11-19 — rang: statusWork failed the whole operation; "the whole operation failed: sError = fossil timeline ... not a valid repository"
+
+## Test: checkpointInstall installs and delivers true
+**Purpose:** (R223, R225)
+**Input:** an MCP server session with one app; from Lua, `ui.checkpointInstall(t, "done", "good", cb)`
+**Expected:** `t.done` is true; the app has `original.fossil`
+**Refs:** crc-CheckpointOps.md, seq-checkpoint.md
+**Code:** internal/mcp/checkpoint_ops_test.go

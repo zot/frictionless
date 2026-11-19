@@ -178,7 +178,9 @@ The trough (▓/░ on right side) shows warning positions:
 | embeddedApp | string | Name of embedded app, or nil |
 | embeddedValue | object | App global loaded via mcp:app, or nil |
 | _baseDir | string | Cached base_dir from mcp:status() |
-| _checkpointsTime | number | Unix timestamp of last checkpoint status refresh |
+| _checkpointsTime | number | Unix timestamp when the last checkpoint status refresh started; 0 asks for a refresh |
+| _checkpoints | table | Last delivered checkpoint status, by app name: {count, downloaded, changed} or {error}; written by ui.checkpointStatus |
+| _checkpointsPending | boolean | A ui.checkpointStatus call is running |
 | github | GitHubDownloader | GitHub download form state |
 
 ### GitHubDownloader (GitHub download form state)
@@ -228,12 +230,8 @@ The trough (▓/░ on right side) shows warning positions:
 | showGaps | boolean | Expand gaps section (default false) |
 | buildProgress | number | 0-100 or nil |
 | buildStage | string | Current build stage or nil |
-| _hasCheckpoints | boolean | Cached checkpoint status (refreshed every 1 second) |
-| _checkpointCount | number | Cached count of checkpoints (refreshed with _hasCheckpoints) |
 | confirmDelete | boolean | Show delete confirmation dialog |
 | _consolidatePending | boolean | Transient: pulsate consolidate button until todos clear |
-| _isDownloaded | boolean | Has original.fossil (downloaded from GitHub) |
-| _hasLocalChanges | boolean | Has local modifications vs original |
 | sourceUrl | string | GitHub URL from source.txt |
 | readmePath | string | GitHub readme URL (constructed from sourceUrl) |
 
@@ -271,7 +269,8 @@ These methods are documented below but created at runtime, so they don't appear 
 | scanAppsFromDisk() | Full scan: get base_dir via mcp:status(), list apps/, parse each |
 | rescanApp(name) | Rescan single app from disk |
 | refresh() | Calls mcp:scanAvailableApps() then scanAppsFromDisk() |
-| refreshCheckpoints() | Batch check checkpoint.fossil for all apps, update _hasCheckpoints, _checkpointCount, _isDownloaded, _hasLocalChanges, and _checkpointsTime |
+| refreshCheckpoints() | Unless a call is running: set _checkpointsPending and _checkpointsTime, then call ui.checkpointStatus(self, "_checkpoints", app names, cb); cb clears _checkpointsPending |
+| checkpointStatus(name) | Returns _checkpoints[name], or nil; starts refreshCheckpoints() when the status is 10 or more seconds old |
 | select(app) | Select an app, hide new form |
 | openNewForm() | Show new app form, deselect current |
 | cancelNewForm() | Hide new app form |
@@ -336,7 +335,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | contentHtml() | Returns active tab's HTML content |
 | troughMarkersHtml() | Returns empty string; trough markers are positioned by JS via DOM measurement |
 | noTroughMarkers() | Returns true if active tab has no warning lines |
-| approve() | Download app zip, extract, link, refresh app list |
+| approve() | Download app zip, extract, link, write source.txt, then ui.checkpointInstall(self, "_installed", name, cb); cb closes the form, refreshes the app list and selects the new app, or sets error |
 
 ### GitHubTab
 
@@ -389,17 +388,17 @@ These methods are documented below but created at runtime, so they don't appear 
 | requestBuild() | Set progress to 0/"pondering", then call pushEvent("build_request", {target = self.name}) |
 | requestTest() | Call pushEvent("test_request", {target = self.name}) |
 | requestFix() | Call pushEvent("fix_request", {target = self.name}) |
-| hasCheckpoints() | Check if checkpoint.fossil exists (cached, triggers refreshCheckpoints if stale) |
+| hasCheckpoints() | Returns checkpointCount() > 0 |
 | noCheckpoints() | Returns not hasCheckpoints() |
-| checkpointCount() | Returns count of checkpoints (triggers refresh if needed) |
+| checkpointCount() | Returns appConsole:checkpointStatus(name).count, or 0 |
 | checkpointTooltip() | Returns "N pending changes" for tooltip |
 | consolidateButtonText() | Returns "Make it thorough (N)" for button text |
 | checkpointIcon() | Returns "rocket" if hasCheckpoints, "gem" otherwise |
 | localChangesIcon() | Returns "pencil" if hasLocalChanges, "" otherwise |
 | showLocalChangesIcon() | Returns true if hasLocalChanges |
 | hideLocalChangesIcon() | Returns not hasLocalChanges |
-| isDownloaded() | Returns _isDownloaded |
-| hasLocalChanges() | Returns _hasLocalChanges |
+| isDownloaded() | Returns appConsole:checkpointStatus(name).downloaded, or false |
+| hasLocalChanges() | Returns appConsole:checkpointStatus(name).changed, or false |
 | noLocalChanges() | Returns not hasLocalChanges |
 | hasSourceUrl() | Returns sourceUrl is not empty |
 | noSourceUrl() | Returns not hasSourceUrl |

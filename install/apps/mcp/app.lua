@@ -578,7 +578,9 @@ function mcp:warnIfDisconnected(requirePending)
     if wt == 0 then
         self._notifiedForDisconnect = false
     elseif not self._notifiedForDisconnect and wt > 5
-           and (not requirePending or self:pendingEventCount() > 0) then
+       -- pendingEventCount no longer exists
+       -- and (not requirePending or self:pendingEventCount() > 0) then
+       and (not requirePending) then
         self:notify("Claude might be busy. Use /ui events to reconnect.", "warning")
         self._notifiedForDisconnect = true
     end

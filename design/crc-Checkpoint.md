@@ -1,5 +1,5 @@
 # Checkpoint
-**Requirements:** R69, R70, R71, R72, R73, R74, R75, R78, R79, R125, R126, R127, R192, R193, R194, R202, R203, R204, R205, R206, R207, R208, R209, R210, R211, R212, R213, R214, R215, R216, R217
+**Requirements:** R69, R70, R71, R72, R73, R74, R75, R78, R79, R125, R126, R127, R192, R193, R194, R202, R203, R204, R205, R206, R207, R208, R209, R210, R211, R212, R213, R214, R215, R216, R217, R218, R219, R220, R221, R222
 
 The `checkpoint` package: per-app fossil checkpoints, imported by the frictionless binary
 and by ark. Lifted from ark's `cmd/ark/checkpoint.go`, with Frictionless's baseline safety
@@ -10,7 +10,8 @@ merged in, so each version's hardening is in one place.
   `Dir/checkpoint.fossil` (R78)
 - ErrNoFossil, and the install instructions it carries (R206, R207)
 - baselineMsg `=== BASELINE ===`; the preserved branches, `updates` and `local` (R127)
-- ignoreGlob `.#*,.*~,*~,checkpoint.fossil,.fslckout`, set on every open
+- ignoreGlob `.#*,.*~,*~,checkpoint.fossil,original.fossil,.fslckout`, set on every open (R222)
+- Status: Count, Downloaded, Changed (R218)
 - aside: `Dir/.#baseline.XXXXXX` during a baseline, holding the old repository, its
   checkout database and one bundle per preserved branch; dot-prefixed so `add` never
   captures it, and inside `Dir` so moving the repository is a rename (R192)
@@ -35,6 +36,11 @@ merged in, so each version's hardening is in one place.
 - Changed: false without `original.fossil` (R217); else export trunk's tip from it as one
   tarball and compare against the files in Dir, ignoring fossil's own files and
   ignoreGlob (R215, R216).
+- Status: read without a checkout: trunk count from `timeline -R checkpoint.fossil`
+  (0 without a repository), Downloaded from `original.fossil` existing, Changed as above;
+  opens, verifies and writes nothing (R218, R219, R220).
+- Install: Baseline; then copy `checkpoint.fossil` to a dot-prefixed temporary in Dir and
+  rename it to `original.fossil`, removing the temporary on any failure (R221).
 - Command: parse `CMD APP [ARG]`; Find; resolve `appsDir/APP`; run the verb; print its
   result to out; call onChange after save, rollback, clear, baseline, update and local
   (R79, R204, R209).
