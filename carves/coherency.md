@@ -45,7 +45,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
-- [ ] **Item 10 — app-console stops spawning the host.** **IN PROGRESS (not queued): 10a landed; 10b and 10c open.**
+- [ ] **Item 10 — app-console stops spawning the host.** **IN PROGRESS (not queued): 10a and 10b landed; 10c open.**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
 
@@ -342,9 +342,13 @@ also where the bash `.ui/mcp` stops mattering on Windows.
     package (lifted from ark's dirlink, which ark can later import back),
     `frictionless linkapp`, and synchronous `ui.linkApp` / `ui.unlinkApp` /
     `ui.deleteApp`; the bash `install/linkapp` is gone, closing gap I1.
-  - **10b — the GitHub install.** The `mkdir`/`curl`/`unzip`/`mv`/`rm` pipeline and
-    the two `curl` fetches, as asynchronous host operations with Go's HTTP client and
-    `archive/zip`.
+  - **10b — the GitHub install. LANDED (2026-11-19):** Frictionless bf96ee9. The
+    `githubinstall` package and the asynchronous `ui.githubInvestigate` /
+    `ui.githubInstall` host operations replace the `mkdir`/`curl`/`unzip`/`mv`/`rm`
+    pipeline and both `curl` fetches; app-console investigates and installs through
+    callbacks, so the session no longer stalls on the network. The live install found
+    `install/apps/prefs/.fslckout` still on GitHub (removed locally in 7d608fd,
+    unpushed); a push clears it.
   - **10c — local file checks and desktop open.** `test -d`, two `ls`, `mkdir -p`, and
     two `xdg-open`.
 
