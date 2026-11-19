@@ -46,7 +46,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
 - [x] ~~**Item 10 — app-console stops spawning the host.**~~ **LANDED (2026-11-19 — not queued: 10a, 10b and 10c.)**
-- [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
+- [ ] **Item 11 — retire synchronous `ui.exec`.** **IN PROGRESS (not queued): 11a and 11b landed; 11c open.**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
 
 ## Decisions
@@ -368,6 +368,22 @@ reasons. Then it is removed.
   `os.execute`, and they should move to async forms rather than to `ui.exec`.
 - **Done when** a search of ui-engine, Frictionless and ark finds no caller, and the
   async form covers what the callers needed.
+- **Split 2026-11-19 (Bill).** Measured that day: ark's app was the only caller (23
+  `arkCmd` sites plus `checkServer`), and no async form existed for it to move to.
+  - **11a — the async form. LANDED (2026-11-19):** ui-engine "ui.execAsync: run a program
+    off the session; ui.exec deprecated (R250-R253)". `ui.execAsync(target, field, argv
+    [, cb])` is a host operation built into every session before `main.lua`, with a
+    per-call limit (60 seconds, `argv.timeout`, 0 for none); `ui.exec` is deprecated.
+  - **11b — the bundled apps. LANDED (2026-11-19):** Frictionless "Bundled apps run no
+    shell: portable primitives and ui.execAsync (Item 11b)". The last 12 shell calls in
+    mcp, claude-panel and prefs moved: `ls`, `mkdir -p`, `base64 -d` and `uname` to the
+    portable primitives, `git` and the `curl` release check to `ui.execAsync`. The update
+    check takes a callback so prefs' Check now reports the new answer, and the update
+    event names its asset by Go's `os-arch`, which the release files use. No bundled app
+    shells out any more.
+  - **11c — ark, then removal.** Tell ark `ui.execAsync` exists and ask whether `arkCmd`
+    becomes in-process bindings (ark spawns its own binary, which Lua should not) or async
+    calls. `ui.exec` is removed from ui-engine once ark has moved.
 
 ## Item 12
 

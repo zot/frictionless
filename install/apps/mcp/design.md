@@ -332,7 +332,7 @@ The global `mcp` object is provided by the server. This app adds:
 | notVarsPanel() | Returns panelMode ~= "vars" |
 | isVarsPanel() | Returns panelMode == "vars" |
 | sendChat() | Send chat event with current app as target; includes `images` array if attachments present |
-| processImageUpload() | Bridge trigger: parse JSON from imageUploadData, decode base64, write to storage/uploads/, add to _imageAttachments |
+| processImageUpload() | Bridge trigger: parse JSON from imageUploadData, decode base64 (`ui.base64Decode`), write to storage/uploads/ (made with `ui.mkdir`), add to _imageAttachments |
 | imageAttachments() | Returns _imageAttachments for binding |
 | hasImages() | Returns true if _imageAttachments is non-empty |
 | noImages() | Returns true if _imageAttachments is empty (for ui-class-hidden) |
@@ -360,7 +360,7 @@ The global `mcp` object is provided by the server. This app adds:
 | appUpdated(name) | Rescan apps and delegate to appConsole:onAppUpdated |
 | readSettings() | Read and parse `.ui/storage/settings.json`, returns empty table if missing/invalid |
 | writeSettings(data) | Write settings table as JSON to `.ui/storage/settings.json`, creates storage/ dir if needed |
-| checkForUpdates() | Fetch latest version from GitHub, compare with current, persist result to settings |
+| checkForUpdates([cb]) | Fetch the latest version without blocking (fetchLatestVersion); when it answers, compare with current, persist the result to settings, then call cb if given |
 | showUpdatePreferenceDialog() | Show the first-run update preference dialog |
 | setUpdatePreference(enabled) | Save checkUpdate preference to settings; triggers checkForUpdates() if enabled |
 | enableUpdates() | Convenience wrapper: calls setUpdatePreference(true) |
@@ -559,7 +559,7 @@ Module-level functions (not methods on mcp):
 | Function | Description |
 |----------|-------------|
 | compareVersions(current, latest) | Semver comparison: parses "major.minor.patch" from both strings, returns true if latest > current |
-| fetchLatestVersion() | Runs `curl` against `https://api.github.com/repos/zot/frictionless/releases/latest` with 5s connect / 10s max timeout, parses JSON for `tag_name`, strips leading "v", returns version string or nil |
+| fetchLatestVersion(cb) | Runs `curl` against `https://api.github.com/repos/zot/frictionless/releases/latest` (5s connect / 10s max) through `ui.execAsync` with a 15s limit; when it answers, parses JSON for `tag_name`, strips leading "v", and calls cb with the version string or nil |
 
 ## Tutorial First-Run Flow
 
@@ -576,7 +576,7 @@ The tutorial runs the update preference dialog check first (existing behavior), 
 `mcp:readSettings()` and `mcp:writeSettings(data)` provide shared settings storage at `{base_dir}/storage/settings.json`. They are defined on the global `mcp` object so any app can use them (e.g., the prefs app reads/writes the `checkUpdate` preference).
 
 - `readSettings()` opens the file, JSON-decodes it, returns the table (or `{}` on any failure)
-- `writeSettings(data)` creates the `storage/` directory if needed via `mkdir -p`, then writes JSON
+- `writeSettings(data)` creates the `storage/` directory if needed with `ui.mkdir`, then writes JSON
 
 ### First-Run Flow
 
@@ -592,10 +592,11 @@ When `settings.checkUpdate == true` on startup:
 1. Restore cached state: if `settings.needsUpdate` is true, set `mcp._needsUpdate = true` and `mcp.latestVersion` from settings (so the star/notification appear immediately without waiting for network)
 2. Call `mcp:checkForUpdates()` which:
    - Gets current version from `mcp:status().version`
-   - Calls `fetchLatestVersion()` (curl to GitHub API)
+   - Calls `fetchLatestVersion(cb)` (curl through `ui.execAsync`); the rest runs when it answers:
    - Compares with `compareVersions(current, latest)`
    - Sets `mcp.latestVersion` and `mcp._needsUpdate`
    - Persists `needsUpdate` and `latestVersion` to settings
+   - Calls the caller's callback, if any
 
 ### Notification / Star / Dialog UI
 
@@ -625,11 +626,11 @@ When `settings.checkUpdate == true` on startup:
 
 `confirmUpdate()`:
 1. Closes the dialog, sets `_isUpdating = true`, dismisses the notification
-2. Detects platform via `uname -s` and architecture via `uname -m`
+2. Reads `ui.platform()`: `platform` and `architecture` are Go's names (`linux`, `amd64`), the ones the release assets use, and `asset` is the file to download (`frictionless-{os}-{arch}`, with `.exe` on Windows)
 3. Emits a `pushState` event with:
    - `type = "update"`, `action = "perform-update"`
    - `currentVersion`, `latestVersion`
-   - `platform`, `architecture`
+   - `platform`, `architecture`, `asset`
    - `releaseUrl` pointing to the specific GitHub release tag
    - `instructions` with step-by-step binary download/replace/chmod/restart/update procedure
 
@@ -649,7 +650,7 @@ The entire chat panel is a drop zone. Images can also be pasted via Ctrl+V.
 **UX flow:**
 1. User drags image over chat panel → border glow, "Drop image here" overlay
 2. User drops → JS reads file via FileReader, generates thumbnail (max 150px JPEG) and keeps full data URI, sends JSON via `updateValue` bridge
-3. Lua receives via `processImageUpload()` (priority=high trigger), decodes base64, writes to `{base_dir}/storage/uploads/img-{time}-{rand}.{ext}`
+3. Lua receives via `processImageUpload()` (priority=high trigger), makes the directory with `ui.mkdir`, decodes the base64 with `ui.base64Decode`, writes to `{base_dir}/storage/uploads/img-{time}-{rand}.{ext}`
 4. Thumbnail preview row appears above text input with [x] remove buttons
 5. User types optional text, hits Send
 6. `sendChat()` creates ChatThumbnail objects (with uri + fullUri), attaches to ChatMessage, includes `images: ["/path/to/file"]` in event, clears attachments (files persist for agent)

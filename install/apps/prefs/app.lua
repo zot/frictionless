@@ -31,22 +31,22 @@ end
 function Prefs:scanThemes()
     local themeDir = mcp:status().base_dir .. "/html/themes"
     local names = {}
-    local handle = io.popen('ls "' .. themeDir .. '"/*.css 2>/dev/null')
-    if not handle then return end
-    for line in handle:lines() do
-        local file = io.open(line, "r")
-        if file then
-            local head = file:read(2048) or ""
-            file:close()
-            local name = head:match("@theme%s+(%S+)")
-            if name and name ~= "base" then
-                local desc = head:match("@description%s+([^\n]+)") or ""
-                local accent = head:match("%-%-term%-accent:%s*(#%x+)") or ""
-                names[name] = {description = desc, accentColor = accent}
+    for _, e in ipairs(ui.listDir(themeDir) or {}) do
+        -- *.css files, skipping dot-entries as the shell glob did
+        if not e.isDir and e.name:sub(1, 1) ~= "." and e.name:match("%.css$") then
+            local file = io.open(themeDir .. "/" .. e.name, "r")
+            if file then
+                local head = file:read(2048) or ""
+                file:close()
+                local name = head:match("@theme%s+(%S+)")
+                if name and name ~= "base" then
+                    local desc = head:match("@description%s+([^\n]+)") or ""
+                    local accent = head:match("%-%-term%-accent:%s*(#%x+)") or ""
+                    names[name] = {description = desc, accentColor = accent}
+                end
             end
         end
     end
-    handle:close()
     -- Build sorted list, reusing existing ThemeItems where possible
     local byName = {}
     for _, t in ipairs(self._themes) do
@@ -127,12 +127,14 @@ function Prefs:toggleCheckUpdates()
 end
 
 function Prefs:checkNow()
-    mcp:checkForUpdates()
-    if mcp._needsUpdate then
-        mcp:notify("Update available: v" .. mcp.latestVersion .. " — use the star menu to update", "primary")
-    else
-        mcp:notify("You're up to date (v" .. (mcp:currentVersion() or "?") .. ")", "success")
-    end
+    -- The check runs off the session; report when it finishes
+    mcp:checkForUpdates(function()
+        if mcp._needsUpdate then
+            mcp:notify("Update available: v" .. mcp.latestVersion .. " — use the star menu to update", "primary")
+        else
+            mcp:notify("You're up to date (v" .. (mcp:currentVersion() or "?") .. ")", "success")
+        end
+    end)
 end
 
 -- Tutorial re-run

@@ -38,8 +38,8 @@ A universal panel for Claude Code showing project status and quick actions.
 | Field   | Source                            | Description                        |
 |---------|-----------------------------------|------------------------------------|
 | Status  | Lua state                         | "Loading" or "Ready"               |
-| Branch  | `git branch --show-current`       | Current git branch                 |
-| Changed | `git status --porcelain \| wc -l` | Count of changed files             |
+| Branch  | `git branch --show-current` (`ui.execAsync`)  | Current git branch                 |
+| Changed | `git status --porcelain` (`ui.execAsync`), its lines counted | Count of changed files |
 
 ## Styling
 
@@ -138,8 +138,8 @@ This enables the parent Claude to dynamically manipulate the DOM, hide/show elem
 
 - Sections collapse/expand on header click
 - Items within expanded sections are clickable
-- Git status loads on startup via `io.popen`
-- Agent/skill discovery via filesystem on startup
+- Git status loads on startup through `ui.execAsync`, off the session: Branch and Changed fill in when git answers (outside a git repository, Branch is `unknown` and Changed is 0)
+- Agent/skill discovery via the filesystem (`ui.listDir`) on startup; no shell command runs
 - Chat input clears after sending
 - JavaScript execution via `jsCode` property
 - Lua console collapsed by default, expands on header click

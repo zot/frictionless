@@ -64,7 +64,8 @@ Section order: Updates → Tutorial → Themes. The Themes section is hidden (`t
 | loadThemeFromSettings() | Read theme from .ui/storage/settings.json, apply it |
 | checkUpdates() | Returns current update-check preference via `mcp:getUpdatePreference()` |
 | toggleCheckUpdates() | Toggles update-check preference via `mcp:setUpdatePreference()` |
-| checkNow() | Runs `mcp:checkForUpdates()`, then shows notification via `mcp:notify()`: "You're up to date (vX.Y.Z)" success, or "Update available: vX.Y.Z — use the star menu to update" primary |
+| scanThemes() | List `{base_dir}/html/themes/*.css` with `ui.listDir`, read each file's header for `@theme`, `@description` and the accent color |
+| checkNow() | Runs `mcp:checkForUpdates(cb)`; when the check finishes, cb shows a notification via `mcp:notify()`: "You're up to date (vX.Y.Z)" success, or "Update available: vX.Y.Z — use the star menu to update" primary |
 | startTutorial() | Calls `mcp:startTutorial()` to re-run the spotlight walkthrough |
 
 ### ThemeItem

@@ -96,52 +96,38 @@ function ClaudePanel:buildAction()
 end
 
 -- Git status
+-- Both git calls run off the session; each field fills in when git answers.
+-- Outside a git repository git fails: branch is "unknown", changedFiles 0.
 function ClaudePanel:loadGitStatus()
-    -- Get branch
-    local handle = io.popen("git branch --show-current 2>/dev/null")
-    if handle then
-        local result = handle:read("*a")
-        handle:close()
-        self.branch = result:gsub("%s+$", "")
-        if self.branch == "" then self.branch = "unknown" end
-    end
-
-    -- Get changed file count
-    handle = io.popen("git status --porcelain 2>/dev/null | wc -l")
-    if handle then
-        local result = handle:read("*a")
-        handle:close()
-        self.changedFiles = tonumber(result) or 0
-    end
+    ui.execAsync(self, "_gitBranch", {"git", "branch", "--show-current"}, function(out)
+        local branch = (out or ""):gsub("%s+$", "")
+        self.branch = branch ~= "" and branch or "unknown"
+    end)
+    ui.execAsync(self, "_gitStatus", {"git", "status", "--porcelain"}, function(out)
+        local count = 0
+        for _ in (out or ""):gmatch("[^\n]+") do count = count + 1 end
+        self.changedFiles = count
+    end)
 end
 
--- Discovery helpers
-local function scanDir(pattern)
+-- Discovery helpers. Dot-entries are skipped, as the shell globs did.
+
+-- Names of the *.md files in dir, without the extension
+local function scanDir(dir)
     local items = {}
-    local handle = io.popen("ls -1 " .. pattern .. " 2>/dev/null")
-    if handle then
-        for line in handle:lines() do
-            local name = line:match("([^/]+)%.md$") or line:match("([^/]+)/?$")
-            if name and name ~= "" then
-                items[name] = true
-            end
+    for _, e in ipairs(ui.listDir(dir) or {}) do
+        if not e.isDir then
+            local name = e.name:match("^([^.].*)%.md$")
+            if name then items[name] = true end
         end
-        handle:close()
     end
     return items
 end
 
 local function scanSkillDirs(path)
     local items = {}
-    local handle = io.popen("ls -1d " .. path .. "*/ 2>/dev/null")
-    if handle then
-        for line in handle:lines() do
-            local name = line:match("([^/]+)/$")
-            if name and name ~= "" then
-                items[name] = true
-            end
-        end
-        handle:close()
+    for _, e in ipairs(ui.listDir(path) or {}) do
+        if e.isDir and e.name:sub(1, 1) ~= "." then items[e.name] = true end
     end
     return items
 end
@@ -159,10 +145,10 @@ function ClaudePanel:discoverItems()
     for _, name in ipairs(builtIn) do agentSet[name] = true end
 
     -- Project agents
-    for name in pairs(scanDir(".claude/agents/*.md")) do agentSet[name] = true end
+    for name in pairs(scanDir(".claude/agents")) do agentSet[name] = true end
 
     -- User agents
-    for name in pairs(scanDir(home .. "/.claude/agents/*.md")) do agentSet[name] = true end
+    for name in pairs(scanDir(home .. "/.claude/agents")) do agentSet[name] = true end
 
     -- Sort and add
     local agentList = {}
@@ -184,10 +170,10 @@ function ClaudePanel:discoverItems()
     for _, name in ipairs(builtInCmds) do cmdSet[name] = true end
 
     -- Project commands
-    for name in pairs(scanDir(".claude/commands/*.md")) do cmdSet["/" .. name] = true end
+    for name in pairs(scanDir(".claude/commands")) do cmdSet["/" .. name] = true end
 
     -- User commands
-    for name in pairs(scanDir(home .. "/.claude/commands/*.md")) do cmdSet["/" .. name] = true end
+    for name in pairs(scanDir(home .. "/.claude/commands")) do cmdSet["/" .. name] = true end
 
     -- Sort and add
     local cmdList = {}

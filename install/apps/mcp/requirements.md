@@ -8,6 +8,8 @@ The outer shell for all frictionless apps. Displays the current app and provides
 - `value` - the currently displayed app (set via `mcp:display(appName)`)
 - `code` - JavaScript code to execute (for browser control)
 
+**No shell.** This app runs no shell command. File work uses ui-engine's portable `ui.mkdir`, `ui.listDir`, `ui.base64Decode` and `ui.platform`; a program it needs (`curl` for the update check) runs through `ui.execAsync`, off the session.
+
 ## Layout
 
 The shell is minimal chrome around the current app:
@@ -228,9 +230,10 @@ On first startup (no settings file or no `checkUpdate` key):
 
 When `checkUpdate` is enabled in settings:
 - On startup, restore any cached `needsUpdate`/`latestVersion` from settings (so the star appears immediately)
-- Then fetch the latest version from the GitHub releases API (`curl` with timeouts)
+- Then fetch the latest version from the GitHub releases API: `curl` with timeouts, run through `ui.execAsync` with a 15-second limit, so the session never waits on the network
 - Compare current version (from `mcp:status().version`) against latest using semver comparison
 - Persist the result (`needsUpdate`, `latestVersion`) to settings for next startup
+- A caller that reports the result (prefs' **Check now**) reports it when the check finishes, not before
 
 ### Update Available Indicator
 
@@ -255,7 +258,7 @@ The confirmation dialog shows:
 - **Cancel** closes the dialog
 - **Update** triggers the update by emitting a `pushState` event with:
   - Current and latest version numbers
-  - Platform and architecture detection (via `uname`)
+  - Platform and architecture from `ui.platform()`, Go's names, which the release assets use, and the name of the asset to download
   - Release URL pointing to GitHub releases
   - Step-by-step instructions for the agent to download and install the binary
 

@@ -57,8 +57,8 @@ A universal panel for Claude Code showing project status, quick actions, and col
 | commitAction()       | Push action event for commit                      |
 | testAction()         | Push action event for test                        |
 | buildAction()        | Push action event for build                       |
-| loadGitStatus()      | Load branch and changed file count                |
-| discoverItems()      | Scan filesystem for agents/commands/skills        |
+| loadGitStatus()      | Start two `ui.execAsync` git calls; branch and changedFiles fill in as each answers |
+| discoverItems()      | Scan the filesystem (`ui.listDir`) for agents/commands/skills |
 
 ### TreeSection
 | Method          | Description                    |

@@ -18,18 +18,19 @@ local function compareVersions(current, latest)
     return false
 end
 
--- Fetch latest version from GitHub releases API
-local function fetchLatestVersion()
-    local handle = io.popen('curl -s --connect-timeout 5 --max-time 10 "https://api.github.com/repos/zot/frictionless/releases/latest" 2>/dev/null')
-    if not handle then return nil end
-    local content = handle:read("*a")
-    handle:close()
-    if not content or content == "" then return nil end
-    local ok, data = pcall(json.decode, content)
-    if ok and data and data.tag_name then
-        return data.tag_name:gsub("^v", "")
-    end
-    return nil
+-- Fetch latest version from GitHub releases API, off the session: curl runs
+-- through ui.execAsync, and cb(version or nil) runs when it answers
+local function fetchLatestVersion(cb)
+    local argv = {"curl", "-s", "--connect-timeout", "5", "--max-time", "10",
+        "https://api.github.com/repos/zot/frictionless/releases/latest", timeout = 15}
+    ui.execAsync({}, "out", argv, function(content)
+        local ok, data = pcall(json.decode, content or "")
+        if ok and type(data) == "table" and type(data.tag_name) == "string" then
+            cb((data.tag_name:gsub("^v", "")))
+        else
+            cb(nil)
+        end
+    end)
 end
 
 -- Filesystem helpers
@@ -65,7 +66,7 @@ end
 local function writeJsonFile(path, data)
     if not path then return end
     local dir = path:match("(.+)/[^/]+$")
-    if dir then os.execute('mkdir -p "' .. dir .. '"') end
+    if dir then ui.mkdir(dir) end
     local f = io.open(path, "w")
     if not f then return end
     f:write(json.encode(data))
@@ -74,15 +75,12 @@ end
 
 local function listDirs(path)
     local dirs = {}
-    local handle = io.popen('ls -1d "' .. path .. '"/*/ 2>/dev/null')
-    if not handle then return dirs end
-    for line in handle:lines() do
-        local name = line:match("([^/]+)/$")
-        if name and name ~= "" then
-            table.insert(dirs, name)
+    -- Directories only, skipping dot-entries as the shell glob did
+    for _, e in ipairs(ui.listDir(path) or {}) do
+        if e.isDir and e.name:sub(1, 1) ~= "." then
+            table.insert(dirs, e.name)
         end
     end
-    handle:close()
     return dirs
 end
 
@@ -720,21 +718,20 @@ function mcp:processImageUpload()
 
     if base64Data == "" then return end
 
-    -- Write base64 to temp file, decode to output
+    -- Decode the base64 and write the image bytes
+    local bytes = ui.base64Decode(base64Data)
+    if not bytes then return end
     local status = self:status()
     local uploadDir = (status and status.base_dir or "/tmp") .. "/storage/uploads"
-    os.execute('mkdir -p "' .. uploadDir .. '"')
+    ui.mkdir(uploadDir)
 
     local ext = filename:match("%.(%w+)$") or "png"
     local outPath = uploadDir .. "/img-" .. os.time() .. "-" .. math.random(10000) .. "." .. ext
 
-    local tmpB64 = os.tmpname()
-    local f = io.open(tmpB64, "wb")
+    local f = io.open(outPath, "wb")
     if not f then return end
-    f:write(base64Data)
+    f:write(bytes)
     f:close()
-    os.execute('base64 -d < "' .. tmpB64 .. '" > "' .. outPath .. '"')
-    os.remove(tmpB64)
 
     table.insert(self._imageAttachments, session:create(ImageAttachment, {
         path = outPath,
@@ -776,20 +773,28 @@ end
 
 -- Update check methods
 
-function mcp:checkForUpdates()
+-- The fetch runs off the session; cb (optional) runs once the result is stored,
+-- or at once when there is no current version
+function mcp:checkForUpdates(cb)
     local current = self:currentVersion()
-    if not current then return end
-    local latest = fetchLatestVersion()
-    if not latest then return end
-    self.latestVersion = latest
-    self._needsUpdate = compareVersions(current, latest)
-    -- Persist to settings
-    local settings = self:readSettings()
-    settings.needsUpdate = self._needsUpdate
-    if self._needsUpdate then
-        settings.latestVersion = latest
+    if not current then
+        if cb then cb() end
+        return
     end
-    self:writeSettings(settings)
+    fetchLatestVersion(function(latest)
+        if latest then
+            self.latestVersion = latest
+            self._needsUpdate = compareVersions(current, latest)
+            -- Persist to settings
+            local settings = self:readSettings()
+            settings.needsUpdate = self._needsUpdate
+            if self._needsUpdate then
+                settings.latestVersion = latest
+            end
+            self:writeSettings(settings)
+        end
+        if cb then cb() end
+    end)
 end
 
 function mcp:showUpdatePreferenceDialog()
@@ -857,35 +862,27 @@ function mcp:confirmUpdate()
     self._isUpdating = true
     self._updateNotificationDismissed = true
 
-    -- Detect platform for instructions
-    local uname_s = ""
-    local uname_m = ""
-    local h = io.popen("uname -s 2>/dev/null")
-    if h then uname_s = h:read("*a"):match("^%s*(.-)%s*$") or ""; h:close() end
-    h = io.popen("uname -m 2>/dev/null")
-    if h then uname_m = h:read("*a"):match("^%s*(.-)%s*$") or ""; h:close() end
+    -- Go's names, which the release assets use (frictionless-{os}-{arch})
+    local p = ui.platform()
+    local asset = "frictionless-" .. p.os .. "-" .. p.arch .. (p.os == "windows" and ".exe" or "")
 
     local event = {
         type = "update",
         action = "perform-update",
         currentVersion = self:currentVersion(),
         latestVersion = self.latestVersion,
-        platform = uname_s,
-        architecture = uname_m,
+        platform = p.os,
+        architecture = p.arch,
+        asset = asset,
         releaseUrl = "https://github.com/zot/frictionless/releases/download/v" .. self.latestVersion,
         instructions = [[
-1. Detect platform (uname -s) and architecture (uname -m)
-2. Download the appropriate binary from releaseUrl:
-   - Linux x86_64: frictionless-linux-amd64
-   - Linux aarch64: frictionless-linux-arm64
-   - Darwin arm64: frictionless-darwin-arm64
-   - Darwin x86_64: frictionless-darwin-amd64
-3. Replace the current frictionless binary (which frictionless)
-4. Make it executable (chmod +x)
-5. The MCP server will restart automatically with the new binary
-6. Call the ui_update tool (NOT install --force) for smart file update
-7. If conflicts returned, offer to merge each one
-8. Notify the user that update is complete
+1. Download `asset` from releaseUrl (releaseUrl .. "/" .. asset)
+2. Replace the current frictionless binary with it (`which frictionless`; `where frictionless` on Windows)
+3. On Linux and macOS, make it executable (chmod +x)
+4. The MCP server will restart automatically with the new binary
+5. Call the ui_update tool (NOT install --force) for smart file update
+6. If conflicts returned, offer to merge each one
+7. Notify the user that update is complete
 ]]
     }
     mcp.pushState(event)
