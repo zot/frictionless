@@ -44,7 +44,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 6 — tell ark.**~~ **LANDED (2026-11-19 — not queued: request `ark-coherency-checkpoint` sent to ark.)**
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
-- [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **IN PROGRESS (not queued): 9a and 9b landed; 9c open.**
+- [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
 - [ ] **Item 10 — app-console stops spawning the host.** **OPEN (not queued.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
@@ -315,7 +315,11 @@ Split 2026-11-19 (Bill), one piece at a time:
   and `Broadcast` read the session's own connection set instead of scanning every
   connection. `reconnectTokens` was not moved but deleted: nothing in ui-engine,
   Frictionless or ark issued or checked a token, and the spec never asked for one.
-- **9c — URL paths.** `SessionManager.urlPaths` moves onto the `Session`.
+- **9c — URL paths. LANDED (2026-11-19):** ui-engine 12b310b. Not moved but deleted: only
+  tests called `RegisterURLPath` and `ResolveURLPath`, and nothing lets a backend register
+  a path. The feature (`interfaces.md`, presenters at URL paths) is specified but unbuilt,
+  with two other unconnected pieces (`internal/router`, `web/src/router.ts`); ui-engine
+  gap O11. Building it decides where routes live.
 - **Edges, on purpose:** the `SessionManager` registry and its vended-to-internal ID maps,
   the connection registry, and the viewdef manager's `sentViewdefs` (in a package that
   cannot name a `Session`) stay keyed by ID. They are not unfinished work.
