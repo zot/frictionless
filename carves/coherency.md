@@ -44,7 +44,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 6 — tell ark.**~~ **LANDED (2026-11-19 — not queued: request `ark-coherency-checkpoint` sent to ark.)**
 - [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
-- [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **OPEN (not queued.)**
+- [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **IN PROGRESS (not queued): 9a landed; 9b and 9c open.**
 - [ ] **Item 10 — app-console stops spawning the host.** **OPEN (not queued.)**
 - [ ] **Item 11 — retire synchronous `ui.exec`.** **OPEN (not queued.)**
 - [ ] **Item 12 — retire dangerous synchronous execution (ui-engine).** **OPEN (not queued.)**
@@ -300,6 +300,22 @@ Move the Lua session out of `Server.luaSessions` and the store adapter's copy in
 
 Once nothing inside needs them, the ID maps shrink to edge lookups: an ID arriving on the
 wire (backend socket, MCP, URL) becomes a `SessionRef` once, and pointers take over.
+
+Split 2026-11-19 (Bill), one piece at a time:
+
+- **9a — the store adapter. LANDED (2026-11-19):** ui-engine dddba18. Its `backends` copy is
+  gone and `nextServerVarId` is on each `LuaBackend`. `varToSession` turned out to be always
+  empty (its only writer, `CreatePathVariable`, had no callers) and could not have worked
+  anyway, since variable IDs repeat across sessions; every variable operation now names its
+  session, so `session:destroyVariable` destroys for the first time. Found: creating a
+  server child variable panics (ui-engine gap O9), and `lib/lua/session.lua` never loads,
+  leaving `Variable:getValue` and `getProperty` unreachable (gap O10).
+- **9b — the endpoint.** `sessionBindings` becomes a `*Session` on the connection;
+  `reconnectTokens` moves onto the `Session`.
+- **9c — URL paths.** `SessionManager.urlPaths` moves onto the `Session`.
+- **Edges, on purpose:** the `SessionManager` registry and its vended-to-internal ID maps,
+  the connection registry, and the viewdef manager's `sentViewdefs` (in a package that
+  cannot name a `Session`) stay keyed by ID. They are not unfinished work.
 
 ## Item 10
 
