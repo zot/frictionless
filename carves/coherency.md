@@ -39,7 +39,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 4 — a shared checkpoint package.**~~ **LANDED (2026-11-18 — not queued: "checkpoint package: one hardened checkpoint for Frictionless and ark".)**
 - [x] ~~**Item 5 — app-console's checkpoint refresh on Tailor.**~~ **LANDED (2026-11-19 — not queued: "Async checkpoint status and install for app-console".)**
 - [x] ~~**Item 6 — tell ark.**~~ **LANDED (2026-11-19 — not queued: request `ark-coherency-checkpoint` sent to ark.)**
-- [ ] **Item 7 — the executor moves into the session (ui-engine).** **OPEN (not queued.)**
+- [x] ~~**Item 7 — the executor moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "Session executor owned by the session; stop never blocks".)**
 - [ ] **Item 8 — the Lua session moves into the session (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 9 — ID maps shrink to the edges (ui-engine).** **OPEN (not queued.)**
 - [ ] **Item 10 — app-console stops spawning the host.** **OPEN (not queued.)**
@@ -273,6 +273,13 @@ implementation changes; callers do not. The payoff is concrete:
 `cleanupSessionSvc` has no callers today, so every destroyed session leaks its executor
 goroutine. Owned by the session, the executor ends with it. Test: the goroutine count
 after a session is destroyed.
+
+- **LANDED (2026-11-19):** ui-engine 9923979. The executor is born in `NewSession` and
+  stopped by `DestroySession` after backend teardown, and by a failed `CreateSession`, a
+  second leak the item did not name. Stopping exposed a latent hang: after `ChanSvc.Stop`
+  every late post blocked forever on the one-slot channel, so the actor gained a done
+  channel, `ErrStopped`, and a per-job `launched` flag that lets a synchronous caller
+  tell an abandoned closure from one still in flight (R218-R228; R203 and R204 retired).
 
 ## Item 8
 
