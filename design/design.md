@@ -20,6 +20,9 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] crc-AppLink.md → `applink/applink.go`, `applink/link_unix.go`, `applink/link_windows.go`, `cmd/frictionless/linkapp.go`
 - [x] crc-AppLinkOps.md → `internal/mcp/applink_ops.go`, `internal/mcp/tools.go`
 - [x] seq-applink.md → `applink/applink.go`, `internal/mcp/applink_ops.go`, `internal/mcp/server.go`
+- [x] crc-GitHubInstall.md → `githubinstall/githubinstall.go`
+- [x] crc-GitHubOps.md → `internal/mcp/github_ops.go`, `internal/mcp/tools.go`
+- [x] seq-github-install.md → `githubinstall/githubinstall.go`, `internal/mcp/github_ops.go`
 - [x] crc-Publisher.md → `internal/publisher/publisher.go`
 - [x] crc-MCPSubscribe.md → `internal/mcp/subscribe.go`
 - [x] crc-FlibRuntime.md → `flib/flib.go`
@@ -48,6 +51,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
 - [x] test-Checkpoint.md → `checkpoint/checkpoint_test.go`, `checkpoint/baseline_test.go`, `checkpoint/fossil_test.go`, `checkpoint/changed_test.go`, `checkpoint/command_test.go`, `cmd/frictionless/checkpoint_test.go`, `internal/mcp/checkpoint_test.go`, `checkpoint/status_test.go`, `internal/mcp/checkpoint_ops_test.go`
 - [x] test-AppLink.md → `applink/applink_test.go`, `internal/mcp/applink_ops_test.go`
+- [x] test-GitHubInstall.md → `githubinstall/githubinstall_test.go`, `internal/mcp/github_ops_test.go`
 
 ## Systems
 

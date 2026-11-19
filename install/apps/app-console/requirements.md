@@ -61,7 +61,8 @@ A GitHub icon button in the header opens the download form (replaces the detail 
 
 ### URL Input
 - Input field for GitHub tree URL (e.g., `https://github.com/user/repo/tree/main/apps/my-app`)
-- "Investigate" button validates the URL and fetches directory contents
+- "Investigate" button validates the URL and fetches directory contents with one `ui.githubInvestigate` call, which runs off the session (`specs/github-install.md`)
+- While it runs, the button shows "Investigating..." and is disabled; the form stays usable
 - Shows error if URL is invalid or directory doesn't contain a valid app
 
 ### Name Conflict Detection
@@ -83,6 +84,7 @@ After validation, show tabs for each file:
 - `requirements.md`, `design.md`, `app.lua`, plus any other `.lua` files
 - Viewdef HTML files that contain `<script>` tags or inline `on*=` event handlers (pure declarative viewdefs are skipped)
 - All code tabs (Lua and viewdef) are pre-scanned during investigate so warning counts appear immediately in tab labels
+- Every tab's content comes from what investigate fetched; selecting a tab fetches nothing
 - User must click each tab to mark it as "viewed"
 - Unviewed tabs shown with warning variant (yellow)
 - Viewed tabs shown with default variant
@@ -134,14 +136,14 @@ Before any tab is clicked, show a warning alert:
 - Explains the color-coded highlights
 
 ### Approve Button
-- Only enabled after ALL tabs have been viewed
-- Downloads the app from GitHub:
-  1. Fetch repository zip from GitHub
-  2. Extract the app directory to `{base_dir}/apps/{name}/`
+- Only enabled after ALL tabs have been viewed, and disabled while an install is running (it shows "Installing...")
+- Installs the app from GitHub; each step after the first continues in the previous step's callback, so the session never waits on the network:
+  1. Download and extract the app into `{base_dir}/apps/{name}/` with `ui.githubInstall`, which runs off the session
+  2. Activate the app with `ui.linkApp(name)`
   3. Save the source URL to `{base_dir}/apps/{name}/source.txt`
-  4. Create the `original.fossil` baseline for local changes tracking with `ui.checkpointInstall`, which runs off the session; the steps after it continue in its callback
-  5. Activate the app with `ui.linkApp(name)`
-  6. Refresh the app list and select the new app
+  4. Create the `original.fossil` baseline for local changes tracking with `ui.checkpointInstall`, which runs off the session
+  5. Refresh the app list and select the new app
+- Any step's error is shown in the form and stops the install
 
 ### Downloaded App Tracking
 Downloaded apps are tracked for local modifications:

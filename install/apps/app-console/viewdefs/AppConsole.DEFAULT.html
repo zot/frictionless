@@ -844,8 +844,8 @@
             </div>
             <div class="github-url-row">
               <sl-input label="GitHub URL" placeholder="https://github.com/user/repo/tree/main/path" ui-value="github.url?keypress"></sl-input>
-              <sl-button variant="primary" ui-attr-disabled="github.investigateDisabled()" ui-action="investigateGitHub()">Investigate</sl-button>
-              <sl-button variant="success" ui-class-hidden="github.hideTabs()" ui-attr-disabled="github.approveDisabled()" ui-action="approveGitHub()">Approve</sl-button>
+              <sl-button variant="primary" ui-attr-disabled="github.investigateDisabled()" ui-action="investigateGitHub()"><span ui-value="github.investigateLabel()"></span></sl-button>
+              <sl-button variant="success" ui-class-hidden="github.hideTabs()" ui-attr-disabled="github.approveDisabled()" ui-action="approveGitHub()"><span ui-value="github.approveLabel()"></span></sl-button>
             </div>
 
             <!-- Error message -->

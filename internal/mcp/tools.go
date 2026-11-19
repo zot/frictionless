@@ -774,6 +774,8 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 		s.defineCheckpointOps(vendedID)
 		// ui.linkApp, ui.unlinkApp and ui.deleteApp (R234)
 		s.defineAppLinkOps(vendedID)
+		// ui.githubInvestigate and ui.githubInstall (R239, R245)
+		s.defineGitHubOps(vendedID)
 
 		// Set type for viewdef resolution
 		L.SetField(mcpTable, "type", lua.LString("MCP"))

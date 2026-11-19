@@ -133,7 +133,8 @@ function GitHubTab:tooltipText()
     return table.concat(warnings, "\n")
 end
 
--- Load and cache content (called once on first selection)
+-- Load and cache content from the investigation (no fetch; called on first
+-- selection or during the pre-scan)
 function GitHubTab:loadContent()
     if self._contentHtml ~= nil then return end  -- Already loaded
 
@@ -251,7 +252,11 @@ AppConsole.GitHubDownloader = session:prototype("AppConsole.GitHubDownloader", {
     markerRefresh = "", -- JS code to trigger trough marker positioning
     _conflict = false,  -- Whether app name conflicts with existing app
     _conflictCheckTime = 0, -- Last time conflict was checked
-    _markerCounter = 0  -- Counter for markerRefresh changes
+    _markerCounter = 0, -- Counter for markerRefresh changes
+    _investigating = false, -- A ui.githubInvestigate call is running
+    _investigation = EMPTY, -- Its delivered result: {files, viewdefs, contents}
+    _installing = false,    -- An install is running (githubInstall through checkpointInstall)
+    _install = EMPTY        -- ui.githubInstall's delivered result
 })
 local GitHubDownloader = AppConsole.GitHubDownloader
 
@@ -340,7 +345,11 @@ function GitHubDownloader:hasConflict()
 end
 
 function GitHubDownloader:investigateDisabled()
-    return self:hasConflict()
+    return self._investigating or self:hasConflict()
+end
+
+function GitHubDownloader:investigateLabel()
+    return self._investigating and "Investigating..." or "Investigate"
 end
 
 function GitHubDownloader:conflictMessage()
@@ -359,79 +368,43 @@ function GitHubDownloader:hideConflict()
     return not self:showConflict()
 end
 
+-- A file's text from the investigation, or nil; fetches nothing
 function GitHubDownloader:fetchFile(filename)
-    local parsed = self:parseUrl()
-    if not parsed then return nil end
-
-    local path = parsed.path
-    if path ~= "" then path = path .. "/" end
-
-    local rawUrl = string.format(
-        "https://raw.githubusercontent.com/%s/%s/%s/%s%s",
-        parsed.user, parsed.repo, parsed.branch, path, filename
-    )
-
-    local handle = io.popen('curl -sL "' .. rawUrl .. '"')
-    if handle then
-        local content = handle:read("*a")
-        handle:close()
-        if content and content ~= "" and not content:match("^404:") then
-            return content
-        end
-    end
-    return nil
+    local inv = self._investigation
+    return inv and inv.contents and inv.contents[filename]
 end
 
-function GitHubDownloader:listDir(subdir)
-    local parsed = self:parseUrl()
-    if not parsed then return {} end
-
-    local dirPath = parsed.path
-    if subdir and subdir ~= "" then
-        dirPath = dirPath .. "/" .. subdir
-    end
-
-    local apiUrl = string.format(
-        "https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
-        parsed.user, parsed.repo, dirPath, parsed.branch
-    )
-
-    local handle = io.popen('curl -sL "' .. apiUrl .. '"')
-    if not handle then return {} end
-
-    local content = handle:read("*a")
-    handle:close()
-
-    local files = {}
-    for name, ftype in content:gmatch('"name"%s*:%s*"([^"]+)"[^}]-"type"%s*:%s*"([^"]+)"') do
-        table.insert(files, { name = name, type = ftype })
-    end
-    return files
-end
-
+-- Start the investigation off the session; onInvestigated does the rest
 function GitHubDownloader:investigate()
     self.validated = false
     self.error = ""
     self.activeTab = ""
     self.tabs = {}
     self.viewedTabs = {}
+    self._investigation = nil
 
-    local parsed = self:parseUrl()
-    if not parsed then
+    if not self:parseUrl() then
         self.error = "Invalid GitHub URL. Expected format: https://github.com/user/repo/tree/branch/path"
         return
     end
 
-    local files = self:listDir()
-    if #files == 0 then
-        self.error = "Could not fetch directory contents. Check the URL and try again."
+    self._investigating = true
+    ui.githubInvestigate(self, "_investigation", self.url, function(result, err)
+        self:onInvestigated(result, err)
+    end)
+end
+
+function GitHubDownloader:onInvestigated(result, err)
+    self._investigating = false
+    if err then
+        self.error = "Could not fetch directory contents (" .. tostring(err) .. "). Check the URL and try again."
         return
     end
 
     local hasRequirements, hasDesign, hasAppLua, hasViewdefs = false, false, false, false
     local extraLua = {}
 
-    for _, f in ipairs(files) do
+    for _, f in ipairs(result.files) do
         if f.name == "requirements.md" and f.type == "file" then hasRequirements = true
         elseif f.name == "design.md" and f.type == "file" then hasDesign = true
         elseif f.name == "app.lua" and f.type == "file" then hasAppLua = true
@@ -462,14 +435,12 @@ function GitHubDownloader:investigate()
         table.insert(self.tabs, session:create(GitHubTab, { filename = name }))
     end
 
-    -- Fetch viewdefs directory and add HTML files that contain JS code
-    local viewdefFiles = self:listDir("viewdefs")
-    for _, f in ipairs(viewdefFiles) do
-        if f.name:match("%.html$") and f.type == "file" then
-            local vdContent = self:fetchFile("viewdefs/" .. f.name)
-            if vdContent and (vdContent:match("<script") or vdContent:match("%son%a+%s*=")) then
-                table.insert(self.tabs, session:create(GitHubTab, { filename = "viewdefs/" .. f.name }))
-            end
+    -- Add viewdef HTML files that contain JS code
+    for _, f in ipairs(result.viewdefs) do
+        local rel = "viewdefs/" .. f.name
+        local vdContent = self:fetchFile(rel)
+        if vdContent and (vdContent:match("<script") or vdContent:match("%son%a+%s*=")) then
+            table.insert(self.tabs, session:create(GitHubTab, { filename = rel }))
         end
     end
 
@@ -522,7 +493,11 @@ function GitHubDownloader:allTabsViewed()
 end
 
 function GitHubDownloader:approveDisabled()
-    return not self:allTabsViewed()
+    return self._installing or not self:allTabsViewed()
+end
+
+function GitHubDownloader:approveLabel()
+    return self._installing and "Installing..." or "Approve"
 end
 
 function GitHubDownloader:hasError()
@@ -575,13 +550,7 @@ function GitHubDownloader:approve()
         return
     end
 
-    local parsed = self:parseUrl()
-    if not parsed then
-        self.error = "Invalid GitHub URL."
-        return
-    end
-
-    local appName = parsed.path:match("([^/]+)$")
+    local appName = self:getAppName()
     if not appName or appName == "" then
         self.error = "Could not determine app name from URL."
         return
@@ -594,73 +563,50 @@ function GitHubDownloader:approve()
         return
     end
 
-    local targetDir = baseDir .. "/apps/" .. appName
-
     if self:hasConflict() then
         self.error = "App '" .. appName .. "' already exists. Delete it first to reinstall."
         return
     end
 
-    local tempDir = "/tmp/github-download-" .. os.time()
-    local zipUrl = string.format(
-        "https://github.com/%s/%s/archive/refs/heads/%s.zip",
-        parsed.user, parsed.repo, parsed.branch
-    )
+    -- Download and extract off the session; the install continues in the callback
+    self._installing = true
+    ui.githubInstall(self, "_install", self.url, appName, function(_, err)
+        if err then
+            self._installing = false
+            self.error = "Failed to download app: " .. tostring(err)
+            return
+        end
 
-    local cmd = string.format(
-        'mkdir -p "%s" && ' ..
-        'curl -sL "%s" -o "%s/repo.zip" && ' ..
-        'unzip -q "%s/repo.zip" -d "%s" && ' ..
-        'mv "%s/%s-%s/%s" "%s" && ' ..
-        'rm -rf "%s"',
-        tempDir,
-        zipUrl, tempDir,
-        tempDir, tempDir,
-        tempDir, parsed.repo, parsed.branch, parsed.path, targetDir,
-        tempDir
-    )
+        -- Activate the app (applink; no shell, works on Windows)
+        local linked, linkErr = pcall(ui.linkApp, appName)
+        if not linked then
+            self._installing = false
+            self.error = "Downloaded, but could not activate the app: " .. tostring(linkErr)
+            return
+        end
 
-    local handle = io.popen(cmd .. ' 2>&1; echo "EXIT:$?"')
-    if handle then
-        local output = handle:read("*a")
-        handle:close()
+        -- Save the source URL for reference
+        local sourceFile = io.open(baseDir .. "/apps/" .. appName .. "/source.txt", "w")
+        if sourceFile then
+            sourceFile:write(self.url .. "\n")
+            sourceFile:close()
+        end
 
-        local exitCode = output:match("EXIT:(%d+)")
-        if exitCode == "0" then
-            -- Activate the app (applink; no shell, works on Windows)
-            local linked, linkErr = pcall(ui.linkApp, appName)
-            if not linked then
-                self.error = "Downloaded, but could not activate the app: " .. tostring(linkErr)
+        -- Baseline and original.fossil (local changes tracking) run off the session
+        ui.checkpointInstall(self, "_installed", appName, function(_, cpErr)
+            self._installing = false
+            if cpErr then
+                self.error = "Downloaded, but recording the original failed: " .. cpErr
                 return
             end
-
-            -- Save the source URL for reference
-            local sourceFile = io.open(targetDir .. "/source.txt", "w")
-            if sourceFile then
-                sourceFile:write(self.url .. "\n")
-                sourceFile:close()
+            self:cancel()
+            appConsole:refresh()
+            local newApp = appConsole:findApp(appName)
+            if newApp then
+                appConsole:select(newApp)
             end
-
-            -- Baseline and original.fossil (local changes tracking) run off the
-            -- session; the install finishes in the callback
-            ui.checkpointInstall(self, "_installed", appName, function(_, err)
-                if err then
-                    self.error = "Downloaded, but recording the original failed: " .. err
-                    return
-                end
-                self:cancel()
-                appConsole:refresh()
-                local newApp = appConsole:findApp(appName)
-                if newApp then
-                    appConsole:select(newApp)
-                end
-            end)
-        else
-            self.error = "Failed to download app. Check the URL and try again."
-        end
-    else
-        self.error = "Failed to execute download command."
-    end
+        end)
+    end)
 end
 
 -- Nested prototype: Issue model

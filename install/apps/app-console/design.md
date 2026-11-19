@@ -198,6 +198,10 @@ The trough (▓/░ on right side) shows warning positions:
 | _conflict | boolean | Cached: whether app name conflicts with existing app |
 | _conflictCheckTime | number | Last time conflict was checked |
 | _markerCounter | number | Counter for markerRefresh changes (ensures value updates) |
+| _investigating | boolean | A `ui.githubInvestigate` call is running |
+| _investigation | table | Its delivered result: `{files, viewdefs, contents}` |
+| _installing | boolean | An install is running (from `ui.githubInstall` to the end of `ui.checkpointInstall`) |
+| _install | boolean | `ui.githubInstall`'s delivered result |
 
 ### GitHubTab (file tab for GitHub download)
 
@@ -311,20 +315,22 @@ These methods are documented below but created at runtime, so they don't appear 
 | getAppName() | Extract app name from URL path (last segment) |
 | checkConflict() | Check if app name conflicts with existing app (cached 1 second) |
 | hasConflict() | Returns cached conflict status (triggers refresh if stale) |
-| investigateDisabled() | Returns true if conflict exists (disables Investigate button) |
+| investigateDisabled() | Returns true if a conflict exists or an investigate is running |
+| investigateLabel() | "Investigating..." while running, else "Investigate" |
 | conflictMessage() | Returns conflict warning message |
 | showConflict() | Returns true if conflict and has URL |
 | hideConflict() | Returns not showConflict() |
-| fetchFile(filename) | Fetch file content from GitHub raw URL |
-| listDir(subdir) | Fetch directory listing from GitHub API; optional subdir appended to parsed path |
-| investigate() | Validate URL, fetch directory, create tabs if valid; also fetches viewdefs/ dir and adds HTML files containing JS; pre-scans all code tabs so warning counts show immediately |
+| fetchFile(filename) | The file's text from `_investigation.contents`, or nil; fetches nothing |
+| investigate() | Clear the form state, set `_investigating`, call `ui.githubInvestigate(self, "_investigation", url, cb)` and return; cb (onInvestigated) does the rest |
+| onInvestigated(result, err) | Clear `_investigating`; on err set error; else check the required files in `result.files`, build tabs (plus viewdefs whose content has script or `on*=` handlers), and pre-scan every code tab so warning counts show at once |
 | selectTab(filename) | Set activeTab, mark as viewed, load content, trigger marker refresh |
 | triggerMarkerRefresh() | Increment _markerCounter and set markerRefresh JS to reposition trough markers |
 | scrollToDanger() | Like triggerMarkerRefresh but also scrolls to first osexecute-group element |
 | getActiveTab() | Returns GitHubTab for activeTab |
 | isTabViewed(filename) | Returns true if tab has been clicked |
 | allTabsViewed() | Returns true if all tabs have been viewed |
-| approveDisabled() | Returns true if not all tabs viewed |
+| approveDisabled() | Returns true if not all tabs viewed, or an install is running |
+| approveLabel() | "Installing..." while running, else "Approve" |
 | hasError() | Returns true if error is non-empty |
 | noError() | Returns not hasError() |
 | hideTabs() | Returns not validated |
@@ -335,7 +341,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | contentHtml() | Returns active tab's HTML content |
 | troughMarkersHtml() | Returns empty string; trough markers are positioned by JS via DOM measurement |
 | noTroughMarkers() | Returns true if active tab has no warning lines |
-| approve() | Download app zip, extract, activate with `ui.linkApp(name)` (a failure sets error and stops), write source.txt, then ui.checkpointInstall(self, "_installed", name, cb); cb closes the form, refreshes the app list and selects the new app, or sets error |
+| approve() | Set `_installing` and call `ui.githubInstall(self, "_install", url, name, cb)`. cb: on error clear `_installing` and set error; else activate with `ui.linkApp(name)` (a failure sets error and stops), write source.txt, then `ui.checkpointInstall(self, "_installed", name, cb2)`; cb2 clears `_installing`, closes the form, refreshes the app list and selects the new app, or sets error |
 
 ### GitHubTab
 
@@ -348,7 +354,7 @@ These methods are documented below but created at runtime, so they don't appear 
 | isLuaFile() | Returns true if filename ends with .lua |
 | isViewdefFile() | Returns true if filename starts with "viewdefs/" |
 | tooltipText() | Returns warning explanation for Lua files, viewdef files, or plain filename |
-| loadContent() | Fetch file, count dangerous calls, generate HTML (called on first select or during pre-scan) |
+| loadContent() | Read the file's text from the investigation (no fetch), count dangerous calls, generate HTML (called on first select or during pre-scan) |
 | generateHtml(content) | HTML-escape content, highlight dangerous calls for Lua (pushState blocks, shell/file/code) and viewdef (network/window/resource) files, wrap groups in spans |
 | contentHtml() | Returns cached _contentHtml |
 

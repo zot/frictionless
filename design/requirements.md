@@ -311,3 +311,21 @@
 - **R223:** The host defines `ui.checkpointStatus` and `ui.checkpointInstall` as host operations where it builds each session's `mcp` global, so flib embedders get them too
 - **R224:** `ui.checkpointStatus(target, field, names)` delivers one entry per name, holding `count`, `downloaded` and `changed`, or `error` when that app's status could not be read; one unreadable app does not hide the others
 - **R225:** `ui.checkpointInstall(target, field, name, cb)` runs `Install` for the named app and delivers true
+
+## Feature: Installing Apps from GitHub
+**Source:** specs/github-install.md
+
+- **R236:** A GitHub tree URL `https://github.com/{user}/{repo}/tree/{branch}/{path}` names one directory in one branch; the app's name is the last segment of `{path}`; a URL of any other shape is an error
+- **R237:** `ui.githubInvestigate(target, field, url, cb)` fetches the listing of the app's directory and of its `viewdefs/` directory, each a list of `{name, type}` entries with type `file` or `dir`
+- **R238:** `ui.githubInvestigate` fetches the text of `requirements.md`, `design.md`, every `.lua` file in the app's directory and every `.html` file in its `viewdefs/`, keyed by path relative to the app directory
+- **R239:** `ui.githubInvestigate` writes `target[field] = {files, viewdefs, contents}`; a file that cannot be fetched is absent from `contents` without being an error; an unparseable URL or an unfetchable directory listing is an error; its deadline is 60 seconds
+- **R240:** `ui.githubInstall(target, field, url, name, cb)` is an error, changing nothing, when `apps/{name}` already exists
+- **R241:** `ui.githubInstall` extracts only the archive entries under the app's directory (the archive's one top-level directory, then `{path}`), with that prefix removed
+- **R242:** `ui.githubInstall` fails the install when an entry's path would land outside the app's directory
+- **R243:** `ui.githubInstall` refuses an archive larger than 100 MB, or one whose files total more than 100 MB
+- **R244:** `ui.githubInstall` extracts into a dot-prefixed temporary directory under `apps/` and moves it into place only when everything is extracted; any failure removes the temporary directory, so `apps/{name}` is either the complete app or absent
+- **R245:** `ui.githubInstall` writes `target[field] = true` on success and any failure to the error field; its deadline is 120 seconds
+- **R246:** `ui.githubInvestigate` and `ui.githubInstall` return at once and never run another program
+- **R247:** `ui.githubInvestigate` and `ui.githubInstall` use GitHub's public endpoints without credentials
+- **R248:** `ui.githubInstall` refuses a name that is empty or contains a path separator or `..`, changing nothing, so the app lands directly under `apps/`
+
