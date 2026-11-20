@@ -385,6 +385,13 @@ reasons. Then it is removed.
   - **11c — ark, then removal.** Tell ark `ui.execAsync` exists and ask whether `arkCmd`
     becomes in-process bindings (ark spawns its own binary, which Lua should not) or async
     calls. `ui.exec` is removed from ui-engine once ark has moved.
+  - **flib access for ark (2026-11-20):** ark chose in-process host ops and asked
+    (`ark-flib-hostop-access`) for a way to reach a `LuaRig` through flib; it counted 24
+    `ui.exec` calls over 12 verbs. Answered in Frictionless "flib OnSessionSetup:
+    per-session setup hooks for embedders (R253-R256)": a hook registered on the runtime
+    runs for every session flib creates, on its executor, with its rig, so ark defines its
+    host ops once and every session has them. Bill chose this over a one-time accessor
+    because reconfiguring replaces the session.
 
 ## Item 12
 

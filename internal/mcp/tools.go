@@ -1004,6 +1004,12 @@ func (s *Server) setupMCPGlobal(vendedID string) error {
 			return nil, fmt.Errorf("failed to create app variable: %w", err)
 		}
 
+		// Embedders' per-session setup hooks, last, still on the executor, so a hook
+		// can define host operations beside ours (R253, R254, R256).
+		if err := s.runSessionSetupHooks(vendedID); err != nil {
+			return nil, err
+		}
+
 		return nil, nil
 	})
 	return err

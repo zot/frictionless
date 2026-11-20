@@ -230,6 +230,10 @@
 - **R249:** `Runtime.WithLua(fn)` executes a closure on the session's executor (thread-safe: ui-engine runs a session's Lua only there; passive path) without triggering afterBatch; flib resolves the vendedID so callers never need session IDs
 - **R250:** `Runtime.WithLuaUpdate(fn)` is the active twin of `WithLua`: it executes the closure on the session's executor through ui-engine's `PrimitiveExecuteInSession` with `dangerous` false, which runs afterBatch when a browser is connected, so the closure's Lua state changes reach the browser at once; flib resolves the vendedID and reports the same errors as `WithLua`
 - **R251:** A caller of `WithLua` or `WithLuaUpdate` does its I/O before the call and never calls either from code already running on the session's executor, which would wait for itself
+- **R253:** `Runtime.OnSessionSetup(fn)` registers a per-session setup hook; flib runs every registered hook, in registration order, for each session it creates, at startup and again when reconfiguring replaces the session
+- **R254:** A hook runs on the session's executor at the end of flib's own session setup, after the `mcp` global and Frictionless's host operations exist, and receives that session's `cli.LuaRig`, so it can call `DefineHostOp`
+- **R255:** A hook registered after `Start` also runs once at once, for the session that already exists
+- **R256:** An error from a hook fails that session's setup as an error in flib's own setup does; for the run at registration, `OnSessionSetup` returns the error
 
 ## Feature: Install Manifest
 **Source:** specs/mcp.md

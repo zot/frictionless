@@ -3,6 +3,7 @@ package flib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -218,5 +219,54 @@ func TestWithLuaUpdateMakesNoDangerousCall(t *testing.T) {
 	})
 	if got != "true" {
 		t.Errorf("reviewedProbe = %s after WithLuaUpdate, want true", got)
+	}
+}
+
+// startedRuntime is a configured and started flib runtime in a temp dir.
+func startedRuntime(t *testing.T) *Runtime {
+	t.Helper()
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "lua"), 0o755)
+	os.MkdirAll(filepath.Join(dir, "log"), 0o755)
+	// A README.md skips auto-install, which needs the bundled binary.
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\n**Version: 99.0.0**\n"), 0o644)
+	rt, err := New(Config{Dir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := rt.Configure(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rt.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { rt.Shutdown(context.Background()) })
+	return rt
+}
+
+// Test: a hook registered after Start runs for the existing session (R255)
+func TestOnSessionSetupAfterStartRunsNow(t *testing.T) {
+	rt := startedRuntime(t)
+	if err := rt.OnSessionSetup(func(rig cli.LuaRig) error {
+		return rig.Session().State.DoString("lateHook = true")
+	}); err != nil {
+		t.Fatalf("OnSessionSetup: %v", err)
+	}
+	var got string
+	rt.WithLua(func(L *cli.LuaRuntime) error {
+		got = L.State.GetGlobal("lateHook").String()
+		return nil
+	})
+	if got != "true" {
+		t.Errorf("lateHook = %s after OnSessionSetup, want true: a hook registered after Start must run for the existing session (R255)", got)
+	}
+}
+
+// Test: a hook's error reaches the caller (R256)
+func TestOnSessionSetupReturnsHookError(t *testing.T) {
+	rt := startedRuntime(t)
+	err := rt.OnSessionSetup(func(cli.LuaRig) error { return errors.New("hook says no") })
+	if err == nil || !strings.Contains(err.Error(), "hook says no") {
+		t.Fatalf("OnSessionSetup = %v, want the hook's error (R256)", err)
 	}
 }

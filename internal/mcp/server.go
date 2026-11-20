@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,12 @@ type Server struct {
 
 	// Wait time tracking (Spec: mcp.md Section 8.3)
 	waitStartTime time.Time // When agent last responded (updated on /wait return)
+
+	// Embedders' per-session setup hooks (OnSessionSetup), in registration order. A
+	// mutex of their own: flib registers off the session goroutines, and setupMCPGlobal
+	// may run while s.mu is held.
+	sessionSetupHooks   []func(cli.LuaRig) error
+	sessionSetupHooksMu sync.Mutex
 }
 
 // NewServer creates a new MCP server.
@@ -794,4 +801,50 @@ func (s *Server) handleWait(w http.ResponseWriter, r *http.Request) {
 		s.waitStartTime = time.Now()
 		s.mu.Unlock()
 	}
+}
+
+// AddSessionSetupHook keeps fn for every session created from now on; setupMCPGlobal
+// runs the hooks, in registration order, as its last step.
+// CRC: crc-MCPServer.md | R253
+func (s *Server) AddSessionSetupHook(fn func(cli.LuaRig) error) {
+	s.sessionSetupHooksMu.Lock()
+	defer s.sessionSetupHooksMu.Unlock()
+	s.sessionSetupHooks = append(s.sessionSetupHooks, fn)
+}
+
+// runSessionSetupHooks runs every hook with the session's rig. Call it on the
+// session's executor, as setupMCPGlobal does. The first error fails the setup.
+// CRC: crc-MCPServer.md | R253, R254, R256
+func (s *Server) runSessionSetupHooks(vendedID string) error {
+	s.sessionSetupHooksMu.Lock()
+	hooks := slices.Clone(s.sessionSetupHooks)
+	s.sessionSetupHooksMu.Unlock()
+	if len(hooks) == 0 {
+		return nil
+	}
+	ref, ok := s.UiServer.SessionRef(vendedID)
+	if !ok {
+		return fmt.Errorf("session %s not found for its setup hooks", vendedID)
+	}
+	for _, hook := range hooks {
+		if err := hook(ref.Lua()); err != nil {
+			return fmt.Errorf("session setup hook: %w", err)
+		}
+	}
+	return nil
+}
+
+// RunSessionSetupHook runs one hook for a session that already exists, on its
+// executor, and returns the hook's error. For a hook registered after Start. Never
+// call it from code already on that executor.
+// CRC: crc-MCPServer.md | R255, R256
+func (s *Server) RunSessionSetupHook(vendedID string, fn func(cli.LuaRig) error) error {
+	ref, ok := s.UiServer.SessionRef(vendedID)
+	if !ok {
+		return fmt.Errorf("session %s not found", vendedID)
+	}
+	_, err := s.SafeExecuteInSession(vendedID, func() (interface{}, error) {
+		return nil, fn(ref.Lua())
+	})
+	return err
 }

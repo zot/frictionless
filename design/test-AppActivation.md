@@ -53,8 +53,8 @@ lay out `apps/<name>/app.lua` plus that link, with no `lua/<name>.lua`.
 **Alarm:** 4
 **Fire alarm:** load `"mcp.lua"` again instead of the entry file. Red: `mcp.extended = "null"`.
 **Inject:** internal/mcp/tools.go:setupMCPGlobal
-@alarm-hash: d939d02ece04e483
-**Pulled:** 2026-11-19 — rang: `mcp.extended = "null", want the mcp app's entry to have run` (re-pulled: setupMCPGlobal now also defines the GitHub ops) *Earlier —* 2026-11-19 — re-pulled after setupMCPGlobal gained defineAppLinkOps: the old mcp.lua load restored; `mcp.extended = "null"` *Earlier —* 2026-11-19 — rang: setupMCPGlobal loaded "mcp.lua" instead of the entry file; `mcp.extended = "null"` (re-pulled after the checkpoint host-op hook landed in setupMCPGlobal) *Earlier —* 2026-10-07 — rang: `mcp.extended = "null"`
+@alarm-hash: 66d23c4a920cb0ef
+**Pulled:** 2026-11-20 — re-pulled after setupMCPGlobal gained the session setup hook step: rang `mcp.extended = "null", want the mcp app's entry to have run` *Earlier —* 2026-11-19 — rang: `mcp.extended = "null", want the mcp app's entry to have run` (re-pulled: setupMCPGlobal now also defines the GitHub ops) *Earlier —* 2026-11-19 — re-pulled after setupMCPGlobal gained defineAppLinkOps: the old mcp.lua load restored; `mcp.extended = "null"` *Earlier —* 2026-11-19 — rang: setupMCPGlobal loaded "mcp.lua" instead of the entry file; `mcp.extended = "null"` (re-pulled after the checkpoint host-op hook landed in setupMCPGlobal) *Earlier —* 2026-10-07 — rang: `mcp.extended = "null"`
 ## Test: mcp:app loads an app's entry through its activation link
 **Purpose:** on first request an app's entry is `lua/{app}/app.lua` (R189)
 **Input:** `apps/demo/app.lua` defines global `demo`; only `lua/demo` is linked

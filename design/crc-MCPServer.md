@@ -1,7 +1,7 @@
 # MCPServer
 
 **Source Spec:** specs/mcp.md
-**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R183, R189, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178, R252
+**Requirements:** R1, R2, R3, R4, R6, R7, R10, R11, R12, R13, R14, R15, R183, R189, R17, R18, R19, R20, R38, R21, R22, R96, R97, R98, R130, R135, R131, R134, R132, R133, R137, R147, R155, R168, R178, R253-R256, R252
 
 ## Responsibilities
 
@@ -16,6 +16,7 @@
 - mcpPort: MCP server port (serves /wait, /api/*, redirects /variables and /state to UI port)
 - getSessionCount: Callback to query active browser session count
 - currentVendedID: Current session's vended ID for cleanup on reconfigure
+- sessionSetupHooks: embedders' per-session setup hooks, in registration order, guarded by a mutex since flib registers off the session goroutines (R253)
 - stateWaiters: Waiting HTTP requests for current session (channels)
 - mcpStateQueue: Event queue for current session (mcp.state)
 - goLogFile: Current Go log file handle (`mcp.log`) for reopening on reconfigure
@@ -46,6 +47,9 @@
 - handleState: Return raw JSON state for the current session (R134)
 - handleAppReadme: Serve app's README.md as HTML (GET /app/{app}/readme); case-insensitive file lookup; renders markdown via goldmark
 - setupMCPGlobal: Register mcp global table in Lua (mcp.type, mcp.value, mcp.pushState, mcp:pollingEvents, mcp:waitTime, mcp:app, mcp:display, mcp:status, mcp:reinjectThemes, mcp:renderMarkdown)
+- setupMCPGlobal, last step on the executor: run each sessionSetupHook with the session's cli.LuaRig (`UiServer.SessionRef(vendedID)` then `Lua()`), in order; the first error fails the setup (R253, R254, R256)
+- AddSessionSetupHook(fn): append fn under the mutex (R253)
+- RunSessionSetupHook(vendedID, fn): run one hook for an existing session through SafeExecuteInSession with that session's rig, returning its error; for a hook registered after Start (R255, R256)
 - loadMCPLua: Load the mcp app's entry `{base_dir}/lua/mcp/app.lua` if it exists, extending the mcp global (R183)
 - appEntryFile(name): `{name}/app.lua`, the entry `mcp:app` and `mcp:display` load (through the `lua/{name}` activation link) the first time an app is asked for (R189)
 - loadAppInitFiles: Scan `{base_dir}/apps/*/` and load `init.lua` from each app directory if it exists

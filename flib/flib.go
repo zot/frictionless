@@ -186,6 +186,22 @@ func (r *Runtime) WithLuaUpdate(fn func(rt *cli.LuaRuntime) error) error {
 	return err
 }
 
+// OnSessionSetup registers a per-session setup hook. flib runs every hook, in
+// registration order, for each session it creates, at startup and again when
+// reconfiguring replaces the session, on that session's executor and after
+// Frictionless's own setup, with the session's rig, so the hook can define host
+// operations with rig.DefineHostOp. When a session already exists, the hook also runs
+// once at once for it, and its error is returned. Follow the WithLua rule: never call
+// it from code already running on the session's executor.
+// CRC: crc-FlibRuntime.md | R253, R254, R255, R256
+func (r *Runtime) OnSessionSetup(fn func(rig cli.LuaRig) error) error {
+	r.mcpServer.AddSessionSetupHook(fn)
+	if vendedID := r.mcpServer.GetCurrentVendedID(); vendedID != "" {
+		return r.mcpServer.RunSessionSetupHook(vendedID, fn)
+	}
+	return nil
+}
+
 // UIHandleFunc registers a custom HTTP handler on the UI server's mux.
 // CRC: crc-FlibRuntime.md | R181
 func (r *Runtime) UIHandleFunc(pattern string, handler http.HandlerFunc) {

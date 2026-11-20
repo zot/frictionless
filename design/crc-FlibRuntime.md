@@ -1,7 +1,7 @@
 # FlibRuntime
 
 **Source Spec:** specs/mcp.md (Section 2.6)
-**Requirements:** R161-167, R177, R180-182, R190, R191, R198, R199, R249-R251
+**Requirements:** R161-167, R177, R180-182, R190, R191, R198, R199, R249-R251, R253-R256
 
 ## Responsibilities
 
@@ -20,6 +20,7 @@
 - WithLuaUpdate: ACTIVE twin of WithLua. Same vendedID resolution, same errors, and hands fn the same LuaRuntime, but executes through uiServer.PrimitiveExecuteInSession with dangerous false, which queues on the session's executor and runs afterBatch when a browser is connected, so the closure's changes reach the browser at once. For delivering Go-side events into Lua (R250). Not dangerous because every caller runs off the executor; callers do their I/O first and never call it, or WithLua, from code on the executor (R251)
 - UIHandleFunc: Register custom HTTP handler on the UI server's mux; delegates to uiServer.HttpEndpoint.HandleFunc (R181)
 - ViewdefCollisions: Return uiServer.ViewdefCollisions() unchanged (R191)
+- OnSessionSetup(fn): hand fn to mcpServer.AddSessionSetupHook, which keeps it for every session created from now on (R253, R254). When a session already exists, also run fn once at once for it, on its executor, through mcpServer.RunSessionSetupHook(vendedID, fn), and return its error (R255, R256). Callers follow the WithLua rule: never from code on the executor (R251)
 - ThemeBlock: Return generated theme HTML block string for in-memory injection (R198)
 - InjectAllThemeBlocks: Patch all HTML files on disk with theme block (R199, via mcp.InjectAllThemeBlocks, R196)
 - Shutdown: Graceful shutdown of UI and API servers, remove port files (R167)

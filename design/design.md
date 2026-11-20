@@ -50,6 +50,7 @@ MCP (Model Context Protocol) server for AI assistants to control browser-based U
 - [x] test-Auditor.md → `internal/mcp/audit_test.go`
 - [x] test-AppActivation.md → `flib/flib_test.go`, `internal/mcp/activation_test.go`
 - [x] test-ReviewedExecution.md → `internal/mcp/tools_test.go`, `flib/flib_test.go`
+- [x] test-SessionSetupHook.md → `internal/mcp/session_setup_test.go`, `flib/flib_test.go`
 - [x] test-Checkpoint.md → `checkpoint/checkpoint_test.go`, `checkpoint/baseline_test.go`, `checkpoint/fossil_test.go`, `checkpoint/changed_test.go`, `checkpoint/command_test.go`, `cmd/frictionless/checkpoint_test.go`, `internal/mcp/checkpoint_test.go`, `checkpoint/status_test.go`, `internal/mcp/checkpoint_ops_test.go`
 - [x] test-AppLink.md → `applink/applink_test.go`, `internal/mcp/applink_ops_test.go`
 - [x] test-GitHubInstall.md → `githubinstall/githubinstall_test.go`, `internal/mcp/github_ops_test.go`
