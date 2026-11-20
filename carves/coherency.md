@@ -1,6 +1,8 @@
 # Carve: coherency — one structure for Frictionless and ui-engine
 
-> **DRAFT (Daneel, 2026-11-18) — for Bill to edit before its first part is worked.**
+> **LANDED (2026-11-20).** Drafted by Daneel on 2026-11-18. All 14 items landed between
+> 2026-11-18 and 2026-11-20. Still open: the robustness items under "Out of scope here",
+> and the later plank that converges Frictionless on ark's skills-plus-binary model.
 
 Frictionless and ui-engine grew organically, and their structure shows it. Per-session
 state is spread across at least ten ID-keyed maps owned by four objects, under two kinds
@@ -46,7 +48,7 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
 - [x] ~~**Item 8 — the Lua session moves into the session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "The Lua session moves into the Session".)**
 - [x] ~~**Item 9 — ID maps shrink to the edges (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: 9a, 9b and 9c.)**
 - [x] ~~**Item 10 — app-console stops spawning the host.**~~ **LANDED (2026-11-19 — not queued: 10a, 10b and 10c.)**
-- [ ] **Item 11 — retire synchronous `ui.exec`.** **IN PROGRESS (not queued): 11a and 11b landed; 11c open.**
+- [x] ~~**Item 11 — retire synchronous `ui.exec`.**~~ **LANDED (2026-11-20 — not queued: 11a, 11b and 11c; ark moved first, through `ui.arkOp`.)**
 - [x] ~~**Item 14 — one executor per session (ui-engine).**~~ **LANDED (2026-11-19 — ui-engine, not queued: "One executor per session: Lua runs only on the session's ChanSvc (R254-R263)"; ark told in `ark-one-executor`.)**
 - [x] ~~**Item 12 — retire dangerous synchronous execution (ui-engine).**~~ **LANDED (2026-11-19 — not queued: 12a, 12b and 12c; ark told in `ark-dangerous-default`.)**
 
@@ -65,7 +67,8 @@ The design brainstorm behind this carve is in `.scratch/ark-and-frictionless.md`
   Converging Frictionless on ark's skills-plus-binary model is a later plank, not part of
   this one.
 - **DECIDED (Bill, 2026-11-18): do not change too many things at once.** Synchronous
-  `ui.exec` stays until nothing uses it (Item 11).
+  `ui.exec` stays until nothing uses it (Item 11). It was removed on 2026-11-20, once ark
+  had moved.
 - **Out of scope here:** the robustness items found during the brainstorm
   (`LuaSession.execute` should select on `r.done`; afterBatch's check-then-push under a
   dropped connection). They belong to a robustness pass. The `cleanupSessionSvc` leak is
@@ -382,7 +385,7 @@ reasons. Then it is removed.
     check takes a callback so prefs' Check now reports the new answer, and the update
     event names its asset by Go's `os-arch`, which the release files use. No bundled app
     shells out any more.
-  - **11c — ark, then removal.** Tell ark `ui.execAsync` exists and ask whether `arkCmd`
+  - **11c — ark, then removal. LANDED (2026-11-20).** Tell ark `ui.execAsync` exists and ask whether `arkCmd`
     becomes in-process bindings (ark spawns its own binary, which Lua should not) or async
     calls. `ui.exec` is removed from ui-engine once ark has moved.
   - **flib access for ark (2026-11-20):** ark chose in-process host ops and asked
@@ -392,6 +395,11 @@ reasons. Then it is removed.
     runs for every session flib creates, on its executor, with its rig, so ark defines its
     host ops once and every session has them. Bill chose this over a one-time accessor
     because reconfiguring replaces the session.
+  - **Removal (2026-11-20):** ark moved first, in ark "apps/ark reaches the server
+    in-process through ui.arkOp; CLI usage errors exit 1", leaving no `ui.exec` caller in
+    ui-engine, Frictionless or ark. Then ui-engine "No blocking way to run a program:
+    ui.exec removed (R266, R267)": `ui.execAsync` is the only way Lua runs a program, and
+    a test guards that `ui.exec` stays gone.
 
 ## Item 12
 
