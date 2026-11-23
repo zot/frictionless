@@ -300,7 +300,10 @@
 - **R204:** A failing checkpoint command prints the reason on stderr and exits non-zero; success and failure are told apart by exit status alone
 - **R205:** The app-console notify after a changing command (save, rollback, clear, baseline, update, local) is best effort and never changes the exit status
 - **R206:** `Find` returns `~/.claude/bin/fossil` when present, then fossil on PATH (`fossil.exe` on Windows), and `ErrNoFossil` otherwise
-- **R207:** When fossil is missing, the error says how to install it, with the download for each platform
+- **~~R207:~~** (Retired T12 — see R257) When fossil is missing, the error says how to install it, with the download for each platform
+- **R257:** When fossil is missing, the error's install steps are for the running platform only (`runtime.GOOS`, and `GOARCH` where the download differs): Linux x86_64, macOS arm64 and macOS x86_64 get shell commands that fetch that platform's archive into `~/.claude/bin` and make it executable
+- **R258:** On Windows the install steps are PowerShell commands that fetch the 64-bit zip and expand it into `%USERPROFILE%\.claude\bin`
+- **R259:** On a platform with no prebuilt fossil (Linux on arm64, among others) the install steps name the download page and where to put the binary
 - **R208:** The `App` methods return values and print nothing; `Command` does the printing
 - **R209:** `Command(args, appsDir, out, onChange)` runs one checkpoint command and calls `onChange`, when non-nil, after a command that changes checkpoints
 - **R210:** Every fossil step is checked; a failure stops the command with an error naming the fossil command and carrying fossil's output

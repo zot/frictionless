@@ -27,19 +27,42 @@ const (
 var preservedBranches = []string{"updates", "local"}
 
 // ErrNoFossil is returned by Find when no fossil binary is available. Its
-// message tells the reader how to install one.
-// CRC: crc-Checkpoint.md | R206, R207
-var ErrNoFossil = errors.New(`fossil is not installed. To set up checkpoints, put it in ~/.claude/bin:
+// message tells the reader how to install one on this platform.
+// CRC: crc-Checkpoint.md | R206, R257
+var ErrNoFossil = errors.New("fossil is not installed. " + installHint(runtime.GOOS, runtime.GOARCH))
+
+const fossilDownloads = "https://fossil-scm.org/home/uv/"
+
+// unixArchives names the prebuilt archive for each GOOS/GOARCH that has one.
+var unixArchives = map[string]string{
+	"linux/amd64":  "fossil-linux-x64-2.27.tar.gz",
+	"darwin/arm64": "fossil-mac-arm-2.27.tar.gz",
+	"darwin/amd64": "fossil-mac-x64-2.27.tar.gz",
+}
+
+// installHint returns the steps to install fossil on one platform, and no
+// other: an agent follows them, so another platform's steps are worse than none.
+// CRC: crc-Checkpoint.md | R257, R258, R259
+func installHint(goos, goarch string) string {
+	if goos == "windows" { // R258
+		return `To set up checkpoints, put fossil.exe in %USERPROFILE%\.claude\bin. In PowerShell:
+
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\bin" | Out-Null
+Invoke-WebRequest "` + fossilDownloads + `fossil-w64-2.27.zip" -OutFile "$env:TEMP\fossil.zip"
+Expand-Archive -Force "$env:TEMP\fossil.zip" "$env:USERPROFILE\.claude\bin"`
+	}
+	if archive, ok := unixArchives[goos+"/"+goarch]; ok { // R257
+		return `To set up checkpoints, put it in ~/.claude/bin:
 
 mkdir -p ~/.claude/bin
-# Linux x86_64:
-curl -sL "https://fossil-scm.org/home/uv/fossil-linux-x64-2.27.tar.gz" | tar -xzf - -C ~/.claude/bin fossil
-# macOS ARM:
-curl -sL "https://fossil-scm.org/home/uv/fossil-mac-arm-2.27.tar.gz" | tar -xzf - -C ~/.claude/bin fossil
-# macOS x86_64:
-curl -sL "https://fossil-scm.org/home/uv/fossil-mac-x64-2.27.tar.gz" | tar -xzf - -C ~/.claude/bin fossil
-chmod +x ~/.claude/bin/fossil
-# Windows: download fossil.exe from https://fossil-scm.org/home/uv/download.html into ~/.claude/bin`)
+curl -sL "` + fossilDownloads + archive + `" | tar -xzf - -C ~/.claude/bin fossil
+chmod +x ~/.claude/bin/fossil`
+	}
+	// R259: no prebuilt fossil for this platform
+	return fmt.Sprintf(`There is no prebuilt fossil for %s/%s. Install it with your package manager
+(fossil on PATH is found), or build it from the source at %sdownload.html
+and put the binary in ~/.claude/bin.`, goos, goarch, fossilDownloads)
+}
 
 // Find locates fossil: ~/.claude/bin/fossil first (fossil.exe on Windows), then
 // fossil on PATH.

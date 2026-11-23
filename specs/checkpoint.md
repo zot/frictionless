@@ -79,8 +79,16 @@ func Command(args []string, appsDir string, out io.Writer, onChange func()) erro
 
 The methods return values and print nothing; `Command` does the printing.
 
-When fossil is missing, the error says how to install it: where to put the binary, and
-the download for each platform.
+When fossil is missing, the error says how to install it on the platform it is running
+on, and only that platform, in that platform's own terms. The hint is a set of steps an
+agent will follow, so steps for another platform are worse than none:
+
+- **Linux x86_64, macOS arm64, macOS x86_64:** shell commands that fetch that platform's
+  archive into `~/.claude/bin` and make it executable.
+- **Windows:** PowerShell commands that fetch the 64-bit zip and expand it into
+  `%USERPROFILE%\.claude\bin`.
+- **Anything else** (Linux on arm64, for one, which has no prebuilt fossil): the download
+  page, and where to put the binary.
 
 ## Safety
 

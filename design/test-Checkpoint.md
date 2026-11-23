@@ -143,7 +143,7 @@ pulled again.
 **Pulled:** 2026-11-18 — rang: substring branch match in branchNames; "could not export branch local ... cannot resolve name: local"
 
 ## Test: fossil is found in its home, then on PATH
-**Purpose:** (R206, R207)
+**Purpose:** (R206, R257)
 **Input:** HOME with no fossil and PATH holding one; then HOME with one; then neither
 **Expected:** the PATH fossil; then the HOME one; then ErrNoFossil whose message names `~/.claude/bin` and a download
 **Refs:** crc-Checkpoint.md
@@ -153,6 +153,18 @@ pulled again.
 **Inject:** checkpoint/fossil.go:Find
 @alarm-hash: 38720bff568753e8
 **Pulled:** 2026-11-18 — rang: PATH lookup removed from Find; `with fossil only on PATH: Find() = "", fossil is not installed`
+
+## Test: the install hint names only its own platform
+**Purpose:** (R257, R258, R259)
+**Input:** installHint for linux/amd64, darwin/arm64, darwin/amd64, windows/amd64, windows/arm64, linux/arm64 and freebsd/amd64
+**Expected:** each names its own archive (`fossil-linux-x64`, `fossil-mac-arm`, `fossil-mac-x64`, `fossil-w64`) and no other; the shell hints carry `chmod` and no PowerShell, the windows hints carry `Expand-Archive` and `%USERPROFILE%` and no `chmod` or `tar`; linux/arm64 and freebsd/amd64 name the download page and no archive
+**Refs:** crc-Checkpoint.md
+**Code:** checkpoint/fossil_test.go
+**Alarm:** 21
+**Fire alarm:** the real defect, one hint for every platform: force installHint to linux/amd64; every other platform names `fossil-linux-x64` and lacks its own archive, and windows lacks `Expand-Archive`
+**Inject:** checkpoint/fossil.go:installHint
+@alarm-hash: b7d7ab6f43d732cf
+**Pulled:** 2026-11-23 — rang: installHint forced to linux/amd64; `windows/amd64: names fossil-linux-x64 = true`, `hint lacks "Expand-Archive"`
 
 ## Test: changed since install
 **Purpose:** Changed reports edits, additions and removals against `original.fossil`, and nothing else (R215, R216, R217)

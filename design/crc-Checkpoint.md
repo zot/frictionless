@@ -1,5 +1,5 @@
 # Checkpoint
-**Requirements:** R69, R70, R71, R72, R73, R74, R75, R78, R79, R125, R126, R127, R192, R193, R194, R202, R203, R204, R205, R206, R207, R208, R209, R210, R211, R212, R213, R214, R215, R216, R217, R218, R219, R220, R221, R222
+**Requirements:** R69-75, R78, R79, R125-127, R192-194, R202-206, R208-222, R257-259
 
 The `checkpoint` package: per-app fossil checkpoints, imported by the frictionless binary
 and by ark. Lifted from ark's `cmd/ark/checkpoint.go`, with Frictionless's baseline safety
@@ -8,7 +8,8 @@ merged in, so each version's hardening is in one place.
 ## Knows
 - App: `Dir` (the app directory) and `Fossil` (the binary); the repository is
   `Dir/checkpoint.fossil` (R78)
-- ErrNoFossil, and the install instructions it carries (R206, R207)
+- ErrNoFossil, whose message carries the install steps for the running platform only,
+  from installHint(runtime.GOOS, runtime.GOARCH) (R206, R257)
 - baselineMsg `=== BASELINE ===`; the preserved branches, `updates` and `local` (R127)
 - ignoreGlob `.#*,.*~,*~,checkpoint.fossil,original.fossil,.fslckout`, set on every open (R222)
 - Status: Count, Downloaded, Changed (R218)
@@ -18,7 +19,12 @@ merged in, so each version's hardening is in one place.
 
 ## Does
 - Find: `~/.claude/bin/fossil` (or `fossil.exe` on Windows), then `exec.LookPath("fossil")`;
-  ErrNoFossil otherwise (R206, R207).
+  ErrNoFossil otherwise (R206).
+- installHint(goos, goarch): the install steps for one platform. Linux amd64 and darwin
+  arm64/amd64 get shell commands for their archive (R257); windows gets PowerShell that
+  expands the w64 zip into `%USERPROFILE%\.claude\bin` (R258); anything else gets the
+  download page and where to put the binary (R259). It takes the platform as arguments
+  so every branch is testable from any host.
 - step: run one fossil command in Dir; a failure returns an error naming the command and
   carrying fossil's output (R210).
 - verify: ask fossil (`info`) for the repository and checkout root it would use from Dir;

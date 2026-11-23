@@ -198,6 +198,7 @@ Cross-platform binary builds via Makefile:
 - T9: R85 retired by R226 (relative links hold on Unix only; Windows junctions are absolute (applink.md))
 - T10: R179 retired by R249 (Item 12b: WithLua runs on the session executor (Item 14); there is no Lua executor goroutine)
 - T11: R200 retired by R250 (Item 12b: WithLuaUpdate runs on the session executor through the non-dangerous primitive, not ExecuteInSession)
+- T12: R207 retired by R257 (2026-11-23 fossil-hint-os: the hint names only the running platform)
 
 ### Spec→Design
 *None*
